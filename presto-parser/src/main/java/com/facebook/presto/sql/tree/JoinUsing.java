@@ -13,28 +13,28 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JoinUsing
         extends JoinCriteria
 {
-    private final List<String> columns;
+    private final List<Identifier> columns;
 
-    public JoinUsing(List<String> columns)
+    public JoinUsing(List<Identifier> columns)
     {
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
         this.columns = ImmutableList.copyOf(columns);
     }
 
-    public List<String> getColumns()
+    public List<Identifier> getColumns()
     {
         return columns;
     }
@@ -49,13 +49,13 @@ public class JoinUsing
             return false;
         }
         JoinUsing o = (JoinUsing) obj;
-        return Objects.equal(columns, o.columns);
+        return Objects.equals(columns, o.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(columns);
+        return Objects.hash(columns);
     }
 
     @Override
@@ -64,5 +64,11 @@ public class JoinUsing
         return toStringHelper(this)
                 .addValue(columns)
                 .toString();
+    }
+
+    @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.of();
     }
 }

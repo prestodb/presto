@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class JdbcConnectorId
 {
@@ -23,7 +23,7 @@ public final class JdbcConnectorId
 
     public JdbcConnectorId(String id)
     {
-        this.id = checkNotNull(id, "id is null");
+        this.id = requireNonNull(id, "id is null");
     }
 
     @Override
@@ -35,7 +35,7 @@ public final class JdbcConnectorId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
@@ -48,6 +48,6 @@ public final class JdbcConnectorId
             return false;
         }
         JdbcConnectorId other = (JdbcConnectorId) obj;
-        return Objects.equal(this.id, other.id);
+        return Objects.equals(this.id, other.id);
     }
 }

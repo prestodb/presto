@@ -13,29 +13,129 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Optional;
+import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import org.skife.jdbi.v2.ResultIterator;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.UUID;
 
 public interface ShardManager
 {
     /**
-     * Commit an unpartitioned table.
+     * Create a table.
      */
-    void commitTable(long tableId, Iterable<ShardNode> shardNodes, Optional<String> externalBatchId);
+    void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId);
 
     /**
-     * Return the shard nodes a given table.
+     * Drop a table.
      */
-    Iterable<ShardNodes> getShardNodes(long tableId);
+    void dropTable(long tableId);
 
     /**
-     * Drop all shards in a given table.
+     * Add a column to the end of the table.
      */
-    void dropTableShards(long tableId);
+    void addColumn(long tableId, ColumnInfo column);
+
+    /**
+     * Commit data for a table.
+     */
+    void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId, long updateTime);
+
+    /**
+     * Replace oldShardsUuids with newShards.
+     */
+    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
+
+    /**
+     * Get shard metadata for a shard.
+     */
+    ShardMetadata getShard(UUID shardUuid);
+
+    /**
+     * Get shard metadata for shards on a given node.
+     */
+    Set<ShardMetadata> getNodeShards(String nodeIdentifier);
+
+    /**
+     * Get shard metadata for shards on a given node.
+     */
+    Set<ShardMetadata> getNodeShards(String nodeIdentifier, long tableId);
+
+    /**
+     * Return the shard nodes for a non-bucketed table.
+     */
+    ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+
+    /**
+     * Return the shard nodes for a bucketed table.
+     */
+    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Assign a shard to a node.
      */
-    void assignShard(UUID shardUuid, String nodeIdentifier);
+    void assignShard(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod);
+
+    /**
+     * Remove shard assignment from a node.
+     */
+    void unassignShard(long tableId, UUID shardUuid, String nodeIdentifier);
+
+    /**
+     * Get the number of bytes used by assigned shards per node.
+     */
+    Map<String, Long> getNodeBytes();
+
+    /**
+     * Begin a transaction for creating shards.
+     *
+     * @return transaction ID
+     */
+    long beginTransaction();
+
+    /**
+     * Rollback a transaction.
+     */
+    void rollbackTransaction(long transactionId);
+
+    /**
+     * Create initial bucket assignments for a distribution.
+     */
+    void createBuckets(long distributionId, int bucketCount);
+
+    /**
+     * Get map of buckets to node identifiers for a distribution.
+     */
+    Map<Integer, String> getBucketAssignments(long distributionId);
+
+    /**
+     * Change the node a bucket is assigned to.
+     */
+    void updateBucketAssignment(long distributionId, int bucketNumber, String nodeId);
+
+    /**
+     * Get all active distributions.
+     */
+    List<Distribution> getDistributions();
+
+    /**
+     * Get total physical size of all tables in a distribution.
+     */
+    long getDistributionSizeInBytes(long distributionId);
+
+    /**
+     * Get list of bucket nodes for a distribution.
+     */
+    List<BucketNode> getBucketNodes(long distributionId);
+
+    /**
+     * Return the subset of shard uuids that exist
+     */
+    Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids);
 }

@@ -14,11 +14,13 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
+
+import java.util.List;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class ByteArrayStreamCheckpoint
         implements StreamCheckpoint
@@ -30,9 +32,9 @@ public final class ByteArrayStreamCheckpoint
         this.inputStreamCheckpoint = inputStreamCheckpoint;
     }
 
-    public ByteArrayStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public ByteArrayStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        inputStreamCheckpoint = createInputStreamCheckpoint(compressionKind, positionsList);
+        inputStreamCheckpoint = createInputStreamCheckpoint(compressed, positionsList);
     }
 
     public long getInputStreamCheckpoint()
@@ -40,10 +42,15 @@ public final class ByteArrayStreamCheckpoint
         return inputStreamCheckpoint;
     }
 
+    public List<Integer> toPositionList(boolean compressed)
+    {
+        return createInputStreamPositionList(compressed, inputStreamCheckpoint);
+    }
+
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("inputStreamCheckpoint", inputStreamCheckpointToString(inputStreamCheckpoint))
                 .toString();
     }

@@ -33,9 +33,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.kafka.util.TestUtils.findUnusedPort;
 import static com.facebook.presto.kafka.util.TestUtils.toProperties;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static java.util.Objects.requireNonNull;
 
 public class EmbeddedKafka
         implements Closeable
@@ -63,8 +64,8 @@ public class EmbeddedKafka
     EmbeddedKafka(EmbeddedZookeeper zookeeper, Properties overrideProperties)
             throws IOException
     {
-        this.zookeeper = checkNotNull(zookeeper, "zookeeper is null");
-        checkNotNull(overrideProperties, "overrideProperties is null");
+        this.zookeeper = requireNonNull(zookeeper, "zookeeper is null");
+        requireNonNull(overrideProperties, "overrideProperties is null");
 
         this.port = findUnusedPort();
         this.kafkaDataDir = Files.createTempDir();
@@ -100,12 +101,13 @@ public class EmbeddedKafka
 
     @Override
     public void close()
+            throws IOException
     {
         if (started.get() && !stopped.getAndSet(true)) {
             kafka.shutdown();
             kafka.awaitShutdown();
             zookeeper.close();
-            deleteRecursively(kafkaDataDir);
+            deleteRecursively(kafkaDataDir.toPath(), ALLOW_INSECURE);
         }
     }
 

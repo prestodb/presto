@@ -13,32 +13,44 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.type.SqlIntervalDayTime;
+import com.facebook.presto.client.IntervalDayTime;
+import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.ReadWritablePeriod;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
+import org.joda.time.format.ISODateTimeFormat;
 import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public final class DateTimeUtils
 {
@@ -48,18 +60,19 @@ public final class DateTimeUtils
 
     private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
-    public static long parseDate(String value)
+    public static int parseDate(String value)
     {
-        return DATE_FORMATTER.parseMillis(value);
+        return (int) TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value));
     }
 
-    public static String printDate(long millis)
+    public static String printDate(int days)
     {
-        return DATE_FORMATTER.print(millis);
+        return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
     }
 
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER;
+    private static final DateTimeFormatter TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER;
+    private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -68,7 +81,10 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser()};
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").getPrinter();
-        TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
+        TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser)
+                .toFormatter()
+                .withOffsetParsed();
 
         DateTimeParser[] timestampWithTimeZoneParser = {
                 DateTimeFormat.forPattern("yyyy-M-dZ").getParser(),
@@ -88,50 +104,68 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSZZZ").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS ZZZ").getParser()};
         DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
-        TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timestampWithTimeZonePrinter, timestampWithTimeZoneParser).toFormatter().withOffsetParsed();
+        TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithTimeZonePrinter, timestampWithTimeZoneParser)
+                .toFormatter()
+                .withOffsetParsed();
+
+        DateTimeParser[] timestampWithOrWithoutTimeZoneParser = Stream.concat(Stream.of(timestampWithoutTimeZoneParser), Stream.of(timestampWithTimeZoneParser))
+                .toArray(DateTimeParser[]::new);
+        TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithTimeZonePrinter, timestampWithOrWithoutTimeZoneParser)
+                .toFormatter()
+                .withOffsetParsed();
     }
 
-    public static long parseTimestamp(TimeZoneKey timeZoneKey, String value)
+    public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
     {
         try {
-            return parseTimestampWithTimeZone(value);
+            DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
+            return packDateTimeWithZone(dateTime);
         }
-        catch (Exception e) {
-            return parseTimestampWithoutTimeZone(timeZoneKey, value);
+        catch (RuntimeException e) {
+            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
         }
     }
 
-    public static long parseTimestampWithTimeZone(String timestampWithTimeZone)
+    public static long parseTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
     {
-        DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(timestampWithTimeZone);
+        DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
         return packDateTimeWithZone(dateTime);
     }
 
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
-        return TIMESTAMP_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).parseMillis(value);
+        return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
     {
-        DateTimeZone timeZone = unpackDateTimeZone(timestampWithTimeZone);
+        ISOChronology chronology = unpackChronology(timestampWithTimeZone);
         long millis = unpackMillisUtc(timestampWithTimeZone);
-        return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withZone(timeZone).print(millis);
+        return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withChronology(chronology).print(millis);
     }
 
     public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
     {
-        return TIMESTAMP_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).print(timestamp);
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
     }
 
     public static boolean timestampHasTimeZone(String value)
     {
         try {
-            parseTimestampWithTimeZone(value);
-            return true;
+            try {
+                TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(value);
+                return true;
+            }
+            catch (Exception e) {
+                // `.withZoneUTC()` makes `timestampHasTimeZone` return value independent of JVM zone
+                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withZoneUTC().parseMillis(value);
+                return false;
+            }
         }
         catch (Exception e) {
-            return false;
+            throw new IllegalArgumentException(format("Invalid timestamp '%s'", value));
         }
     }
 
@@ -234,106 +268,123 @@ public final class DateTimeUtils
 
     private static final PeriodFormatter INTERVAL_MONTH_FORMATTER = cretePeriodFormatter(IntervalField.MONTH, IntervalField.MONTH);
 
-    public static long parseDayTimeInterval(String value, IntervalField startField, IntervalField endField)
+    public static long parseDayTimeInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
-        if (endField == null) {
-            endField = startField;
+        IntervalField end = endField.orElse(startField);
+
+        if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, end);
+        }
+        if (startField == IntervalField.DAY && end == IntervalField.MINUTE) {
+            return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value, startField, end);
+        }
+        if (startField == IntervalField.DAY && end == IntervalField.HOUR) {
+            return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value, startField, end);
+        }
+        if (startField == IntervalField.DAY && end == IntervalField.DAY) {
+            return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.DAY && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.HOUR && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value, startField, end);
         }
-        if (startField == IntervalField.DAY && endField == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.HOUR && end == IntervalField.MINUTE) {
+            return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value, startField, end);
         }
-        if (startField == IntervalField.DAY && endField == IntervalField.HOUR) {
-            return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value, startField, endField);
-        }
-        if (startField == IntervalField.DAY && endField == IntervalField.DAY) {
-            return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.HOUR && end == IntervalField.HOUR) {
+            return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.HOUR && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.MINUTE && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value, startField, end);
         }
-        if (startField == IntervalField.HOUR && endField == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value, startField, endField);
-        }
-        if (startField == IntervalField.HOUR && endField == IntervalField.HOUR) {
-            return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.MINUTE && end == IntervalField.MINUTE) {
+            return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.MINUTE && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value, startField, endField);
-        }
-        if (startField == IntervalField.MINUTE && endField == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.SECOND && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.SECOND && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value, startField, endField);
-        }
-
-        throw new IllegalArgumentException("Invalid day second interval qualifier: " + startField + " to " + endField);
+        throw new IllegalArgumentException("Invalid day second interval qualifier: " + startField + " to " + end);
     }
 
     public static long parsePeriodMillis(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
     {
-        Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return SqlIntervalDayTime.toMillis(
-                period.getValue(DAY_FIELD),
-                period.getValue(HOUR_FIELD),
-                period.getValue(MINUTE_FIELD),
-                period.getValue(SECOND_FIELD),
-                period.getValue(MILLIS_FIELD));
-    }
-
-    public static String printDayTimeInterval(long millis)
-    {
-        return SqlIntervalDayTime.formatMillis(millis);
-    }
-
-    public static long parseYearMonthInterval(String value, IntervalField startField, IntervalField endField)
-    {
-        if (endField == null) {
-            endField = startField;
+        try {
+            Period period = parsePeriod(periodFormatter, value);
+            return IntervalDayTime.toMillis(
+                    period.getValue(DAY_FIELD),
+                    period.getValue(HOUR_FIELD),
+                    period.getValue(MINUTE_FIELD),
+                    period.getValue(SECOND_FIELD),
+                    period.getValue(MILLIS_FIELD));
         }
+        catch (IllegalArgumentException e) {
+            throw invalidInterval(e, value, startField, endField);
+        }
+    }
 
-        if (startField == IntervalField.YEAR && endField == IntervalField.MONTH) {
+    public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
+    {
+        IntervalField end = endField.orElse(startField);
+
+        if (startField == IntervalField.YEAR && end == IntervalField.MONTH) {
             PeriodFormatter periodFormatter = INTERVAL_YEAR_MONTH_FORMATTER;
-            return parsePeriodMonths(value, periodFormatter, startField, endField);
+            return parsePeriodMonths(value, periodFormatter, startField, end);
         }
-        if (startField == IntervalField.YEAR && endField == IntervalField.YEAR) {
-            return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER, startField, endField);
-        }
-
-        if (startField == IntervalField.MONTH && endField == IntervalField.MONTH) {
-            return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER, startField, endField);
+        if (startField == IntervalField.YEAR && end == IntervalField.YEAR) {
+            return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER, startField, end);
         }
 
-        throw new IllegalArgumentException("Invalid year month interval qualifier: " + startField + " to " + endField);
+        if (startField == IntervalField.MONTH && end == IntervalField.MONTH) {
+            return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER, startField, end);
+        }
+
+        throw new IllegalArgumentException("Invalid year month interval qualifier: " + startField + " to " + end);
     }
 
     private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter, IntervalField startField, IntervalField endField)
     {
-        Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return period.getValue(YEAR_FIELD) * 12 +
-                period.getValue(MONTH_FIELD);
-    }
-
-    public static String printYearMonthInterval(long months)
-    {
-        return (months / 12) + "-" + (months % 12);
-    }
-
-    private static Period parsePeriod(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
-    {
         try {
-            return periodFormatter.parsePeriod(value);
+            Period period = parsePeriod(periodFormatter, value);
+            return IntervalYearMonth.toMonths(
+                    period.getValue(YEAR_FIELD),
+                    period.getValue(MONTH_FIELD));
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid INTERVAL " + startField + " to " + endField + " value: " + value, e);
+            throw invalidInterval(e, value, startField, endField);
         }
+    }
+
+    private static Period parsePeriod(PeriodFormatter periodFormatter, String value)
+    {
+        boolean negative = value.startsWith("-");
+        if (negative) {
+            value = value.substring(1);
+        }
+
+        Period period = periodFormatter.parsePeriod(value);
+        for (DurationFieldType type : period.getFieldTypes()) {
+            checkArgument(period.get(type) >= 0, "Period field %s is negative", type);
+        }
+
+        if (negative) {
+            period = period.negated();
+        }
+        return period;
+    }
+
+    private static PrestoException invalidInterval(Throwable throwable, String value, IntervalField startField, IntervalField endField)
+    {
+        String message;
+        if (startField == endField) {
+            message = format("Invalid INTERVAL %s value: %s", startField, value);
+        }
+        else {
+            message = format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value);
+        }
+        return new PrestoException(INVALID_FUNCTION_ARGUMENT, message, throwable);
     }
 
     private static PeriodFormatter cretePeriodFormatter(IntervalField startField, IntervalField endField)

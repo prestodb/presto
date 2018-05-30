@@ -13,35 +13,40 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.project.MergingPageOutput;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<Type> types;
+    private final LocalMemoryContext outputMemoryContext;
 
-    private final PageBuilder pageBuilder;
     private final PageProcessor processor;
-    private Page currentPage;
-    private int currentPosition;
+    private MergingPageOutput mergingOutput;
     private boolean finishing;
 
-    public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
+    public FilterAndProjectOperator(
+            OperatorContext operatorContext,
+            PageProcessor processor,
+            MergingPageOutput mergingOutput)
     {
-        this.processor = checkNotNull(processor, "processor is null");
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.processor = requireNonNull(processor, "processor is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
     }
 
     @Override
@@ -51,99 +56,93 @@ public class FilterAndProjectOperator
     }
 
     @Override
-    public final List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public final void finish()
     {
+        mergingOutput.finish();
         finishing = true;
     }
 
     @Override
     public final boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty() && currentPage == null;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
+        boolean finished = finishing && mergingOutput.isFinished();
+        if (finished) {
+            outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
+        }
+        return finished;
     }
 
     @Override
     public final boolean needsInput()
     {
-        return !finishing && !pageBuilder.isFull() && currentPage == null;
+        return !finishing && mergingOutput.needsInput();
     }
 
     @Override
     public final void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
-        checkState(!pageBuilder.isFull(), "Page buffer is full");
+        requireNonNull(page, "page is null");
+        checkState(mergingOutput.needsInput(), "Page buffer is full");
 
-        currentPage = page;
-        currentPosition = 0;
+        mergingOutput.addInput(processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page));
+        outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
     }
 
     @Override
     public final Page getOutput()
     {
-        if (!pageBuilder.isFull() && currentPage != null) {
-            currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-            if (currentPosition == currentPage.getPositionCount()) {
-                currentPage = null;
-                currentPosition = 0;
-            }
-        }
-
-        if (!finishing && !pageBuilder.isFull() || pageBuilder.isEmpty()) {
-            return null;
-        }
-
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return page;
+        return mergingOutput.getOutput();
     }
 
     public static class FilterAndProjectOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
-        private final PageProcessor processor;
+        private final PlanNodeId planNodeId;
+        private final Supplier<PageProcessor> processor;
         private final List<Type> types;
+        private final DataSize minOutputPageSize;
+        private final int minOutputPageRowCount;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, PageProcessor processor, List<Type> types)
+        public FilterAndProjectOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Supplier<PageProcessor> processor,
+                List<Type> types,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount)
         {
             this.operatorId = operatorId;
-            this.processor = processor;
-            this.types = types;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.processor = requireNonNull(processor, "processor is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
+            this.minOutputPageRowCount = minOutputPageRowCount;
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, FilterAndProjectOperator.class.getSimpleName());
-            return new FilterAndProjectOperator(operatorContext, types, processor);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
+            return new FilterAndProjectOperator(
+                    operatorContext,
+                    processor.get(),
+                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
         }
     }
 }

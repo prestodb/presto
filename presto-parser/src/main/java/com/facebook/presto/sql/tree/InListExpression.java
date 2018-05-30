@@ -13,7 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class InListExpression
         extends Expression
@@ -22,7 +29,20 @@ public class InListExpression
 
     public InListExpression(List<Expression> values)
     {
-        this.values = values;
+        this(Optional.empty(), values);
+    }
+
+    public InListExpression(NodeLocation location, List<Expression> values)
+    {
+        this(Optional.of(location), values);
+    }
+
+    private InListExpression(Optional<NodeLocation> location, List<Expression> values)
+    {
+        super(location);
+        requireNonNull(values, "values is null");
+        checkArgument(!values.isEmpty(), "values cannot be empty");
+        this.values = ImmutableList.copyOf(values);
     }
 
     public List<Expression> getValues()
@@ -37,6 +57,12 @@ public class InListExpression
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return values;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -47,12 +73,7 @@ public class InListExpression
         }
 
         InListExpression that = (InListExpression) o;
-
-        if (!values.equals(that.values)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(values, that.values);
     }
 
     @Override

@@ -13,32 +13,27 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.ParameterKind;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeParameter;
+import com.google.common.collect.ImmutableList;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
+import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MapParametricType
         implements ParametricType
 {
     public static final MapParametricType MAP = new MapParametricType();
-    // TODO: support types that don't use == for comparison of the bits in their stack type
-    private static final Set<Type> SUPPORTED_KEY_TYPES = ImmutableSet.<Type>of(VARCHAR, VARBINARY, BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP);
-
-    private MapParametricType()
-    {
-    }
 
     @Override
     public String getName()
@@ -47,11 +42,29 @@ public final class MapParametricType
     }
 
     @Override
-    public MapType createType(List<Type> types, List<Object> literals)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
-        checkArgument(types.size() == 2, "Expected two types");
-        checkArgument(literals.isEmpty(), "Unexpected literals: %s", literals);
-        checkArgument(SUPPORTED_KEY_TYPES.contains(types.get(0)), "Unsupported key type; %s", types.get(0));
-        return new MapType(types.get(0), types.get(1));
+        checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
+        TypeParameter firstParameter = parameters.get(0);
+        TypeParameter secondParameter = parameters.get(1);
+        checkArgument(
+                firstParameter.getKind() == ParameterKind.TYPE && secondParameter.getKind() == ParameterKind.TYPE,
+                "Expected key and type to be types, got %s",
+                parameters);
+
+        Type keyType = firstParameter.getType();
+        Type valueType = secondParameter.getType();
+        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
+        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
+        return new MapType(
+                keyType,
+                valueType,
+                keyBlockNativeEquals,
+                keyBlockEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 }

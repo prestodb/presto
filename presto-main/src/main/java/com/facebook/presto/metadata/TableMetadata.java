@@ -13,28 +13,30 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Preconditions;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class TableMetadata
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorTableMetadata metadata;
 
-    public TableMetadata(String connectorId, ConnectorTableMetadata metadata)
+    public TableMetadata(ConnectorId connectorId, ConnectorTableMetadata metadata)
     {
-        Preconditions.checkNotNull(connectorId, "catalog is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
+        requireNonNull(connectorId, "catalog is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.connectorId = connectorId;
         this.metadata = metadata;
     }
 
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }
@@ -52,5 +54,13 @@ public class TableMetadata
     public List<ColumnMetadata> getColumns()
     {
         return metadata.getColumns();
+    }
+
+    public ColumnMetadata getColumn(String name)
+    {
+        return getColumns().stream()
+                .filter(columnMetadata -> columnMetadata.getName().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Invalid column name: %s", name)));
     }
 }

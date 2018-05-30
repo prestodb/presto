@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 public interface SliceState
@@ -21,4 +24,14 @@ public interface SliceState
     Slice getSlice();
 
     void setSlice(Slice value);
+
+    static void write(Type type, SliceState state, BlockBuilder out)
+    {
+        if (state.getSlice() == null) {
+            out.appendNull();
+        }
+        else {
+            type.writeSlice(out, state.getSlice());
+        }
+    }
 }

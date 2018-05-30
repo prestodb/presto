@@ -20,7 +20,8 @@ import java.io.Writer;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.cli.CsvPrinter.formatValue;
+import static java.util.Objects.requireNonNull;
 
 public class TsvPrinter
         implements OutputPrinter
@@ -32,8 +33,8 @@ public class TsvPrinter
 
     public TsvPrinter(List<String> fieldNames, Writer writer, boolean header)
     {
-        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
-        this.writer = checkNotNull(writer, "writer is null");
+        this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
+        this.writer = requireNonNull(writer, "writer is null");
         this.needHeader = header;
     }
 
@@ -43,7 +44,7 @@ public class TsvPrinter
     {
         if (needHeader) {
             needHeader = false;
-            printRows(ImmutableList.<List<?>>of(fieldNames), false);
+            printRows(ImmutableList.of(fieldNames), false);
         }
 
         for (List<?> row : rows) {
@@ -55,7 +56,7 @@ public class TsvPrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.<List<?>>of(), true);
+        printRows(ImmutableList.of(), true);
         writer.flush();
     }
 
@@ -64,8 +65,7 @@ public class TsvPrinter
         StringBuilder sb = new StringBuilder();
         Iterator<?> iter = row.iterator();
         while (iter.hasNext()) {
-            Object value = iter.next();
-            String s = (value == null) ? "" : value.toString();
+            String s = formatValue(iter.next());
 
             for (int i = 0; i < s.length(); i++) {
                 escapeCharacter(sb, s.charAt(i));

@@ -16,17 +16,16 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class DistinctLimitNode
@@ -34,6 +33,8 @@ public class DistinctLimitNode
 {
     private final PlanNode source;
     private final long limit;
+    private final boolean partial;
+    private final List<Symbol> distinctSymbols;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
@@ -41,13 +42,18 @@ public class DistinctLimitNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
+            @JsonProperty("partial") boolean partial,
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
-        this.source = checkNotNull(source, "source is null");
+        this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
-        this.hashSymbol = checkNotNull(hashSymbol, "hashSymbol is null");
+        this.partial = partial;
+        this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        checkArgument(!hashSymbol.isPresent() || !distinctSymbols.contains(hashSymbol.get()), "distinctSymbols should not contain hash symbol");
     }
 
     @Override
@@ -56,48 +62,54 @@ public class DistinctLimitNode
         return ImmutableList.of(source);
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
     }
 
-    @JsonProperty("limit")
+    @JsonProperty
     public long getLimit()
     {
         return limit;
     }
 
-    @JsonProperty("hashSymbol")
+    @JsonProperty
+    public boolean isPartial()
+    {
+        return partial;
+    }
+
+    @JsonProperty
     public Optional<Symbol> getHashSymbol()
     {
         return hashSymbol;
     }
 
+    @JsonProperty
     public List<Symbol> getDistinctSymbols()
     {
-        if (hashSymbol.isPresent()) {
-            return ImmutableList.copyOf(Iterables.filter(getOutputSymbols(), new Predicate<Symbol>()
-            {
-                @Override
-                public boolean apply(Symbol input)
-                {
-                    return !(input.equals(hashSymbol.get()));
-                }
-            }));
-        }
-        return getOutputSymbols();
+        return distinctSymbols;
     }
 
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return source.getOutputSymbols();
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        outputSymbols.addAll(distinctSymbols);
+        hashSymbol.ifPresent(outputSymbols::add);
+        return outputSymbols.build();
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitDistinctLimit(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashSymbol);
     }
 }

@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.tpch.TpchIndexSpec;
 import com.facebook.presto.tests.tpch.TpchIndexSpec.Builder;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIndexedQueries
         extends AbstractTestQueryFramework
@@ -31,14 +34,25 @@ public abstract class AbstractTestIndexedQueries
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderstatus", "shippriority"))
             .build();
 
-    protected AbstractTestIndexedQueries(QueryRunner queryRunner)
+    protected AbstractTestIndexedQueries(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
+    }
+
+    @Test
+    public void testExampleSystemTable()
+    {
+        assertQuery("SELECT name FROM sys.example", "SELECT 'test' AS name");
+
+        MaterializedResult result = computeActual("SHOW SCHEMAS");
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of("sf100", "tiny", "sys")));
+
+        result = computeActual("SHOW TABLES FROM sys");
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of("example"));
     }
 
     @Test
     public void testBasicIndexJoin()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -52,7 +66,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testBasicIndexJoinReverseCandidates()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -66,7 +79,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testBasicIndexJoinWithNullKeys()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -80,7 +92,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testMultiKeyIndexJoinAligned()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -94,7 +105,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testMultiKeyIndexJoinUnaligned()
-            throws Exception
     {
         // This test a join order that is different from the inner select column ordering
         assertQuery("" +
@@ -108,8 +118,13 @@ public abstract class AbstractTestIndexedQueries
     }
 
     @Test
+    public void testJoinWithNonJoinExpression()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey = 1");
+    }
+
+    @Test
     public void testPredicateDerivedKey()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -124,7 +139,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testCompoundPredicateDerivedKey()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -140,7 +154,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testChainedIndexJoin()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -156,7 +169,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testBasicLeftIndexJoin()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -170,7 +182,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testNonIndexLeftJoin()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -184,7 +195,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testBasicRightIndexJoin()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT COUNT(*)\n" +
@@ -198,7 +208,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testNonIndexRightJoin()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT COUNT(*)\n" +
@@ -212,7 +221,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testIndexJoinThroughAggregation()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -231,7 +239,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testIndexJoinThroughMultiKeyAggregation()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -250,7 +257,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testNonIndexableKeys()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -266,7 +272,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testComposableIndexJoins()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -284,7 +289,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testNonComposableIndexJoins()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -302,7 +306,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testOverlappingIndexJoinLookupSymbol()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -316,7 +319,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testOverlappingSourceOuterIndexJoinLookupSymbol()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -330,7 +332,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testOverlappingIndexJoinProbeSymbol()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -344,7 +345,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testOverlappingSourceOuterIndexJoinProbeSymbol()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -358,7 +358,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testRepeatedIndexJoinClause()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -375,7 +374,6 @@ public abstract class AbstractTestIndexedQueries
      */
     @Test
     public void testProbeNullInReadahead()
-            throws Exception
     {
         assertQuery(
                 "select count(*) from (values (1), (cast(null as bigint))) x(orderkey) join orders using (orderkey)",
@@ -384,7 +382,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testHighCardinalityIndexJoinResult()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -401,7 +398,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testReducedIndexProbeKey()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -418,7 +414,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testReducedIndexProbeKeyNegativeCaching()
-            throws Exception
     {
         // Not every column 'b' can be matched through the join
         assertQuery("" +
@@ -436,7 +431,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testHighCardinalityReducedIndexProbeKey()
-            throws Exception
     {
         assertQuery("" +
                 "SELECT *\n" +
@@ -453,7 +447,6 @@ public abstract class AbstractTestIndexedQueries
 
     @Test
     public void testReducedIndexProbeKeyComplexQueryShapes()
-            throws Exception
     {
         // Reduce the probe key through projections, aggregations, and joins
         assertQuery("" +
@@ -472,5 +465,179 @@ public abstract class AbstractTestIndexedQueries
                 "  WHERE t1.a % 1000 = 0\n" +
                 "  GROUP BY t1.a, t1.b, t2.orderkey) o\n" +
                 "  ON l.a = o.a AND l.b = o.b AND l.c = o.c AND l.d = o.d");
+    }
+
+    @Test
+    public void testIndexJoinConstantPropagation()
+    {
+        assertQuery("" +
+                "SELECT x, y, COUNT(*)\n" +
+                "FROM (SELECT orderkey, 0 AS x FROM orders) a \n" +
+                "JOIN (SELECT orderkey, 1 AS y FROM orders) b \n" +
+                "ON a.orderkey = b.orderkey\n" +
+                "GROUP BY 1, 2");
+    }
+
+    @Test
+    public void testIndexJoinThroughWindow()
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testIndexJoinThroughWindowDoubleAggregation()
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey), SUM(orderkey) OVER (PARTITION BY orderkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1, orderkey as o\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testIndexJoinThroughWindowPartialPartition()
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey, custkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinThroughWindowWithRowNumberFunction()
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, row_number() OVER (PARTITION BY orderkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinThroughWindowWithOrderBy()
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinThroughWindowWithRowFrame()
+    {
+        assertQuery("" +
+                        "SELECT l.orderkey, o.c\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ROWS 1 PRECEDING) as c\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT l.orderkey, o.c\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1 as c\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testOuterNonEquiJoins()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE orders.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM orders RIGHT OUTER JOIN lineitem ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE orders.orderkey IS NULL");
+    }
+
+    @Test
+    public void testNonEquiJoin()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity + length(orders.comment) > 7");
     }
 }

@@ -15,13 +15,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Optional;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 public interface HivePageSourceFactory
@@ -32,9 +32,9 @@ public interface HivePageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone);
 }

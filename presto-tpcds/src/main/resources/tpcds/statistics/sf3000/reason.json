@@ -1,0 +1,20 @@
+ {
+    "rowCount" : 67.0,
+     "columns" : {
+        "r_reason_desc" : {
+             "distinctValuesCount" : 90.0,
+             "nullsCount" : 0.000000
+        },
+        "r_reason_id" : {
+             "distinctValuesCount" : 58.0,
+             "nullsCount" : 0.000000
+        },
+        "r_reason_sk" : {
+             "distinctValuesCount" : 47.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 67
+        },
+        "dummyColumn" : {}
+    }
+}

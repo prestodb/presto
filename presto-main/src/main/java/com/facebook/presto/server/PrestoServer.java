@@ -13,10 +13,17 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
-import com.facebook.presto.execution.NodeSchedulerConfig;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.eventlistener.EventListenerModule;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.StaticCatalogStore;
+import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.security.AccessControlModule;
+import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -29,7 +36,6 @@ import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
-import io.airlift.floatingdecimal.FloatingDecimal;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -46,12 +52,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
-import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoServer
         implements Runnable
@@ -70,13 +76,14 @@ public class PrestoServer
 
     public PrestoServer(SqlParserOptions sqlParserOptions)
     {
-        this.sqlParserOptions = checkNotNull(sqlParserOptions, "sqlParserOptions is null");
+        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
     }
 
     @Override
     public void run()
     {
         verifyJvmRequirements();
+        verifySystemTimeIsReasonable();
 
         Logger log = Logger.get(PrestoServer.class);
 
@@ -94,8 +101,11 @@ public class PrestoServer
                 new TraceTokenModule(),
                 new JsonEventModule(),
                 new HttpEventModule(),
-                new EmbeddedDiscoveryModule(),
-                new ServerMainModule(sqlParserOptions));
+                new ServerSecurityModule(),
+                new AccessControlModule(),
+                new EventListenerModule(),
+                new ServerMainModule(sqlParserOptions),
+                new GracefulShutdownModule());
 
         modules.addAll(getAdditionalModules());
 
@@ -104,26 +114,26 @@ public class PrestoServer
         try {
             Injector injector = app.strictConfig().initialize();
 
-            if (!FloatingDecimal.isPatchInstalled()) {
-                log.warn("FloatingDecimal patch not installed. Parallelism will be diminished when parsing/formatting doubles");
-            }
-
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(CatalogManager.class).loadCatalogs();
+            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
 
             // TODO: remove this huge hack
-            updateDatasources(
+            updateConnectorIds(
                     injector.getInstance(Announcer.class),
-                    injector.getInstance(Metadata.class),
+                    injector.getInstance(CatalogManager.class),
                     injector.getInstance(ServerConfig.class),
                     injector.getInstance(NodeSchedulerConfig.class));
+
+            injector.getInstance(SessionSupplier.class).loadConfigurationManager();
+            injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
+            injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
 
             injector.getInstance(Announcer.class).start();
 
             log.info("======== SERVER STARTED ========");
-
-            installCodeCacheGcTrigger();
         }
         catch (Throwable e) {
             log.error(e);
@@ -136,38 +146,43 @@ public class PrestoServer
         return ImmutableList.of();
     }
 
-    private static void updateDatasources(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // get existing sources
-        String property = nullToEmpty(announcement.getProperties().get("datasources"));
+        // get existing connectorIds
+        String property = nullToEmpty(announcement.getProperties().get("connectorIds"));
         List<String> values = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property);
-        Set<String> datasources = new LinkedHashSet<>(values);
+        Set<String> connectorIds = new LinkedHashSet<>(values);
 
-        // automatically build sources if not configured
-        if (datasources.isEmpty()) {
-            Set<String> catalogs = metadata.getCatalogNames().keySet();
+        // automatically build connectorIds if not configured
+        if (connectorIds.isEmpty()) {
+            List<Catalog> catalogs = metadata.getCatalogs();
             // if this is a dedicated coordinator, only add jmx
             if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-                if (catalogs.contains("jmx")) {
-                    datasources.add("jmx");
-                }
+                catalogs.stream()
+                        .map(Catalog::getConnectorId)
+                        .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
+                        .map(Object::toString)
+                        .forEach(connectorIds::add);
             }
             else {
-                datasources.addAll(catalogs);
+                catalogs.stream()
+                        .map(Catalog::getConnectorId)
+                        .map(Object::toString)
+                        .forEach(connectorIds::add);
             }
         }
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
         for (Map.Entry<String, String> entry : announcement.getProperties().entrySet()) {
-            if (!entry.getKey().equals("datasources")) {
+            if (!entry.getKey().equals("connectorIds")) {
                 builder.addProperty(entry.getKey(), entry.getValue());
             }
         }
-        builder.addProperty("datasources", Joiner.on(',').join(datasources));
+        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

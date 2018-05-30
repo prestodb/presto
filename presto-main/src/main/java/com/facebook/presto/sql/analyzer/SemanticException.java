@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeLocation;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SemanticException
         extends RuntimeException
@@ -25,10 +27,9 @@ public class SemanticException
 
     public SemanticException(SemanticErrorCode code, Node node, String format, Object... args)
     {
-        super(String.format(format, args));
-
-        checkNotNull(code, "code is null");
-        checkNotNull(node, "node is null");
+        super(formatMessage(format, node, args));
+        requireNonNull(code, "code is null");
+        requireNonNull(node, "node is null");
 
         this.code = code;
         this.node = node;
@@ -42,5 +43,14 @@ public class SemanticException
     public SemanticErrorCode getCode()
     {
         return code;
+    }
+
+    private static String formatMessage(String formatString, Node node, Object[] args)
+    {
+        if (node.getLocation().isPresent()) {
+            NodeLocation nodeLocation = node.getLocation().get();
+            return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), format(formatString, args));
+        }
+        return format(formatString, args);
     }
 }

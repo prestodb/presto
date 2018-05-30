@@ -13,37 +13,26 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.BytecodeNode;
 
 import java.util.List;
 
 public class CastCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         RowExpression argument = arguments.get(0);
 
-        CompilerContext context = generatorContext.getContext();
-        if (argument.getType().equals(UnknownType.UNKNOWN)) {
-            return new Block(context)
-                    .putVariable("wasNull", true)
-                    .pushJavaDefault(returnType.getJavaType());
-        }
-
-        FunctionInfo function = generatorContext
+        Signature function = generatorContext
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        return generatorContext.generateCall(function, ImmutableList.of(generatorContext.generate(argument)));
+        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
     }
 }

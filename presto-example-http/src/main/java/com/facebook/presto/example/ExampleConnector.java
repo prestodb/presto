@@ -13,42 +13,51 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.example.ExampleTransactionHandle.INSTANCE;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleConnector
-    implements Connector
+        implements Connector
 {
+    private static final Logger log = Logger.get(ExampleConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final ExampleMetadata metadata;
     private final ExampleSplitManager splitManager;
     private final ExampleRecordSetProvider recordSetProvider;
-    private final ExampleHandleResolver handleResolver;
 
     @Inject
     public ExampleConnector(
+            LifeCycleManager lifeCycleManager,
             ExampleMetadata metadata,
             ExampleSplitManager splitManager,
-            ExampleRecordSetProvider recordSetProvider,
-            ExampleHandleResolver handleResolver)
+            ExampleRecordSetProvider recordSetProvider)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    {
+        return INSTANCE;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }
@@ -60,32 +69,19 @@ public class ExampleConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
+    public final void shutdown()
     {
-        return handleResolver;
-    }
-
-    @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

@@ -14,18 +14,17 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         extends AbstractWindowFunctionSupplier
@@ -34,12 +33,12 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(name, returnType.getTypeSignature(), Lists.transform(argumentTypes, typeSignatureGetter())), type);
+        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
     }
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
-        super(signature, getDescription(checkNotNull(type, "type is null")));
+        super(signature, getDescription(requireNonNull(type, "type is null")));
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();
@@ -49,7 +48,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
             }
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -64,11 +63,8 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
                 return constructor.newInstance(inputs);
             }
         }
-        catch (InvocationTargetException e) {
-            throw Throwables.propagate(e.getCause());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 

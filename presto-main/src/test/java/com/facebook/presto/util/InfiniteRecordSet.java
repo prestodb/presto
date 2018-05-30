@@ -22,7 +22,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InfiniteRecordSet
         implements RecordSet
@@ -56,14 +56,8 @@ public class InfiniteRecordSet
 
         private InMemoryRecordCursor(List<Type> types, List<?> record)
         {
-            this.types = checkNotNull(ImmutableList.copyOf(types), "types is null");
-            this.record = checkNotNull(ImmutableList.copyOf(record), "record is null");
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return 0;
+            this.types = requireNonNull(ImmutableList.copyOf(types), "types is null");
+            this.record = requireNonNull(ImmutableList.copyOf(record), "record is null");
         }
 
         @Override
@@ -93,21 +87,21 @@ public class InfiniteRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Boolean) record.get(field);
         }
 
         @Override
         public long getLong(int field)
         {
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Long) record.get(field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Double) record.get(field);
         }
 
@@ -115,7 +109,7 @@ public class InfiniteRecordSet
         public Slice getSlice(int field)
         {
             Object value = record.get(field);
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             if (value instanceof byte[]) {
                 return Slices.wrappedBuffer((byte[]) value);
             }
@@ -123,6 +117,14 @@ public class InfiniteRecordSet
                 return Slices.utf8Slice((String) value);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            Object value = record.get(field);
+            requireNonNull(value, "value is null");
+            return value;
         }
 
         @Override

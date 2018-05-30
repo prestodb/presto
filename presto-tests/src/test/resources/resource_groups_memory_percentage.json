@@ -1,0 +1,18 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "50%",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "subGroups": [
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "group": "global"
+    }
+  ]
+}
+

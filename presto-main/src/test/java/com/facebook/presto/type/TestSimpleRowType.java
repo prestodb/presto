@@ -14,19 +14,21 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RowBlockBuilder;
+import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestSimpleRowType
         extends AbstractTestType
 {
-    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row<bigint,varchar>('a','b')"));
+    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row(a bigint,b varchar)"));
 
     public TestSimpleRowType()
     {
@@ -35,16 +37,40 @@ public class TestSimpleRowType
 
     private static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TYPE.createBlockBuilder(new BlockBuilderStatus());
-        VARCHAR.writeString(blockBuilder, "[1,\"cat\"]");
-        VARCHAR.writeString(blockBuilder, "[2,\"cats\"]");
-        VARCHAR.writeString(blockBuilder, "[3,\"dog\"]");
+        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 3);
+
+        SingleRowBlockWriter singleRowBlockWriter;
+
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, 1);
+        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cat"));
+        blockBuilder.closeEntry();
+
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, 2);
+        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cats"));
+        blockBuilder.closeEntry();
+
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, 3);
+        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("dog"));
+        blockBuilder.closeEntry();
+
         return blockBuilder.build();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
-        throw new UnsupportedOperationException();
+        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 1);
+        SingleRowBlockWriter singleRowBlockWriter;
+
+        Block block = (Block) value;
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, block.getSingleValueBlock(0).getLong(0, 0) + 1);
+        VARCHAR.writeSlice(singleRowBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
+        blockBuilder.closeEntry();
+
+        return TYPE.getObject(blockBuilder.build(), 0);
     }
 }

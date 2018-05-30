@@ -13,11 +13,8 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSerde.readType;
@@ -31,34 +28,7 @@ public class TestTypeSerde
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writeType(sliceOutput, BOOLEAN);
-        Type actualType = readType(new TestingTypeRegistry(), sliceOutput.slice().getInput());
+        Type actualType = readType(new TestingTypeManager(), sliceOutput.slice().getInput());
         assertEquals(actualType, BOOLEAN);
-    }
-
-    private static class TestingTypeRegistry
-            implements TypeManager
-    {
-        @Override
-        public Type getType(TypeSignature signature)
-        {
-            for (Type type : getTypes()) {
-                if (signature.equals(type.getTypeSignature())) {
-                    return type;
-                }
-            }
-            return null;
-        }
-
-        @Override
-        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
-        {
-            return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.<Type>of(BOOLEAN);
-        }
     }
 }

@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CreateView
         extends Statement
@@ -27,8 +31,19 @@ public class CreateView
 
     public CreateView(QualifiedName name, Query query, boolean replace)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
+        this(Optional.empty(), name, query, replace);
+    }
+
+    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace)
+    {
+        this(Optional.of(location), name, query, replace);
+    }
+
+    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace)
+    {
+        super(location);
+        this.name = requireNonNull(name, "name is null");
+        this.query = requireNonNull(query, "query is null");
         this.replace = replace;
     }
 
@@ -54,9 +69,15 @@ public class CreateView
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(query);
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query, replace);
+        return Objects.hash(name, query, replace);
     }
 
     @Override
@@ -69,9 +90,9 @@ public class CreateView
             return false;
         }
         CreateView o = (CreateView) obj;
-        return Objects.equal(name, o.name)
-                && Objects.equal(query, o.query)
-                && Objects.equal(replace, o.replace);
+        return Objects.equals(name, o.name)
+                && Objects.equals(query, o.query)
+                && Objects.equals(replace, o.replace);
     }
 
     @Override

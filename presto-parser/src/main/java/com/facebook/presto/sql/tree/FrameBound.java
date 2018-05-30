@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class FrameBound
         extends Node
@@ -33,16 +36,39 @@ public class FrameBound
 
     private final Type type;
     private final Optional<Expression> value;
+    private final Optional<Expression> originalValue;
 
     public FrameBound(Type type)
     {
-        this(type, null);
+        this(Optional.empty(), type);
     }
 
-    public FrameBound(Type type, Expression value)
+    public FrameBound(NodeLocation location, Type type)
     {
-        this.type = checkNotNull(type, "type is null");
-        this.value = Optional.fromNullable(value);
+        this(Optional.of(location), type);
+    }
+
+    public FrameBound(Type type, Expression value, Expression originalValue)
+    {
+        this(Optional.empty(), type, value, originalValue);
+    }
+
+    private FrameBound(Optional<NodeLocation> location, Type type)
+    {
+        this(location, type, null, null);
+    }
+
+    public FrameBound(NodeLocation location, Type type, Expression value)
+    {
+        this(Optional.of(location), type, value, value);
+    }
+
+    private FrameBound(Optional<NodeLocation> location, Type type, Expression value, Expression originalValue)
+    {
+        super(location);
+        this.type = requireNonNull(type, "type is null");
+        this.value = Optional.ofNullable(value);
+        this.originalValue = Optional.ofNullable(originalValue);
     }
 
     public Type getType()
@@ -55,10 +81,23 @@ public class FrameBound
         return value;
     }
 
+    public Optional<Expression> getOriginalValue()
+    {
+        return originalValue;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitFrameBound(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        value.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override
@@ -71,14 +110,14 @@ public class FrameBound
             return false;
         }
         FrameBound o = (FrameBound) obj;
-        return Objects.equal(type, o.type) &&
-                Objects.equal(value, o.value);
+        return Objects.equals(type, o.type) &&
+                Objects.equals(value, o.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(type, value);
+        return Objects.hash(type, value);
     }
 
     @Override

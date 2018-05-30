@@ -13,88 +13,31 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.server.SliceSerializer;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.type.MapType;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.slice.Slice;
 
-import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class MapValues
-        extends ParametricScalar
+@ScalarFunction("map_values")
+@Description("Returns the values of the given map(K,V) as an array")
+public final class MapValues
 {
-    public static final MapValues MAP_VALUES = new MapValues();
-    private static final Signature SIGNATURE = new Signature("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Slice.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
+    private MapValues() {}
 
-    @Override
-    public Signature getSignature()
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(V)")
+    public static Block getValues(
+            @TypeParameter("V") Type valueType,
+            @SqlType("map(K,V)") Block block)
     {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the values of the given map<K,V> as an array";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
-    {
-        checkArgument(arity == 1, "map_values expects only one argument");
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
-        Signature signature = new Signature("map_values",
-                parameterizedTypeName("array", valueType.getTypeSignature()),
-                parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()));
-        return new FunctionInfo(signature, getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), true, ImmutableList.of(false));
-    }
-
-    public static Slice getValues(Slice map)
-    {
-        List<Object> values = new ArrayList<>(); // allow nulls
-        MapType type = OBJECT_MAPPER.getTypeFactory().constructMapType(Map.class, String.class, Object.class);
-        Map<String, Object> jsonMap;
-        try {
-            jsonMap = OBJECT_MAPPER.readValue(map.getInput(), type);
+        BlockBuilder blockBuilder = valueType.createBlockBuilder(null, block.getPositionCount() / 2);
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            valueType.appendTo(block, i + 1, blockBuilder);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        values.addAll(jsonMap.values());
-        return toStackRepresentation(values);
+        return blockBuilder.build();
     }
 }

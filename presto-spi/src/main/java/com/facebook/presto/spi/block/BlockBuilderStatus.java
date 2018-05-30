@@ -13,77 +13,71 @@
  */
 package com.facebook.presto.spi.block;
 
+import org.openjdk.jol.info.ClassLayout;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
 public class BlockBuilderStatus
 {
-    public static final int DEFAULT_MAX_PAGE_SIZE_IN_BYTES = 1024 * 1024;
-    public static final int DEFAULT_MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
+    public static final int INSTANCE_SIZE = deepInstanceSize(BlockBuilderStatus.class);
 
-    private final int maxPageSizeInBytes;
-    private final int maxBlockSizeInBytes;
+    private final PageBuilderStatus pageBuilderStatus;
 
-    private boolean full;
     private int currentSize;
 
-    public BlockBuilderStatus()
+    BlockBuilderStatus(PageBuilderStatus pageBuilderStatus)
     {
-        this(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
-    }
-
-    public BlockBuilderStatus(int maxPageSizeInBytes, int maxBlockSizeInBytes)
-    {
-        this.maxPageSizeInBytes = maxPageSizeInBytes;
-        this.maxBlockSizeInBytes = maxBlockSizeInBytes;
-    }
-
-    public BlockBuilderStatus(BlockBuilderStatus status)
-    {
-        this.maxPageSizeInBytes = status.maxPageSizeInBytes;
-        this.maxBlockSizeInBytes = status.maxBlockSizeInBytes;
-    }
-
-    public int getMaxBlockSizeInBytes()
-    {
-        return maxBlockSizeInBytes;
+        this.pageBuilderStatus = requireNonNull(pageBuilderStatus, "pageBuilderStatus must not be null");
     }
 
     public int getMaxPageSizeInBytes()
     {
-        return maxPageSizeInBytes;
-    }
-
-    public boolean isEmpty()
-    {
-        return currentSize == 0;
-    }
-
-    public boolean isFull()
-    {
-        return full || currentSize >= maxPageSizeInBytes;
-    }
-
-    public void setFull()
-    {
-        this.full = true;
+        return pageBuilderStatus.getMaxPageSizeInBytes();
     }
 
     public void addBytes(int bytes)
     {
         currentSize += bytes;
-    }
-
-    public int getSizeInBytes()
-    {
-        return currentSize;
+        pageBuilderStatus.addBytes(bytes);
     }
 
     @Override
     public String toString()
     {
         StringBuilder buffer = new StringBuilder("BlockBuilderStatus{");
-        buffer.append("maxSizeInBytes=").append(maxPageSizeInBytes);
-        buffer.append(", full=").append(full);
         buffer.append(", currentSize=").append(currentSize);
         buffer.append('}');
         return buffer.toString();
+    }
+
+    /**
+     * Computes the size of an instance of this class assuming that all reference fields are non-null
+     */
+    private static int deepInstanceSize(Class<?> clazz)
+    {
+        if (clazz.isArray()) {
+            throw new IllegalArgumentException(format("Cannot determine size of %s because it contains an array", clazz.getSimpleName()));
+        }
+        if (clazz.isInterface()) {
+            throw new IllegalArgumentException(format("%s is an interface", clazz.getSimpleName()));
+        }
+        if (Modifier.isAbstract(clazz.getModifiers())) {
+            throw new IllegalArgumentException(format("%s is abstract", clazz.getSimpleName()));
+        }
+        if (!clazz.getSuperclass().equals(Object.class)) {
+            throw new IllegalArgumentException(format("Cannot determine size of a subclass. %s extends from %s", clazz.getSimpleName(), clazz.getSuperclass().getSimpleName()));
+        }
+
+        int size = ClassLayout.parseClass(clazz).instanceSize();
+        for (Field field : clazz.getDeclaredFields()) {
+            if (!field.getType().isPrimitive()) {
+                size += deepInstanceSize(field.getType());
+            }
+        }
+        return size;
     }
 }

@@ -18,16 +18,19 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -39,40 +42,55 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.net.InetAddresses.toAddrString;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
         implements FullCassandraType
 {
-    ASCII(VarcharType.VARCHAR, String.class),
+    ASCII(createUnboundedVarcharType(), String.class),
     BIGINT(BigintType.BIGINT, Long.class),
-    BLOB(VarcharType.VARCHAR, ByteBuffer.class),
-    CUSTOM(VarcharType.VARCHAR, ByteBuffer.class),
+    BLOB(VarbinaryType.VARBINARY, ByteBuffer.class),
+    CUSTOM(VarbinaryType.VARBINARY, ByteBuffer.class),
     BOOLEAN(BooleanType.BOOLEAN, Boolean.class),
     COUNTER(BigintType.BIGINT, Long.class),
     DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
     DOUBLE(DoubleType.DOUBLE, Double.class),
-    FLOAT(DoubleType.DOUBLE, Float.class),
-    INET(VarcharType.VARCHAR, InetAddress.class),
-    INT(BigintType.BIGINT, Integer.class),
-    TEXT(VarcharType.VARCHAR, String.class),
+    FLOAT(RealType.REAL, Float.class),
+    INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH), InetAddress.class),
+    INT(IntegerType.INTEGER, Integer.class),
+    TEXT(createUnboundedVarcharType(), String.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
-    UUID(VarcharType.VARCHAR, java.util.UUID.class),
-    TIMEUUID(VarcharType.VARCHAR, java.util.UUID.class),
-    VARCHAR(VarcharType.VARCHAR, String.class),
-    VARINT(VarcharType.VARCHAR, BigInteger.class),
-    LIST(VarcharType.VARCHAR, null),
-    MAP(VarcharType.VARCHAR, null),
-    SET(VarcharType.VARCHAR, null);
+    UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
+    TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
+    VARCHAR(createUnboundedVarcharType(), String.class),
+    VARINT(createUnboundedVarcharType(), BigInteger.class),
+    LIST(createUnboundedVarcharType(), null),
+    MAP(createUnboundedVarcharType(), null),
+    SET(createUnboundedVarcharType(), null);
+
+    private static class Constants
+    {
+        private static final int UUID_STRING_MAX_LENGTH = 36;
+        // IPv4: 255.255.255.255 - 15 characters
+        // IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF - 39 characters
+        // IPv4 embedded into IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255 - 45 characters
+        private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
+    }
 
     private final Type nativeType;
     private final Class<?> javaType;
 
     CassandraType(Type nativeType, Class<?> javaType)
     {
-        this.nativeType = checkNotNull(nativeType, "nativeType is null");
+        this.nativeType = requireNonNull(nativeType, "nativeType is null");
         this.javaType = javaType;
     }
 
@@ -92,13 +110,6 @@ public enum CassandraType
             default:
                 return 0;
         }
-    }
-
-    public static CassandraType getSupportedCassandraType(DataType.Name name)
-    {
-        CassandraType cassandraType = getCassandraType(name);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + name);
-        return cassandraType;
     }
 
     public static CassandraType getCassandraType(DataType.Name name)
@@ -149,73 +160,58 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getSupportedCassandraType(String cassandraTypeName)
-    {
-        CassandraType cassandraType = getCassandraType(cassandraTypeName);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + cassandraTypeName);
-        return cassandraType;
-    }
-
-    public static CassandraType getCassandraType(String cassandraTypeName)
-    {
-        DataType.Name name = DataType.Name.valueOf(cassandraTypeName);
-        if (name != null) {
-            return getCassandraType(name);
-        }
-        return null;
-    }
-
-    public static Comparable<?> getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
+    public static NullableValue getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
     {
         return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
     }
 
-    public static Comparable<?> getColumnValue(Row row, int i, CassandraType cassandraType,
+    public static NullableValue getColumnValue(Row row, int i, CassandraType cassandraType,
             List<CassandraType> typeArguments)
     {
+        Type nativeType = cassandraType.getNativeType();
         if (row.isNull(i)) {
-            return null;
+            return NullableValue.asNull(nativeType);
         }
         else {
             switch (cassandraType) {
                 case ASCII:
                 case TEXT:
                 case VARCHAR:
-                    return row.getString(i);
+                    return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
                 case INT:
-                    return (long) row.getInt(i);
+                    return NullableValue.of(nativeType, (long) row.getInt(i));
                 case BIGINT:
                 case COUNTER:
-                    return row.getLong(i);
+                    return NullableValue.of(nativeType, row.getLong(i));
                 case BOOLEAN:
-                    return row.getBool(i);
+                    return NullableValue.of(nativeType, row.getBool(i));
                 case DOUBLE:
-                    return row.getDouble(i);
+                    return NullableValue.of(nativeType, row.getDouble(i));
                 case FLOAT:
-                    return (double) row.getFloat(i);
+                    return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(i)));
                 case DECIMAL:
-                    return row.getDecimal(i).doubleValue();
+                    return NullableValue.of(nativeType, row.getDecimal(i).doubleValue());
                 case UUID:
                 case TIMEUUID:
-                    return row.getUUID(i).toString();
+                    return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
                 case TIMESTAMP:
-                    return row.getDate(i).getTime();
+                    return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
                 case INET:
-                    return toAddrString(row.getInet(i));
+                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
                 case VARINT:
-                    return row.getVarint(i).toString();
+                    return NullableValue.of(nativeType, utf8Slice(row.getVarint(i).toString()));
                 case BLOB:
                 case CUSTOM:
-                    return Bytes.toHexString(row.getBytesUnsafe(i));
+                    return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(i)));
                 case SET:
                     checkTypeArguments(cassandraType, 1, typeArguments);
-                    return buildSetValue(row, i, typeArguments.get(0));
+                    return NullableValue.of(nativeType, utf8Slice(buildSetValue(row, i, typeArguments.get(0))));
                 case LIST:
                     checkTypeArguments(cassandraType, 1, typeArguments);
-                    return buildListValue(row, i, typeArguments.get(0));
+                    return NullableValue.of(nativeType, utf8Slice(buildListValue(row, i, typeArguments.get(0))));
                 case MAP:
                     checkTypeArguments(cassandraType, 2, typeArguments);
-                    return buildMapValue(row, i, typeArguments.get(0), typeArguments.get(1));
+                    return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, i, typeArguments.get(0), typeArguments.get(1))));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -223,15 +219,23 @@ public enum CassandraType
         }
     }
 
-    public static Comparable<?> getColumnValueForPartitionKey(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
+    public static NullableValue getColumnValueForPartitionKey(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
     {
+        Type nativeType = cassandraType.getNativeType();
         if (row.isNull(i)) {
-            return null;
+            return NullableValue.asNull(nativeType);
         }
-        if (cassandraType == ASCII || cassandraType == TEXT || cassandraType == VARCHAR) {
-            return Slices.utf8Slice(row.getString(i));
+        switch (cassandraType) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+                return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
+            case UUID:
+            case TIMEUUID:
+                return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
+            default:
+                return getColumnValue(row, i, cassandraType, typeArguments);
         }
-        return getColumnValue(row, i, cassandraType, typeArguments);
     }
 
     private static String buildSetValue(Row row, int i, CassandraType elemType)
@@ -312,7 +316,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return row.getUUID(i).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getDate(i).getTime());
+                    return Long.toString(row.getTimestamp(i).getTime());
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
@@ -381,39 +385,40 @@ public enum CassandraType
         }
     }
 
-    public Object getJavaValue(Comparable<?> comparable)
+    public Object getJavaValue(Object nativeValue)
     {
         switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
+                return ((Slice) nativeValue).toStringUtf8();
             case BIGINT:
             case BOOLEAN:
             case DOUBLE:
             case COUNTER:
-                return comparable;
+                return nativeValue;
             case INET:
-                return InetAddresses.forString((String) comparable);
+                return InetAddresses.forString(((Slice) nativeValue).toStringUtf8());
             case INT:
-                return ((Long) comparable).intValue();
+                return ((Long) nativeValue).intValue();
             case FLOAT:
                 // conversion can result in precision lost
-                return ((Double) comparable).floatValue();
+                return intBitsToFloat(((Long) nativeValue).intValue());
             case DECIMAL:
                 // conversion can result in precision lost
                 // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
                 // Otherwise partition id doesn't match
-                return new BigDecimal(comparable.toString());
+                return new BigDecimal(nativeValue.toString());
             case TIMESTAMP:
-                return new Date((Long) comparable);
+                return new Date((Long) nativeValue);
             case UUID:
             case TIMEUUID:
-                return java.util.UUID.fromString((String) comparable);
+                return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
             case BLOB:
             case CUSTOM:
-                return Bytes.fromHexString((String) comparable);
+                return ((Slice) nativeValue).toStringUtf8();
             case VARINT:
-                return new BigInteger((String) comparable);
+                return new BigInteger(((Slice) nativeValue).toStringUtf8());
             case SET:
             case LIST:
             case MAP:
@@ -422,16 +427,12 @@ public enum CassandraType
         }
     }
 
-    public Comparable<?> getValueForPartitionKey(Comparable<?> comparable)
+    public Object validatePartitionKey(Object value)
     {
         switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                if (comparable instanceof Slice) {
-                    return ((Slice) comparable).toStringUtf8();
-                }
-                return comparable;
             case BIGINT:
             case BOOLEAN:
             case DOUBLE:
@@ -442,7 +443,7 @@ public enum CassandraType
             case TIMESTAMP:
             case UUID:
             case TIMEUUID:
-                return comparable;
+                return value;
             case COUNTER:
             case BLOB:
             case CUSTOM:
@@ -456,6 +457,36 @@ public enum CassandraType
         }
     }
 
+    public Object validateClusteringKey(Object value)
+    {
+        switch (this) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+            case BIGINT:
+            case BOOLEAN:
+            case DOUBLE:
+            case INET:
+            case INT:
+            case FLOAT:
+            case DECIMAL:
+            case TIMESTAMP:
+            case UUID:
+            case TIMEUUID:
+                return value;
+            case COUNTER:
+            case BLOB:
+            case CUSTOM:
+            case VARINT:
+            case SET:
+            case LIST:
+            case MAP:
+            default:
+                // todo should we just skip partition pruning instead of throwing an exception?
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
+        }
+    }
+
     public static CassandraType toCassandraType(Type type)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
@@ -464,11 +495,26 @@ public enum CassandraType
         else if (type.equals(BigintType.BIGINT)) {
             return BIGINT;
         }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return INT;
+        }
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;
         }
-        else if (type.equals(VarcharType.VARCHAR)) {
+        else if (type.equals(RealType.REAL)) {
+            return FLOAT;
+        }
+        else if (isVarcharType(type)) {
             return TEXT;
+        }
+        else if (type.equals(DateType.DATE)) {
+            return TEXT;
+        }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return BLOB;
+        }
+        else if (type.equals(TimestampType.TIMESTAMP)) {
+            return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

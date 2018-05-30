@@ -15,15 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
-
-import java.util.List;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class LimitOperator
         implements Operator
@@ -32,47 +28,45 @@ public class LimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<Type> types;
+        private final PlanNodeId planNodeId;
         private final long limit;
         private boolean closed;
 
-        public LimitOperatorFactory(int operatorId, List<? extends Type> types, long limit)
+        public LimitOperatorFactory(int operatorId, PlanNodeId planNodeId, long limit)
         {
             this.operatorId = operatorId;
-            this.types = ImmutableList.copyOf(types);
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.limit = limit;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LimitOperator.class.getSimpleName());
-            return new LimitOperator(operatorContext, types, limit);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LimitOperator.class.getSimpleName());
+            return new LimitOperator(operatorContext, limit);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new LimitOperatorFactory(operatorId, planNodeId, limit);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private Page nextPage;
     private long remainingLimit;
 
-    public LimitOperator(OperatorContext operatorContext, List<Type> types, long limit)
+    public LimitOperator(OperatorContext operatorContext, long limit)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = checkNotNull(types, "types is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         checkArgument(limit >= 0, "limit must be at least zero");
         this.remainingLimit = limit;
@@ -85,12 +79,6 @@ public class LimitOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public void finish()
     {
         remainingLimit = 0;
@@ -100,12 +88,6 @@ public class LimitOperator
     public boolean isFinished()
     {
         return remainingLimit == 0 && nextPage == null;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

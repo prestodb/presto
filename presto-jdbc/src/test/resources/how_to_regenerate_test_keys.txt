@@ -1,0 +1,10 @@
+# To regenerate the test public and private keys
+
+# Generate an RSA private key and convert it to PKCS8 wraped in PEM
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform pem -outform pem -nocrypt -out rsa.key
+# Extract public key from private key
+openssl rsa -in rsa.key -pubout -out rsa.pub
+
+# Generate random key for HMAC signature
+openssl rand -base64 1014 > hmac.key
+

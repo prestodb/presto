@@ -18,25 +18,29 @@ import io.airlift.units.Duration;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueryResult
 {
     public enum State
     {
-        INVALID, FAILED, SUCCESS, TOO_MANY_ROWS, TIMEOUT
+        INVALID, FAILED, SUCCESS, TOO_MANY_ROWS, TIMEOUT, FAILED_TO_SETUP, FAILED_TO_TEARDOWN
     }
 
     private final State state;
     private final Exception exception;
-    private final Duration duration;
+    private final Duration wallTime;
+    private final Duration cpuTime;
+    private final String queryId;
     private final List<List<Object>> results;
 
-    public QueryResult(State state, Exception exception, Duration duration, List<List<Object>> results)
+    public QueryResult(State state, Exception exception, Duration wallTime, Duration cpuTime, String queryId, List<List<Object>> results)
     {
-        this.state = checkNotNull(state, "state is null");
+        this.state = requireNonNull(state, "state is null");
         this.exception = exception;
-        this.duration = duration;
+        this.wallTime = wallTime;
+        this.cpuTime = cpuTime;
+        this.queryId = queryId;
         this.results = (results != null) ? ImmutableList.copyOf(results) : null;
     }
 
@@ -50,9 +54,19 @@ public class QueryResult
         return exception;
     }
 
-    public Duration getDuration()
+    public Duration getWallTime()
     {
-        return duration;
+        return wallTime;
+    }
+
+    public Duration getCpuTime()
+    {
+        return cpuTime;
+    }
+
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     public List<List<Object>> getResults()

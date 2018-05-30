@@ -13,37 +13,61 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.google.common.collect.Lists;
+import com.facebook.presto.spi.ConnectorSplitSource.ConnectorSplitBatch;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareSplitSource
         implements SplitSource
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
+    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplitSource source;
 
-    public ConnectorAwareSplitSource(String connectorId, ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(
+            ConnectorId connectorId,
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSplitSource source)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.source = checkNotNull(source, "source is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        this.source = requireNonNull(source, "source is null");
     }
 
     @Override
-    public String getDataSourceName()
+    public ConnectorId getConnectorId()
     {
-        return source.getDataSourceName();
+        return connectorId;
     }
 
     @Override
-    public List<Split> getNextBatch(int maxSize)
-            throws InterruptedException
+    public ConnectorTransactionHandle getTransactionHandle()
     {
-        return Lists.transform(source.getNextBatch(maxSize), Split.fromConnectorSplit(connectorId));
+        return transactionHandle;
+    }
+
+    @Override
+    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    {
+        ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(partitionHandle, maxSize));
+        return Futures.transform(nextBatch, splitBatch -> {
+            ImmutableList.Builder<Split> result = ImmutableList.builder();
+            for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
+                result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
+            }
+            return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
+        });
     }
 
     @Override

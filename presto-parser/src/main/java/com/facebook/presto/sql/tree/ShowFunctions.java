@@ -13,15 +13,41 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ShowFunctions
         extends Statement
 {
+    public ShowFunctions()
+    {
+        this(Optional.empty());
+    }
+
+    public ShowFunctions(NodeLocation location)
+    {
+        this(Optional.of(location));
+    }
+
+    private ShowFunctions(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitShowFunctions(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

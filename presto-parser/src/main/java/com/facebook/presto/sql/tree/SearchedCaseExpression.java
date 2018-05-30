@@ -13,20 +13,35 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SearchedCaseExpression
         extends Expression
 {
     private final List<WhenClause> whenClauses;
-    private final Expression defaultValue;
+    private final Optional<Expression> defaultValue;
 
-    public SearchedCaseExpression(List<WhenClause> whenClauses, Expression defaultValue)
+    public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        Preconditions.checkNotNull(whenClauses, "whenClauses is null");
+        this(Optional.empty(), whenClauses, defaultValue);
+    }
+
+    public SearchedCaseExpression(NodeLocation location, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        this(Optional.of(location), whenClauses, defaultValue);
+    }
+
+    private SearchedCaseExpression(Optional<NodeLocation> location, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        super(location);
+        requireNonNull(whenClauses, "whenClauses is null");
+        requireNonNull(defaultValue, "defaultValue is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
         this.defaultValue = defaultValue;
     }
@@ -36,7 +51,7 @@ public class SearchedCaseExpression
         return whenClauses;
     }
 
-    public Expression getDefaultValue()
+    public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
     }
@@ -45,6 +60,15 @@ public class SearchedCaseExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitSearchedCaseExpression(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.addAll(whenClauses);
+        defaultValue.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override
@@ -58,22 +82,13 @@ public class SearchedCaseExpression
         }
 
         SearchedCaseExpression that = (SearchedCaseExpression) o;
-
-        if (defaultValue != null ? !defaultValue.equals(that.defaultValue) : that.defaultValue != null) {
-            return false;
-        }
-        if (!whenClauses.equals(that.whenClauses)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(whenClauses, that.whenClauses) &&
+                Objects.equals(defaultValue, that.defaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        int result = whenClauses.hashCode();
-        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
-        return result;
+        return Objects.hash(whenClauses, defaultValue);
     }
 }

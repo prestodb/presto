@@ -13,30 +13,72 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class FunctionCall
         extends Expression
 {
     private final QualifiedName name;
     private final Optional<Window> window;
+    private final Optional<Expression> filter;
+    private final Optional<OrderBy> orderBy;
     private final boolean distinct;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(name, null, false, arguments);
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, arguments);
     }
 
-    public FunctionCall(QualifiedName name, Window window, boolean distinct, List<Expression> arguments)
+    public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
     {
+        this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, arguments);
+    }
+
+    public FunctionCall(QualifiedName name, boolean distinct, List<Expression> arguments)
+    {
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), distinct, arguments);
+    }
+
+    public FunctionCall(QualifiedName name, boolean distinct, List<Expression> arguments, Optional<Expression> filter)
+    {
+        this(Optional.empty(), name, Optional.empty(), filter, Optional.empty(), distinct, arguments);
+    }
+
+    public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
+    {
+        this(Optional.empty(), name, window, Optional.empty(), Optional.empty(), distinct, arguments);
+    }
+
+    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
+    {
+        this(Optional.empty(), name, window, filter, orderBy, distinct, arguments);
+    }
+
+    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
+    {
+        this(Optional.of(location), name, window, filter, orderBy, distinct, arguments);
+    }
+
+    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
+    {
+        super(location);
+        requireNonNull(name, "name is null");
+        requireNonNull(window, "window is null");
+        requireNonNull(filter, "filter is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(arguments, "arguments is null");
+
         this.name = name;
-        this.window = Optional.fromNullable(window);
+        this.window = window;
+        this.filter = filter;
+        this.orderBy = orderBy;
         this.distinct = distinct;
         this.arguments = arguments;
     }
@@ -51,6 +93,11 @@ public class FunctionCall
         return window;
     }
 
+    public Optional<OrderBy> getOrderBy()
+    {
+        return orderBy;
+    }
+
     public boolean isDistinct()
     {
         return distinct;
@@ -61,10 +108,26 @@ public class FunctionCall
         return arguments;
     }
 
+    public Optional<Expression> getFilter()
+    {
+        return filter;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitFunctionCall(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        window.ifPresent(nodes::add);
+        filter.ifPresent(nodes::add);
+        orderBy.map(OrderBy::getSortItems).map(nodes::addAll);
+        nodes.addAll(arguments);
+        return nodes.build();
     }
 
     @Override
@@ -77,39 +140,17 @@ public class FunctionCall
             return false;
         }
         FunctionCall o = (FunctionCall) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(window, o.window) &&
-                Objects.equal(distinct, o.distinct) &&
-                Objects.equal(arguments, o.arguments);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(window, o.window) &&
+                Objects.equals(filter, o.filter) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(distinct, o.distinct) &&
+                Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, distinct, window, arguments);
-    }
-
-    public static Function<FunctionCall, List<Expression>> argumentsGetter()
-    {
-        return new Function<FunctionCall, List<Expression>>()
-        {
-            @Override
-            public List<Expression> apply(FunctionCall input)
-            {
-                return input.getArguments();
-            }
-        };
-    }
-
-    public static Predicate<FunctionCall> distinctPredicate()
-    {
-        return new Predicate<FunctionCall>()
-        {
-            @Override
-            public boolean apply(FunctionCall input)
-            {
-                return input.isDistinct();
-            }
-        };
+        return Objects.hash(name, distinct, window, filter, orderBy, arguments);
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.primitives.Ints;
+
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,7 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoArray
         implements Array
@@ -32,9 +34,9 @@ public class PrestoArray
 
     PrestoArray(String elementTypeName, int elementType, List<?> array)
     {
-        this.elementTypeName = checkNotNull(elementTypeName, "elementType is null");
+        this.elementTypeName = requireNonNull(elementTypeName, "elementType is null");
         this.elementType = elementType;
-        this.array = checkNotNull(array, "array is null").toArray();
+        this.array = requireNonNull(array, "array is null").toArray();
     }
 
     @Override
@@ -66,7 +68,7 @@ public class PrestoArray
     public Object getArray(long index, int count)
             throws SQLException
     {
-        int arrayOffset = (int) (index - 1);
+        int arrayOffset = Ints.saturatedCast(index - 1);
         if (index < 1 || count < 0 || (arrayOffset + count) > array.length) {
             throw new SQLException("Index out of bounds");
         }

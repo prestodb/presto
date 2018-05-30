@@ -13,36 +13,51 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SingleColumn
         extends SelectItem
 {
-    private final Optional<String> alias;
+    private final Optional<Identifier> alias;
     private final Expression expression;
 
-    public SingleColumn(Expression expression, Optional<String> alias)
+    public SingleColumn(Expression expression)
     {
-        Preconditions.checkNotNull(expression, "expression is null");
-        Preconditions.checkNotNull(alias, "alias is null");
+        this(Optional.empty(), expression, Optional.empty());
+    }
+
+    public SingleColumn(Expression expression, Optional<Identifier> alias)
+    {
+        this(Optional.empty(), expression, alias);
+    }
+
+    public SingleColumn(Expression expression, Identifier alias)
+    {
+        this(Optional.empty(), expression, Optional.of(alias));
+    }
+
+    public SingleColumn(NodeLocation location, Expression expression, Optional<Identifier> alias)
+    {
+        this(Optional.of(location), expression, alias);
+    }
+
+    private SingleColumn(Optional<NodeLocation> location, Expression expression, Optional<Identifier> alias)
+    {
+        super(location);
+        requireNonNull(expression, "expression is null");
+        requireNonNull(alias, "alias is null");
 
         this.expression = expression;
         this.alias = alias;
     }
 
-    public SingleColumn(Expression expression, String alias)
-    {
-        this(expression, Optional.of(alias));
-    }
-
-    public SingleColumn(Expression expression)
-    {
-        this(expression, Optional.<String>absent());
-    }
-
-    public Optional<String> getAlias()
+    public Optional<Identifier> getAlias()
     {
         return alias;
     }
@@ -61,14 +76,14 @@ public class SingleColumn
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SingleColumn other = (SingleColumn) obj;
-        return Objects.equal(this.alias, other.alias) && Objects.equal(this.expression, other.expression);
+        SingleColumn other = (SingleColumn) obj;
+        return Objects.equals(this.alias, other.alias) && Objects.equals(this.expression, other.expression);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(alias, expression);
+        return Objects.hash(alias, expression);
     }
 
     @Override
@@ -85,5 +100,11 @@ public class SingleColumn
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitSingleColumn(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(expression);
     }
 }

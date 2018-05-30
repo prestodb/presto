@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RecordPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -31,12 +33,12 @@ public class RecordPageSourceProvider
 
     public RecordPageSourceProvider(ConnectorRecordSetProvider recordSetProvider)
     {
-        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        return new RecordPageSource(recordSetProvider.getRecordSet(split, columns));
+        return new RecordPageSource(recordSetProvider.getRecordSet(transactionHandle, session, split, columns));
     }
 }

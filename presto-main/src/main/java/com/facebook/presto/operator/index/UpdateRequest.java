@@ -14,32 +14,23 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicReference;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 class UpdateRequest
 {
-    private final Block[] blocks;
-    private final AtomicReference<IndexSnapshot> indexSnapshotReference = new AtomicReference<>();
+    private final SettableFuture<IndexSnapshot> indexSnapshotFuture = SettableFuture.create();
     private final Page page;
 
-    public UpdateRequest(Block... blocks)
+    public UpdateRequest(Page page)
     {
-        this.blocks = checkNotNull(blocks, "blocks is null");
-        this.page = new Page(blocks);
-    }
-
-    @Deprecated
-    public Block[] getBlocks()
-    {
-        return blocks;
+        this.page = requireNonNull(page, "page is null");
     }
 
     public Page getPage()
@@ -49,19 +40,23 @@ class UpdateRequest
 
     public void finished(IndexSnapshot indexSnapshot)
     {
-        checkNotNull(indexSnapshot, "indexSnapshot is null");
-        checkState(indexSnapshotReference.compareAndSet(null, indexSnapshot), "Already finished!");
+        requireNonNull(indexSnapshot, "indexSnapshot is null");
+        checkState(indexSnapshotFuture.set(indexSnapshot), "Already finished!");
+    }
+
+    public void failed(Throwable throwable)
+    {
+        indexSnapshotFuture.setException(throwable);
     }
 
     public boolean isFinished()
     {
-        return indexSnapshotReference.get() != null;
+        return indexSnapshotFuture.isDone();
     }
 
     public IndexSnapshot getFinishedIndexSnapshot()
     {
-        IndexSnapshot indexSnapshot = indexSnapshotReference.get();
-        checkState(indexSnapshot != null, "Update request is not finished");
-        return indexSnapshot;
+        checkState(indexSnapshotFuture.isDone(), "Update request is not finished");
+        return MoreFutures.getFutureValue(indexSnapshotFuture);
     }
 }

@@ -15,27 +15,31 @@ package com.facebook.presto.spi;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static java.util.Collections.emptyMap;
 
 public class ConnectorTableMetadata
 {
     private final SchemaTableName table;
+    private final Optional<String> comment;
     private final List<ColumnMetadata> columns;
-    /* nullable */
-    private final String owner;
-    private final boolean sampled;
+    private final Map<String, Object> properties;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
-        this(table, columns, null);
+        this(table, columns, emptyMap());
     }
 
-    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, String owner)
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties)
     {
-        this(table, columns, owner, false);
+        this(table, columns, properties, Optional.empty());
     }
 
-    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, String owner, boolean sampled)
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment)
     {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
@@ -43,16 +47,14 @@ public class ConnectorTableMetadata
         if (columns == null) {
             throw new NullPointerException("columns is null");
         }
+        if (comment == null) {
+            throw new NullPointerException("comment is null");
+        }
 
         this.table = table;
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
-        this.owner = owner;
-        this.sampled = sampled;
-    }
-
-    public boolean isSampled()
-    {
-        return sampled;
+        this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
+        this.comment = comment;
     }
 
     public SchemaTableName getTable()
@@ -65,12 +67,14 @@ public class ConnectorTableMetadata
         return columns;
     }
 
-    /**
-     * @return table owner or null
-     */
-    public String getOwner()
+    public Map<String, Object> getProperties()
     {
-        return owner;
+        return properties;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     @Override
@@ -79,7 +83,8 @@ public class ConnectorTableMetadata
         StringBuilder sb = new StringBuilder("ConnectorTableMetadata{");
         sb.append("table=").append(table);
         sb.append(", columns=").append(columns);
-        sb.append(", owner=").append(owner);
+        sb.append(", properties=").append(properties);
+        comment.ifPresent(value -> sb.append(", comment='").append(value).append("'"));
         sb.append('}');
         return sb.toString();
     }

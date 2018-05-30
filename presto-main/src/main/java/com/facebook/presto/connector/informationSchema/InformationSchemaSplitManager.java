@@ -13,123 +13,40 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.SerializableNativeValue;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-
-import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
 
-    @Inject
-    public InformationSchemaSplitManager(NodeManager nodeManager)
+    public InformationSchemaSplitManager(InternalNodeManager nodeManager)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        checkNotNull(tupleDomain, "tupleDomain is null");
-        InformationSchemaTableHandle informationSchemaTableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
-
-        Map<ConnectorColumnHandle, SerializableNativeValue> bindings = tupleDomain.extractNullableFixedValues();
-
-        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
-        // We don't strip out the bindings that we have created from the undeterminedTupleDomain b/c the current InformationSchema
-        // system requires that all filters be re-applied at execution time.
-        return new ConnectorPartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
-    {
-        checkNotNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.<ConnectorSplit>of());
-        }
-
-        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        InformationSchemaPartition informationSchemaPartition = checkType(partition, InformationSchemaPartition.class, "partition");
+        InformationSchemaTableLayoutHandle handle = (InformationSchemaTableLayoutHandle) layout;
 
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
-        ImmutableMap.Builder<String, SerializableNativeValue> filters = ImmutableMap.builder();
-        for (Entry<ConnectorColumnHandle, SerializableNativeValue> entry : informationSchemaPartition.getFilters().entrySet()) {
-            InformationSchemaColumnHandle informationSchemaColumnHandle = (InformationSchemaColumnHandle) entry.getKey();
-            filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
-        }
+        ConnectorSplit split = new InformationSchemaSplit(handle.getTable(), handle.getPrefixes(), localAddress);
 
-        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.getTable(), filters.build(), localAddress);
-
-        return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.of(split));
-    }
-
-    public static class InformationSchemaPartition
-            implements ConnectorPartition
-    {
-        private final InformationSchemaTableHandle table;
-        private final Map<ConnectorColumnHandle, SerializableNativeValue> filters;
-
-        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ConnectorColumnHandle, SerializableNativeValue> filters)
-        {
-            this.table = checkNotNull(table, "table is null");
-            this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
-        }
-
-        public InformationSchemaTableHandle getTable()
-        {
-            return table;
-        }
-
-        @Override
-        public String getPartitionId()
-        {
-            return table.getSchemaTableName().toString();
-        }
-
-        @Override
-        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
-        {
-            return TupleDomain.withNullableFixedValues(filters);
-        }
-
-        public Map<ConnectorColumnHandle, SerializableNativeValue> getFilters()
-        {
-            return filters;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("table", table)
-                    .add("filters", filters)
-                    .toString();
-        }
+        return new FixedSplitSource(ImmutableList.of(split));
     }
 }

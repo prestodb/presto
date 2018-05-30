@@ -15,10 +15,12 @@ package com.facebook.presto.kafka.util;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryData;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.Varchars;
 import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +30,8 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -36,17 +40,16 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class KafkaLoader
         extends AbstractTestingPrestoClient<Void>
@@ -71,7 +74,7 @@ public class KafkaLoader
     @Override
     public ResultsSession<Void> getResultSession(Session session)
     {
-        checkNotNull(session, "session is null");
+        requireNonNull(session, "session is null");
         return new KafkaLoadingSession(session);
     }
 
@@ -88,16 +91,16 @@ public class KafkaLoader
         }
 
         @Override
-        public void addResults(QueryResults results)
+        public void addResults(QueryStatusInfo statusInfo, QueryData data)
         {
-            if (types.get() == null && results.getColumns() != null) {
-                types.set(getTypes(results.getColumns()));
+            if (types.get() == null && statusInfo.getColumns() != null) {
+                types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (results.getData() != null) {
+            if (data.getData() != null) {
                 checkState(types.get() != null, "Data without types received!");
-                List<Column> columns = results.getColumns();
-                for (List<Object> fields : results.getData()) {
+                List<Column> columns = statusInfo.getColumns();
+                for (List<Object> fields : data.getData()) {
                     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
                     for (int i = 0; i < fields.size(); i++) {
                         Type type = types.get().get(i);
@@ -107,13 +110,13 @@ public class KafkaLoader
                         }
                     }
 
-                    producer.send(new KeyedMessage<Long, Object>(topicName, count.getAndIncrement(), builder.build()));
+                    producer.send(new KeyedMessage<>(topicName, count.getAndIncrement(), builder.build()));
                 }
             }
         }
 
         @Override
-        public Void build()
+        public Void build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
         {
             return null;
         }
@@ -124,26 +127,29 @@ public class KafkaLoader
                 return null;
             }
 
-            if (BOOLEAN.equals(type) || VARCHAR.equals(type)) {
+            if (BOOLEAN.equals(type) || Varchars.isVarcharType(type)) {
                 return value;
             }
             if (BIGINT.equals(type)) {
                 return ((Number) value).longValue();
             }
+            if (INTEGER.equals(type)) {
+                return ((Number) value).intValue();
+            }
             if (DOUBLE.equals(type)) {
                 return ((Number) value).doubleValue();
             }
             if (DATE.equals(type)) {
-                return ISO8601_FORMATTER.print(parseDate((String) value));
+                return value;
             }
             if (TIME.equals(type)) {
                 return ISO8601_FORMATTER.print(parseTime(timeZoneKey, (String) value));
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestamp(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone((String) value)));
+                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
             }
             throw new AssertionError("unhandled type: " + type);
         }

@@ -13,60 +13,23 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-
+@Description("Returns the cardinality (length) of the array")
+@ScalarFunction("cardinality")
 public final class ArrayCardinalityFunction
-        extends ParametricScalar
 {
-    public static final ArrayCardinalityFunction ARRAY_CARDINALITY = new ArrayCardinalityFunction();
-    private static final Signature SIGNATURE = new Signature("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonFunctions.class, "jsonArrayLength", Slice.class);
+    private ArrayCardinalityFunction() {}
 
-    @Override
-    public Signature getSignature()
+    @TypeParameter("E")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayCardinality(@SqlType("array(E)") Block block)
     {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return null;
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
-    {
-        checkArgument(types.size() == 1, "Cardinality expects only one argument");
-        Type type = types.get("E");
-        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
+        return block.getPositionCount();
     }
 }

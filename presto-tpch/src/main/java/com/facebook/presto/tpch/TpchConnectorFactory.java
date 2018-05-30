@@ -13,37 +13,44 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Objects;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.firstNonNull;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
-    private final NodeManager nodeManager;
-    private final int defaultSplitsPerNode;
+    public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
 
-    public TpchConnectorFactory(NodeManager nodeManager)
+    private final int defaultSplitsPerNode;
+    private final boolean predicatePushdownEnabled;
+
+    public TpchConnectorFactory()
     {
-        this(nodeManager, Runtime.getRuntime().availableProcessors());
+        this(Runtime.getRuntime().availableProcessors());
     }
 
-    public TpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
+    public TpchConnectorFactory(int defaultSplitsPerNode)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this(defaultSplitsPerNode, true);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.predicatePushdownEnabled = predicatePushdownEnabled;
     }
 
     @Override
@@ -53,33 +60,36 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> properties)
+    public ConnectorHandleResolver getHandleResolver()
     {
-        final int splitsPerNode = getSplitsPerNode(properties);
+        return new TpchHandleResolver();
+    }
 
-        return new Connector() {
+    @Override
+    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    {
+        int splitsPerNode = getSplitsPerNode(properties);
+        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
+        NodeManager nodeManager = context.getNodeManager();
+
+        return new Connector()
+        {
             @Override
-            public ConnectorMetadata getMetadata()
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
             {
-                return new TpchMetadata(connectorId);
+                return TpchTransactionHandle.INSTANCE;
+            }
+
+            @Override
+            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+            {
+                return new TpchMetadata(connectorId, columnNaming, predicatePushdownEnabled);
             }
 
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
-            }
-
-            @Override
-            public ConnectorHandleResolver getHandleResolver()
-            {
-                return new TpchHandleResolver(connectorId);
-            }
-
-            @Override
-            public ConnectorPageSourceProvider getPageSourceProvider()
-            {
-                throw new UnsupportedOperationException();
+                return new TpchSplitManager(nodeManager, splitsPerNode);
             }
 
             @Override
@@ -89,15 +99,9 @@ public class TpchConnectorFactory
             }
 
             @Override
-            public ConnectorRecordSinkProvider getRecordSinkProvider()
+            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorIndexResolver getIndexResolver()
-            {
-                throw new UnsupportedOperationException();
+                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
             }
         };
     }
@@ -105,7 +109,7 @@ public class TpchConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(Objects.firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

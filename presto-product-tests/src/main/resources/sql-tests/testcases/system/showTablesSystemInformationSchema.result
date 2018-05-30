@@ -1,0 +1,5 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true;
+columns|
+schemata|
+tables|
+views|

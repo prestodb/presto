@@ -47,7 +47,7 @@ public class TestCassandraType
         boolean valid = false;
         try {
             JsonParser parser = new ObjectMapper().getFactory()
-                    .createJsonParser(json);
+                    .createParser(json);
             continueWhileNotNull(parser, parser.nextToken());
             valid = true;
         }

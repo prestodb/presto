@@ -14,11 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.google.common.base.Predicate;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -26,9 +23,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.facebook.presto.execution.TaskState.TERMINAL_TASK_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskStateMachine
@@ -43,14 +42,14 @@ public class TaskStateMachine
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
-        this.taskId = checkNotNull(taskId, "taskId is null");
-        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING);
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
-            public void stateChanged(TaskState newValue)
+            public void stateChanged(TaskState newState)
             {
-                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newValue);
+                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newState);
             }
         });
     }
@@ -72,13 +71,13 @@ public class TaskStateMachine
 
     public ListenableFuture<TaskState> getStateChange(TaskState currentState)
     {
-        checkNotNull(currentState, "currentState is null");
+        requireNonNull(currentState, "currentState is null");
         checkArgument(!currentState.isDone(), "Current state is already done");
 
         ListenableFuture<TaskState> future = taskState.getStateChange(currentState);
         TaskState state = taskState.get();
         if (state.isDone()) {
-            return Futures.immediateFuture(state);
+            return immediateFuture(state);
         }
         return future;
     }
@@ -98,6 +97,11 @@ public class TaskStateMachine
         transitionToDoneState(TaskState.CANCELED);
     }
 
+    public void abort()
+    {
+        transitionToDoneState(TaskState.ABORTED);
+    }
+
     public void failed(Throwable cause)
     {
         failureCauses.add(cause);
@@ -106,23 +110,10 @@ public class TaskStateMachine
 
     private void transitionToDoneState(TaskState doneState)
     {
-        checkNotNull(doneState, "doneState is null");
+        requireNonNull(doneState, "doneState is null");
         checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
-        taskState.setIf(doneState, new Predicate<TaskState>()
-        {
-            @Override
-            public boolean apply(TaskState currentState)
-            {
-                return !currentState.isDone();
-            }
-        });
-    }
-
-    public Duration waitForStateChange(TaskState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        return taskState.waitForStateChange(currentState, maxWait);
+        taskState.setIf(doneState, currentState -> !currentState.isDone());
     }
 
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)

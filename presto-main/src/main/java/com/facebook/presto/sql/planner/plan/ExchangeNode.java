@@ -13,76 +13,192 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ExchangeNode
         extends PlanNode
 {
-    private final List<PlanFragmentId> sourceFragmentIds;
-    private final List<Symbol> outputs;
+    public enum Type
+    {
+        GATHER,
+        REPARTITION,
+        REPLICATE
+    }
+
+    public enum Scope
+    {
+        LOCAL,
+        REMOTE
+    }
+
+    private final Type type;
+    private final Scope scope;
+
+    private final List<PlanNode> sources;
+
+    private final PartitioningScheme partitioningScheme;
+
+    // for each source, the list of inputs corresponding to each output
+    private final List<List<Symbol>> inputs;
 
     @JsonCreator
-    public ExchangeNode(@JsonProperty("id") PlanNodeId id,
-            @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
-            @JsonProperty("outputs") List<Symbol> outputs)
+    public ExchangeNode(
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("type") Type type,
+            @JsonProperty("scope") Scope scope,
+            @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
+            @JsonProperty("sources") List<PlanNode> sources,
+            @JsonProperty("inputs") List<List<Symbol>> inputs)
     {
         super(id);
 
-        Preconditions.checkNotNull(outputs, "outputs is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(scope, "scope is null");
+        requireNonNull(sources, "sources is null");
+        requireNonNull(partitioningScheme, "partitioningScheme is null");
+        requireNonNull(inputs, "inputs is null");
 
-        this.sourceFragmentIds = sourceFragmentIds;
-        this.outputs = ImmutableList.copyOf(outputs);
+        checkArgument(!inputs.isEmpty(), "inputs is empty");
+        checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == partitioningScheme.getOutputLayout().size()), "Input symbols do not match output symbols");
+        checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
+        for (int i = 0; i < inputs.size(); i++) {
+            checkArgument(sources.get(i).getOutputSymbols().containsAll(inputs.get(i)), "Source does not supply all required input symbols");
+        }
+
+        checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),
+                "local exchanges do not support constant partition function arguments");
+
+        checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
+
+        this.type = type;
+        this.sources = sources;
+        this.scope = scope;
+        this.partitioningScheme = partitioningScheme;
+        this.inputs = listOfListsCopy(inputs);
     }
 
-    public ExchangeNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs);
+        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false);
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean replicateNullsAndAny)
+    {
+        return partitionedExchange(
+                id,
+                scope,
+                child,
+                new PartitioningScheme(
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                        child.getOutputSymbols(),
+                        hashColumns,
+                        replicateNullsAndAny,
+                        Optional.empty()));
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, PartitioningScheme partitioningScheme)
+    {
+        if (partitioningScheme.getPartitioning().getHandle().isSingleNode()) {
+            return gatheringExchange(id, scope, child);
+        }
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION,
+                scope,
+                partitioningScheme,
+                ImmutableList.of(child),
+                ImmutableList.of(partitioningScheme.getOutputLayout()));
+    }
+
+    public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPLICATE,
+                scope,
+                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    public static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, PlanNode child)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.GATHER,
+                scope,
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    @JsonProperty
+    public Type getType()
+    {
+        return type;
+    }
+
+    @JsonProperty
+    public Scope getScope()
+    {
+        return scope;
     }
 
     @Override
+    @JsonProperty
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        return sources;
     }
 
     @Override
-    @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
-        return outputs;
+        return partitioningScheme.getOutputLayout();
     }
 
-    @JsonProperty("sourceFragmentIds")
-    public List<PlanFragmentId> getSourceFragmentIds()
+    @JsonProperty
+    public PartitioningScheme getPartitioningScheme()
     {
-        return sourceFragmentIds;
+        return partitioningScheme;
+    }
+
+    @JsonProperty
+    public List<List<Symbol>> getInputs()
+    {
+        return inputs;
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitExchange(this, context);
     }
 
-    public static Function<ExchangeNode, List<PlanFragmentId>> sourceFragmentIdsGetter()
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new Function<ExchangeNode, List<PlanFragmentId>>()
-        {
-            @Override
-            public List<PlanFragmentId> apply(ExchangeNode input)
-            {
-                return input.getSourceFragmentIds();
-            }
-        };
+        return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs);
     }
 }

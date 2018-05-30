@@ -17,7 +17,7 @@ import jline.TerminalFactory;
 
 import java.io.PrintStream;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static org.fusesource.jansi.Ansi.Erase;
 import static org.fusesource.jansi.Ansi.ansi;
 import static org.fusesource.jansi.internal.CLibrary.STDOUT_FILENO;
@@ -32,7 +32,7 @@ public class ConsolePrinter
 
     public ConsolePrinter(PrintStream out)
     {
-        this.out = checkNotNull(out, "out is null");
+        this.out = requireNonNull(out, "out is null");
     }
 
     public void reprintLine(String line)

@@ -13,68 +13,49 @@
  */
 package com.facebook.presto.index;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.IndexHandle;
-import com.facebook.presto.metadata.ResolvedIndex;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorResolvedIndex;
-import com.facebook.presto.spi.Index;
-import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
-import static com.facebook.presto.metadata.Util.toConnectorDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexManager
 {
-    private final ConcurrentMap<String, ConnectorIndexResolver> resolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
 
-    public void addIndexResolver(String connectorId, ConnectorIndexResolver resolver)
+    public void addIndexProvider(ConnectorId connectorId, ConnectorIndexProvider indexProvider)
     {
-        checkState(resolvers.putIfAbsent(connectorId, resolver) == null, "IndexResolver for connector '%s' is already registered", connectorId);
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(indexProvider, "indexProvider is null");
+        checkState(providers.putIfAbsent(connectorId, indexProvider) == null, "IndexProvider for connector '%s' is already registered", connectorId);
     }
 
-    public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
+    public void removeIndexProvider(ConnectorId connectorId)
     {
-        ConnectorIndexResolver resolver = resolvers.get(tableHandle.getConnectorId());
-        if (resolver == null) {
-            return Optional.absent();
-        }
-
-        Set<ConnectorColumnHandle> columns = ImmutableSet.copyOf(Iterables.transform(indexableColumns, ColumnHandle.connectorHandleGetter()));
-        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), columns, toConnectorDomain(tupleDomain));
-
-        if (resolved == null) {
-            return Optional.absent();
-        }
-
-        return Optional.of(new ResolvedIndex(tableHandle.getConnectorId(), resolved));
+        providers.remove(connectorId);
     }
 
-    public Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        return getResolver(indexHandle)
-                .getIndex(indexHandle.getConnectorHandle(), Lists.transform(lookupSchema, connectorHandleGetter()), Lists.transform(outputSchema, connectorHandleGetter()));
+        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getConnectorId());
+        ConnectorIndexProvider provider = getProvider(indexHandle);
+        return provider.getIndex(indexHandle.getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
-    private ConnectorIndexResolver getResolver(IndexHandle handle)
+    private ConnectorIndexProvider getProvider(IndexHandle handle)
     {
-        ConnectorIndexResolver result = resolvers.get(handle.getConnectorId());
-
-        checkArgument(result != null, "No index resolver for connector '%s'", handle.getConnectorId());
-
+        ConnectorIndexProvider result = providers.get(handle.getConnectorId());
+        checkArgument(result != null, "No index provider for connector '%s'", handle.getConnectorId());
         return result;
     }
 }

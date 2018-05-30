@@ -54,12 +54,9 @@ public final class CompilerOperations
         return left < right;
     }
 
-    public static void propagateInterruptedException(Throwable throwable)
+    public static boolean greaterThan(int left, int right)
     {
-        if (throwable instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(throwable);
-        }
+        return left > right;
     }
 
     public static boolean in(Object value, Set<?> set)

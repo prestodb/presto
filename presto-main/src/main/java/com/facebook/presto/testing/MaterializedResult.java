@@ -17,27 +17,70 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Objects;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MaterializedResult
         implements Iterable<MaterializedRow>
@@ -46,11 +89,30 @@ public class MaterializedResult
 
     private final List<MaterializedRow> rows;
     private final List<Type> types;
+    private final Map<String, String> setSessionProperties;
+    private final Set<String> resetSessionProperties;
+    private final Optional<String> updateType;
+    private final OptionalLong updateCount;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty());
+    }
+
+    public MaterializedResult(
+            List<MaterializedRow> rows,
+            List<? extends Type> types,
+            Map<String, String> setSessionProperties,
+            Set<String> resetSessionProperties,
+            Optional<String> updateType,
+            OptionalLong updateCount)
+    {
+        this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.setSessionProperties = ImmutableMap.copyOf(requireNonNull(setSessionProperties, "setSessionProperties is null"));
+        this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
+        this.updateType = requireNonNull(updateType, "updateType is null");
+        this.updateCount = requireNonNull(updateCount, "updateCount is null");
     }
 
     public int getRowCount()
@@ -74,6 +136,26 @@ public class MaterializedResult
         return types;
     }
 
+    public Map<String, String> getSetSessionProperties()
+    {
+        return setSessionProperties;
+    }
+
+    public Set<String> getResetSessionProperties()
+    {
+        return resetSessionProperties;
+    }
+
+    public Optional<String> getUpdateType()
+    {
+        return updateType;
+    }
+
+    public OptionalLong getUpdateCount()
+    {
+        return updateCount;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -84,14 +166,18 @@ public class MaterializedResult
             return false;
         }
         MaterializedResult o = (MaterializedResult) obj;
-        return Objects.equal(types, o.types) &&
-                Objects.equal(rows, o.rows);
+        return Objects.equals(types, o.types) &&
+                Objects.equals(rows, o.rows) &&
+                Objects.equals(setSessionProperties, o.setSessionProperties) &&
+                Objects.equals(resetSessionProperties, o.resetSessionProperties) &&
+                Objects.equals(updateType, o.updateType) &&
+                Objects.equals(updateCount, o.updateCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(rows, types);
+        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateType, updateCount);
     }
 
     @Override
@@ -100,45 +186,209 @@ public class MaterializedResult
         return toStringHelper(this)
                 .add("rows", rows)
                 .add("types", types)
+                .add("setSessionProperties", setSessionProperties)
+                .add("resetSessionProperties", resetSessionProperties)
+                .add("updateType", updateType.orElse(null))
+                .add("updateCount", updateCount.isPresent() ? updateCount.getAsLong() : null)
+                .omitNullValues()
                 .toString();
     }
 
-    public MaterializedResult toJdbcTypes()
+    public Stream<Object> getOnlyColumn()
     {
-        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
-        for (MaterializedRow row : rows) {
-            jdbcRows.add(convertToJdbcTypes(row));
-        }
-        return new MaterializedResult(jdbcRows.build(), types);
+        checkState(types.size() == 1, "result set must have exactly one column");
+        return rows.stream()
+                .map(row -> row.getField(0));
     }
 
-    private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)
+    public Set<Object> getOnlyColumnAsSet()
     {
-        List<Object> jdbcValues = new ArrayList<>();
+        return getOnlyColumn().collect(toImmutableSet());
+    }
+
+    public Object getOnlyValue()
+    {
+        checkState(rows.size() == 1, "result set must have exactly one row");
+        checkState(types.size() == 1, "result set must have exactly one column");
+        return rows.get(0).getField(0);
+    }
+
+    public Page toPage()
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        for (MaterializedRow row : rows) {
+            appendToPage(pageBuilder, row);
+        }
+        return pageBuilder.build();
+    }
+
+    private static void appendToPage(PageBuilder pageBuilder, MaterializedRow row)
+    {
+        for (int field = 0; field < row.getFieldCount(); field++) {
+            Type type = pageBuilder.getType(field);
+            Object value = row.getField(field);
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(field);
+            writeValue(type, blockBuilder, value);
+        }
+        pageBuilder.declarePosition();
+    }
+
+    private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else if (BIGINT.equals(type)) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
+        }
+        else if (INTEGER.equals(type)) {
+            type.writeLong(blockBuilder, ((Number) value).intValue());
+        }
+        else if (SMALLINT.equals(type)) {
+            type.writeLong(blockBuilder, ((Number) value).shortValue());
+        }
+        else if (TINYINT.equals(type)) {
+            type.writeLong(blockBuilder, ((Number) value).byteValue());
+        }
+        else if (REAL.equals(type)) {
+            type.writeLong(blockBuilder, (long) floatToRawIntBits(((Number) value).floatValue()));
+        }
+        else if (DOUBLE.equals(type)) {
+            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+        }
+        else if (BOOLEAN.equals(type)) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
+        }
+        else if (type instanceof VarcharType) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
+        }
+        else if (type instanceof CharType) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
+        }
+        else if (VARBINARY.equals(type)) {
+            type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) value));
+        }
+        else if (DATE.equals(type)) {
+            int days = ((SqlDate) value).getDays();
+            type.writeLong(blockBuilder, days);
+        }
+        else if (TIME.equals(type)) {
+            long millisUtc = ((SqlTime) value).getMillisUtc();
+            type.writeLong(blockBuilder, millisUtc);
+        }
+        else if (TIME_WITH_TIME_ZONE.equals(type)) {
+            long millisUtc = ((SqlTimeWithTimeZone) value).getMillisUtc();
+            TimeZoneKey timeZoneKey = ((SqlTimeWithTimeZone) value).getTimeZoneKey();
+            type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
+        }
+        else if (TIMESTAMP.equals(type)) {
+            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
+            type.writeLong(blockBuilder, millisUtc);
+        }
+        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();
+            TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
+            type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
+        }
+        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+            List<Object> list = (List<Object>) value;
+            Type elementType = ((ArrayType) type).getElementType();
+            BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
+            for (Object element : list) {
+                writeValue(elementType, arrayBlockBuilder, element);
+            }
+            blockBuilder.closeEntry();
+        }
+        else if (MAP.equals(type.getTypeSignature().getBase())) {
+            Map<Object, Object> map = (Map<Object, Object>) value;
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+            BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
+            for (Entry<Object, Object> entry : map.entrySet()) {
+                writeValue(keyType, mapBlockBuilder, entry.getKey());
+                writeValue(valueType, mapBlockBuilder, entry.getValue());
+            }
+            blockBuilder.closeEntry();
+        }
+        else if (type instanceof RowType) {
+            List<Object> row = (List<Object>) value;
+            List<Type> fieldTypes = type.getTypeParameters();
+            BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
+            for (int field = 0; field < row.size(); field++) {
+                writeValue(fieldTypes.get(field), rowBlockBuilder, row.get(field));
+            }
+            blockBuilder.closeEntry();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type " + type);
+        }
+    }
+
+    /**
+     * Converts this {@link MaterializedResult} to a new one, representing the data using the same type domain as returned by {@code TestingPrestoClient}.
+     */
+    public MaterializedResult toTestTypes()
+    {
+        return new MaterializedResult(
+                rows.stream()
+                        .map(MaterializedResult::convertToTestTypes)
+                        .collect(toImmutableList()),
+                types,
+                setSessionProperties,
+                resetSessionProperties,
+                updateType,
+                updateCount);
+    }
+
+    private static MaterializedRow convertToTestTypes(MaterializedRow prestoRow)
+    {
+        List<Object> convertedValues = new ArrayList<>();
         for (int field = 0; field < prestoRow.getFieldCount(); field++) {
             Object prestoValue = prestoRow.getField(field);
-            Object jdbcValue;
+            Object convertedValue;
             if (prestoValue instanceof SqlDate) {
-                jdbcValue = new Date(((SqlDate) prestoValue).getMillisAtMidnight());
+                convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
             }
             else if (prestoValue instanceof SqlTime) {
-                jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());
+                convertedValue = LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(((SqlTime) prestoValue).getMillisUtc()));
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
-                jdbcValue = new Time(((SqlTimeWithTimeZone) prestoValue).getMillisUtc());
+                // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
+                long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
+                ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
+                convertedValue = OffsetTime.of(
+                        LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
+                        zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
+                convertedValue = Instant.ofEpochMilli(((SqlTimestamp) prestoValue).getMillisUtc())
+                        .atZone(ZoneOffset.UTC)
+                        .toLocalDateTime();
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+                convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
+                        .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
+            }
+            else if (prestoValue instanceof SqlDecimal) {
+                convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
             }
             else {
-                jdbcValue = prestoValue;
+                convertedValue = prestoValue;
             }
-            jdbcValues.add(jdbcValue);
+            convertedValues.add(convertedValue);
         }
-        return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
+        return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
+    }
+
+    private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)
+    {
+        requireNonNull(timeZoneKey, "timeZoneKey is null");
+        if (Objects.equals("UTC", timeZoneKey.getId())) {
+            return ZoneOffset.UTC;
+        }
+
+        checkArgument(timeZoneKey.getId().matches("[+-]\\d\\d:\\d\\d"), "Not a zone-offset timezone: %s", timeZoneKey);
+        return ZoneOffset.of(timeZoneKey.getId());
     }
 
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)
@@ -191,13 +441,27 @@ public class MaterializedResult
             this.types = ImmutableList.copyOf(types);
         }
 
-        public Builder row(Object... values)
+        public synchronized Builder rows(List<MaterializedRow> rows)
+        {
+            this.rows.addAll(rows);
+            return this;
+        }
+
+        public synchronized Builder row(Object... values)
         {
             rows.add(new MaterializedRow(DEFAULT_PRECISION, values));
             return this;
         }
 
-        public Builder pages(Iterable<Page> pages)
+        public synchronized Builder rows(Object[][] rows)
+        {
+            for (Object[] row : rows) {
+                row(row);
+            }
+            return this;
+        }
+
+        public synchronized Builder pages(Iterable<Page> pages)
         {
             for (Page page : pages) {
                 this.page(page);
@@ -206,9 +470,9 @@ public class MaterializedResult
             return this;
         }
 
-        public Builder page(Page page)
+        public synchronized Builder page(Page page)
         {
-            checkNotNull(page, "page is null");
+            requireNonNull(page, "page is null");
             checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", types.size(), page.getChannelCount());
 
             for (int position = 0; position < page.getPositionCount(); position++) {
@@ -225,7 +489,7 @@ public class MaterializedResult
             return this;
         }
 
-        public MaterializedResult build()
+        public synchronized MaterializedResult build()
         {
             return new MaterializedResult(rows.build(), types);
         }

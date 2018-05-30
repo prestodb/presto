@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
+import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Objects;
-import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
@@ -28,26 +26,39 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public class KafkaTableDescriptionSupplier
         implements Supplier<Map<SchemaTableName, KafkaTopicDescription>>
 {
     private static final Logger log = Logger.get(KafkaTableDescriptionSupplier.class);
 
-    private final KafkaConnectorConfig kafkaConnectorConfig;
     private final JsonCodec<KafkaTopicDescription> topicDescriptionCodec;
+    private final File tableDescriptionDir;
+    private final String defaultSchema;
+    private final Set<String> tableNames;
 
     @Inject
     KafkaTableDescriptionSupplier(KafkaConnectorConfig kafkaConnectorConfig,
             JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
-        this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConnectorConfig is null");
-        this.topicDescriptionCodec = checkNotNull(topicDescriptionCodec, "topicDescriptionCodec is null");
+        this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
+
+        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
+        this.tableDescriptionDir = kafkaConnectorConfig.getTableDescriptionDir();
+        this.defaultSchema = kafkaConnectorConfig.getDefaultSchema();
+        this.tableNames = ImmutableSet.copyOf(kafkaConnectorConfig.getTableNames());
     }
 
     @Override
@@ -55,11 +66,13 @@ public class KafkaTableDescriptionSupplier
     {
         ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> builder = ImmutableMap.builder();
 
+        log.debug("Loading kafka table definitions from %s", tableDescriptionDir.getAbsolutePath());
+
         try {
-            for (File file : listFiles(kafkaConnectorConfig.getTableDescriptionDir())) {
+            for (File file : listFiles(tableDescriptionDir)) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
-                    KafkaTopicDescription table = topicDescriptionCodec.fromJson(Files.toByteArray(file));
-                    String schemaName = Objects.firstNonNull(table.getSchemaName(), kafkaConnectorConfig.getDefaultSchema());
+                    KafkaTopicDescription table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
+                    String schemaName = firstNonNull(table.getSchemaName(), defaultSchema);
                     log.debug("Kafka table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }
@@ -70,13 +83,13 @@ public class KafkaTableDescriptionSupplier
             log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
 
             builder = ImmutableMap.builder();
-            for (String definedTable : kafkaConnectorConfig.getTableNames()) {
+            for (String definedTable : tableNames) {
                 SchemaTableName tableName;
                 try {
-                    tableName = SchemaTableName.valueOf(definedTable);
+                    tableName = parseTableName(definedTable);
                 }
                 catch (IllegalArgumentException iae) {
-                    tableName = new SchemaTableName(kafkaConnectorConfig.getDefaultSchema(), definedTable);
+                    tableName = new SchemaTableName(defaultSchema, definedTable);
                 }
 
                 if (tableDefinitions.containsKey(tableName)) {
@@ -90,8 +103,8 @@ public class KafkaTableDescriptionSupplier
                     builder.put(tableName, new KafkaTopicDescription(tableName.getTableName(),
                             tableName.getSchemaName(),
                             definedTable,
-                            new KafkaTopicFieldGroup(DummyKafkaRowDecoder.NAME, ImmutableList.<KafkaTopicFieldDescription>of()),
-                            new KafkaTopicFieldGroup(DummyKafkaRowDecoder.NAME, ImmutableList.<KafkaTopicFieldDescription>of())));
+                            new KafkaTopicFieldGroup(DummyRowDecoder.NAME, ImmutableList.of()),
+                            new KafkaTopicFieldGroup(DummyRowDecoder.NAME, ImmutableList.of())));
                 }
             }
 
@@ -99,7 +112,7 @@ public class KafkaTableDescriptionSupplier
         }
         catch (IOException e) {
             log.warn(e, "Error: ");
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -113,5 +126,13 @@ public class KafkaTableDescriptionSupplier
             }
         }
         return ImmutableList.of();
+    }
+
+    private static SchemaTableName parseTableName(String schemaTableName)
+    {
+        checkArgument(!isNullOrEmpty(schemaTableName), "schemaTableName is null or is empty");
+        List<String> parts = Splitter.on('.').splitToList(schemaTableName);
+        checkArgument(parts.size() == 2, "Invalid schemaTableName: %s", schemaTableName);
+        return new SchemaTableName(parts.get(0), parts.get(1));
     }
 }

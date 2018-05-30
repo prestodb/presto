@@ -22,6 +22,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -40,7 +41,7 @@ public final class ValueStreams
     {
     }
 
-    public static ValueStream<?> createValueStreams(
+    public static ValueInputStream<?> createValueStreams(
             StreamId streamId,
             OrcInputStream inputStream,
             OrcTypeKind type,
@@ -48,7 +49,7 @@ public final class ValueStreams
             boolean usesVInt)
     {
         if (streamId.getStreamKind() == PRESENT) {
-            return new BooleanStream(inputStream);
+            return new BooleanInputStream(inputStream);
         }
 
         // dictionary length and data streams are unsigned int streams
@@ -59,23 +60,27 @@ public final class ValueStreams
         if (streamId.getStreamKind() == DATA) {
             switch (type) {
                 case BOOLEAN:
-                    return new BooleanStream(inputStream);
+                    return new BooleanInputStream(inputStream);
                 case BYTE:
-                    return new ByteStream(inputStream);
+                    return new ByteInputStream(inputStream);
                 case SHORT:
                 case INT:
                 case LONG:
                 case DATE:
                     return createLongStream(inputStream, encoding, type, true, usesVInt);
                 case FLOAT:
-                    return new FloatStream(inputStream);
+                    return new FloatInputStream(inputStream);
                 case DOUBLE:
-                    return new DoubleStream(inputStream);
+                    return new DoubleInputStream(inputStream);
                 case STRING:
+                case VARCHAR:
+                case CHAR:
                 case BINARY:
-                    return new ByteArrayStream(inputStream);
+                    return new ByteArrayInputStream(inputStream);
                 case TIMESTAMP:
                     return createLongStream(inputStream, encoding, type, true, usesVInt);
+                case DECIMAL:
+                    return new DecimalInputStream(inputStream);
             }
         }
 
@@ -83,6 +88,8 @@ public final class ValueStreams
         if (streamId.getStreamKind() == LENGTH) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
+                case CHAR:
                 case BINARY:
                 case MAP:
                 case LIST:
@@ -94,8 +101,10 @@ public final class ValueStreams
         if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY_LENGTH) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
+                case CHAR:
                 case BINARY:
-                    return new RowGroupDictionaryLengthStream(inputStream, false);
+                    return new RowGroupDictionaryLengthInputStream(inputStream, false);
             }
         }
 
@@ -103,19 +112,29 @@ public final class ValueStreams
         if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
+                case CHAR:
                 case BINARY:
-                    return new ByteArrayStream(inputStream);
+                    return new ByteArrayInputStream(inputStream);
             }
         }
 
         // row group dictionary
         if (streamId.getStreamKind() == IN_DICTIONARY) {
-            return new BooleanStream(inputStream);
+            return new BooleanInputStream(inputStream);
         }
 
         // length (nanos) of a timestamp column
         if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
             return createLongStream(inputStream, encoding, type, false, usesVInt);
+        }
+
+        // scale of a decimal column
+        if (type == DECIMAL && streamId.getStreamKind() == SECONDARY) {
+            // specification (https://orc.apache.org/docs/encodings.html) says scale stream is unsigned,
+            // however Hive writer stores scale as signed integer (org.apache.hadoop.hive.ql.io.orc.WriterImpl.DecimalTreeWriter)
+            // BUG link: https://issues.apache.org/jira/browse/HIVE-13229
+            return createLongStream(inputStream, encoding, type, true, usesVInt);
         }
 
         if (streamId.getStreamKind() == DICTIONARY_DATA) {
@@ -128,14 +147,14 @@ public final class ValueStreams
                 case VARCHAR:
                 case CHAR:
                 case BINARY:
-                    return new ByteArrayStream(inputStream);
+                    return new ByteArrayInputStream(inputStream);
             }
         }
 
         throw new IllegalArgumentException(format("Unsupported column type %s for stream %s with encoding %s", type, streamId, encoding));
     }
 
-    private static ValueStream<?> createLongStream(
+    private static ValueInputStream<?> createLongStream(
             OrcInputStream inputStream,
             ColumnEncodingKind encoding,
             OrcTypeKind type,
@@ -143,13 +162,13 @@ public final class ValueStreams
             boolean usesVInt)
     {
         if (encoding == DIRECT_V2 || encoding == DICTIONARY_V2) {
-            return new LongStreamV2(inputStream, signed, false);
+            return new LongInputStreamV2(inputStream, signed, false);
         }
         else if (encoding == DIRECT || encoding == DICTIONARY) {
-            return new LongStreamV1(inputStream, signed);
+            return new LongInputStreamV1(inputStream, signed);
         }
         else if (encoding == DWRF_DIRECT) {
-            return new LongStreamDwrf(inputStream, type, signed, usesVInt);
+            return new LongInputStreamDwrf(inputStream, type, signed, usesVInt);
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);

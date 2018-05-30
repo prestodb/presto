@@ -24,9 +24,10 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class UnnestNode
@@ -35,33 +36,38 @@ public class UnnestNode
     private final PlanNode source;
     private final List<Symbol> replicateSymbols;
     private final Map<Symbol, List<Symbol>> unnestSymbols;
+    private final Optional<Symbol> ordinalitySymbol;
 
     @JsonCreator
     public UnnestNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
-            @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols)
+            @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols,
+            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol)
     {
         super(id);
-        this.source = checkNotNull(source, "source is null");
-        this.replicateSymbols = ImmutableList.copyOf(checkNotNull(replicateSymbols, "replicateSymbols is null"));
-        checkNotNull(unnestSymbols, "unnestSymbols is null");
+        this.source = requireNonNull(source, "source is null");
+        this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
+        checkArgument(source.getOutputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
+        requireNonNull(unnestSymbols, "unnestSymbols is null");
         checkArgument(!unnestSymbols.isEmpty(), "unnestSymbols is empty");
         ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
             builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
         }
         this.unnestSymbols = builder.build();
+        this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
     }
 
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
+        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.<Symbol>builder()
                 .addAll(replicateSymbols)
-                .addAll(Iterables.concat(unnestSymbols.values()))
-                .build();
+                .addAll(Iterables.concat(unnestSymbols.values()));
+        ordinalitySymbol.ifPresent(outputSymbolsBuilder::add);
+        return outputSymbolsBuilder.build();
     }
 
     @JsonProperty
@@ -82,6 +88,12 @@ public class UnnestNode
         return unnestSymbols;
     }
 
+    @JsonProperty
+    public Optional<Symbol> getOrdinalitySymbol()
+    {
+        return ordinalitySymbol;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -89,8 +101,14 @@ public class UnnestNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitUnnest(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, unnestSymbols, ordinalitySymbol);
     }
 }

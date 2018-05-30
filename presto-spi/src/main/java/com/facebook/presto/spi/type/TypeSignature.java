@@ -17,81 +17,48 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 
 public class TypeSignature
 {
     private final String base;
-    private final List<TypeSignature> parameters;
-    private final List<Object> literalParameters;
+    private final List<TypeSignatureParameter> parameters;
+    private final boolean calculated;
 
-    public TypeSignature(String base, List<TypeSignature> parameters, List<Object> literalParameters)
+    private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
+            new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+
+    static {
+        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
+    }
+
+    public TypeSignature(String base, TypeSignatureParameter... parameters)
+    {
+        this(base, asList(parameters));
+    }
+
+    public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
         checkArgument(base != null, "base is null");
         this.base = base;
         checkArgument(!base.isEmpty(), "base is empty");
         checkArgument(validateName(base), "Bad characters in base type: %s", base);
         checkArgument(parameters != null, "parameters is null");
-        checkArgument(literalParameters != null, "literalParameters is null");
-        for (Object literal : literalParameters) {
-            checkArgument(literal instanceof String || literal instanceof Long, "Unsupported literal type: %s", literal.getClass());
-        }
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
-        this.literalParameters = unmodifiableList(new ArrayList<>(literalParameters));
-    }
 
-    private static boolean validateName(String name)
-    {
-        for (int i = 0; i < name.length(); i++) {
-            char c = name.charAt(i);
-            if (c == '<' || c == '>' || c == ',') {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    @JsonValue
-    public String toString()
-    {
-        StringBuilder typeName = new StringBuilder(base);
-        if (!parameters.isEmpty()) {
-            typeName.append("<");
-            boolean first = true;
-            for (TypeSignature parameter : parameters) {
-                if (!first) {
-                    typeName.append(",");
-                }
-                first = false;
-                typeName.append(parameter.toString());
-            }
-            typeName.append(">");
-        }
-        if (!literalParameters.isEmpty()) {
-            typeName.append("(");
-            boolean first = true;
-            for (Object parameter : literalParameters) {
-                if (!first) {
-                    typeName.append(",");
-                }
-                first = false;
-                if (parameter instanceof String) {
-                    typeName.append("'").append(parameter).append("'");
-                }
-                else {
-                    typeName.append(parameter.toString());
-                }
-            }
-            typeName.append(")");
-        }
-
-        return typeName.toString();
+        this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
     }
 
     public String getBase()
@@ -99,85 +66,85 @@ public class TypeSignature
         return base;
     }
 
-    public List<TypeSignature> getParameters()
+    public List<TypeSignatureParameter> getParameters()
     {
         return parameters;
     }
 
-    public List<Object> getLiteralParameters()
+    public List<TypeSignature> getTypeParametersAsTypeSignatures()
     {
-        return literalParameters;
+        List<TypeSignature> result = new ArrayList<>();
+        for (TypeSignatureParameter parameter : parameters) {
+            if (parameter.getKind() != ParameterKind.TYPE) {
+                throw new IllegalStateException(
+                        format("Expected all parameters to be TypeSignatures but [%s] was found", parameter.toString()));
+            }
+            result.add(parameter.getTypeSignature());
+        }
+        return result;
+    }
+
+    public boolean isCalculated()
+    {
+        return calculated;
     }
 
     @JsonCreator
     public static TypeSignature parseTypeSignature(String signature)
     {
+        return parseTypeSignature(signature, new HashSet<>());
+    }
+
+    public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
+    {
         if (!signature.contains("<") && !signature.contains("(")) {
-            return new TypeSignature(signature, new ArrayList<TypeSignature>(), new ArrayList<>());
+            if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
+                return VarcharType.createUnboundedVarcharType().getTypeSignature();
+            }
+            checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
+            return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
+        }
+        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
+            return parseRowTypeSignature(signature, literalCalculationParameters);
         }
 
         String baseName = null;
-        List<TypeSignature> parameters = new ArrayList<>();
-        List<Object> literalParameters = new ArrayList<>();
+        List<TypeSignatureParameter> parameters = new ArrayList<>();
         int parameterStart = -1;
         int bracketCount = 0;
-        boolean inLiteralParameters = false;
 
         for (int i = 0; i < signature.length(); i++) {
             char c = signature.charAt(i);
-            if (c == '<') {
+            // TODO: remove angle brackets support once ROW<TYPE>(name) will be dropped
+            // Angle brackets here are checked not for the support of ARRAY<> and MAP<>
+            // but to correctly parse ARRAY(row<BIGINT, BIGINT>('a','b'))
+            if (c == '(' || c == '<') {
                 if (bracketCount == 0) {
-                    checkState(baseName == null, "Expected baseName to be null");
-                    checkState(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    verify(baseName == null, "Expected baseName to be null");
+                    verify(parameterStart == -1, "Expected parameter start to be -1");
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
+                    checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
                 }
                 bracketCount++;
             }
-            else if (c == '>') {
+            else if (c == ')' || c == '>') {
                 bracketCount--;
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
                     parameterStart = i + 1;
                     if (i == signature.length() - 1) {
-                        return new TypeSignature(baseName, parameters, literalParameters);
+                        return new TypeSignature(baseName, parameters);
                     }
                 }
             }
             else if (c == ',') {
-                if (bracketCount == 1 && !inLiteralParameters) {
+                if (bracketCount == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
                     parameterStart = i + 1;
-                }
-                else if (bracketCount == 0 && inLiteralParameters) {
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    literalParameters.add(parseLiteral(signature.substring(parameterStart, i)));
-                    parameterStart = i + 1;
-                }
-            }
-            else if (c == '(') {
-                checkArgument(!inLiteralParameters, "Bad type signature: '%s'", signature);
-                inLiteralParameters = true;
-                if (bracketCount == 0) {
-                    if (baseName == null) {
-                        checkState(parameters.isEmpty(), "Expected no parameters");
-                        checkState(parameterStart == -1, "Expected parameter start to be -1");
-                        baseName = signature.substring(0, i);
-                    }
-                    parameterStart = i + 1;
-                }
-            }
-            else if (c == ')') {
-                checkArgument(inLiteralParameters, "Bad type signature: '%s'", signature);
-                inLiteralParameters = false;
-                if (bracketCount == 0) {
-                    checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    literalParameters.add(parseLiteral(signature.substring(parameterStart, i)));
-                    return new TypeSignature(baseName, parameters, literalParameters);
                 }
             }
         }
@@ -185,15 +152,161 @@ public class TypeSignature
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
     }
 
-    private static Object parseLiteral(String literal)
+    @Deprecated
+    private static TypeSignature parseRowTypeSignature(String signature, Set<String> literalParameters)
     {
-        if (literal.startsWith("'") || literal.endsWith("'")) {
-            checkArgument(literal.startsWith("'") && literal.endsWith("'"), "Bad literal: '%s'", literal);
-            return literal.substring(1, literal.length() - 1);
+        String baseName = null;
+        int parameterStart = -1;
+        int bracketCount = 0;
+        boolean inFieldName = false;
+
+        List<TypeSignatureParameter> fields = new ArrayList<>();
+        String fieldName = null;
+        for (int i = 0; i < signature.length(); i++) {
+            char c = signature.charAt(i);
+            if (c == '(') {
+                if (bracketCount == 0) {
+                    verify(baseName == null, "Expected baseName to be null");
+                    verify(parameterStart == -1, "Expected parameter start to be -1");
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
+                    parameterStart = i + 1;
+                    inFieldName = true;
+                }
+                bracketCount++;
+            }
+            else if (c == ' ') {
+                if (bracketCount == 1 && inFieldName) {
+                    checkArgument(parameterStart >= 0 && parameterStart < i, "Bad type signature: '%s'", signature);
+                    fieldName = signature.substring(parameterStart, i);
+                    parameterStart = i + 1;
+                    inFieldName = false;
+                }
+            }
+            else if (c == ',') {
+                if (bracketCount == 1) {
+                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
+
+                    TypeSignature type = parseTypeSignature(signature.substring(parameterStart, i), literalParameters);
+                    TypeSignatureParameter parameter = TypeSignatureParameter.of(new NamedTypeSignature(Optional.ofNullable(fieldName), type));
+                    fields.add(parameter);
+
+                    parameterStart = i + 1;
+                    inFieldName = true;
+                    fieldName = null;
+                }
+            }
+            else if (c == ')') {
+                bracketCount--;
+                if (bracketCount == 0) {
+                    checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
+                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
+
+                    TypeSignature type = parseTypeSignature(signature.substring(parameterStart, i), literalParameters);
+                    TypeSignatureParameter parameter = TypeSignatureParameter.of(new NamedTypeSignature(Optional.ofNullable(fieldName), type));
+                    fields.add(parameter);
+
+                    return new TypeSignature(baseName, fields);
+                }
+            }
+        }
+        throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+    }
+
+    private static TypeSignatureParameter parseTypeSignatureParameter(
+            String signature,
+            int begin,
+            int end,
+            Set<String> literalCalculationParameters)
+    {
+        String parameterName = signature.substring(begin, end).trim();
+        if (Character.isDigit(signature.charAt(begin))) {
+            return TypeSignatureParameter.of(Long.parseLong(parameterName));
+        }
+        else if (literalCalculationParameters.contains(parameterName)) {
+            return TypeSignatureParameter.of(parameterName);
         }
         else {
-            return Long.parseLong(literal);
+            return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
         }
+    }
+
+    @Override
+    @JsonValue
+    public String toString()
+    {
+        // TODO: remove these hacks
+        if (base.equalsIgnoreCase(StandardTypes.ROW)) {
+            return rowToString();
+        }
+        else if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
+                (parameters.size() == 1) &&
+                parameters.get(0).isLongLiteral() &&
+                parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
+            return base;
+        }
+        else {
+            StringBuilder typeName = new StringBuilder(base);
+            if (!parameters.isEmpty()) {
+                typeName.append("(");
+                boolean first = true;
+                for (TypeSignatureParameter parameter : parameters) {
+                    if (!first) {
+                        typeName.append(",");
+                    }
+                    first = false;
+                    typeName.append(parameter.toString());
+                }
+                typeName.append(")");
+            }
+            return typeName.toString();
+        }
+    }
+
+    @Deprecated
+    private String rowToString()
+    {
+        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
+                format("Incorrect parameters for row type %s", parameters));
+
+        String fields = parameters.stream()
+                .map(TypeSignatureParameter::getNamedTypeSignature)
+                .map(parameter -> {
+                    if (parameter.getName().isPresent()) {
+                        return format("%s %s", parameter.getName().get(), parameter.getTypeSignature().toString());
+                    }
+                    return parameter.getTypeSignature().toString();
+                })
+                .collect(Collectors.joining(","));
+
+        return format("row(%s)", fields);
+    }
+
+    private static void checkArgument(boolean argument, String format, Object... args)
+    {
+        if (!argument) {
+            throw new IllegalArgumentException(format(format, args));
+        }
+    }
+
+    private static void verify(boolean argument, String message)
+    {
+        if (!argument) {
+            throw new AssertionError(message);
+        }
+    }
+
+    private static boolean validateName(String name)
+    {
+        return name.chars().noneMatch(c -> c == '<' || c == '>' || c == ',');
+    }
+
+    private static String canonicalizeBaseName(String baseName)
+    {
+        String canonicalBaseName = BASE_NAME_ALIAS_TO_CANONICAL.get(baseName);
+        if (canonicalBaseName == null) {
+            return baseName;
+        }
+        return canonicalBaseName;
     }
 
     @Override
@@ -216,19 +329,5 @@ public class TypeSignature
     public int hashCode()
     {
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
-    }
-
-    private static void checkArgument(boolean argument, String format, Object...args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
-    }
-
-    private static void checkState(boolean argument, String format, Object...args)
-    {
-        if (!argument) {
-            throw new IllegalStateException(format(format, args));
-        }
     }
 }

@@ -15,14 +15,18 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
 
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
@@ -30,31 +34,34 @@ import static com.google.common.base.Preconditions.checkState;
 @AggregationFunction("approx_percentile")
 public final class ApproximateDoublePercentileAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, DOUBLE));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE));
-
     private ApproximateDoublePercentileAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void input(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         ApproximateLongPercentileAggregations.input(state, doubleToSortableLong(value), percentile);
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile);
     }
 
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
+    }
+
     @CombineFunction
-    public static void combine(DigestAndPercentileState state, DigestAndPercentileState otherState)
+    public static void combine(@AggregationState DigestAndPercentileState state, DigestAndPercentileState otherState)
     {
         ApproximateLongPercentileAggregations.combine(state, otherState);
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(DigestAndPercentileState state, BlockBuilder out)
+    public static void output(@AggregationState DigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
         double percentile = state.getPercentile();
@@ -64,27 +71,7 @@ public final class ApproximateDoublePercentileAggregations
         else {
             checkState(percentile != -1.0, "Percentile is missing");
             checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
-            DOUBLE.writeDouble(out, longToDouble(digest.getQuantile(percentile)));
+            DOUBLE.writeDouble(out, sortableLongToDouble(digest.getQuantile(percentile)));
         }
-    }
-
-    private static double longToDouble(long value)
-    {
-        if (value < 0) {
-            value ^= 0x7fffffffffffffffL;
-        }
-
-        return Double.longBitsToDouble(value);
-    }
-
-    private static long doubleToSortableLong(double value)
-    {
-        long result = Double.doubleToRawLongBits(value);
-
-        if (result < 0) {
-            result ^= 0x7fffffffffffffffL;
-        }
-
-        return result;
     }
 }

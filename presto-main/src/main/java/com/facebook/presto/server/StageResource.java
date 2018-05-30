@@ -21,7 +21,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Path("/v1/stage")
 public class StageResource
@@ -31,14 +31,14 @@ public class StageResource
     @Inject
     public StageResource(QueryManager queryManager)
     {
-        this.queryManager = checkNotNull(queryManager, "queryManager is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
     }
 
     @DELETE
     @Path("{stageId}")
     public void cancelStage(@PathParam("stageId") StageId stageId)
     {
-        checkNotNull(stageId, "stageId is null");
+        requireNonNull(stageId, "stageId is null");
         queryManager.cancelStage(stageId);
     }
 }

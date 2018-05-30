@@ -18,6 +18,7 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
@@ -30,7 +31,11 @@ public class ExchangeClientConfig
     private DataSize maxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private int concurrentRequestMultiplier = 3;
     private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
+    private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
+    private int clientThreads = 25;
+    private int pageBufferClientMaxCallbackThreads = 25;
+    private boolean acknowledgePages = true;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -58,21 +63,35 @@ public class ExchangeClientConfig
         return this;
     }
 
-    @NotNull
-    @MinDuration("1ms")
+    @Deprecated
     public Duration getMinErrorDuration()
     {
-        return minErrorDuration;
+        return maxErrorDuration;
     }
 
+    @Deprecated
     @Config("exchange.min-error-duration")
     public ExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
     {
-        this.minErrorDuration = minErrorDuration;
         return this;
     }
 
     @NotNull
+    @MinDuration("1ms")
+    public Duration getMaxErrorDuration()
+    {
+        return maxErrorDuration;
+    }
+
+    @Config("exchange.max-error-duration")
+    public ExchangeClientConfig setMaxErrorDuration(Duration maxErrorDuration)
+    {
+        this.maxErrorDuration = maxErrorDuration;
+        return this;
+    }
+
+    @NotNull
+    @MinDataSize("1MB")
     public DataSize getMaxResponseSize()
     {
         return maxResponseSize;
@@ -82,6 +101,44 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setMaxResponseSize(DataSize maxResponseSize)
     {
         this.maxResponseSize = maxResponseSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getClientThreads()
+    {
+        return clientThreads;
+    }
+
+    @Config("exchange.client-threads")
+    public ExchangeClientConfig setClientThreads(int clientThreads)
+    {
+        this.clientThreads = clientThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getPageBufferClientMaxCallbackThreads()
+    {
+        return pageBufferClientMaxCallbackThreads;
+    }
+
+    @Config("exchange.page-buffer-client.max-callback-threads")
+    public ExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
+    {
+        this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
+        return this;
+    }
+
+    public boolean isAcknowledgePages()
+    {
+        return acknowledgePages;
+    }
+
+    @Config("exchange.acknowledge-pages")
+    public ExchangeClientConfig setAcknowledgePages(boolean acknowledgePages)
+    {
+        this.acknowledgePages = acknowledgePages;
         return this;
     }
 }

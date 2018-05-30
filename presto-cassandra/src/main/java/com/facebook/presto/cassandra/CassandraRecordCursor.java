@@ -16,12 +16,14 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 
 public class CassandraRecordCursor
         implements RecordCursor
@@ -29,19 +31,13 @@ public class CassandraRecordCursor
     private final List<FullCassandraType> fullCassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
-    private long atLeastCount;
     private long count;
 
-    public CassandraRecordCursor(
-            CassandraSession cassandraSession,
-            String schema,
-            List<FullCassandraType> fullCassandraTypes,
-            String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
     {
         this.fullCassandraTypes = fullCassandraTypes;
-        rs = cassandraSession.executeQuery(schema, cql);
+        rs = cassandraSession.execute(cql);
         currentRow = null;
-        atLeastCount = rs.getAvailableWithoutFetching();
     }
 
     @Override
@@ -50,7 +46,6 @@ public class CassandraRecordCursor
         if (!rs.isExhausted()) {
             currentRow = rs.one();
             count++;
-            atLeastCount = count + rs.getAvailableWithoutFetching();
             return true;
         }
         return false;
@@ -104,7 +99,9 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return currentRow.getDate(i).getTime();
+                return currentRow.getTimestamp(i).getTime();
+            case FLOAT:
+                return floatToRawIntBits(currentRow.getFloat(i));
             default:
                 throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
         }
@@ -118,13 +115,17 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        return utf8Slice(CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i)).toString());
+        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        if (value.getValue() instanceof Slice) {
+            return (Slice) value.getValue();
+        }
+        return utf8Slice(value.getValue().toString());
     }
 
     @Override
-    public long getTotalBytes()
+    public Object getObject(int field)
     {
-        return atLeastCount;
+        throw new UnsupportedOperationException();
     }
 
     @Override

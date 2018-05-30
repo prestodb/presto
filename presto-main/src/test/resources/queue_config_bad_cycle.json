@@ -1,0 +1,47 @@
+{
+  "queues": {
+    "q0": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q1": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q2": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q3": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q4": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q5": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    }
+  },
+  "rules": [
+    {
+      "user": "bob",
+      "queues": [
+        "q0",
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ]
+    },
+    {
+      "queues": [
+        "q4",
+        "q5",
+        "q2"
+      ]
+    }
+  ]
+}

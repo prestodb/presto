@@ -14,7 +14,8 @@
 package com.facebook.presto.kafka.util;
 
 import com.google.common.io.Files;
-import org.apache.zookeeper.server.NIOServerCnxn;
+import org.apache.zookeeper.server.NIOServerCnxnFactory;
+import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 
@@ -24,7 +25,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 public class EmbeddedZookeeper
         implements Closeable
@@ -32,7 +34,7 @@ public class EmbeddedZookeeper
     private final int port;
     private final File zkDataDir;
     private final ZooKeeperServer zkServer;
-    private final NIOServerCnxn.Factory cnxnFactory;
+    private final ServerCnxnFactory cnxnFactory;
 
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
@@ -53,7 +55,7 @@ public class EmbeddedZookeeper
         FileTxnSnapLog ftxn = new FileTxnSnapLog(zkDataDir, zkDataDir);
         zkServer.setTxnLogFactory(ftxn);
 
-        cnxnFactory = new NIOServerCnxn.Factory(new InetSocketAddress(this.port), 0);
+        cnxnFactory = NIOServerCnxnFactory.createFactory(new InetSocketAddress(port), 0);
     }
 
     public void start()
@@ -66,6 +68,7 @@ public class EmbeddedZookeeper
 
     @Override
     public void close()
+            throws IOException
     {
         if (started.get() && !stopped.getAndSet(true)) {
             cnxnFactory.shutdown();
@@ -80,7 +83,7 @@ public class EmbeddedZookeeper
                 zkServer.shutdown();
             }
 
-            deleteRecursively(zkDataDir);
+            deleteRecursively(zkDataDir.toPath(), ALLOW_INSECURE);
         }
     }
 

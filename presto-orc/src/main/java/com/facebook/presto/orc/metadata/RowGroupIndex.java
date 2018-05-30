@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RowGroupIndex
 {
@@ -26,8 +27,8 @@ public class RowGroupIndex
 
     public RowGroupIndex(List<Integer> positions, ColumnStatistics statistics)
     {
-        this.positions = ImmutableList.copyOf(checkNotNull(positions, "positions is null"));
-        this.statistics = checkNotNull(statistics, "statistics is null");
+        this.positions = ImmutableList.copyOf(requireNonNull(positions, "positions is null"));
+        this.statistics = requireNonNull(statistics, "statistics is null");
     }
 
     public List<Integer> getPositions()

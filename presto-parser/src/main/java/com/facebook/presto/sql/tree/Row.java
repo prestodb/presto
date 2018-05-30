@@ -13,22 +13,33 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Row
-        extends Node
+        extends Expression
 {
     private final List<Expression> items;
 
     public Row(List<Expression> items)
     {
-        checkNotNull(items, "items is null");
+        this(Optional.empty(), items);
+    }
+
+    public Row(NodeLocation location, List<Expression> items)
+    {
+        this(Optional.of(location), items);
+    }
+
+    private Row(Optional<NodeLocation> location, List<Expression> items)
+    {
+        super(location);
+        requireNonNull(items, "items is null");
         this.items = ImmutableList.copyOf(items);
     }
 
@@ -44,15 +55,15 @@ public final class Row
     }
 
     @Override
-    public String toString()
+    public List<? extends Node> getChildren()
     {
-        return "(" + Joiner.on(", ").join(items) + ")";
+        return items;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(items);
+        return Objects.hash(items);
     }
 
     @Override
@@ -65,6 +76,6 @@ public final class Row
             return false;
         }
         Row other = (Row) obj;
-        return Objects.equal(this.items, other.items);
+        return Objects.equals(this.items, other.items);
     }
 }

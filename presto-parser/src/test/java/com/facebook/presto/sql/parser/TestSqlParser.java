@@ -13,52 +13,152 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.Approximate;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.AtTimeZone;
+import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BinaryLiteral;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CharLiteral;
+import com.facebook.presto.sql.tree.CoalesceExpression;
+import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.CreateSchema;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.Deallocate;
+import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropSchema;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.tree.ExistsPredicate;
+import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GroupBy;
+import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.GroupingSets;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
+import com.facebook.presto.sql.tree.Isolation;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.Lateral;
+import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowGrants;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
+import com.facebook.presto.sql.tree.ShowTables;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.sql.QueryUtil.identifier;
+import static com.facebook.presto.sql.QueryUtil.query;
+import static com.facebook.presto.sql.QueryUtil.quotedIdentifier;
+import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
+import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
+import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
+import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestSqlParser
@@ -66,15 +166,58 @@ public class TestSqlParser
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
+    public void testPosition()
+    {
+        assertExpression("position('a' in 'b')",
+                new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
+                        new StringLiteral("b"),
+                        new StringLiteral("a"))));
+
+        assertExpression("position('a' in ('b'))",
+                new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
+                        new StringLiteral("b"),
+                        new StringLiteral("a"))));
+    }
+
+    @Test
     public void testPossibleExponentialBacktracking()
-            throws Exception
     {
         SQL_PARSER.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
     }
 
+    @Test(timeOut = 2_000)
+    public void testPotentialUnboundedLookahead()
+    {
+        SQL_PARSER.createExpression("(\n" +
+                "      1 * -1 +\n" +
+                "      1 * -2 +\n" +
+                "      1 * -3 +\n" +
+                "      1 * -4 +\n" +
+                "      1 * -5 +\n" +
+                "      1 * -6 +\n" +
+                "      1 * -7 +\n" +
+                "      1 * -8 +\n" +
+                "      1 * -9 +\n" +
+                "      1 * -10 +\n" +
+                "      1 * -11 +\n" +
+                "      1 * -12 \n" +
+                ")\n");
+    }
+
+    @Test
+    public void testQualifiedName()
+    {
+        assertEquals(QualifiedName.of("a", "b", "c", "d").toString(), "a.b.c.d");
+        assertEquals(QualifiedName.of("A", "b", "C", "d").toString(), "a.b.c.d");
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d")));
+        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d")));
+        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d")));
+        assertEquals(QualifiedName.of("a", "b", "c", "d"), QualifiedName.of("a", "b", "c", "d"));
+    }
+
     @Test
     public void testGenericLiteral()
-            throws Exception
     {
         assertGenericLiteral("VARCHAR");
         assertGenericLiteral("BIGINT");
@@ -84,6 +227,21 @@ public class TestSqlParser
         assertGenericLiteral("foo");
     }
 
+    @Test
+    public void testBinaryLiteral()
+    {
+        assertExpression("x' '", new BinaryLiteral(""));
+        assertExpression("x''", new BinaryLiteral(""));
+        assertExpression("X'abcdef1234567890ABCDEF'", new BinaryLiteral("abcdef1234567890ABCDEF"));
+
+        // forms such as "X 'a b' " may look like BinaryLiteral
+        // but they do not pass the syntax rule for BinaryLiteral
+        // but instead conform to TypeConstructor, which generates a GenericLiteral expression
+        assertInvalidExpression("X 'a b'", "Spaces are not allowed.*");
+        assertInvalidExpression("X'a b c'", "Binary literal must contain an even number of digits.*");
+        assertInvalidExpression("X'a z'", "Binary literal can only contain hexadecimal digits.*");
+    }
+
     public static void assertGenericLiteral(String type)
     {
         assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
@@ -91,33 +249,30 @@ public class TestSqlParser
 
     @Test
     public void testLiterals()
-            throws Exception
     {
         assertExpression("TIME" + " 'abc'", new TimeLiteral("abc"));
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
-        assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, null));
-        assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, IntervalField.SECOND));
+        assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
+        assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+        assertExpression("CHAR 'abc'", new CharLiteral("abc"));
     }
 
     @Test
     public void testArrayConstructor()
-            throws Exception
     {
-        assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.<Expression>of()));
-        assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))));
-        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.<Expression>of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
-        assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.<Expression>of(new StringLiteral("hi"))));
-        assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.<Expression>of(new StringLiteral("hi"), new StringLiteral("hello"))));
+        assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.of()));
+        assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
+        assertExpression("ARRAY [1e0, 2.5e0]", new ArrayConstructor(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
+        assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"))));
+        assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
     }
 
     @Test
     public void testArraySubscript()
-            throws Exception
     {
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
-                        new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))),
-                        new LongLiteral("1"))
-                );
+                new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
+                new LongLiteral("1")));
         try {
             assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", null);
             fail();
@@ -129,13 +284,7 @@ public class TestSqlParser
 
     @Test
     public void testDouble()
-            throws Exception
     {
-        assertExpression("123.", new DoubleLiteral("123"));
-        assertExpression("123.0", new DoubleLiteral("123"));
-        assertExpression(".5", new DoubleLiteral(".5"));
-        assertExpression("123.5", new DoubleLiteral("123.5"));
-
         assertExpression("123E7", new DoubleLiteral("123E7"));
         assertExpression("123.E7", new DoubleLiteral("123E7"));
         assertExpression("123.0E7", new DoubleLiteral("123E7"));
@@ -153,11 +302,16 @@ public class TestSqlParser
 
     @Test
     public void testCast()
-        throws Exception
     {
+        assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
         assertCast("varchar");
         assertCast("bigint");
+        assertCast("BIGINT");
         assertCast("double");
+        assertCast("DOUBLE");
+        assertCast("DOUBLE PRECISION", "DOUBLE");
+        assertCast("DOUBLE   PRECISION", "DOUBLE");
+        assertCast("double precision", "DOUBLE");
         assertCast("boolean");
         assertCast("date");
         assertCast("time");
@@ -165,76 +319,104 @@ public class TestSqlParser
         assertCast("time with time zone");
         assertCast("timestamp with time zone");
         assertCast("foo");
-    }
+        assertCast("FOO");
 
-    public static void assertCast(String type)
-    {
-        assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), type));
+        assertCast("ARRAY<bigint>", "ARRAY(bigint)");
+        assertCast("ARRAY<BIGINT>", "ARRAY(BIGINT)");
+        assertCast("array<bigint>", "array(bigint)");
+        assertCast("array < bigint  >", "ARRAY(bigint)");
+
+        assertCast("ARRAY(bigint)");
+        assertCast("ARRAY(BIGINT)");
+        assertCast("array(bigint)");
+        assertCast("array ( bigint  )", "ARRAY(bigint)");
+
+        assertCast("array<array<bigint>>", "array(array(bigint))");
+        assertCast("array(array(bigint))");
+
+        assertCast("foo ARRAY", "ARRAY(foo)");
+        assertCast("boolean array  array ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
+        assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
+        assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
+
+        assertCast("map(BIGINT,array(VARCHAR))");
+        assertCast("map<BIGINT,array<VARCHAR>>", "map(BIGINT,array(VARCHAR))");
+
+        assertCast("varchar(42)");
+        assertCast("foo(42,55)");
+        assertCast("foo(BIGINT,array(VARCHAR))");
+        assertCast("ARRAY<varchar(42)>", "ARRAY(varchar(42))");
+        assertCast("ARRAY<foo(42,55)>", "ARRAY(foo(42,55))");
+        assertCast("varchar(42) ARRAY", "ARRAY(varchar(42))");
+        assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
+
+        assertCast("ROW(m DOUBLE)", "ROW(m DOUBLE)");
+        assertCast("ROW(m DOUBLE)");
+        assertCast("ROW(x BIGINT,y DOUBLE)");
+        assertCast("ROW(x BIGINT, y DOUBLE)", "ROW(x bigint,y double)");
+        assertCast("ROW(x BIGINT, y DOUBLE, z ROW(m array<bigint>,n map<double,timestamp>))", "ROW(x BIGINT,y DOUBLE,z ROW(m array(bigint),n map(double,timestamp)))");
+        assertCast("array<ROW(x BIGINT, y TIMESTAMP)>", "ARRAY(ROW(x BIGINT,y TIMESTAMP))");
+
+        assertCast("interval year to month", "INTERVAL YEAR TO MONTH");
     }
 
     @Test
-    public void testPositiveSign()
-            throws Exception
+    public void testArithmeticUnary()
     {
         assertExpression("9", new LongLiteral("9"));
 
-        assertExpression("+9", new LongLiteral("9"));
-        assertExpression("++9", new LongLiteral("9"));
-        assertExpression("+++9", new LongLiteral("9"));
+        assertExpression("+9", positive(new LongLiteral("9")));
+        assertExpression("+ 9", positive(new LongLiteral("9")));
 
-        assertExpression("+9", new LongLiteral("9"));
-        assertExpression("+ +9", new LongLiteral("9"));
-        assertExpression("+ + +9", new LongLiteral("9"));
+        assertExpression("++9", positive(positive(new LongLiteral("9"))));
+        assertExpression("+ +9", positive(positive(new LongLiteral("9"))));
+        assertExpression("+ + 9", positive(positive(new LongLiteral("9"))));
 
-        assertExpression("+ 9", new LongLiteral("9"));
-        assertExpression("+ + 9", new LongLiteral("9"));
-        assertExpression("+ + + 9", new LongLiteral("9"));
+        assertExpression("+++9", positive(positive(positive(new LongLiteral("9")))));
+        assertExpression("+ + +9", positive(positive(positive(new LongLiteral("9")))));
+        assertExpression("+ + + 9", positive(positive(positive(new LongLiteral("9")))));
+
+        assertExpression("-9", negative(new LongLiteral("9")));
+        assertExpression("- 9", negative(new LongLiteral("9")));
+
+        assertExpression("- + 9", negative(positive(new LongLiteral("9"))));
+        assertExpression("-+9", negative(positive(new LongLiteral("9"))));
+
+        assertExpression("+ - + 9", positive(negative(positive(new LongLiteral("9")))));
+        assertExpression("+-+9", positive(negative(positive(new LongLiteral("9")))));
+
+        assertExpression("- -9", negative(negative(new LongLiteral("9"))));
+        assertExpression("- - 9", negative(negative(new LongLiteral("9"))));
+
+        assertExpression("- + - + 9", negative(positive(negative(positive(new LongLiteral("9"))))));
+        assertExpression("-+-+9", negative(positive(negative(positive(new LongLiteral("9"))))));
+
+        assertExpression("+ - + - + 9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
+        assertExpression("+-+-+9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
+
+        assertExpression("- - -9", negative(negative(negative(new LongLiteral("9")))));
+        assertExpression("- - - 9", negative(negative(negative(new LongLiteral("9")))));
     }
 
     @Test
-    public void testNegativeSign()
+    public void testCoalesce()
     {
-        Expression expression = new LongLiteral("9");
-        assertExpression("9", expression);
-
-        expression = new NegativeExpression(expression);
-        assertExpression("-9", expression);
-        assertExpression("- 9", expression);
-        assertExpression("- + 9", expression);
-        assertExpression("+ - + 9", expression);
-        assertExpression("-+9", expression);
-        assertExpression("+-+9", expression);
-
-        expression = new NegativeExpression(expression);
-        assertExpression("- -9", expression);
-        assertExpression("- - 9", expression);
-        assertExpression("- + - + 9", expression);
-        assertExpression("+ - + - + 9", expression);
-        assertExpression("-+-+9", expression);
-        assertExpression("+-+-+9", expression);
-
-        expression = new NegativeExpression(expression);
-        assertExpression("- - -9", expression);
-        assertExpression("- - - 9", expression);
+        assertInvalidExpression("coalesce()", "The 'coalesce' function must have at least two arguments");
+        assertInvalidExpression("coalesce(5)", "The 'coalesce' function must have at least two arguments");
+        assertExpression("coalesce(13, 42)", new CoalesceExpression(new LongLiteral("13"), new LongLiteral("42")));
+        assertExpression("coalesce(6, 7, 8)", new CoalesceExpression(new LongLiteral("6"), new LongLiteral("7"), new LongLiteral("8")));
+        assertExpression("coalesce(13, null)", new CoalesceExpression(new LongLiteral("13"), new NullLiteral()));
+        assertExpression("coalesce(null, 13)", new CoalesceExpression(new NullLiteral(), new LongLiteral("13")));
+        assertExpression("coalesce(null, null)", new CoalesceExpression(new NullLiteral(), new NullLiteral()));
     }
 
     @Test
     public void testDoubleInQuery()
     {
         assertStatement("SELECT 123.456E7 FROM DUAL",
-                new Query(
-                        Optional.<With>absent(),
-                        new QuerySpecification(
-                                selectList(new DoubleLiteral("123.456E7")),
-                                table(QualifiedName.of("DUAL")),
-                                Optional.<Expression>absent(),
-                                ImmutableList.<Expression>of(),
-                                Optional.<Expression>absent(),
-                                ImmutableList.<SortItem>of(),
-                                Optional.<String>absent()),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                simpleQuery(
+                        selectList(new DoubleLiteral("123.456E7")),
+                        table(QualifiedName.of("DUAL"))));
     }
 
     @Test
@@ -242,14 +424,13 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123 INTERSECT DISTINCT SELECT 123 INTERSECT ALL SELECT 123",
                 new Query(
-                        Optional.<With>absent(),
-                        new Intersect(ImmutableList.<Relation>of(
-                                new Intersect(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
+                        Optional.empty(),
+                        new Intersect(ImmutableList.of(
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test
@@ -257,83 +438,110 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123",
                 new Query(
-                        Optional.<With>absent(),
-                        new Union(ImmutableList.<Relation>of(
-                                new Union(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
+                        Optional.empty(),
+                        new Union(ImmutableList.of(
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     private static QuerySpecification createSelect123()
     {
         return new QuerySpecification(
-                new Select(false, ImmutableList.<SelectItem>of(new SingleColumn(new LongLiteral("123")))),
-                Optional.<Relation>absent(),
-                Optional.<Expression>absent(),
-                ImmutableList.<Expression>of(),
-                Optional.<Expression>absent(),
-                ImmutableList.<SortItem>of(),
-                Optional.<String>absent()
-        );
+                selectList(new LongLiteral("123")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    @Test
+    public void testBetween()
+    {
+        assertExpression("1 BETWEEN 2 AND 3", new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")));
+        assertExpression("1 NOT BETWEEN 2 AND 3", new NotExpression(new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3"))));
+    }
+
+    @Test
+    public void testLimitAll()
+    {
+        Query valuesQuery = query(values(
+                row(new LongLiteral("1"), new StringLiteral("1")),
+                row(new LongLiteral("2"), new StringLiteral("2"))));
+
+        assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) LIMIT ALL",
+                simpleQuery(selectList(new AllColumns()),
+                        subquery(valuesQuery),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of("ALL")));
     }
 
     @Test
     public void testValues()
     {
-        assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)",
-                new Query(
-                        Optional.<With>absent(),
-                        new Values(ImmutableList.of(
-                                new Row(ImmutableList.<Expression>of(
-                                        new StringLiteral("a"),
-                                        new LongLiteral("1"),
-                                        new DoubleLiteral("2.2")
-                                )),
-                                new Row(ImmutableList.<Expression>of(
-                                        new StringLiteral("b"),
-                                        new LongLiteral("2"),
-                                        new DoubleLiteral("3.3")
-                                ))
-                        )),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+        Query valuesQuery = query(values(
+                row(new StringLiteral("a"), new LongLiteral("1"), new DoubleLiteral("2.2")),
+                row(new StringLiteral("b"), new LongLiteral("2"), new DoubleLiteral("3.3"))));
 
-        assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2), ('b', 2, 3.3))",
-                new Query(
-                        Optional.<With>absent(),
-                        new QuerySpecification(
-                                selectList(new AllColumns()),
-                                Optional.<Relation>of(new TableSubquery(
-                                        new Query(
-                                                Optional.<With>absent(),
-                                                new Values(ImmutableList.of(
-                                                        new Row(ImmutableList.<Expression>of(
-                                                                new StringLiteral("a"),
-                                                                new LongLiteral("1"),
-                                                                new DoubleLiteral("2.2")
-                                                        )),
-                                                        new Row(ImmutableList.<Expression>of(
-                                                                new StringLiteral("b"),
-                                                                new LongLiteral("2"),
-                                                                new DoubleLiteral("3.3")
-                                                        ))
-                                                )),
-                                                ImmutableList.<SortItem>of(),
-                                                Optional.<String>absent(),
-                                                Optional.<Approximate>absent()))
-                                ),
-                                Optional.<Expression>absent(),
-                                ImmutableList.<Expression>of(),
-                                Optional.<Expression>absent(),
-                                ImmutableList.<SortItem>of(),
-                                Optional.<String>absent()),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+        assertStatement("VALUES ('a', 1, 2.2e0), ('b', 2, 3.3e0)", valuesQuery);
+
+        assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2e0), ('b', 2, 3.3e0))",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        subquery(valuesQuery)));
+    }
+
+    @Test
+    public void testPrecedenceAndAssociativity()
+    {
+        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                        new LongLiteral("1"),
+                        new LongLiteral("2")),
+                new LongLiteral("3")));
+
+        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                new LongLiteral("1"),
+                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                        new LongLiteral("2"),
+                        new LongLiteral("3"))));
+
+        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                new NotExpression(new LongLiteral("1")),
+                new LongLiteral("2")));
+
+        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                new NotExpression(new LongLiteral("1")),
+                new LongLiteral("2")));
+
+        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
+                negative(new LongLiteral("1")),
+                new LongLiteral("2")));
+
+        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
+                        new LongLiteral("1"),
+                        new LongLiteral("2")),
+                new LongLiteral("3")));
+
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
+                        new LongLiteral("1"),
+                        new LongLiteral("2")),
+                new LongLiteral("3")));
+
+        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
+                new LongLiteral("1"),
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
+                        new LongLiteral("2"),
+                        new LongLiteral("3"))));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
@@ -348,37 +556,37 @@ public class TestSqlParser
         SQL_PARSER.createStatement("");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:7: mismatched input 'x' expecting EOF")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:7: extraneous input 'x' expecting\\E.*")
     public void testExpressionWithTrailingJunk()
     {
         SQL_PARSER.createExpression("1 + 1 x");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at character '@'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:1: extraneous input '@'\\E.*")
     public void testTokenizeErrorStartOfLine()
     {
         SQL_PARSER.createStatement("@select");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:25: no viable alternative at character '@'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:25: extraneous input '@'\\E.*")
     public void testTokenizeErrorMiddleOfLine()
     {
         SQL_PARSER.createStatement("select * from foo where @what");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:20: mismatched character '<EOF>' expecting '''")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:15: extraneous input\\E.*")
     public void testTokenizeErrorIncompleteToken()
     {
         SQL_PARSER.createStatement("select * from 'oops");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 3:1: mismatched input 'from' expecting EOF")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 3:1: extraneous input 'from' expecting\\E.*")
     public void testParseErrorStartOfLine()
     {
         SQL_PARSER.createStatement("select *\nfrom x\nfrom");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 3:7: no viable alternative at input 'from'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 3:7: mismatched input 'from'\\E.*")
     public void testParseErrorMiddleOfLine()
     {
         SQL_PARSER.createStatement("select *\nfrom x\nwhere from");
@@ -426,13 +634,13 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select * from foo:bar");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:35: no viable alternative at input 'order'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:35: mismatched input 'order' expecting .*")
     public void testParseErrorDualOrderBy()
     {
         SQL_PARSER.createStatement("select fuu from dual order by fuu order by fuu");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:31: mismatched input 'order' expecting EOF")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:31: mismatched input 'order' expecting <EOF>")
     public void testParseErrorReverseOrderByLimit()
     {
         SQL_PARSER.createStatement("select fuu from dual limit 10 order by fuu");
@@ -458,8 +666,8 @@ public class TestSqlParser
             fail("expected exception");
         }
         catch (ParsingException e) {
-            assertEquals(e.getMessage(), "line 3:7: no viable alternative at input 'from'");
-            assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
+            assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
+            assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
             assertEquals(e.getLineNumber(), 3);
             assertEquals(e.getColumnNumber(), 7);
         }
@@ -472,19 +680,19 @@ public class TestSqlParser
         sqlParser.createStatement("select * from foo:bar");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:11: mismatched input '(' expecting EOF\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: no viable alternative at input\\E.*")
     public void testInvalidArguments()
     {
         SQL_PARSER.createStatement("select foo(,1)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input ')'\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: mismatched input\\E.*")
     public void testInvalidArguments2()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: no viable alternative at input ','\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: extraneous input\\E.*")
     public void testInvalidArguments3()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT ,1)");
@@ -500,29 +708,46 @@ public class TestSqlParser
 
     @Test
     public void testInterval()
-            throws Exception
     {
         assertExpression("INTERVAL '123' YEAR", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.YEAR));
-        assertExpression("INTERVAL '123-3' YEAR TO MONTH", new IntervalLiteral("123-3", Sign.POSITIVE, IntervalField.YEAR, IntervalField.MONTH));
+        assertExpression("INTERVAL '123-3' YEAR TO MONTH", new IntervalLiteral("123-3", Sign.POSITIVE, IntervalField.YEAR, Optional.of(IntervalField.MONTH)));
         assertExpression("INTERVAL '123' MONTH", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.MONTH));
         assertExpression("INTERVAL '123' DAY", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.DAY));
-        assertExpression("INTERVAL '123 23:58:53.456' DAY TO SECOND", new IntervalLiteral("123 23:58:53.456", Sign.POSITIVE, IntervalField.DAY, IntervalField.SECOND));
+        assertExpression("INTERVAL '123 23:58:53.456' DAY TO SECOND", new IntervalLiteral("123 23:58:53.456", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
         assertExpression("INTERVAL '123' HOUR", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.HOUR));
-        assertExpression("INTERVAL '23:59' HOUR TO MINUTE", new IntervalLiteral("23:59", Sign.POSITIVE, IntervalField.HOUR, IntervalField.MINUTE));
+        assertExpression("INTERVAL '23:59' HOUR TO MINUTE", new IntervalLiteral("23:59", Sign.POSITIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)));
         assertExpression("INTERVAL '123' MINUTE", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.MINUTE));
         assertExpression("INTERVAL '123' SECOND", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.SECOND));
     }
 
     @Test
+    public void testDecimal()
+    {
+        assertExpression("DECIMAL '12.34'", new DecimalLiteral("12.34"));
+        assertExpression("DECIMAL '12.'", new DecimalLiteral("12."));
+        assertExpression("DECIMAL '12'", new DecimalLiteral("12"));
+        assertExpression("DECIMAL '.34'", new DecimalLiteral(".34"));
+        assertExpression("DECIMAL '+12.34'", new DecimalLiteral("+12.34"));
+        assertExpression("DECIMAL '+12'", new DecimalLiteral("+12"));
+        assertExpression("DECIMAL '-12.34'", new DecimalLiteral("-12.34"));
+        assertExpression("DECIMAL '-12'", new DecimalLiteral("-12"));
+        assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
+        assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
+
+        assertInvalidExpression("123.", "Unexpected decimal literal: 123.");
+        assertInvalidExpression("123.0", "Unexpected decimal literal: 123.0");
+        assertInvalidExpression(".5", "Unexpected decimal literal: .5");
+        assertInvalidExpression("123.5", "Unexpected decimal literal: 123.5");
+    }
+
+    @Test
     public void testTime()
-            throws Exception
     {
         assertExpression("TIME '03:04:05'", new TimeLiteral("03:04:05"));
     }
 
     @Test
     public void testCurrentTimestamp()
-            throws Exception
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
     }
@@ -530,18 +755,1406 @@ public class TestSqlParser
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")
     public void testStackOverflowExpression()
     {
-        SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(2000, "x = y")));
+        for (int size = 3000; size <= 100_000; size *= 2) {
+            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")));
+        }
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: statement is too large \\(stack overflow while parsing\\)")
     public void testStackOverflowStatement()
     {
-        SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(2000, "x = y")));
+        for (int size = 6000; size <= 100_000; size *= 2) {
+            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")));
+        }
+    }
+
+    @Test
+    public void testSetSession()
+    {
+        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), new StringLiteral("bar")));
+        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), new StringLiteral("baz")));
+        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), new StringLiteral("baz")));
+
+        assertStatement("SET SESSION foo.bar = 'ban' || 'ana'", new SetSession(
+                QualifiedName.of("foo", "bar"),
+                new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
+                        new StringLiteral("ban"),
+                        new StringLiteral("ana")))));
+    }
+
+    @Test
+    public void testResetSession()
+    {
+        assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
+        assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
+    }
+
+    @Test
+    public void testShowSession()
+    {
+        assertStatement("SHOW SESSION", new ShowSession());
+    }
+
+    @Test
+    public void testShowCatalogs()
+    {
+        assertStatement("SHOW CATALOGS", new ShowCatalogs(Optional.empty()));
+        assertStatement("SHOW CATALOGS LIKE '%'", new ShowCatalogs(Optional.of("%")));
+    }
+
+    @Test
+    public void testShowSchemas()
+    {
+        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of(identifier("foo")), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of(identifier("foo")), Optional.of("%"), Optional.empty()));
+        assertStatement("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE '$'", new ShowSchemas(Optional.of(identifier("foo")), Optional.of("%$_%"), Optional.of("$")));
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertStatement("SHOW TABLES", new ShowTables(Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW TABLES FROM a", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW TABLES FROM \"awesome schema\"", new ShowTables(Optional.of(QualifiedName.of("awesome schema")), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW TABLES IN a LIKE '%$_%' ESCAPE '$'", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.of("%$_%"), Optional.of("$")));
+    }
+
+    @Test
+    public void testShowColumns()
+    {
+        assertStatement("SHOW COLUMNS FROM a", new ShowColumns(QualifiedName.of("a")));
+        assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b")));
+        assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table")));
+        assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table")));
+    }
+
+    @Test
+    public void testShowPartitions()
+    {
+        assertStatement("SHOW PARTITIONS FROM t", new ShowPartitions(QualifiedName.of("t"), Optional.empty(), ImmutableList.of(), Optional.empty()));
+        assertStatement("SHOW PARTITIONS FROM \"awesome table\"",
+                new ShowPartitions(QualifiedName.of("awesome table"), Optional.empty(), ImmutableList.of(), Optional.empty()));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
+                        Optional.empty()));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
+                        Optional.of("10")));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
+                        Optional.of("ALL")));
+    }
+
+    @Test
+    public void testSubstringBuiltInFunction()
+    {
+        final String givenString = "ABCDEF";
+        assertStatement(format("SELECT substring('%s' FROM 2)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement(format("SELECT substring('%s' FROM 2 FOR 3)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testSubstringRegisteredFunction()
+    {
+        final String givenString = "ABCDEF";
+        assertStatement(format("SELECT substring('%s', 2)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement(format("SELECT substring('%s', 2, 3)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithRowType()
+    {
+        assertStatement("SELECT col1.f1, col2, col3.f1.f2.f3 FROM table1",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new DereferenceExpression(new Identifier("col1"), identifier("f1")),
+                                        new Identifier("col2"),
+                                        new DereferenceExpression(
+                                                new DereferenceExpression(new DereferenceExpression(new Identifier("col3"), identifier("f1")), identifier("f2")), identifier("f3"))),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT col1.f1[0], col2, col3[2].f2.f3, col4[4] FROM table1",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new SubscriptExpression(new DereferenceExpression(new Identifier("col1"), identifier("f1")), new LongLiteral("0")),
+                                        new Identifier("col2"),
+                                        new DereferenceExpression(new DereferenceExpression(new SubscriptExpression(new Identifier("col3"), new LongLiteral("2")), identifier("f2")), identifier("f3")),
+                                        new SubscriptExpression(new Identifier("col4"), new LongLiteral("4"))),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT CAST(ROW(11, 12) AS ROW(COL0 INTEGER, COL1 INTEGER)).col0",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), identifier("col0"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithOrderBy()
+    {
+        assertStatement("SELECT * FROM table1 ORDER BY a",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(
+                                        new Identifier("a"),
+                                        ASCENDING,
+                                        UNDEFINED)))),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithGroupBy()
+    {
+        assertStatement("SELECT * FROM table1 GROUP BY a",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new Identifier("a")))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY a, b",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(
+                                        new SimpleGroupBy(ImmutableList.of(new Identifier("a"))),
+                                        new SimpleGroupBy(ImmutableList.of(new Identifier("b")))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY ()",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY GROUPING SETS (a)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a"))))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT a, b, GROUPING(a, b) FROM table1 GROUP BY GROUPING SETS ((a), (b))",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        DereferenceExpression.from(QualifiedName.of("a")),
+                                        DereferenceExpression.from(QualifiedName.of("b")),
+                                        new GroupingOperation(
+                                                Optional.empty(),
+                                                ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")))),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a")), ImmutableList.of(QualifiedName.of("b"))))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY ALL GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(
+                                        new GroupingSets(
+                                                ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
+                                                        ImmutableList.of(QualifiedName.of("a")),
+                                                        ImmutableList.of())),
+                                        new Cube(ImmutableList.of(QualifiedName.of("c"))),
+                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY DISTINCT GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(true, ImmutableList.of(
+                                        new GroupingSets(
+                                                ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
+                                                        ImmutableList.of(QualifiedName.of("a")),
+                                                        ImmutableList.of())),
+                                        new Cube(ImmutableList.of(QualifiedName.of("c"))),
+                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testGroupingFunctionWithExpressions()
+    {
+        assertInvalidStatement("SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2", "line 1:18: mismatched input '+' expecting {'.', ')', ','}");
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        assertStatement("CREATE SCHEMA test",
+                new CreateSchema(QualifiedName.of("test"), false, ImmutableList.of()));
+
+        assertStatement("CREATE SCHEMA IF NOT EXISTS test",
+                new CreateSchema(QualifiedName.of("test"), true, ImmutableList.of()));
+
+        assertStatement("CREATE SCHEMA test WITH (a = 'apple', b = 123)",
+                new CreateSchema(
+                        QualifiedName.of("test"),
+                        false,
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123")))));
+
+        assertStatement("CREATE SCHEMA \"some name that contains space\"",
+                new CreateSchema(QualifiedName.of("some name that contains space"), false, ImmutableList.of()));
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        assertStatement("DROP SCHEMA test",
+                new DropSchema(QualifiedName.of("test"), false, false));
+
+        assertStatement("DROP SCHEMA test CASCADE",
+                new DropSchema(QualifiedName.of("test"), false, true));
+
+        assertStatement("DROP SCHEMA IF EXISTS test",
+                new DropSchema(QualifiedName.of("test"), true, false));
+
+        assertStatement("DROP SCHEMA IF EXISTS test RESTRICT",
+                new DropSchema(QualifiedName.of("test"), true, false));
+
+        assertStatement("DROP SCHEMA \"some schema that contains space\"",
+                new DropSchema(QualifiedName.of("some schema that contains space"), false, false));
+    }
+
+    @Test
+    public void testRenameSchema()
+    {
+        assertStatement("ALTER SCHEMA foo RENAME TO bar",
+                new RenameSchema(QualifiedName.of("foo"), identifier("bar")));
+
+        assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
+                new RenameSchema(QualifiedName.of("foo", "bar"), identifier("baz")));
+
+        assertStatement("ALTER SCHEMA \"awesome schema\".\"awesome table\" RENAME TO \"even more awesome table\"",
+                new RenameSchema(QualifiedName.of("awesome schema", "awesome table"), quotedIdentifier("even more awesome table")));
+    }
+
+    @Test
+    public void testUnicodeString()
+    {
+        assertExpression("U&''", new StringLiteral(""));
+        assertExpression("U&'' UESCAPE ')'", new StringLiteral(""));
+        assertExpression("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'", new StringLiteral("hello\u6d4B\u8Bd5\uDBFF\uDFFFworld\u7F16\u7801"));
+        assertExpression("U&'\u6d4B\u8Bd5ABC\\6d4B\\8Bd5'", new StringLiteral("\u6d4B\u8Bd5ABC\u6d4B\u8Bd5"));
+        assertExpression("u&'\u6d4B\u8Bd5ABC\\6d4B\\8Bd5'", new StringLiteral("\u6d4B\u8Bd5ABC\u6d4B\u8Bd5"));
+        assertExpression("u&'\u6d4B\u8Bd5ABC\\\\'", new StringLiteral("\u6d4B\u8Bd5ABC\\"));
+        assertExpression("u&'\u6d4B\u8Bd5ABC###8Bd5' UESCAPE '#'", new StringLiteral("\u6d4B\u8Bd5ABC#\u8Bd5"));
+        assertExpression("u&'\u6d4B\u8Bd5''A''B''C##''''#8Bd5' UESCAPE '#'", new StringLiteral("\u6d4B\u8Bd5\'A\'B\'C#\'\'\u8Bd5"));
+        assertInvalidExpression("U&  '\u6d4B\u8Bd5ABC\\\\'", ".*mismatched input.*");
+        assertInvalidExpression("u&'\u6d4B\u8Bd5ABC\\'", "Incomplete escape sequence: ");
+        assertInvalidExpression("u&'\u6d4B\u8Bd5ABC\\+'", "Incomplete escape sequence: ");
+        assertInvalidExpression("U&'hello\\6dB\\8Bd5'", "Incomplete escape sequence: 6dB.*");
+        assertInvalidExpression("U&'hello\\6D4B\\8Bd'", "Incomplete escape sequence: 8Bd");
+        assertInvalidExpression("U&'hello\\K6B\\8Bd5'", "Invalid hexadecimal digit: K");
+        assertInvalidExpression("U&'hello\\+FFFFFD\\8Bd5'", "Invalid escaped character: FFFFFD");
+        assertInvalidExpression("U&'hello\\DBFF'", "Invalid escaped character: DBFF\\. Escaped character is a surrogate\\. Use \'\\\\\\+123456\' instead\\.");
+        assertInvalidExpression("U&'hello\\+00DBFF'", "Invalid escaped character: 00DBFF\\. Escaped character is a surrogate\\. Use \'\\\\\\+123456\' instead\\.");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE '%%'", "Invalid Unicode escape character: %%");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE '\uDBFF'", "Invalid Unicode escape character: \uDBFF");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE '\n'", "Invalid Unicode escape character: \n");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE ''''", "Invalid Unicode escape character: \'");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE ' '", "Invalid Unicode escape character:  ");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE ''", "Empty Unicode escape character");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE '1'", "Invalid Unicode escape character: 1");
+        assertInvalidExpression("U&'hello\\8Bd5' UESCAPE '+'", "Invalid Unicode escape character: \\+");
+        assertExpression("U&'hello!6d4B!8Bd5!+10FFFFworld!7F16!7801' UESCAPE '!'", new StringLiteral("hello\u6d4B\u8Bd5\uDBFF\uDFFFworld\u7F16\u7801"));
+        assertExpression("U&'\u6d4B\u8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", new StringLiteral("\u6d4B\u8Bd5ABC\u6d4B\u8Bd5"));
+        assertExpression("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' UESCAPE '!'",
+                new StringLiteral("hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801"));
+    }
+
+    @Test
+    public void testCreateTable()
+    {
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "IPADDRESS", Optional.empty())),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty())),
+                        true,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // with LIKE
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.empty())),
+                        true,
+                        ImmutableList.of(),
+                        Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.empty())),
+                        true,
+                        ImmutableList.of(),
+                        Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.empty()),
+                                new ColumnDefinition(identifier("d"), "DATE", Optional.empty())),
+                        true,
+                        ImmutableList.of(),
+                        Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.of(LikeClause.PropertiesOption.INCLUDING))),
+                        true,
+                        ImmutableList.of(),
+                        Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
+                        true,
+                        ImmutableList.of(),
+                        Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
+                        true,
+                        ImmutableList.of(),
+                        Optional.of("test")));
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:19: no viable alternative at input 'CREATE TABLE foo ()'\\E.*")
+    public void testParseCreateTableAsEmptyAlias()
+    {
+        SQL_PARSER.createStatement("CREATE TABLE foo () AS (VALUES 1)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:19: no viable alternative at input 'CREATE TABLE foo (*'\\E.*")
+    public void testParseCreateTableAsAsteriskAlias()
+    {
+        SQL_PARSER.createStatement("CREATE TABLE foo (*) AS (VALUES 1)");
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+        Query querySelectColumn = simpleQuery(selectList(new Identifier("a")), table(QualifiedName.of("t")));
+        Query querySelectColumns = simpleQuery(selectList(new Identifier("a"), new Identifier("b")), table(QualifiedName.of("t")));
+        QualifiedName table = QualifiedName.of("foo");
+
+        assertStatement("CREATE TABLE foo AS SELECT * FROM t",
+                new CreateTableAsSelect(table, query, false, ImmutableList.of(), true, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x) AS SELECT a FROM t",
+                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t",
+                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+
+        assertStatement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t",
+                new CreateTableAsSelect(table, query, true, ImmutableList.of(), true, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS foo(x) AS SELECT a FROM t",
+                new CreateTableAsSelect(table, querySelectColumn, true, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+        assertStatement("CREATE TABLE IF NOT EXISTS foo(x,y) AS SELECT a,b FROM t",
+                new CreateTableAsSelect(table, querySelectColumns, true, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+
+        assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
+                new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x) AS SELECT a FROM t WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+
+        List<Property> properties = ImmutableList.of(
+                new Property(new Identifier("string"), new StringLiteral("bar")),
+                new Property(new Identifier("long"), new LongLiteral("42")),
+                new Property(
+                        new Identifier("computed"),
+                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
+                new Property(new Identifier("a"), new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))));
+
+        assertStatement("CREATE TABLE foo " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT * FROM t",
+                new CreateTableAsSelect(table, query, false, properties, true, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x) " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a FROM t",
+                new CreateTableAsSelect(table, querySelectColumn, false, properties, true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x,y) " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a,b FROM t",
+                new CreateTableAsSelect(table, querySelectColumns, false, properties, true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+
+        assertStatement("CREATE TABLE foo " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT * FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, query, false, properties, false, Optional.empty(), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x) " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumn, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+        assertStatement("CREATE TABLE foo(x,y) " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a,b FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+
+        assertStatement("CREATE TABLE foo COMMENT 'test'" +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT * FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, query, false, properties, false, Optional.empty(), Optional.of("test")));
+        assertStatement("CREATE TABLE foo(x) COMMENT 'test'" +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumn, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.of("test")));
+        assertStatement("CREATE TABLE foo(x,y) COMMENT 'test'" +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a,b FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.of("test")));
+        assertStatement("CREATE TABLE foo(x,y) COMMENT 'test'" +
+                        "WITH ( \"string\" = 'bar', \"long\" = 42, computed = 'ban' || 'ana', a = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a,b FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.of("test")));
+    }
+
+    @Test
+    public void testCreateTableAsWith()
+    {
+        String queryParenthesizedWith = "CREATE TABLE foo " +
+                "AS " +
+                "( WITH t(x) AS (VALUES 1) " +
+                "TABLE t ) " +
+                "WITH NO DATA";
+        String queryUnparenthesizedWith = "CREATE TABLE foo " +
+                "AS " +
+                "WITH t(x) AS (VALUES 1) " +
+                "TABLE t " +
+                "WITH NO DATA";
+        String queryParenthesizedWithHasAlias = "CREATE TABLE foo(a) " +
+                "AS " +
+                "( WITH t(x) AS (VALUES 1) " +
+                "TABLE t ) " +
+                "WITH NO DATA";
+        String queryUnparenthesizedWithHasAlias = "CREATE TABLE foo(a) " +
+                "AS " +
+                "WITH t(x) AS (VALUES 1) " +
+                "TABLE t " +
+                "WITH NO DATA";
+
+        QualifiedName table = QualifiedName.of("foo");
+
+        Query query = new Query(Optional.of(new With(false, ImmutableList.of(
+                new WithQuery(identifier("t"),
+                        query(new Values(ImmutableList.of(new LongLiteral("1")))),
+                        Optional.of(ImmutableList.of(identifier("x"))))))),
+                new Table(QualifiedName.of("t")),
+                Optional.empty(),
+                Optional.empty());
+        assertStatement(queryParenthesizedWith, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement(queryUnparenthesizedWith, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement(queryParenthesizedWithHasAlias, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
+        assertStatement(queryUnparenthesizedWithHasAlias, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
+        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
+        assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testDropView()
+    {
+        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a"), false));
+        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP VIEW IF EXISTS a", new DropView(QualifiedName.of("a"), true));
+        assertStatement("DROP VIEW IF EXISTS a.b", new DropView(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP VIEW IF EXISTS a.b.c", new DropView(QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testInsertInto()
+    {
+        QualifiedName table = QualifiedName.of("a");
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+
+        assertStatement("INSERT INTO a SELECT * FROM t",
+                new Insert(table, Optional.empty(), query));
+
+        assertStatement("INSERT INTO a (c1, c2) SELECT * FROM t",
+                new Insert(table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
+    }
+
+    @Test
+    public void testDelete()
+    {
+        assertStatement("DELETE FROM t", new Delete(table(QualifiedName.of("t")), Optional.empty()));
+        assertStatement("DELETE FROM \"awesome table\"", new Delete(table(QualifiedName.of("awesome table")), Optional.empty()));
+
+        assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
+                new ComparisonExpression(ComparisonExpressionType.EQUAL,
+                        new Identifier("a"),
+                        new Identifier("b")))));
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b")));
+    }
+
+    @Test
+    public void testRenameColumn()
+    {
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));
+    }
+
+    @Test
+    public void testAddColumn()
+    {
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition(identifier("c"), "bigint", Optional.empty())));
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c")));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d")));
+    }
+
+    @Test
+    public void testCreateView()
+    {
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+
+        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false));
+        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, true));
+
+        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false));
+        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false));
+        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false));
+    }
+
+    @Test
+    public void testGrant()
+    {
+        assertStatement("GRANT INSERT, DELETE ON t TO u",
+                new Grant(Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u"), false));
+        assertStatement("GRANT SELECT ON t TO PUBLIC WITH GRANT OPTION",
+                new Grant(Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), identifier("PUBLIC"), true));
+        assertStatement("GRANT ALL PRIVILEGES ON t TO u",
+                new Grant(Optional.empty(), false, QualifiedName.of("t"), identifier("u"), false));
+        assertStatement("GRANT taco ON t TO PUBLIC WITH GRANT OPTION",
+                new Grant(Optional.of(ImmutableList.of("taco")), false, QualifiedName.of("t"), identifier("PUBLIC"), true));
+    }
+
+    @Test
+    public void testRevoke()
+    {
+        assertStatement("REVOKE INSERT, DELETE ON t FROM u",
+                new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u")));
+        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM PUBLIC",
+                new Revoke(true, Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), identifier("PUBLIC")));
+        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM u",
+                new Revoke(false, Optional.empty(), true, QualifiedName.of("t"), identifier("u")));
+        assertStatement("REVOKE taco ON TABLE t FROM u",
+                new Revoke(false, Optional.of(ImmutableList.of("taco")), true, QualifiedName.of("t"), identifier("u")));
+    }
+
+    @Test
+    public void testShowGrants()
+    {
+        assertStatement("SHOW GRANTS ON TABLE t",
+                new ShowGrants(true, Optional.of(QualifiedName.of("t"))));
+        assertStatement("SHOW GRANTS ON t",
+                new ShowGrants(false, Optional.of(QualifiedName.of("t"))));
+        assertStatement("SHOW GRANTS",
+                new ShowGrants(false, Optional.empty()));
+    }
+
+    @Test
+    public void testWith()
+    {
+        assertStatement("WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM y) TABLE z",
+                new Query(Optional.of(new With(false, ImmutableList.of(
+                        new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of(identifier("t"), identifier("u")))),
+                        new WithQuery(identifier("b"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
+                        new Table(QualifiedName.of("z")),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
+                new Query(Optional.of(new With(true, ImmutableList.of(
+                        new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
+                        new Table(QualifiedName.of("y")),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testImplicitJoin()
+    {
+        assertStatement("SELECT * FROM a, b",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(QualifiedName.of("a")),
+                                new Table(QualifiedName.of("b")),
+                                Optional.empty())));
+    }
+
+    @Test
+    public void testExplain()
+    {
+        assertStatement("EXPLAIN SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, false, ImmutableList.of()));
+        assertStatement("EXPLAIN (TYPE LOGICAL) SELECT * FROM t",
+                new Explain(
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        false,
+                        ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
+        assertStatement("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) SELECT * FROM t",
+                new Explain(
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        false,
+                        ImmutableList.of(
+                                new ExplainType(ExplainType.Type.LOGICAL),
+                                new ExplainFormat(ExplainFormat.Type.TEXT))));
+    }
+
+    @Test
+    public void testExplainVerbose()
+    {
+        assertStatement("EXPLAIN VERBOSE SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of()));
+    }
+
+    @Test
+    public void testExplainVerboseTypeLogical()
+    {
+        assertStatement("EXPLAIN VERBOSE (type LOGICAL) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
+    }
+
+    @Test
+    public void testExplainAnalyze()
+    {
+        assertStatement("EXPLAIN ANALYZE SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of()));
+    }
+
+    @Test
+    public void testExplainAnalyzeTypeDistributed()
+    {
+        assertStatement("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of()));
+    }
+
+    @Test
+    public void testExplainAnalyzeVerboseTypeDistributed()
+    {
+        assertStatement("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
+    public void testJoinPrecedence()
+    {
+        assertStatement("SELECT * FROM a CROSS JOIN b LEFT JOIN c ON true",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.LEFT,
+                                new Join(
+                                        Join.Type.CROSS,
+                                        new Table(QualifiedName.of("a")),
+                                        new Table(QualifiedName.of("b")),
+                                        Optional.empty()),
+                                new Table(QualifiedName.of("c")),
+                                Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
+        assertStatement("SELECT * FROM a CROSS JOIN b NATURAL JOIN c CROSS JOIN d NATURAL JOIN e",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.INNER,
+                                new Join(
+                                        Join.Type.CROSS,
+                                        new Join(
+                                                Join.Type.INNER,
+                                                new Join(
+                                                        Join.Type.CROSS,
+                                                        new Table(QualifiedName.of("a")),
+                                                        new Table(QualifiedName.of("b")),
+                                                        Optional.empty()),
+                                                new Table(QualifiedName.of("c")),
+                                                Optional.of(new NaturalJoin())),
+                                        new Table(QualifiedName.of("d")),
+                                        Optional.empty()),
+                                new Table(QualifiedName.of("e")),
+                                Optional.of(new NaturalJoin()))));
+    }
+
+    @Test
+    public void testUnnest()
+    {
+        assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.CROSS,
+                                new Table(QualifiedName.of("t")),
+                                new Unnest(ImmutableList.of(new Identifier("a")), false),
+                                Optional.empty())));
+        assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a, b) WITH ORDINALITY",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.CROSS,
+                                new Table(QualifiedName.of("t")),
+                                new Unnest(ImmutableList.of(new Identifier("a"), new Identifier("b")), true),
+                                Optional.empty())));
+        assertStatement("SELECT * FROM t FULL JOIN UNNEST(a) AS tmp (c) ON true",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.FULL,
+                                new Table(QualifiedName.of("t")),
+                                new AliasedRelation(new Unnest(ImmutableList.of(new Identifier("a")), false), new Identifier("tmp"), ImmutableList.of(new Identifier("c"))),
+                                Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
+    }
+
+    @Test
+    public void testLateral()
+    {
+        Lateral lateralRelation = new Lateral(new Query(
+                Optional.empty(),
+                new Values(ImmutableList.of(new LongLiteral("1"))),
+                Optional.empty(),
+                Optional.empty()));
+
+        assertStatement("SELECT * FROM t, LATERAL (VALUES 1) a(x)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.IMPLICIT,
+                                new Table(QualifiedName.of("t")),
+                                new AliasedRelation(lateralRelation, identifier("a"), ImmutableList.of(identifier("x"))),
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM t CROSS JOIN LATERAL (VALUES 1) ",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.CROSS,
+                                new Table(QualifiedName.of("t")),
+                                lateralRelation,
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM t FULL JOIN LATERAL (VALUES 1) ON true",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.FULL,
+                                new Table(QualifiedName.of("t")),
+                                lateralRelation,
+                                Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
+    }
+
+    @Test
+    public void testStartTransaction()
+    {
+        assertStatement("START TRANSACTION",
+                new StartTransaction(ImmutableList.of()));
+        assertStatement("START TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
+                new StartTransaction(ImmutableList.of(
+                        new Isolation(Isolation.Level.READ_UNCOMMITTED))));
+        assertStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED",
+                new StartTransaction(ImmutableList.of(
+                        new Isolation(Isolation.Level.READ_COMMITTED))));
+        assertStatement("START TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+                new StartTransaction(ImmutableList.of(
+                        new Isolation(Isolation.Level.REPEATABLE_READ))));
+        assertStatement("START TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+                new StartTransaction(ImmutableList.of(
+                        new Isolation(Isolation.Level.SERIALIZABLE))));
+        assertStatement("START TRANSACTION READ ONLY",
+                new StartTransaction(ImmutableList.of(
+                        new TransactionAccessMode(true))));
+        assertStatement("START TRANSACTION READ WRITE",
+                new StartTransaction(ImmutableList.of(
+                        new TransactionAccessMode(false))));
+        assertStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY",
+                new StartTransaction(ImmutableList.of(
+                        new Isolation(Isolation.Level.READ_COMMITTED),
+                        new TransactionAccessMode(true))));
+        assertStatement("START TRANSACTION READ ONLY, ISOLATION LEVEL READ COMMITTED",
+                new StartTransaction(ImmutableList.of(
+                        new TransactionAccessMode(true),
+                        new Isolation(Isolation.Level.READ_COMMITTED))));
+        assertStatement("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE",
+                new StartTransaction(ImmutableList.of(
+                        new TransactionAccessMode(false),
+                        new Isolation(Isolation.Level.SERIALIZABLE))));
+    }
+
+    @Test
+    public void testCommit()
+    {
+        assertStatement("COMMIT", new Commit());
+        assertStatement("COMMIT WORK", new Commit());
+    }
+
+    @Test
+    public void testRollback()
+    {
+        assertStatement("ROLLBACK", new Rollback());
+        assertStatement("ROLLBACK WORK", new Rollback());
+    }
+
+    @Test
+    public void testAtTimeZone()
+    {
+        assertStatement("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new AtTimeZone(new TimestampLiteral("2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testLambda()
+    {
+        assertExpression("() -> x",
+                new LambdaExpression(
+                        ImmutableList.of(),
+                        new Identifier("x")));
+        assertExpression("x -> sin(x)",
+                new LambdaExpression(
+                        ImmutableList.of(new LambdaArgumentDeclaration(identifier("x"))),
+                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new Identifier("x")))));
+        assertExpression("(x, y) -> mod(x, y)",
+                new LambdaExpression(
+                        ImmutableList.of(new LambdaArgumentDeclaration(identifier("x")), new LambdaArgumentDeclaration(identifier("y"))),
+                        new FunctionCall(
+                                QualifiedName.of("mod"),
+                                ImmutableList.of(new Identifier("x"), new Identifier("y")))));
+    }
+
+    @Test
+    public void testNonReserved()
+    {
+        assertStatement("SELECT zone FROM t",
+                simpleQuery(
+                        selectList(new Identifier("zone")),
+                        table(QualifiedName.of("t"))));
+        assertStatement("SELECT INCLUDING, EXCLUDING, PROPERTIES FROM t",
+                simpleQuery(
+                        selectList(
+                                new Identifier("INCLUDING"),
+                                new Identifier("EXCLUDING"),
+                                new Identifier("PROPERTIES")),
+                        table(QualifiedName.of("t"))));
+        assertStatement("SELECT ALL, SOME, ANY FROM t",
+                simpleQuery(
+                        selectList(
+                                new Identifier("ALL"),
+                                new Identifier("SOME"),
+                                new Identifier("ANY")),
+                        table(QualifiedName.of("t"))));
+
+        assertExpression("stats", new Identifier("stats"));
+        assertExpression("nfd", new Identifier("nfd"));
+        assertExpression("nfc", new Identifier("nfc"));
+        assertExpression("nfkd", new Identifier("nfkd"));
+        assertExpression("nfkc", new Identifier("nfkc"));
+    }
+
+    @Test
+    public void testBinaryLiteralToHex()
+    {
+        // note that toHexString() always outputs in upper case
+        assertEquals(new BinaryLiteral("ab 01").toHexString(), "AB01");
+    }
+
+    @Test
+    public void testCall()
+    {
+        assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
+        assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(
+                new CallArgument(new LongLiteral("123")),
+                new CallArgument("a", new LongLiteral("1")),
+                new CallArgument("b", new StringLiteral("go")),
+                new CallArgument(new LongLiteral("456")))));
+    }
+
+    @Test
+    public void testPrepare()
+    {
+        assertStatement("PREPARE myquery FROM select * from foo",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("foo")))));
+    }
+
+    @Test
+    public void testPrepareWithParameters()
+    {
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")))));
+    }
+
+    @Test
+    public void testDeallocatePrepare()
+    {
+        assertStatement("DEALLOCATE PREPARE myquery", new Deallocate(identifier("myquery")));
+    }
+
+    @Test
+    public void testExecute()
+    {
+        assertStatement("EXECUTE myquery", new Execute(identifier("myquery"), emptyList()));
+    }
+
+    @Test
+    public void testExecuteWithUsing()
+    {
+        assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
+                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
+    }
+
+    @Test
+    public void testExists()
+    {
+        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(exists(simpleQuery(selectList(new LongLiteral("1")))))));
+
+        assertStatement(
+                "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(new ComparisonExpression(
+                                ComparisonExpressionType.EQUAL,
+                                exists(simpleQuery(selectList(new LongLiteral("1")))),
+                                exists(simpleQuery(selectList(new LongLiteral("2"))))))));
+
+        assertStatement(
+                "SELECT NOT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(
+                                new NotExpression(
+                                        new ComparisonExpression(
+                                                ComparisonExpressionType.EQUAL,
+                                                exists(simpleQuery(selectList(new LongLiteral("1")))),
+                                                exists(simpleQuery(selectList(new LongLiteral("2")))))))));
+
+        assertStatement(
+                "SELECT (NOT EXISTS(SELECT 1)) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(
+                                new ComparisonExpression(
+                                        ComparisonExpressionType.EQUAL,
+                                        new NotExpression(exists(simpleQuery(selectList(new LongLiteral("1"))))),
+                                        exists(simpleQuery(selectList(new LongLiteral("2"))))))));
+    }
+
+    private static ExistsPredicate exists(Query query)
+    {
+        return new ExistsPredicate(new SubqueryExpression(query));
+    }
+
+    @Test
+    public void testShowStats()
+    {
+        final String[] tableNames = {"t", "s.t", "c.s.t"};
+
+        for (String fullName : tableNames) {
+            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            assertStatement(format("SHOW STATS FOR %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
+            assertStatement(format("SHOW STATS ON %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
+        }
+    }
+
+    @Test
+    public void testShowStatsForQuery()
+    {
+        final String[] tableNames = {"t", "s.t", "c.s.t"};
+
+        for (String fullName : tableNames) {
+            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
+                    createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
+                    createShowStats(qualifiedName,
+                            ImmutableList.of(new AllColumns()),
+                            Optional.of(
+                                    new ComparisonExpression(GREATER_THAN,
+                                            new Identifier("field"),
+                                            new LongLiteral("0")))));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
+                    createShowStats(qualifiedName,
+                            ImmutableList.of(new AllColumns()),
+                            Optional.of(
+                                    new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                                            new ComparisonExpression(GREATER_THAN,
+                                                    new Identifier("field"),
+                                                    new LongLiteral("0")),
+                                            new ComparisonExpression(LESS_THAN,
+                                                    new Identifier("field"),
+                                                    new LongLiteral("0"))))));
+        }
+    }
+
+    private ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
+    {
+        return new ShowStats(
+                new TableSubquery(simpleQuery(new Select(false, selects),
+                        new Table(name),
+                        where,
+                        Optional.empty())));
+    }
+
+    @Test
+    public void testDescribeOutput()
+    {
+        assertStatement("DESCRIBE OUTPUT myquery", new DescribeOutput(identifier("myquery")));
+    }
+
+    @Test
+    public void testDescribeInput()
+    {
+        assertStatement("DESCRIBE INPUT myquery", new DescribeInput(identifier("myquery")));
+    }
+
+    @Test
+    public void testAggregationFilter()
+    {
+        assertStatement("SELECT SUM(x) FILTER (WHERE x > 4)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new FunctionCall(
+                                                QualifiedName.of("SUM"),
+                                                Optional.empty(),
+                                                Optional.of(new ComparisonExpression(
+                                                        ComparisonExpressionType.GREATER_THAN,
+                                                        new Identifier("x"),
+                                                        new LongLiteral("4"))),
+                                                Optional.empty(),
+                                                false,
+                                                ImmutableList.of(new Identifier("x")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testQuantifiedComparison()
+    {
+        assertExpression("col1 < ANY (SELECT col2 FROM table1)",
+                new QuantifiedComparisonExpression(
+                        LESS_THAN,
+                        QuantifiedComparisonExpression.Quantifier.ANY,
+                        identifier("col1"),
+                        new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))));
+        assertExpression("col1 = ALL (VALUES ROW(1), ROW(2))",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.EQUAL,
+                        QuantifiedComparisonExpression.Quantifier.ALL,
+                        identifier("col1"),
+                        new SubqueryExpression(query(values(row(new LongLiteral("1")), row(new LongLiteral("2")))))));
+        assertExpression("col1 >= SOME (SELECT 10)",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN_OR_EQUAL,
+                        QuantifiedComparisonExpression.Quantifier.SOME,
+                        identifier("col1"),
+                        new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))));
+    }
+
+    @Test
+    public void testAggregationWithOrderBy()
+    {
+        assertExpression("array_agg(x ORDER BY x DESC)",
+                new FunctionCall(
+                        QualifiedName.of("array_agg"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("x"), DESCENDING, UNDEFINED)))),
+                        false,
+                        ImmutableList.of(identifier("x"))));
+        assertStatement("SELECT array_agg(x ORDER BY t.y) FROM t",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new FunctionCall(
+                                                QualifiedName.of("array_agg"),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new DereferenceExpression(new Identifier("t"), identifier("y")), ASCENDING, UNDEFINED)))),
+                                                false,
+                                                ImmutableList.of(new Identifier("x")))),
+                                Optional.of(table(QualifiedName.of("t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    private static void assertCast(String type)
+    {
+        assertCast(type, type);
+    }
+
+    private static void assertCast(String type, String expected)
+    {
+        assertExpression("CAST(null AS " + type + ")", new Cast(new NullLiteral(), expected));
     }
 
     private static void assertStatement(String query, Statement expected)
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query));
+        assertFormattedSql(SQL_PARSER, expected);
+    }
+
+    private static void assertInvalidStatement(String query, String expectedMessage)
+    {
+        try {
+            SQL_PARSER.createStatement(query);
+            fail(format("Expected statement to fail: %s", query));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(query, ex, expectedMessage);
+        }
+    }
+
+    private static void assertExceptionMessage(String sql, Exception exception, String expectedMessage)
+    {
+        if (!exception.getMessage().equals(expectedMessage)) {
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), expectedMessage, sql));
+        }
     }
 
     private static void assertExpression(String expression, Expression expected)
@@ -554,8 +2167,21 @@ public class TestSqlParser
         if (!parsed.equals(expected)) {
             fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
                     indent(input),
-                    indent(formatSql(expected)),
-                    indent(formatSql(parsed))));
+                    indent(formatSql(expected, Optional.empty())),
+                    indent(formatSql(parsed, Optional.empty()))));
+        }
+    }
+
+    private static void assertInvalidExpression(String expression, String expectedErrorMessageRegex)
+    {
+        try {
+            Expression result = SQL_PARSER.createExpression(expression);
+            fail("Expected to throw ParsingException for input:[" + expression + "], but got: " + result);
+        }
+        catch (ParsingException e) {
+            if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
+                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
+            }
         }
     }
 

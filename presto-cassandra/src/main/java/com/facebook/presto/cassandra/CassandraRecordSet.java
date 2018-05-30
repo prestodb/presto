@@ -16,31 +16,30 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Function;
 
-import static com.facebook.presto.cassandra.CassandraColumnHandle.cassandraFullTypeGetter;
-import static com.facebook.presto.cassandra.CassandraColumnHandle.nativeTypeGetter;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Lists.transform;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraRecordSet
         implements RecordSet
 {
     private final CassandraSession cassandraSession;
-    private final String schema;
     private final String cql;
     private final List<FullCassandraType> cassandraTypes;
     private final List<Type> columnTypes;
 
-    public CassandraRecordSet(CassandraSession cassandraSession, String schema, String cql, List<CassandraColumnHandle> cassandraColumns)
+    public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
     {
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
-        this.schema = checkNotNull(schema, "schema is null");
-        this.cql = checkNotNull(cql, "cql is null");
-        checkNotNull(cassandraColumns, "cassandraColumns is null");
-        this.cassandraTypes = transform(cassandraColumns, cassandraFullTypeGetter());
-        this.columnTypes = transform(cassandraColumns, nativeTypeGetter());
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.cql = requireNonNull(cql, "cql is null");
+
+        requireNonNull(cassandraColumns, "cassandraColumns is null");
+        this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getFullType);
+        this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
     }
 
     @Override
@@ -52,6 +51,11 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, schema, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, cassandraTypes, cql);
+    }
+
+    private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)
+    {
+        return ImmutableList.copyOf(list.stream().map(function).collect(toList()));
     }
 }

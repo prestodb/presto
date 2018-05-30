@@ -13,41 +13,18 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 public class ColumnHandleJacksonModule
-        extends AbstractTypedJacksonModule<ConnectorColumnHandle>
+        extends AbstractTypedJacksonModule<ColumnHandle>
 {
     @Inject
     public ColumnHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorColumnHandle.class, "type", new ColumnHandleJsonTypeIdResolver(handleResolver));
-    }
-
-    private static class ColumnHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<ConnectorColumnHandle>
-    {
-        private final HandleResolver handleResolver;
-
-        private ColumnHandleJsonTypeIdResolver(HandleResolver handleResolver)
-        {
-            this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
-        }
-
-        @Override
-        public String getId(ConnectorColumnHandle columnHandle)
-        {
-            return handleResolver.getId(columnHandle);
-        }
-
-        @Override
-        public Class<? extends ConnectorColumnHandle> getType(String id)
-        {
-            return handleResolver.getColumnHandleClass(id);
-        }
+        super(ColumnHandle.class,
+                handleResolver::getId,
+                handleResolver::getColumnHandleClass);
     }
 }

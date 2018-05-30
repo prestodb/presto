@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="/ui/vendor/jquery/jquery-2.2.3.min.js"></script>
+    <script src="/ui/vendor/tableau/tableauwdc-1.1.0.js"></script>
+    <script src="presto-client.js" type="text/javascript"></script>
+
+    <script type="text/javascript">
+    var headersPushed = false;
+    var statementClient = null;
+    var getTableDataCalled = false;
+    var buffer = [];
+    var schema = null;
+    var prestoWebConnector = tableau.makeConnector();
+    var errorName = null;
+    var errorMessage = null;
+
+    function pushHeadersToTableau(columns) {
+        tableau.log('pushHeadersToTableau called');
+        if (columns && !headersPushed) {
+            schema = columns;
+            var fieldTypes = []
+            var fieldNames = []
+            for (var i = 0; i < columns.length; i++) {
+                var columnType = columns[i].type;
+                switch (columnType) {
+                    case 'boolean':
+                        columnType = 'bool';
+                        break;
+                    case 'date':
+                        columnType = 'date';
+                        break;
+                    default:
+                        columnType = 'string';
+                }
+                fieldNames.push(columns[i].name);
+                fieldTypes.push(columnType);
+            }
+            tableau.headersCallback(fieldNames, fieldTypes);
+            headersPushed = true;
+            tableau.log('pushHeadersToTableau done');
+        }
+    }
+
+    function isComplexType(typeName) {
+        return (typeName.indexOf('map') === 0) ||
+               (typeName.indexOf('array') === 0) ||
+               (typeName.indexOf('row') === 0);
+    }
+
+    function pushDataToTableau(data, columns, lastRecordNumber) {
+        tableau.log('pushDataToTableau called ' + data.length);
+        if(data.length > 0) {
+            if(!getTableDataCalled) {
+                buffer.push(data);
+                return;
+            } else {
+                var tableauData = [];
+                for (var i = 0; i < data.length; i++) {
+                    var dataArray = data[i];
+                    var row = new Object();
+                    for (var j = 0; j < columns.length; j++) {
+                        // since Tableau doesn't support complex types convert them to json strings
+                        // so at least they get rendered
+                        if (isComplexType(columns[j].type)) {
+                            row[columns[j].name] = JSON.stringify(dataArray[j]);
+                        } else {
+                            row[columns[j].name] = dataArray[j];
+                        }
+                    }
+                    tableauData.push(row);
+                }
+                tableau.dataCallback(tableauData, lastRecordNumber, true);
+            }
+        }
+    }
+
+    function errorHandler(errName, errMessage) {
+        errorName = errName;
+        errorMessage = errMessage;
+    }
+
+    prestoWebConnector.getColumnHeaders = function() {
+        tableau.log('getColumnHeaders called');
+        statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
+        // Tableau waits for the headers before calling getTableData()
+        while (!(headersPushed || errorMessage)) {
+            statementClient.advance(0);
+        }
+
+        if (errorMessage) {
+            var message = "Error: [" + errorName + "]: " + errorMessage;
+            tableau.log(message);
+            tableau.abortWithError(message);
+            return;
+        }
+
+        tableau.log('getColumnHeaders done');
+    }
+
+    prestoWebConnector.getTableData = function(lastRecordNumber) {
+        tableau.log('getTableData called');
+        getTableDataCalled = true;
+        var data = [];
+
+        // we have some buffered data due to advance() calls in getColumnHeaders()
+        tableau.log('buffer.length ' + buffer.length);
+        if(buffer.length > 0) {
+            for (var i = 0; i < buffer.length; i++) {
+                // exhaust the buffer first
+                tableau.log('exhausting the buffer first');
+                pushDataToTableau(buffer.splice(i, 1)[0], schema, lastRecordNumber);
+                return;
+            }
+        }
+
+        tableau.log('getting next result page from presto');
+        statementClient.advance(lastRecordNumber);
+
+        if (!statementClient.valid) {
+            tableau.log('done pulling the result set');
+            tableau.dataCallback([], lastRecordNumber, false);
+            return;
+        }
+        tableau.log('getTableData done');
+    }
+
+    tableau.registerConnector(prestoWebConnector);
+
+    $(document).ready(function() {
+
+        var sessionParamsDiv = $('#sessionParameters');
+        var sessionParameterCount = 0;
+
+        function populateCatalogs() {
+            var catalogClient = new StatementClient({
+                    'query': 'show catalogs'
+                },
+                function() {},
+                function(data, columns) {
+                    var catalogSelect = document.getElementById("catalog");
+                    for (var i = 0; i < data.length; i++) {
+                        var catalog = data[i];
+                        var opt = document.createElement("option");
+                        opt.textContent = catalog;
+                        opt.value = catalog;
+                        catalogSelect.appendChild(opt);
+                    }
+                },
+                errorHandler
+            );
+
+            while (catalogClient.valid) {
+                catalogClient.advance(0);
+            }
+        }
+
+        function populateSchemas(catalogName) {
+            // remove the existing options
+            var schemaSelect = document.getElementById("schema");
+            for (i = schemaSelect.options.length-1; i >= 0; i--) {
+                schemaSelect.remove(i);
+            }
+
+            var schemaClient = new StatementClient({
+                    'catalog': catalogName,
+                    'schema': 'default',
+                    'query': 'show schemas'
+                },
+                function() {},
+                function(data, columns) {
+                    for (var i = 0; i < data.length; i++) {
+                        var schema = data[i];
+                        var opt = document.createElement("option");
+                        opt.textContent = schema;
+                        opt.value = schema;
+                        if (schema == 'default') {
+                            opt.setAttribute("selected", "true");
+                        }
+                        schemaSelect.appendChild(opt);
+                    }
+                },
+                errorHandler
+            );
+            while (schemaClient.valid) {
+                schemaClient.advance(0);
+            }
+        }
+
+        populateCatalogs();
+        // initially load the schemas of the first catalog
+        populateSchemas($('#catalog option:selected').val());
+
+        document.getElementById("catalog").addEventListener('change',
+            function() {
+                populateSchemas(this.value);
+            }
+        , false);
+
+        function addSessionParameterToForm(name, value) {
+            $('<p><label for="sessionParameters"><input type="text" id="name_' + sessionParameterCount +'" size="30" value="'+ name +'" placeholder="name"/>'
+              + '<input type="text" id="value_' + sessionParameterCount +'" size="20" value="' + value + '" placeholder="value" /></label> '
+              + '<a href="#" id="removeSessionProp_' + sessionParameterCount + '">X</a></p>').appendTo(sessionParamsDiv);
+
+            $('#removeSessionProp_' + sessionParameterCount).click(function() {
+                $(this).parents('p').remove();
+                sessionParameterCount--;
+                return false;
+            });
+
+            sessionParameterCount++;
+        }
+
+        if (tableau.connectionData) {
+            var existingConnectionData = JSON.parse(tableau.connectionData);
+            $('textarea#query').val(existingConnectionData.query);
+            $('input#user_name').val(existingConnectionData.userName);
+
+            if (existingConnectionData.sessionParameters) {
+                var parameterMap = JSON.parse(existingConnectionData.sessionParameters);
+                for (var name in parameterMap) {
+                  var value = parameterMap[name];
+                  addSessionParameterToForm(name, value);
+                }
+            }
+        }
+
+        if (tableau.connectionName) {
+            $('input#dsname').val(tableau.connectionName);
+        }
+
+        $("#addSessionProp").click(function() {
+            addSessionParameterToForm('','');
+            return false;
+        });
+
+        $("#inputForm").submit(function() {
+            // start with a new client
+            statementClient = null;
+
+            // clear global state
+            headersPushed = false;
+            tableau.connectionData = null;
+
+            // create a map of session parameters { name->value }
+            var i = 0;
+            var paramName;
+            var sessionParameters = {};
+            $('#sessionParameters p label input').each(function () {
+                if (i == 0) {
+                    // name
+                    paramName = this.value;
+                    sessionParameters[paramName] = null;
+                    i++;
+                }
+                else if (i == 1) {
+                    // value
+                    sessionParameters[paramName] = this.value;
+                    i = 0;
+                }
+            });
+
+            tableau.log(sessionParameters);
+
+            var query = $('textarea#query').val();
+            var schema = $('select#schema').val();
+            var catalog = $('select#catalog').val();
+            var userName = $('input#user_name').val();
+            var dataSourceName = $('input#dsname').val();
+
+            var connectionData = {
+                'catalog': catalog,
+                'schema': schema,
+                'query': query,
+                'userName': userName,
+                'sessionParameters' : JSON.stringify(sessionParameters)
+            };
+
+            // set these before validation, because if validation fails
+            // the form state is recovered from these variables
+            tableau.connectionData = JSON.stringify(connectionData);
+            tableau.connectionName = dataSourceName;
+
+            if (!query || query.length == 0 ||
+                !schema || schema.length == 0 ||
+                !catalog || catalog.length == 0 ||
+                !userName || userName.length == 0 ||
+                !dataSourceName || dataSourceName.length == 0) {
+                alert('Please fill in all the fields');
+                return;
+            }
+
+            tableau.submit();
+        });
+    });
+    </script>
+</head>
+
+<body>
+<h2>Presto Tableau Web Connector</h2>
+<br>
+<form id="inputForm" action="">
+    User Name:
+    <input type="text" id="user_name"><br><br>
+
+    Catalog:
+    <select id="catalog"></select><br><br>
+
+    Schema:
+    <select id="schema"></select><br><br>
+
+    Data Source Name:
+    <input type="text" id="dsname"><br><br>
+
+    <a href="#" id="addSessionProp">Add Session Parameter</a>
+    <div id="sessionParameters"></div>
+
+    <br><br>Please enter your SQL query:<br>
+    <textarea id="query" form="inputForm" rows="20" cols="100"></textarea>
+
+    <br>
+    <input type="submit" value="Submit">
+</form>
+</body>
+</html>

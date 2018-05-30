@@ -1,0 +1,25 @@
+MIT Kerberos Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Kerberos needs to be configured on the |subject_node|. At a minimum, there needs
+to be a ``kdc`` entry in the ``[realms]`` section of the ``/etc/krb5.conf``
+file. You may also want to include an ``admin_server`` entry and ensure that
+the |subject_node| can reach the Kerberos admin server on port 749.
+
+.. code-block:: none
+
+   [realms]
+     PRESTO.EXAMPLE.COM = {
+       kdc = kdc.example.com
+       admin_server = kdc.example.com
+     }
+
+   [domain_realm]
+     .presto.example.com = PRESTO.EXAMPLE.COM
+     presto.example.com = PRESTO.EXAMPLE.COM
+
+The complete `documentation
+<http://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/kdc_conf.html>`_
+for ``krb5.conf`` is hosted by the MIT Kerberos Project. If you are using a
+different implementation of the Kerberos protocol, you will need to adapt the
+configuration to your environment.

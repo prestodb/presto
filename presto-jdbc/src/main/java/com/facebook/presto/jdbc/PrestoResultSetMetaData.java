@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.google.common.collect.ImmutableList;
 
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -26,16 +27,16 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSetMetaData
         implements ResultSetMetaData
 {
     private final List<ColumnInfo> columnInfo;
 
-    public PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
+    PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
     {
-        this.columnInfo = ImmutableList.copyOf(checkNotNull(columnInfo, "columnInfo is null"));
+        this.columnInfo = ImmutableList.copyOf(requireNonNull(columnInfo, "columnInfo is null"));
     }
 
     @Override
@@ -77,7 +78,16 @@ public class PrestoResultSetMetaData
     public int isNullable(int column)
             throws SQLException
     {
-        return column(column).getNullable();
+        ColumnInfo.Nullable nullable = column(column).getNullable();
+        switch (nullable) {
+            case NO_NULLS:
+                return columnNoNulls;
+            case NULLABLE:
+                return columnNullable;
+            case UNKNOWN:
+                return columnNullableUnknown;
+        }
+        throw new SQLException("Unhandled nullable type: " + nullable);
     }
 
     @Override
@@ -217,6 +227,8 @@ public class PrestoResultSetMetaData
                 return Blob.class.getName();
             case Types.CLOB:
                 return Clob.class.getName();
+            case Types.ARRAY:
+                return Array.class.getName();
         }
         return String.class.getName();
     }

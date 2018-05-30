@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestFixedWidthBlock
         extends AbstractTestBlock
@@ -30,9 +34,53 @@ public class TestFixedWidthBlock
         }
     }
 
-    private static void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
+    @Test
+    public void testCopyPositions()
+    {
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
+            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
+        }
+    }
+
+    @Test
+    public void testLazyBlockBuilderInitialization()
+    {
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, null, 0);
+
+            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
+            assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+            assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+            writeValues(expectedValues, blockBuilder);
+            assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+            assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
+            assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+            assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        }
+    }
+
+    private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
+    {
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+    }
+
+    private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)
     {
         FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, expectedValues.length);
+        writeValues(expectedValues, blockBuilder);
+        return blockBuilder;
+    }
+
+    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -41,8 +89,6 @@ public class TestFixedWidthBlock
                 blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
             }
         }
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
     }
 
     private static Slice[] createExpectedValues(int positionCount, int fixedSize)

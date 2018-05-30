@@ -16,7 +16,6 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
@@ -24,7 +23,7 @@ import com.google.common.io.Resources;
 import java.net.MalformedURLException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleRecordSet
         implements RecordSet
@@ -35,9 +34,9 @@ public class ExampleRecordSet
 
     public ExampleRecordSet(ExampleSplit split, List<ExampleColumnHandle> columnHandles)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
 
-        this.columnHandles = checkNotNull(columnHandles, "column handles is null");
+        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ExampleColumnHandle column : columnHandles) {
             types.add(column.getColumnType());
@@ -48,7 +47,7 @@ public class ExampleRecordSet
             byteSource = Resources.asByteSource(split.getUri().toURL());
         }
         catch (MalformedURLException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

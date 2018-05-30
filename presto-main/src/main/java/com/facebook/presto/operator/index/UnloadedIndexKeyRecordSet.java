@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -31,12 +33,15 @@ import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet
         implements RecordSet
@@ -44,11 +49,17 @@ public class UnloadedIndexKeyRecordSet
     private final List<Type> types;
     private final List<PageAndPositions> pageAndPositions;
 
-    public UnloadedIndexKeyRecordSet(IndexSnapshot existingSnapshot, Set<Integer> channelsForDistinct, List<Type> types, List<UpdateRequest> requests)
+    public UnloadedIndexKeyRecordSet(
+            Session session,
+            IndexSnapshot existingSnapshot,
+            Set<Integer> channelsForDistinct,
+            List<Type> types,
+            List<UpdateRequest> requests,
+            JoinCompiler joinCompiler)
     {
-        checkNotNull(existingSnapshot, "existingSnapshot is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        checkNotNull(requests, "requests is null");
+        requireNonNull(existingSnapshot, "existingSnapshot is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(requests, "requests is null");
 
         int[] distinctChannels = Ints.toArray(channelsForDistinct);
         int[] normalizedDistinctChannels = new int[distinctChannels.length];
@@ -59,25 +70,28 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.<Integer>absent(), 10_000);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
-            Block[] blocks = page.getBlocks();
 
             Block[] distinctBlocks = new Block[distinctChannels.length];
             for (int i = 0; i < distinctBlocks.length; i++) {
-                distinctBlocks[i] = blocks[distinctChannels[i]];
+                distinctBlocks[i] = page.getBlock(distinctChannels[i]);
             }
 
             // Move through the positions while advancing the cursors in lockstep
-            GroupByIdBlock groupIds = groupByHash.getGroupIds(new Page(distinctBlocks));
-            int positionCount = blocks[0].getPositionCount();
+            Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(distinctBlocks));
+            boolean done = work.process();
+            // TODO: this class does not yield wrt memory limit; enable it
+            verify(done);
+            GroupByIdBlock groupIds = work.getResult();
+            int positionCount = page.getBlock(0).getPositionCount();
             long nextDistinctId = -1;
             checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
             IntList positions = new IntArrayList((int) groupIds.getGroupCount());
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
-                if (!containsNullValue(position, blocks)) {
+                if (!containsNullValue(position, page)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
@@ -110,9 +124,10 @@ public class UnloadedIndexKeyRecordSet
         return new UnloadedIndexKeyRecordCursor(types, pageAndPositions);
     }
 
-    private static boolean containsNullValue(int position, Block... blocks)
+    private static boolean containsNullValue(int position, Page page)
     {
-        for (Block block : blocks) {
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
             if (block.isNull(position)) {
                 return true;
             }
@@ -125,22 +140,14 @@ public class UnloadedIndexKeyRecordSet
     {
         private final List<Type> types;
         private final Iterator<PageAndPositions> pageAndPositionsIterator;
-        private Block[] blocks;
         private Page page;
         private IntListIterator positionIterator;
         private int position;
 
         public UnloadedIndexKeyRecordCursor(List<Type> types, List<PageAndPositions> pageAndPositions)
         {
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.pageAndPositionsIterator = checkNotNull(pageAndPositions, "pageAndPositions is null").iterator();
-            this.blocks = new Block[types.size()];
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return 0;
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.pageAndPositionsIterator = requireNonNull(pageAndPositions, "pageAndPositions is null").iterator();
         }
 
         @Override
@@ -170,19 +177,13 @@ public class UnloadedIndexKeyRecordSet
                 }
                 PageAndPositions pageAndPositions = pageAndPositionsIterator.next();
                 page = pageAndPositions.getUpdateRequest().getPage();
-                blocks = page.getBlocks();
-                checkState(types.size() == blocks.length);
+                checkState(types.size() == page.getChannelCount());
                 positionIterator = pageAndPositions.getPositions().iterator();
             }
 
             position = positionIterator.nextInt();
 
             return true;
-        }
-
-        public Block[] getBlocks()
-        {
-            return blocks;
         }
 
         public Page getPage()
@@ -198,31 +199,37 @@ public class UnloadedIndexKeyRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            return types.get(field).getBoolean(blocks[field], position);
+            return types.get(field).getBoolean(page.getBlock(field), position);
         }
 
         @Override
         public long getLong(int field)
         {
-            return types.get(field).getLong(blocks[field], position);
+            return types.get(field).getLong(page.getBlock(field), position);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return types.get(field).getDouble(blocks[field], position);
+            return types.get(field).getDouble(page.getBlock(field), position);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            return types.get(field).getSlice(blocks[field], position);
+            return types.get(field).getSlice(page.getBlock(field), position);
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            return types.get(field).getObject(page.getBlock(field), position);
         }
 
         @Override
         public boolean isNull(int field)
         {
-            return blocks[field].isNull(position);
+            return page.getBlock(field).isNull(position);
         }
 
         @Override
@@ -239,8 +246,8 @@ public class UnloadedIndexKeyRecordSet
 
         private PageAndPositions(UpdateRequest updateRequest, IntList positions)
         {
-            this.updateRequest = checkNotNull(updateRequest, "updateRequest is null");
-            this.positions = checkNotNull(positions, "positions is null");
+            this.updateRequest = requireNonNull(updateRequest, "updateRequest is null");
+            this.positions = requireNonNull(positions, "positions is null");
         }
 
         private UpdateRequest getUpdateRequest()

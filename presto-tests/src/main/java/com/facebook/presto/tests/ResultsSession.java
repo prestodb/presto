@@ -13,11 +13,25 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryData;
+import com.facebook.presto.client.QueryStatusInfo;
+
+import java.util.Map;
+import java.util.Set;
 
 public interface ResultsSession<T>
 {
-    void addResults(QueryResults result);
+    default void setUpdateType(String type)
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    T build();
+    default void setUpdateCount(long count)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    void addResults(QueryStatusInfo statusInfo, QueryData data);
+
+    T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties);
 }

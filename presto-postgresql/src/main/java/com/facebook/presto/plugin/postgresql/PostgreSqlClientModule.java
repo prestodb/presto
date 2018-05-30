@@ -19,7 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class PostgreSqlClientModule
         implements Module
@@ -28,6 +28,6 @@ public class PostgreSqlClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
     }
 }

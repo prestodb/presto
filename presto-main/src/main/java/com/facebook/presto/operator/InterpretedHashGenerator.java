@@ -19,13 +19,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.IntFunction;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InterpretedHashGenerator
         implements HashGenerator
@@ -33,21 +34,30 @@ public class InterpretedHashGenerator
     private final List<Type> hashChannelTypes;
     private final int[] hashChannels;
 
+    public InterpretedHashGenerator(List<Type> hashChannelTypes, List<Integer> hashChannels)
+    {
+        this(hashChannelTypes, requireNonNull(hashChannels).stream().mapToInt(i -> i).toArray());
+    }
+
     public InterpretedHashGenerator(List<Type> hashChannelTypes, int[] hashChannels)
     {
-        this.hashChannels = checkNotNull(hashChannels, "hashChannels is null");
-        this.hashChannelTypes = ImmutableList.copyOf(checkNotNull(hashChannelTypes, "hashChannelTypes is null"));
+        this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
+        this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
         checkArgument(hashChannelTypes.size() == hashChannels.length);
     }
 
     @Override
-    public int hashPosition(int position, Page page)
+    public long hashPosition(int position, Page page)
     {
-        Block[] blocks = page.getBlocks();
-        int result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
+        return hashPosition(position, page::getBlock);
+    }
+
+    public long hashPosition(int position, IntFunction<Block> blockProvider)
+    {
+        long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
         for (int i = 0; i < hashChannels.length; i++) {
             Type type = hashChannelTypes.get(i);
-            result = (int) CombineHashFunction.getHash(result, TypeUtils.hashPosition(type, blocks[hashChannels[i]], position));
+            result = CombineHashFunction.getHash(result, TypeUtils.hashPosition(type, blockProvider.apply(hashChannels[i]), position));
         }
         return result;
     }
@@ -55,7 +65,7 @@ public class InterpretedHashGenerator
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("hashChannelTypes", hashChannelTypes)
                 .add("hashChannels", hashChannels)
                 .toString();

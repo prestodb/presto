@@ -13,68 +13,19 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
-
-import javax.inject.Inject;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class RaptorHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    public RaptorHandleResolver(RaptorConnectorId connectorId)
-    {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return (tableHandle instanceof RaptorTableHandle) &&
-                ((RaptorTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
-    {
-        return (columnHandle instanceof RaptorColumnHandle) &&
-                ((RaptorColumnHandle) columnHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof RaptorSplit;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return tableHandle instanceof RaptorOutputTableHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return (tableHandle instanceof RaptorInsertTableHandle) &&
-                ((RaptorInsertTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -82,9 +33,15 @@ public class RaptorHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return RaptorColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return RaptorTableLayoutHandle.class;
     }
 
     @Override
@@ -100,14 +57,20 @@ public class RaptorHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return RaptorInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return RaptorTransactionHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
+    {
+        return RaptorPartitioningHandle.class;
     }
 }

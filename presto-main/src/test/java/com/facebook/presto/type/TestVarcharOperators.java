@@ -13,118 +13,120 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import org.testng.annotations.BeforeClass;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+
 public class TestVarcharOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
+    @Test
+    public void testLiteral()
     {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expected);
+        assertFunction("'foo'", createVarcharType(3), "foo");
+        assertFunction("'bar'", createVarcharType(3), "bar");
+        assertFunction("''", createVarcharType(0), "");
     }
 
     @Test
-    public void testLiteral()
-            throws Exception
+    public void testTypeConstructor()
     {
-        assertFunction("'foo'", "foo");
-        assertFunction("'bar'", "bar");
-        assertFunction("''", "");
+        assertFunction("VARCHAR 'foo'", VARCHAR, "foo");
+        assertFunction("VARCHAR 'bar'", VARCHAR, "bar");
+        assertFunction("VARCHAR ''", VARCHAR, "");
     }
 
     @Test
     public void testAdd()
-            throws Exception
     {
-        assertFunction("'foo' || 'foo'", "foo" + "foo");
-        assertFunction("'foo' || 'bar'", "foo" + "bar");
-        assertFunction("'bar' || 'foo'", "bar" + "foo");
-        assertFunction("'bar' || 'bar'", "bar" + "bar");
+        // TODO change expected return type to createVarcharType(6) when function resolving is fixed
+        assertFunction("'foo' || 'foo'", VARCHAR, "foo" + "foo");
+        assertFunction("'foo' || 'bar'", VARCHAR, "foo" + "bar");
+        assertFunction("'bar' || 'foo'", VARCHAR, "bar" + "foo");
+        assertFunction("'bar' || 'bar'", VARCHAR, "bar" + "bar");
+        assertFunction("'bar' || 'barbaz'", VARCHAR, "bar" + "barbaz");
     }
 
     @Test
     public void testEqual()
-            throws Exception
     {
-        assertFunction("'foo' = 'foo'", true);
-        assertFunction("'foo' = 'bar'", false);
-        assertFunction("'bar' = 'foo'", false);
-        assertFunction("'bar' = 'bar'", true);
+        assertFunction("'foo' = 'foo'", BOOLEAN, true);
+        assertFunction("'foo' = 'bar'", BOOLEAN, false);
+        assertFunction("'bar' = 'foo'", BOOLEAN, false);
+        assertFunction("'bar' = 'bar'", BOOLEAN, true);
     }
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
-        assertFunction("'foo' <> 'foo'", false);
-        assertFunction("'foo' <> 'bar'", true);
-        assertFunction("'bar' <> 'foo'", true);
-        assertFunction("'bar' <> 'bar'", false);
+        assertFunction("'foo' <> 'foo'", BOOLEAN, false);
+        assertFunction("'foo' <> 'bar'", BOOLEAN, true);
+        assertFunction("'bar' <> 'foo'", BOOLEAN, true);
+        assertFunction("'bar' <> 'bar'", BOOLEAN, false);
     }
 
     @Test
     public void testLessThan()
-            throws Exception
     {
-        assertFunction("'foo' < 'foo'", false);
-        assertFunction("'foo' < 'bar'", false);
-        assertFunction("'bar' < 'foo'", true);
-        assertFunction("'bar' < 'bar'", false);
+        assertFunction("'foo' < 'foo'", BOOLEAN, false);
+        assertFunction("'foo' < 'bar'", BOOLEAN, false);
+        assertFunction("'bar' < 'foo'", BOOLEAN, true);
+        assertFunction("'bar' < 'bar'", BOOLEAN, false);
     }
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
-        assertFunction("'foo' <= 'foo'", true);
-        assertFunction("'foo' <= 'bar'", false);
-        assertFunction("'bar' <= 'foo'", true);
-        assertFunction("'bar' <= 'bar'", true);
+        assertFunction("'foo' <= 'foo'", BOOLEAN, true);
+        assertFunction("'foo' <= 'bar'", BOOLEAN, false);
+        assertFunction("'bar' <= 'foo'", BOOLEAN, true);
+        assertFunction("'bar' <= 'bar'", BOOLEAN, true);
     }
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
-        assertFunction("'foo' > 'foo'", false);
-        assertFunction("'foo' > 'bar'", true);
-        assertFunction("'bar' > 'foo'", false);
-        assertFunction("'bar' > 'bar'", false);
+        assertFunction("'foo' > 'foo'", BOOLEAN, false);
+        assertFunction("'foo' > 'bar'", BOOLEAN, true);
+        assertFunction("'bar' > 'foo'", BOOLEAN, false);
+        assertFunction("'bar' > 'bar'", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
-        assertFunction("'foo' >= 'foo'", true);
-        assertFunction("'foo' >= 'bar'", true);
-        assertFunction("'bar' >= 'foo'", false);
-        assertFunction("'bar' >= 'bar'", true);
+        assertFunction("'foo' >= 'foo'", BOOLEAN, true);
+        assertFunction("'foo' >= 'bar'", BOOLEAN, true);
+        assertFunction("'bar' >= 'foo'", BOOLEAN, false);
+        assertFunction("'bar' >= 'bar'", BOOLEAN, true);
     }
 
     @Test
     public void testBetween()
-            throws Exception
     {
-        assertFunction("'foo' BETWEEN 'foo' AND 'foo'", true);
-        assertFunction("'foo' BETWEEN 'foo' AND 'bar'", false);
+        assertFunction("'foo' BETWEEN 'foo' AND 'foo'", BOOLEAN, true);
+        assertFunction("'foo' BETWEEN 'foo' AND 'bar'", BOOLEAN, false);
 
-        assertFunction("'foo' BETWEEN 'bar' AND 'foo'", true);
-        assertFunction("'foo' BETWEEN 'bar' AND 'bar'", false);
+        assertFunction("'foo' BETWEEN 'bar' AND 'foo'", BOOLEAN, true);
+        assertFunction("'foo' BETWEEN 'bar' AND 'bar'", BOOLEAN, false);
 
-        assertFunction("'bar' BETWEEN 'foo' AND 'foo'", false);
-        assertFunction("'bar' BETWEEN 'foo' AND 'bar'", false);
+        assertFunction("'bar' BETWEEN 'foo' AND 'foo'", BOOLEAN, false);
+        assertFunction("'bar' BETWEEN 'foo' AND 'bar'", BOOLEAN, false);
 
-        assertFunction("'bar' BETWEEN 'bar' AND 'foo'", true);
-        assertFunction("'bar' BETWEEN 'bar' AND 'bar'", true);
+        assertFunction("'bar' BETWEEN 'bar' AND 'foo'", BOOLEAN, true);
+        assertFunction("'bar' BETWEEN 'bar' AND 'bar'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+    {
+        assertFunction("CAST(NULL AS VARCHAR) IS DISTINCT FROM CAST(NULL AS VARCHAR)", BOOLEAN, false);
+        assertFunction("'foo' IS DISTINCT FROM 'foo'", BOOLEAN, false);
+        assertFunction("'foo' IS DISTINCT FROM 'fo0'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 'foo'", BOOLEAN, true);
+        assertFunction("'foo' IS DISTINCT FROM NULL", BOOLEAN, true);
     }
 }

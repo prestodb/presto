@@ -1,0 +1,21 @@
+version: '2'
+services:
+
+  presto-master:
+    image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode-ldap run
+    extra_hosts:
+       - "${LDAP_SERVER_HOST}:${LDAP_SERVER_IP}"
+    ports:
+      - '8443:8443'
+    volumes:
+      - ../../../conf/presto/etc/ldap-authenticator.properties:/docker/volumes/conf/presto/etc/password-authenticator.properties
+
+  application-runner:
+    image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-ldap.yaml
+      - CLI_ARGUMENTS=--server https://presto-master:8443 --keystore-path /etc/openldap/certs/coordinator.jks --keystore-password testldap
+
+  ldapserver:
+    image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'

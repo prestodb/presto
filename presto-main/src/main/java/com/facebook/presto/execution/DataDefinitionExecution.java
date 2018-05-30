@@ -15,69 +15,144 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
-    private final Session session;
+    private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
+    private final List<Expression> parameters;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
-            Session session,
+            TransactionManager transactionManager,
             Metadata metadata,
-            QueryStateMachine stateMachine)
+            AccessControl accessControl,
+            QueryStateMachine stateMachine,
+            List<Expression> parameters)
     {
-        this.task = checkNotNull(task, "task is null");
-        this.statement = checkNotNull(statement, "statement is null");
-        this.session = checkNotNull(session, "session is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.stateMachine = checkNotNull(stateMachine, "stateMachine is null");
+        this.task = requireNonNull(task, "task is null");
+        this.statement = requireNonNull(statement, "statement is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
+        this.parameters = parameters;
+    }
+
+    @Override
+    public VersionedMemoryPoolId getMemoryPool()
+    {
+        return stateMachine.getMemoryPool();
+    }
+
+    @Override
+    public void setMemoryPool(VersionedMemoryPoolId poolId)
+    {
+        stateMachine.setMemoryPool(poolId);
+    }
+
+    @Override
+    public long getUserMemoryReservation()
+    {
+        return 0;
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        return 0;
+    }
+
+    @Override
+    public Duration getTotalCpuTime()
+    {
+        return new Duration(0, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public Session getSession()
+    {
+        return stateMachine.getSession();
     }
 
     @Override
     public void start()
     {
         try {
-            // transition to starting
-            if (!stateMachine.starting()) {
-                // query already started or finished
+            // transition to running
+            if (!stateMachine.transitionToRunning()) {
+                // query already running or finished
                 return;
             }
 
-            stateMachine.recordExecutionStart();
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
+            Futures.addCallback(future, new FutureCallback<Object>()
+            {
+                @Override
+                public void onSuccess(@Nullable Object result)
+                {
+                    stateMachine.transitionToFinishing();
+                }
 
-            task.execute(statement, session, metadata);
-
-            stateMachine.finished();
+                @Override
+                public void onFailure(Throwable throwable)
+                {
+                    fail(throwable);
+                }
+            }, directExecutor());
         }
-        catch (RuntimeException e) {
+        catch (Throwable e) {
             fail(e);
+            throwIfInstanceOf(e, Error.class);
         }
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        return stateMachine.waitForStateChange(currentState, maxWait);
+        // DDL does not have an output
+    }
+
+    @Override
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return stateMachine.getStateChange(currentState);
     }
 
     @Override
@@ -87,15 +162,21 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void cancel()
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
-        stateMachine.cancel();
+        stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
     @Override
     public void fail(Throwable cause)
     {
-        stateMachine.fail(cause);
+        stateMachine.transitionToFailed(cause);
+    }
+
+    @Override
+    public void cancelQuery()
+    {
+        stateMachine.transitionToCanceled();
     }
 
     @Override
@@ -111,30 +192,88 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void pruneInfo()
+    {
+        // no-op
+    }
+
+    @Override
+    public QueryId getQueryId()
+    {
+        return stateMachine.getQueryId();
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
-        return stateMachine.getQueryInfoWithoutDetails();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get();
+        }
+        return stateMachine.updateQueryInfo(Optional.empty());
+    }
+
+    @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public QueryState getState()
+    {
+        return stateMachine.getQueryState();
+    }
+
+    @Override
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return stateMachine.getResourceGroup();
+    }
+
+    @Override
+    public void setResourceGroup(ResourceGroupId resourceGroupId)
+    {
+        stateMachine.setResourceGroup(resourceGroupId);
+    }
+
+    public List<Expression> getParameters()
+    {
+        return parameters;
     }
 
     public static class DataDefinitionExecutionFactory
             implements QueryExecutionFactory<DataDefinitionExecution<?>>
     {
         private final LocationFactory locationFactory;
+        private final TransactionManager transactionManager;
         private final Metadata metadata;
+        private final AccessControl accessControl;
         private final ExecutorService executor;
         private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
 
         @Inject
         public DataDefinitionExecutionFactory(
                 LocationFactory locationFactory,
+                TransactionManager transactionManager,
                 MetadataManager metadata,
+                AccessControl accessControl,
                 @ForQueryExecution ExecutorService executor,
                 Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {
-            this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
-            this.executor = checkNotNull(executor, "executor is null");
-            this.tasks = checkNotNull(tasks, "tasks is null");
+            this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
+            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.executor = requireNonNull(executor, "executor is null");
+            this.tasks = requireNonNull(tasks, "tasks is null");
+        }
+
+        public String explain(Statement statement, List<Expression> parameters)
+        {
+            DataDefinitionTask<Statement> task = getTask(statement);
+            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
+            return task.explain(statement, parameters);
         }
 
         @Override
@@ -142,21 +281,17 @@ public class DataDefinitionExecution<T extends Statement>
                 QueryId queryId,
                 String query,
                 Session session,
-                Statement statement)
+                Statement statement,
+                List<Expression> parameters)
         {
             URI self = locationFactory.createQueryLocation(queryId);
-            QueryStateMachine stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
-            return createExecution(statement, session, stateMachine);
-        }
 
-        private <T extends Statement> DataDefinitionExecution<?> createExecution(
-                T statement,
-                Session session,
-                QueryStateMachine stateMachine)
-        {
-            DataDefinitionTask<T> task = getTask(statement);
-            checkArgument(task != null, "no task for statement: " + statement.getClass());
-            return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine);
+            DataDefinitionTask<Statement> task = getTask(statement);
+            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
+
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
+            stateMachine.setUpdateType(task.getName());
+            return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }
 
         @SuppressWarnings("unchecked")

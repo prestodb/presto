@@ -13,197 +13,168 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.operator.scalar.JsonExtract.BooleanJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.DoubleJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.LongJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class ArraySubscriptOperator
-        extends ParametricOperator
+        extends SqlOperator
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
 
-    private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
-            .put(boolean.class, methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Slice.class, long.class))
-            .put(long.class, methodHandle(ArraySubscriptOperator.class, "longSubscript", Slice.class, long.class))
-            .put(double.class, methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Slice.class, long.class))
-            .put(Slice.class, methodHandle(ArraySubscriptOperator.class, "sliceSubscript", Slice.class, long.class))
-            .build();
-    private static final MethodHandle STRUCTURAL_METHOD_HANDLE = methodHandle(ArraySubscriptOperator.class, "structuralSubscript", Slice.class, long.class);
-
-    private static final LoadingCache<CacheKey, JsonExtractor<?>> CACHE = CacheBuilder.newBuilder()
-            .expireAfterAccess(1, TimeUnit.MINUTES)
-            .maximumSize(1000)
-            .build(new CacheLoader<CacheKey, JsonExtractor<?>>()
-            {
-                @Override
-                public JsonExtractor<?> load(CacheKey key)
-                        throws Exception
-                {
-                    return generateExtractor(format("$[%d]", key.getIndex() - 1), key.getType().getExtractor(), true);
-                }
-            });
+    private static final MethodHandle METHOD_HANDLE_UNKNOWN = methodHandle(ArraySubscriptOperator.class, "arrayWithUnknownType", Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArraySubscriptOperator.class, "longSubscript", Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArraySubscriptOperator.class, "sliceSubscript", Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArraySubscriptOperator.class, "objectSubscript", Type.class, Block.class, long.class);
 
     protected ArraySubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"));
+        super(SUBSCRIPT,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                parseTypeSignature("E"),
+                ImmutableList.of(parseTypeSignature("array(E)"), parseTypeSignature("bigint")));
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, "Expected one type, got %s", types);
-        Type elementType = types.get("E");
+        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
+        Type elementType = boundVariables.getTypeVariable("E");
 
         MethodHandle methodHandle;
-        if (elementType instanceof ArrayType || elementType instanceof MapType || elementType instanceof RowType) {
-            methodHandle = STRUCTURAL_METHOD_HANDLE;
+        if (elementType.getJavaType() == void.class) {
+            methodHandle = METHOD_HANDLE_UNKNOWN;
+        }
+        else if (elementType.getJavaType() == boolean.class) {
+            methodHandle = METHOD_HANDLE_BOOLEAN;
+        }
+        else if (elementType.getJavaType() == long.class) {
+            methodHandle = METHOD_HANDLE_LONG;
+        }
+        else if (elementType.getJavaType() == double.class) {
+            methodHandle = METHOD_HANDLE_DOUBLE;
+        }
+        else if (elementType.getJavaType() == Slice.class) {
+            methodHandle = METHOD_HANDLE_SLICE;
         }
         else {
-            methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
+            methodHandle = METHOD_HANDLE_OBJECT;
         }
-        checkNotNull(methodHandle, "methodHandle is null");
-        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature(StandardTypes.BIGINT)), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
+        methodHandle = methodHandle.bindTo(elementType);
+        requireNonNull(methodHandle, "methodHandle is null");
+        return new ScalarFunctionImplementation(
+                true,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle,
+                isDeterministic());
     }
 
-    public static Long longSubscript(Slice array, long index)
+    @UsedByGeneratedCode
+    public static void arrayWithUnknownType(Type elementType, Block array, long index)
     {
-        return subscript(array, index, ExtractorType.LONG);
+        checkIndex(array, index);
     }
 
-    public static Boolean booleanSubscript(Slice array, long index)
+    @UsedByGeneratedCode
+    public static Long longSubscript(Type elementType, Block array, long index)
     {
-        return subscript(array, index, ExtractorType.BOOLEAN);
+        checkIndex(array, index);
+        int position = toIntExact(index - 1);
+        if (array.isNull(position)) {
+            return null;
+        }
+
+        return elementType.getLong(array, position);
     }
 
-    public static Double doubleSubscript(Slice array, long index)
+    @UsedByGeneratedCode
+    public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
-        return subscript(array, index, ExtractorType.DOUBLE);
+        checkIndex(array, index);
+        int position = toIntExact(index - 1);
+        if (array.isNull(position)) {
+            return null;
+        }
+
+        return elementType.getBoolean(array, position);
     }
 
-    public static Slice sliceSubscript(Slice array, long index)
+    @UsedByGeneratedCode
+    public static Double doubleSubscript(Type elementType, Block array, long index)
     {
-        return subscript(array, index, ExtractorType.SLICE);
+        checkIndex(array, index);
+        int position = toIntExact(index - 1);
+        if (array.isNull(position)) {
+            return null;
+        }
+
+        return elementType.getDouble(array, position);
     }
 
-    public static Slice structuralSubscript(Slice array, long index)
+    @UsedByGeneratedCode
+    public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
-        return subscript(array, index, ExtractorType.STRUCTURAL);
+        checkIndex(array, index);
+        int position = toIntExact(index - 1);
+        if (array.isNull(position)) {
+            return null;
+        }
+
+        return elementType.getSlice(array, position);
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T> T subscript(Slice array, long index, ExtractorType type)
+    @UsedByGeneratedCode
+    public static Object objectSubscript(Type elementType, Block array, long index)
+    {
+        checkIndex(array, index);
+        int position = toIntExact(index - 1);
+        if (array.isNull(position)) {
+            return null;
+        }
+
+        return elementType.getObject(array, position);
+    }
+
+    public static void checkArrayIndex(long index)
     {
         if (index == 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
-        JsonExtractor<?> extractor = CACHE.getUnchecked(new CacheKey(index, type));
-        return (T) JsonExtract.extract(array, extractor);
-    }
-
-    private static class CacheKey
-    {
-        private final long index;
-        private final ExtractorType type;
-
-        private CacheKey(long index, ExtractorType type)
-        {
-            this.index = index;
-            this.type = type;
-        }
-
-        public long getIndex()
-        {
-            return index;
-        }
-
-        public ExtractorType getType()
-        {
-            return type;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            CacheKey cacheKey = (CacheKey) o;
-
-            if (index != cacheKey.index) {
-                return false;
-            }
-            if (type != cacheKey.type) {
-                return false;
-            }
-
-            return true;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int result = (int) (index ^ (index >>> 32));
-            result = 31 * result + type.hashCode();
-            return result;
+        if (index < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
         }
     }
 
-    private enum ExtractorType
+    public static void checkIndex(Block array, long index)
     {
-        LONG(new LongJsonExtractor()),
-        BOOLEAN(new BooleanJsonExtractor()),
-        DOUBLE(new DoubleJsonExtractor()),
-        SLICE(new ScalarValueJsonExtractor()),
-        STRUCTURAL(new JsonValueJsonExtractor());
-
-        private final JsonExtractor<?> extractor;
-
-        ExtractorType(JsonExtractor<?> extractor)
-        {
-            this.extractor = extractor;
-        }
-
-        public JsonExtractor<?> getExtractor()
-        {
-            return extractor;
+        checkArrayIndex(index);
+        if (index > array.getPositionCount()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
         }
     }
 }

@@ -22,4 +22,10 @@ public interface SourceOperatorFactory
 
     @Override
     SourceOperator createOperator(DriverContext driverContext);
+
+    @Override
+    default OperatorFactory duplicate()
+    {
+        throw new UnsupportedOperationException("Source operator factories can not be duplicated");
+    }
 }

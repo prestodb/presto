@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -25,14 +27,17 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
 public class DriverStats
 {
+    private final Lifespan lifespan;
+
     private final DateTime createTime;
     private final DateTime startTime;
     private final DateTime endTime;
@@ -40,12 +45,16 @@ public class DriverStats
     private final Duration queuedTime;
     private final Duration elapsedTime;
 
-    private final DataSize memoryReservation;
+    private final DataSize userMemoryReservation;
+    private final DataSize revocableMemoryReservation;
+    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
+    private final boolean fullyBlocked;
+    private final Set<BlockedReason> blockedReasons;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -57,22 +66,30 @@ public class DriverStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize physicalWrittenDataSize;
+
     private final List<OperatorStats> operatorStats;
 
     public DriverStats()
     {
+        this.lifespan = null;
+
         this.createTime = DateTime.now();
         this.startTime = null;
         this.endTime = null;
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
-        this.memoryReservation = new DataSize(0, BYTE);
+        this.userMemoryReservation = new DataSize(0, BYTE);
+        this.revocableMemoryReservation = new DataSize(0, BYTE);
+        this.systemMemoryReservation = new DataSize(0, BYTE);
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
         this.totalUserTime = new Duration(0, MILLISECONDS);
         this.totalBlockedTime = new Duration(0, MILLISECONDS);
+        this.fullyBlocked = false;
+        this.blockedReasons = ImmutableSet.of();
 
         this.rawInputDataSize = new DataSize(0, BYTE);
         this.rawInputPositions = 0;
@@ -84,23 +101,31 @@ public class DriverStats
         this.outputDataSize = new DataSize(0, BYTE);
         this.outputPositions = 0;
 
+        this.physicalWrittenDataSize = new DataSize(0, BYTE);
+
         this.operatorStats = ImmutableList.of();
     }
 
     @JsonCreator
     public DriverStats(
+            @JsonProperty("lifespan") Lifespan lifespan,
+
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("startTime") DateTime startTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -112,35 +137,51 @@ public class DriverStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
             @JsonProperty("operatorStats") List<OperatorStats> operatorStats)
     {
-        this.createTime = checkNotNull(createTime, "createTime is null");
+        this.lifespan = lifespan;
+
+        this.createTime = requireNonNull(createTime, "createTime is null");
         this.startTime = startTime;
         this.endTime = endTime;
-        this.queuedTime = checkNotNull(queuedTime, "queuedTime is null");
-        this.elapsedTime = checkNotNull(elapsedTime, "elapsedTime is null");
+        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
-        this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
-        this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
-        this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
-        this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
+        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+        this.fullyBlocked = fullyBlocked;
+        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         Preconditions.checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
-        this.rawInputReadTime = checkNotNull(rawInputReadTime, "rawInputReadTime is null");
+        this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
-        this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
+        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         Preconditions.checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         Preconditions.checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.operatorStats = ImmutableList.copyOf(checkNotNull(operatorStats, "operatorStats is null"));
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
+        this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
+    }
+
+    @JsonProperty
+    public Lifespan getLifespan()
+    {
+        return lifespan;
     }
 
     @JsonProperty
@@ -176,9 +217,21 @@ public class DriverStats
     }
 
     @JsonProperty
-    public DataSize getMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return memoryReservation;
+        return userMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
     }
 
     @JsonProperty
@@ -203,6 +256,18 @@ public class DriverStats
     public Duration getTotalBlockedTime()
     {
         return totalBlockedTime;
+    }
+
+    @JsonProperty
+    public boolean isFullyBlocked()
+    {
+        return fullyBlocked;
+    }
+
+    @JsonProperty
+    public Set<BlockedReason> getBlockedReasons()
+    {
+        return blockedReasons;
     }
 
     @JsonProperty
@@ -245,6 +310,12 @@ public class DriverStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
     }
 
     @JsonProperty

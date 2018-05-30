@@ -13,25 +13,32 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static java.util.Objects.requireNonNull;
 
 public class ChannelSet
 {
     private final GroupByHash hash;
     private final boolean containsNull;
+    private final int[] hashChannels;
 
-    public ChannelSet(GroupByHash hash, boolean containsNull)
+    public ChannelSet(GroupByHash hash, boolean containsNull, int[] hashChannels)
     {
         this.hash = hash;
         this.containsNull = containsNull;
+        this.hashChannels = hashChannels;
     }
 
     public Type getType()
@@ -49,39 +56,49 @@ public class ChannelSet
         return hash.getGroupCount();
     }
 
+    public boolean isEmpty()
+    {
+        return size() == 0;
+    }
+
     public boolean containsNull()
     {
         return containsNull;
     }
 
-    public boolean contains(int position, Page page, Block hashBlock)
-    {
-        int rawHash = (int) BigintType.BIGINT.getLong(hashBlock, position);
-        return hash.contains(position, page, rawHash);
-    }
-
     public boolean contains(int position, Page page)
     {
-        return hash.contains(position, page);
+        return hash.contains(position, page, hashChannels);
     }
 
     public static class ChannelSetBuilder
     {
-        private final GroupByHash hash;
-        private final OperatorContext operatorContext;
-        private final Page nullBlockPage;
+        private static final int[] HASH_CHANNELS = {0};
 
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
+        private final GroupByHash hash;
+        private final Page nullBlockPage;
+        private final OperatorContext operatorContext;
+        private final LocalMemoryContext localMemoryContext;
+
+        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler)
         {
             List<Type> types = ImmutableList.of(type);
-            this.hash = new GroupByHash(types, new int[] {0}, hashChannel, expectedPositions);
-            this.operatorContext = operatorContext;
-            this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus()).appendNull().build());
+            this.hash = createGroupByHash(
+                    types,
+                    HASH_CHANNELS,
+                    hashChannel,
+                    expectedPositions,
+                    isDictionaryAggregationEnabled(operatorContext.getSession()),
+                    joinCompiler,
+                    this::updateMemoryReservation);
+            this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+            this.localMemoryContext = operatorContext.localUserMemoryContext();
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage));
+            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
         }
 
         public long getEstimatedSize()
@@ -94,13 +111,25 @@ public class ChannelSet
             return hash.getGroupCount();
         }
 
-        public void addPage(Page page)
+        public Work<?> addPage(Page page)
         {
-            hash.getGroupIds(page);
+            // Just add the page to the pending work, which will be processed later.
+            return hash.addPage(page);
+        }
 
-            if (operatorContext != null) {
-                operatorContext.setMemoryReservation(hash.getEstimatedSize());
-            }
+        public boolean updateMemoryReservation()
+        {
+            // If memory is not available, once we return, this operator will be blocked until memory is available.
+            localMemoryContext.setBytes(hash.getEstimatedSize());
+
+            // If memory is not available, inform the caller that we cannot proceed for allocation.
+            return operatorContext.isWaitingForMemory().isDone();
+        }
+
+        @VisibleForTesting
+        public int getCapacity()
+        {
+            return hash.getCapacity();
         }
     }
 }

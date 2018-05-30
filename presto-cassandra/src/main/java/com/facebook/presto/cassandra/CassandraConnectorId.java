@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorId
 {
@@ -24,7 +24,7 @@ public class CassandraConnectorId
 
     public CassandraConnectorId(String connectorId)
     {
-        checkNotNull(connectorId, "connectorId is null");
+        requireNonNull(connectorId, "connectorId is null");
         checkArgument(!connectorId.isEmpty(), "connectorId is empty");
         this.connectorId = connectorId;
     }
@@ -32,7 +32,7 @@ public class CassandraConnectorId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId);
+        return Objects.hash(connectorId);
     }
 
     @Override
@@ -45,7 +45,7 @@ public class CassandraConnectorId
             return false;
         }
         CassandraConnectorId other = (CassandraConnectorId) obj;
-        return Objects.equal(this.connectorId, other.connectorId);
+        return Objects.equals(this.connectorId, other.connectorId);
     }
 
     @Override

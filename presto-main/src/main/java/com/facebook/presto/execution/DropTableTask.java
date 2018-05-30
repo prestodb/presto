@@ -15,28 +15,49 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
     @Override
-    public void execute(DropTable statement, Session session, Metadata metadata)
+    public String getName()
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
+        return "DROP TABLE";
+    }
+
+    @Override
+    public ListenableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    {
+        Session session = stateMachine.getSession();
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            if (!statement.isExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
         }
 
-        metadata.dropTable(tableHandle.get());
+        accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+
+        metadata.dropTable(session, tableHandle.get());
+
+        return immediateFuture(null);
     }
 }

@@ -16,13 +16,13 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.Session;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import kafka.producer.KeyedMessage;
 import org.testng.annotations.AfterClass;
@@ -31,26 +31,23 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
 {
-    private static final Session SESSION = Session.builder()
-            .setUser("user")
-            .setSource("source")
+    private static final Session SESSION = testSessionBuilder()
             .setCatalog("kafka")
             .setSchema("default")
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
             .build();
 
     private EmbeddedKafka embeddedKafka;
@@ -65,7 +62,7 @@ public class TestMinimalFunctionality
         embeddedKafka.start();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stopKafka()
             throws Exception
     {
@@ -91,7 +88,6 @@ public class TestMinimalFunctionality
 
     @AfterMethod
     public void tearDown()
-            throws Exception
     {
         queryRunner.close();
     }
@@ -108,21 +104,24 @@ public class TestMinimalFunctionality
 
     @Test
     public void testTopicExists()
-            throws Exception
     {
-        QualifiedTableName name = new QualifiedTableName("kafka", "default", topicName);
-        Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(SESSION, name);
-        assertTrue(handle.isPresent());
+        QualifiedObjectName name = new QualifiedObjectName("kafka", "default", topicName);
+
+        transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(SESSION, session -> {
+                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
+                    assertTrue(handle.isPresent());
+                });
     }
 
     @Test
     public void testTopicHasData()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT count(1) from " + topicName);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0)
+                .row(0L)
                 .build();
 
         assertEquals(result, expected);
@@ -133,7 +132,7 @@ public class TestMinimalFunctionality
         result = queryRunner.execute("SELECT count(1) from " + topicName);
 
         expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(count)
+                .row((long) count)
                 .build();
 
         assertEquals(result, expected);

@@ -1,0 +1,18 @@
+{
+  "schemas": [
+    {
+      "schema": "secret",
+      "owner": false
+    },
+    {
+      "user": "admin",
+      "schema": ".*",
+      "owner": true
+    },
+    {
+      "user": "bob",
+      "schema": "bob",
+      "owner": true
+    }
+  ]
+}

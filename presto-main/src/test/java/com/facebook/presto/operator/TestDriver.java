@@ -14,46 +14,56 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.MaterializingOperator;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.PageConsumerOperator;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.getRootCause;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -63,16 +73,17 @@ import static org.testng.Assert.fail;
 public class TestDriver
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+        driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -80,18 +91,19 @@ public class TestDriver
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
     public void testNormalFinish()
     {
-        List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        MaterializingOperator sink = createSinkOperator(source);
-        Driver driver = new Driver(driverContext, source, sink);
+        Operator sink = createSinkOperator(types);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -107,13 +119,13 @@ public class TestDriver
     @Test
     public void testAbruptFinish()
     {
-        List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        MaterializingOperator sink = createSinkOperator(source);
-        Driver driver = new Driver(driverContext, source, sink);
+        PageConsumerOperator sink = createSinkOperator(types);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -121,32 +133,35 @@ public class TestDriver
         driver.close();
         assertTrue(driver.isFinished());
 
-        assertTrue(sink.isFinished());
-        assertTrue(source.isFinished());
+        // finish is only called in normal operations
+        assertFalse(source.isFinished());
+        assertFalse(sink.isFinished());
+
+        // close is always called (values operator doesn't have a closed state)
+        assertTrue(sink.isClosed());
     }
 
     @Test
     public void testAddSourceFinish()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
+        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
-                types,
-                ImmutableList.<ColumnHandle>of());
+                ImmutableList.of());
 
-        MaterializingOperator sink = createSinkOperator(source);
-        Driver driver = new Driver(driverContext, source, sink);
+        PageConsumerOperator sink = createSinkOperator(types);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -154,7 +169,7 @@ public class TestDriver
         assertFalse(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
-        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
+        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
         assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
@@ -168,8 +183,8 @@ public class TestDriver
     public void testBrokenOperatorCloseWhileProcessing()
             throws Exception
     {
-        BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, "source"), false);
-        final Driver driver = new Driver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
+        BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -178,7 +193,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
             }
@@ -193,7 +207,7 @@ public class TestDriver
             fail("Expected InterruptedException");
         }
         catch (ExecutionException e) {
-            checkArgument(getRootCause(e) instanceof InterruptedException, "Expected root cause exception to be an instance of InterruptedException");
+            assertDriverInterrupted(e.getCause());
         }
     }
 
@@ -201,8 +215,8 @@ public class TestDriver
     public void testBrokenOperatorProcessWhileClosing()
             throws Exception
     {
-        BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, "source"));
-        final Driver driver = new Driver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
+        BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -211,7 +225,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 driver.close();
                 return true;
@@ -228,36 +241,59 @@ public class TestDriver
     }
 
     @Test
-    public void testBrokenOperatorAddSource()
-            throws Exception
+    public void testMemoryRevocationRace()
     {
-        PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        // create a table scan operator that does not block, which will cause the driver loop to busy wait
-        TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, "values"),
-                sourceId,
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
+                new PlanNodeId("source"),
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
-                types,
-                ImmutableList.<ColumnHandle>of());
+                ImmutableList.of());
 
-        BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, "source"));
-        final Driver driver = new Driver(driverContext, source, brokenOperator);
+        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
+        // the table scan operator will request memory revocation with requestMemoryRevoking()
+        // while the driver is still not done with the processFor() method and before it moves to
+        // updateDriverBlockedFuture() method.
+        assertTrue(driver.processFor(new Duration(100, TimeUnit.MILLISECONDS)).isDone());
+    }
+
+    @Test
+    public void testBrokenOperatorAddSource()
+            throws Exception
+    {
+        PlanNodeId sourceId = new PlanNodeId("source");
+        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        // create a table scan operator that does not block, which will cause the driver loop to busy wait
+        TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
+                sourceId,
+                new PageSourceProvider()
+                {
+                    @Override
+                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    {
+                        return new FixedPageSource(rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build());
+                    }
+                },
+                ImmutableList.of());
+
+        BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
+        final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
         Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
             }
@@ -271,7 +307,7 @@ public class TestDriver
         assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
-        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
+        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
         // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
@@ -286,18 +322,27 @@ public class TestDriver
             fail("Expected InterruptedException");
         }
         catch (ExecutionException e) {
-            checkArgument(getRootCause(e) instanceof InterruptedException, "Expected root cause exception to be an instance of InterruptedException");
+            assertDriverInterrupted(e.getCause());
         }
+    }
+
+    private void assertDriverInterrupted(Throwable cause)
+    {
+        checkArgument(cause instanceof PrestoException, "Expected root cause exception to be an instance of PrestoException");
+        assertEquals(((PrestoException) cause).getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+        assertEquals(cause.getMessage(), "Driver was interrupted");
     }
 
     private static Split newMockSplit()
     {
-        return new Split("test", new MockSplit());
+        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit());
     }
 
-    private MaterializingOperator createSinkOperator(Operator source)
+    private PageConsumerOperator createSinkOperator(List<Type> types)
     {
-        return new MaterializingOperator(driverContext.addOperatorContext(1, "sink"), source.getTypes());
+        // materialize the output to catch some type errors
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        return new PageConsumerOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
     }
 
     private static class BrokenOperator
@@ -361,12 +406,6 @@ public class TestDriver
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public void finish()
         {
             waitForUnlock();
@@ -408,11 +447,34 @@ public class TestDriver
 
         @Override
         public void close()
-                throws IOException
         {
             if (lockForClose) {
                 waitForUnlock();
             }
+        }
+    }
+
+    private static class AlwaysBlockedMemoryRevokingTableScanOperator
+            extends TableScanOperator
+    {
+        public AlwaysBlockedMemoryRevokingTableScanOperator(
+                OperatorContext operatorContext,
+                PlanNodeId planNodeId,
+                PageSourceProvider pageSourceProvider,
+                Iterable<ColumnHandle> columns)
+        {
+            super(operatorContext, planNodeId, pageSourceProvider, columns);
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            // this operator is always blocked and when queried by the driver
+            // it triggers memory revocation so that the driver gets unblocked
+            LocalMemoryContext revocableMemoryContext = getOperatorContext().localRevocableMemoryContext();
+            revocableMemoryContext.setBytes(100);
+            getOperatorContext().requestMemoryRevoking();
+            return SettableFuture.create();
         }
     }
 
@@ -423,10 +485,9 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, columns);
         }
 
         @Override

@@ -22,9 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class OutputHandler
@@ -41,7 +41,7 @@ public final class OutputHandler
 
     public OutputHandler(OutputPrinter printer)
     {
-        this.printer = checkNotNull(printer, "printer is null");
+        this.printer = requireNonNull(printer, "printer is null");
     }
 
     public void processRow(List<?> row)
@@ -70,8 +70,8 @@ public final class OutputHandler
     public void processRows(StatementClient client)
             throws IOException
     {
-        while (client.isValid()) {
-            Iterable<List<Object>> data = client.current().getData();
+        while (client.isRunning()) {
+            Iterable<List<Object>> data = client.currentData().getData();
             if (data != null) {
                 for (List<Object> row : data) {
                     processRow(unmodifiableList(row));

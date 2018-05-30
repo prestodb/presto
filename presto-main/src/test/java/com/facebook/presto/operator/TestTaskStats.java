@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -32,6 +33,7 @@ public class TestTaskStats
             new DateTime(1),
             new DateTime(2),
             new DateTime(100),
+            new DateTime(101),
             new DateTime(3),
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
@@ -41,22 +43,33 @@ public class TestTaskStats
             5,
             8,
             6,
+            24,
             10,
 
-            new DataSize(11, BYTE),
-            new Duration(12, NANOSECONDS),
-            new Duration(13, NANOSECONDS),
-            new Duration(14, NANOSECONDS),
+            11.0,
+            new DataSize(12, BYTE),
+            new DataSize(13, BYTE),
+            new DataSize(14, BYTE),
             new Duration(15, NANOSECONDS),
+            new Duration(16, NANOSECONDS),
+            new Duration(17, NANOSECONDS),
+            new Duration(18, NANOSECONDS),
+            false,
+            ImmutableSet.of(),
 
-            new DataSize(16, BYTE),
-            17,
+            new DataSize(19, BYTE),
+            20,
 
-            new DataSize(18, BYTE),
-            19,
+            new DataSize(21, BYTE),
+            22,
 
-            new DataSize(20, BYTE),
-            21,
+            new DataSize(23, BYTE),
+            24,
+
+            new DataSize(25, BYTE),
+
+            26,
+            new Duration(27, NANOSECONDS),
 
             ImmutableList.of(TestPipelineStats.EXPECTED));
 
@@ -76,6 +89,7 @@ public class TestTaskStats
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getFirstStartTime(), new DateTime(2, UTC));
         assertEquals(actual.getLastStartTime(), new DateTime(100, UTC));
+        assertEquals(actual.getLastEndTime(), new DateTime(101, UTC));
         assertEquals(actual.getEndTime(), new DateTime(3, UTC));
         assertEquals(actual.getElapsedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
@@ -85,23 +99,29 @@ public class TestTaskStats
         assertEquals(actual.getQueuedPartitionedDrivers(), 5);
         assertEquals(actual.getRunningDrivers(), 8);
         assertEquals(actual.getRunningPartitionedDrivers(), 6);
+        assertEquals(actual.getBlockedDrivers(), 24);
         assertEquals(actual.getCompletedDrivers(), 10);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(11, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 11.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(12, BYTE));
+        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(13, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(14, BYTE));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(12, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(13, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(14, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(17, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(16, BYTE));
-        assertEquals(actual.getRawInputPositions(), 17);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
+        assertEquals(actual.getRawInputPositions(), 20);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(18, BYTE));
-        assertEquals(actual.getProcessedInputPositions(), 19);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(21, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 22);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(20, BYTE));
-        assertEquals(actual.getOutputPositions(), 21);
+        assertEquals(actual.getOutputDataSize(), new DataSize(23, BYTE));
+        assertEquals(actual.getOutputPositions(), 24);
+
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(25, BYTE));
 
         assertEquals(actual.getPipelines().size(), 1);
         assertExpectedPipelineStats(actual.getPipelines().get(0));

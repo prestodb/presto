@@ -13,21 +13,28 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.raptor.util.ConcatPageSource;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
-import com.google.inject.Inject;
 
+import javax.inject.Inject;
+
+import java.util.Iterator;
 import java.util.List;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -37,55 +44,43 @@ public class RaptorPageSourceProvider
     @Inject
     public RaptorPageSourceProvider(StorageManager storageManager)
     {
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.storageManager = requireNonNull(storageManager, "storageManager is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
+        RaptorSplit raptorSplit = (RaptorSplit) split;
 
-        UUID shardUuid = raptorSplit.getShardUuid();
-        List<RaptorColumnHandle> columnHandles = FluentIterable.from(columns).transform(toRaptorColumnHandle()).toList();
-        List<Long> columnIds = FluentIterable.from(columnHandles).transform(raptorColumnId()).toList();
-        List<Type> columnTypes = FluentIterable.from(columnHandles).transform(raptorColumnType()).toList();
+        OptionalInt bucketNumber = raptorSplit.getBucketNumber();
+        TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
+        ReaderAttributes attributes = ReaderAttributes.from(session);
+        OptionalLong transactionId = raptorSplit.getTransactionId();
 
-        return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate());
+        if (raptorSplit.getShardUuids().size() == 1) {
+            UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
+            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId);
+        }
+
+        Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
+                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId))
+                .iterator();
+
+        return new ConcatPageSource(iterator);
     }
 
-    private static Function<ConnectorColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
+    private ConnectorPageSource createPageSource(
+            UUID shardUuid,
+            OptionalInt bucketNumber,
+            List<ColumnHandle> columns,
+            TupleDomain<RaptorColumnHandle> predicate,
+            ReaderAttributes attributes,
+            OptionalLong transactionId)
     {
-        return new Function<ConnectorColumnHandle, RaptorColumnHandle>()
-        {
-            @Override
-            public RaptorColumnHandle apply(ConnectorColumnHandle handle)
-            {
-                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
-            }
-        };
-    }
+        List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
+        List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
+        List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-    private static Function<RaptorColumnHandle, Long> raptorColumnId()
-    {
-        return new Function<RaptorColumnHandle, Long>()
-        {
-            @Override
-            public Long apply(RaptorColumnHandle handle)
-            {
-                return handle.getColumnId();
-            }
-        };
-    }
-
-    private static Function<RaptorColumnHandle, Type> raptorColumnType()
-    {
-        return new Function<RaptorColumnHandle, Type>()
-        {
-            @Override
-            public Type apply(RaptorColumnHandle handle)
-            {
-                return handle.getColumnType();
-            }
-        };
+        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
     }
 }

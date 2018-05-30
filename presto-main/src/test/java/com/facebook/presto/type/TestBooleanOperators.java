@@ -13,120 +13,127 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import org.testng.annotations.BeforeClass;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class TestBooleanOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
+    @Test
+    public void testLiteral()
     {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expected);
+        assertFunction("true", BOOLEAN, true);
+        assertFunction("false", BOOLEAN, false);
     }
 
     @Test
-    public void testLiteral()
-            throws Exception
+    public void testTypeConstructor()
     {
-        assertFunction("true", true);
-        assertFunction("false", false);
+        assertFunction("BOOLEAN 'true'", BOOLEAN, true);
+        assertFunction("BOOLEAN 'false'", BOOLEAN, false);
     }
 
     @Test
     public void testEqual()
-            throws Exception
     {
-        assertFunction("true = true", true);
-        assertFunction("true = false", false);
-        assertFunction("false = true", false);
-        assertFunction("false = false", true);
+        assertFunction("true = true", BOOLEAN, true);
+        assertFunction("true = false", BOOLEAN, false);
+        assertFunction("false = true", BOOLEAN, false);
+        assertFunction("false = false", BOOLEAN, true);
     }
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
-        assertFunction("true <> true", false);
-        assertFunction("true <> false", true);
-        assertFunction("false <> true", true);
-        assertFunction("false <> false", false);
+        assertFunction("true <> true", BOOLEAN, false);
+        assertFunction("true <> false", BOOLEAN, true);
+        assertFunction("false <> true", BOOLEAN, true);
+        assertFunction("false <> false", BOOLEAN, false);
     }
 
     @Test
     public void testLessThan()
-            throws Exception
     {
-        assertFunction("true < true", false);
-        assertFunction("true < false", false);
-        assertFunction("false < true", true);
-        assertFunction("false < false", false);
+        assertFunction("true < true", BOOLEAN, false);
+        assertFunction("true < false", BOOLEAN, false);
+        assertFunction("false < true", BOOLEAN, true);
+        assertFunction("false < false", BOOLEAN, false);
     }
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
-        assertFunction("true <= true", true);
-        assertFunction("true <= false", false);
-        assertFunction("false <= true", true);
-        assertFunction("false <= false", true);
+        assertFunction("true <= true", BOOLEAN, true);
+        assertFunction("true <= false", BOOLEAN, false);
+        assertFunction("false <= true", BOOLEAN, true);
+        assertFunction("false <= false", BOOLEAN, true);
     }
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
-        assertFunction("true > true", false);
-        assertFunction("true > false", true);
-        assertFunction("false > true", false);
-        assertFunction("false > false", false);
+        assertFunction("true > true", BOOLEAN, false);
+        assertFunction("true > false", BOOLEAN, true);
+        assertFunction("false > true", BOOLEAN, false);
+        assertFunction("false > false", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
-        assertFunction("true >= true", true);
-        assertFunction("true >= false", true);
-        assertFunction("false >= true", false);
-        assertFunction("false >= false", true);
+        assertFunction("true >= true", BOOLEAN, true);
+        assertFunction("true >= false", BOOLEAN, true);
+        assertFunction("false >= true", BOOLEAN, false);
+        assertFunction("false >= false", BOOLEAN, true);
     }
 
     @Test
     public void testBetween()
-            throws Exception
     {
-        assertFunction("true BETWEEN true AND true", true);
-        assertFunction("true BETWEEN true AND false", false);
-        assertFunction("true BETWEEN false AND true", true);
-        assertFunction("true BETWEEN false AND false", false);
-        assertFunction("false BETWEEN true AND true", false);
-        assertFunction("false BETWEEN true AND false", false);
-        assertFunction("false BETWEEN false AND true", true);
-        assertFunction("false BETWEEN false AND false", true);
+        assertFunction("true BETWEEN true AND true", BOOLEAN, true);
+        assertFunction("true BETWEEN true AND false", BOOLEAN, false);
+        assertFunction("true BETWEEN false AND true", BOOLEAN, true);
+        assertFunction("true BETWEEN false AND false", BOOLEAN, false);
+        assertFunction("false BETWEEN true AND true", BOOLEAN, false);
+        assertFunction("false BETWEEN true AND false", BOOLEAN, false);
+        assertFunction("false BETWEEN false AND true", BOOLEAN, true);
+        assertFunction("false BETWEEN false AND false", BOOLEAN, true);
+    }
+
+    @Test
+    public void testCastToReal()
+    {
+        assertFunction("cast(true as real)", REAL, 1.0f);
+        assertFunction("cast(false as real)", REAL, 0.0f);
     }
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
-        assertFunction("cast(true as varchar)", "true");
-        assertFunction("cast(false as varchar)", "false");
+        assertFunction("cast(true as varchar)", VARCHAR, "true");
+        assertFunction("cast(false as varchar)", VARCHAR, "false");
     }
 
     @Test
     public void testCastFromVarchar()
-            throws Exception
     {
-        assertFunction("cast('true' as boolean)", true);
-        assertFunction("cast('false' as boolean)", false);
+        assertFunction("cast('true' as boolean)", BOOLEAN, true);
+        assertFunction("cast('false' as boolean)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+    {
+        assertFunction("CAST(NULL AS BOOLEAN) IS DISTINCT FROM CAST(NULL AS BOOLEAN)", BOOLEAN, false);
+        assertFunction("FALSE IS DISTINCT FROM FALSE", BOOLEAN, false);
+        assertFunction("TRUE IS DISTINCT FROM TRUE", BOOLEAN, false);
+        assertFunction("FALSE IS DISTINCT FROM TRUE", BOOLEAN, true);
+        assertFunction("TRUE IS DISTINCT FROM FALSE", BOOLEAN, true);
+        assertFunction("FALSE IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("TRUE IS DISTINCT FROM NULL", BOOLEAN, true);
     }
 }

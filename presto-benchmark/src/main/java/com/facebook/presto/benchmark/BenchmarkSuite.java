@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
@@ -25,16 +26,19 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.testing.LocalQueryRunner.createHashEnabledQueryRunner;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static java.util.Objects.requireNonNull;
 
 public class BenchmarkSuite
 {
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
-    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner, LocalQueryRunner hashEnabledLocalQueryRunner)
+    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner)
     {
-        return ImmutableList.<AbstractBenchmark>of(
+        Session optimizeHashSession = Session.builder(localQueryRunner.getDefaultSession())
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
+                .build();
+        return ImmutableList.of(
                 // hand built benchmarks
                 new CountAggregationBenchmark(localQueryRunner),
                 new DoubleSumAggregationBenchmark(localQueryRunner),
@@ -45,8 +49,8 @@ public class BenchmarkSuite
                 new OrderByBenchmark(localQueryRunner),
                 new HashBuildBenchmark(localQueryRunner),
                 new HashJoinBenchmark(localQueryRunner),
-                new HashBuildAndJoinBenchmark(localQueryRunner),
-                new HashBuildAndJoinBenchmark(hashEnabledLocalQueryRunner),
+                new HashBuildAndJoinBenchmark(localQueryRunner.getDefaultSession(), localQueryRunner),
+                new HashBuildAndJoinBenchmark(optimizeHashSession, localQueryRunner),
                 new HandTpchQuery1(localQueryRunner),
                 new HandTpchQuery6(localQueryRunner),
 
@@ -61,6 +65,7 @@ public class BenchmarkSuite
                 new Top100SqlBenchmark(localQueryRunner),
                 new SqlHashJoinBenchmark(localQueryRunner),
                 new SqlJoinWithPredicateBenchmark(localQueryRunner),
+                new LongMaxAggregationSqlBenchmark(localQueryRunner),
                 new VarBinaryMaxAggregationSqlBenchmark(localQueryRunner),
                 new SqlDistinctMultipleFields(localQueryRunner),
                 new SqlDistinctSingleField(localQueryRunner),
@@ -83,21 +88,26 @@ public class BenchmarkSuite
                 new StatisticsBenchmark.DoubleStdDevBenchmark(localQueryRunner),
                 new StatisticsBenchmark.DoubleStdDevPopBenchmark(localQueryRunner),
 
+                // array comparison benchmarks
+                new ArrayComparisonBenchmark.ArrayEqualsBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayLessThanBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayGreaterThanBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayNotEqualBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayLessThanOrEqualBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayGreaterThanOrEqualBenchmark(localQueryRunner),
+
                 new SqlApproximateCountDistinctLongBenchmark(localQueryRunner),
                 new SqlApproximateCountDistinctDoubleBenchmark(localQueryRunner),
-                new SqlApproximateCountDistinctVarBinaryBenchmark(localQueryRunner)
-        );
+                new SqlApproximateCountDistinctVarBinaryBenchmark(localQueryRunner));
     }
 
     private final LocalQueryRunner localQueryRunner;
-    private final LocalQueryRunner hashEnabledLocalQueryRunner;
     private final String outputDirectory;
 
     public BenchmarkSuite(LocalQueryRunner localQueryRunner, String outputDirectory)
     {
         this.localQueryRunner = localQueryRunner;
-        this.hashEnabledLocalQueryRunner = createHashEnabledQueryRunner(localQueryRunner);
-        this.outputDirectory = checkNotNull(outputDirectory, "outputDirectory is null");
+        this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
     }
 
     private static File createOutputFile(String fileName)
@@ -111,7 +121,7 @@ public class BenchmarkSuite
     public void runAllBenchmarks()
             throws IOException
     {
-        List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner, hashEnabledLocalQueryRunner);
+        List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner);
 
         LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
         for (AbstractBenchmark benchmark : benchmarks) {
@@ -130,10 +140,7 @@ public class BenchmarkSuite
                                         new JsonBenchmarkResultWriter(jsonOut),
                                         new JsonAvgBenchmarkResultWriter(jsonAvgOut),
                                         new SimpleLineBenchmarkResultWriter(csvOut),
-                                        new OdsBenchmarkResultWriter("presto.benchmark." + benchmark.getBenchmarkName(), odsOut)
-                                )
-                        )
-                );
+                                        new OdsBenchmarkResultWriter("presto.benchmark." + benchmark.getBenchmarkName(), odsOut))));
             }
         }
     }
@@ -145,14 +152,14 @@ public class BenchmarkSuite
 
         private ForwardingBenchmarkResultWriter(List<BenchmarkResultHook> benchmarkResultHooks)
         {
-            checkNotNull(benchmarkResultHooks, "benchmarkResultWriters is null");
+            requireNonNull(benchmarkResultHooks, "benchmarkResultWriters is null");
             this.benchmarkResultHooks = ImmutableList.copyOf(benchmarkResultHooks);
         }
 
         @Override
         public BenchmarkResultHook addResults(Map<String, Long> results)
         {
-            checkNotNull(results, "results is null");
+            requireNonNull(results, "results is null");
             for (BenchmarkResultHook benchmarkResultHook : benchmarkResultHooks) {
                 benchmarkResultHook.addResults(results);
             }

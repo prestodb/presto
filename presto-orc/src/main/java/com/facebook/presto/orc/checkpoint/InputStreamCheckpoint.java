@@ -14,10 +14,11 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
+import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
  * InputStreamCheckpoint is represented as a packed long to avoid object creation in inner loops.
@@ -28,13 +29,13 @@ public final class InputStreamCheckpoint
     {
     }
 
-    public static long createInputStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public static long createInputStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        if (compressionKind == UNCOMPRESSED) {
-            return createInputStreamCheckpoint(0, positionsList.nextPosition());
+        if (compressed) {
+            return createInputStreamCheckpoint(positionsList.nextPosition(), positionsList.nextPosition());
         }
         else {
-            return createInputStreamCheckpoint(positionsList.nextPosition(), positionsList.nextPosition());
+            return createInputStreamCheckpoint(0, positionsList.nextPosition());
         }
     }
 
@@ -54,9 +55,19 @@ public final class InputStreamCheckpoint
         return (int) inputStreamCheckpoint;
     }
 
+    public static List<Integer> createInputStreamPositionList(boolean compressed, long inputStreamCheckpoint)
+    {
+        if (compressed) {
+            return ImmutableList.of(decodeCompressedBlockOffset(inputStreamCheckpoint), decodeDecompressedOffset(inputStreamCheckpoint));
+        }
+        else {
+            return ImmutableList.of(decodeDecompressedOffset(inputStreamCheckpoint));
+        }
+    }
+
     public static String inputStreamCheckpointToString(long inputStreamCheckpoint)
     {
-        return MoreObjects.toStringHelper(InputStreamCheckpoint.class)
+        return toStringHelper(InputStreamCheckpoint.class)
                 .add("decompressedOffset", decodeDecompressedOffset(inputStreamCheckpoint))
                 .add("compressedBlockOffset", decodeCompressedBlockOffset(inputStreamCheckpoint))
                 .toString();

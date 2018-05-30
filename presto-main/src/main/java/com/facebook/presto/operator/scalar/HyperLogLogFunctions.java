@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
@@ -29,5 +31,13 @@ public final class HyperLogLogFunctions
     public static long cardinality(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();
+    }
+
+    @ScalarFunction
+    @Description("an empty HyperLogLog instance")
+    @SqlType(StandardTypes.HYPER_LOG_LOG)
+    public static Slice emptyApproxSet()
+    {
+        return ApproximateSetAggregation.newHyperLogLog().serialize();
     }
 }

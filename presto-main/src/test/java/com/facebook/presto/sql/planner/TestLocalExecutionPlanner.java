@@ -19,23 +19,31 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Joiner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestLocalExecutionPlanner
 {
-    @SuppressWarnings("resource")
-    private final LocalQueryRunner runner = new LocalQueryRunner(TEST_SESSION);
+    private LocalQueryRunner runner;
+
+    @BeforeClass
+    public void setUp()
+    {
+        runner = new LocalQueryRunner(TEST_SESSION);
+    }
 
     @AfterClass(alwaysRun = true)
     public void cleanup()
     {
-        runner.close();
+        closeAllRuntimeException(runner);
+        runner = null;
     }
 
     @Test

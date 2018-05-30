@@ -15,40 +15,59 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class PageBuilder
 {
+    private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 1024;
+
     private final BlockBuilder[] blockBuilders;
     private final List<Type> types;
-    private BlockBuilderStatus blockBuilderStatus;
+    private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
 
     public PageBuilder(List<? extends Type> types)
     {
+        this(DEFAULT_INITIAL_EXPECTED_ENTRIES, types);
+    }
+
+    public PageBuilder(int initialExpectedEntries, List<? extends Type> types)
+    {
+        this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types, Optional.empty());
+    }
+
+    public static PageBuilder withMaxPageSize(int maxPageBytes, List<? extends Type> types)
+    {
+        return new PageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, types, Optional.empty());
+    }
+
+    private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types, Optional<BlockBuilder[]> templateBlockBuilders)
+    {
         this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
-        int maxBlockSizeInBytes;
-        if (!types.isEmpty()) {
-            maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
-            maxBlockSizeInBytes = Math.min(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, maxBlockSizeInBytes);
+
+        pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
+        blockBuilders = new BlockBuilder[types.size()];
+
+        if (templateBlockBuilders.isPresent()) {
+            BlockBuilder[] templates = templateBlockBuilders.get();
+            checkArgument(templates.length == types.size(), "Size of templates and types should match");
+            for (int i = 0; i < blockBuilders.length; i++) {
+                blockBuilders[i] = templates[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
+            }
         }
         else {
-            maxBlockSizeInBytes = 0;
-        }
-        blockBuilderStatus = new BlockBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxBlockSizeInBytes);
-
-        blockBuilders = new BlockBuilder[types.size()];
-        for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus);
+            for (int i = 0; i < blockBuilders.length; i++) {
+                blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), initialExpectedEntries);
+            }
         }
     }
 
@@ -57,12 +76,18 @@ public class PageBuilder
         if (isEmpty()) {
             return;
         }
+        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
+
         declaredPositions = 0;
-        blockBuilderStatus = new BlockBuilderStatus(blockBuilderStatus);
 
         for (int i = 0; i < types.size(); i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus);
+            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
         }
+    }
+
+    public PageBuilder newPageBuilderLike()
+    {
+        return new PageBuilder(declaredPositions, pageBuilderStatus.getMaxPageSizeInBytes(), types, Optional.of(blockBuilders));
     }
 
     public BlockBuilder getBlockBuilder(int channel)
@@ -70,22 +95,29 @@ public class PageBuilder
         return blockBuilders[channel];
     }
 
-    /**
-     * Hack to declare positions when producing a page with no channels
-     */
+    public Type getType(int channel)
+    {
+        return types.get(channel);
+    }
+
     public void declarePosition()
     {
         declaredPositions++;
     }
 
+    public void declarePositions(int positions)
+    {
+        declaredPositions += positions;
+    }
+
     public boolean isFull()
     {
-        return declaredPositions == Integer.MAX_VALUE || blockBuilderStatus.isFull();
+        return declaredPositions == Integer.MAX_VALUE || pageBuilderStatus.isFull();
     }
 
     public boolean isEmpty()
     {
-        return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilderStatus.isEmpty();
+        return declaredPositions == 0;
     }
 
     public int getPositionCount()
@@ -95,7 +127,18 @@ public class PageBuilder
 
     public long getSizeInBytes()
     {
-        return blockBuilderStatus.getSizeInBytes();
+        return pageBuilderStatus.getSizeInBytes();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // We use a foreach loop instead of streams
+        // as it has much better performance.
+        long retainedSizeInBytes = 0;
+        for (BlockBuilder blockBuilder : blockBuilders) {
+            retainedSizeInBytes += blockBuilder.getRetainedSizeInBytes();
+        }
+        return retainedSizeInBytes;
     }
 
     public Page build()
@@ -107,7 +150,18 @@ public class PageBuilder
         Block[] blocks = new Block[blockBuilders.length];
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = blockBuilders[i].build();
+            if (blocks[i].getPositionCount() != declaredPositions) {
+                throw new IllegalStateException(String.format("Declared positions (%s) does not match block %s's number of entries (%s)", declaredPositions, i, blocks[i].getPositionCount()));
+            }
         }
+
         return new Page(blocks);
+    }
+
+    private static void checkArgument(boolean expression, String errorMessage)
+    {
+        if (!expression) {
+            throw new IllegalArgumentException(errorMessage);
+        }
     }
 }

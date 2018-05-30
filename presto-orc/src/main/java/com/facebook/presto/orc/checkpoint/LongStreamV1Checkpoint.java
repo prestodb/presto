@@ -14,12 +14,14 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class LongStreamV1Checkpoint
         implements LongStreamCheckpoint
@@ -30,12 +32,12 @@ public class LongStreamV1Checkpoint
     public LongStreamV1Checkpoint(int offset, long inputStreamCheckpoint)
     {
         this.offset = offset;
-        this.inputStreamCheckpoint = checkNotNull(inputStreamCheckpoint, "inputStreamCheckpoint is null");
+        this.inputStreamCheckpoint = inputStreamCheckpoint;
     }
 
-    public LongStreamV1Checkpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public LongStreamV1Checkpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        inputStreamCheckpoint = createInputStreamCheckpoint(compressionKind, positionsList);
+        inputStreamCheckpoint = createInputStreamCheckpoint(compressed, positionsList);
         offset = positionsList.nextPosition();
     }
 
@@ -50,9 +52,18 @@ public class LongStreamV1Checkpoint
     }
 
     @Override
+    public List<Integer> toPositionList(boolean compressed)
+    {
+        return ImmutableList.<Integer>builder()
+                .addAll(createInputStreamPositionList(compressed, inputStreamCheckpoint))
+                .add(offset)
+                .build();
+    }
+
+    @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("offset", offset)
                 .add("inputStreamCheckpoint", inputStreamCheckpointToString(inputStreamCheckpoint))
                 .toString();

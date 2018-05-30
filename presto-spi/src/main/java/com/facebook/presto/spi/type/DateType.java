@@ -15,40 +15,25 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 //
-// A date is stored as milliseconds from 1970-01-01T00:00:00 UTC at midnight on the date.
+// A date is stored as days from 1970-01-01.
 //
 // Note: when dealing with a java.sql.Date it is important to remember that the value is stored
 // as the number of milliseconds from 1970-01-01T00:00:00 in UTC but time must be midnight in
 // the local time zone.  This mean when converting between a java.sql.Date and this
-// type, the time zone offset must be added or removed to keep the time at midnight.
+// type, the time zone offset must be added or removed to keep the time at midnight in UTC.
 //
 public final class DateType
-        extends AbstractFixedWidthType
+        extends AbstractIntType
 {
     public static final DateType DATE = new DateType();
 
     private DateType()
     {
-        super(parseTypeSignature(StandardTypes.DATE), long.class, SIZE_OF_LONG);
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return true;
+        super(parseTypeSignature(StandardTypes.DATE));
     }
 
     @Override
@@ -58,54 +43,20 @@ public final class DateType
             return null;
         }
 
-        // convert date to timestamp at midnight in local time zone
-        long date = block.getLong(position, 0);
-        return new SqlDate(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date), session.getTimeZoneKey());
+        int days = block.getInt(position, 0);
+        return new SqlDate(days);
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(Object other)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return leftValue == rightValue;
+        return other == DATE;
     }
 
     @Override
-    public int hash(Block block, int position)
+    public int hashCode()
     {
-        long value = block.getLong(position, 0);
-        return (int) (value ^ (value >>> 32));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
-        }
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        return block.getLong(position, 0);
-    }
-
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
-    {
-        blockBuilder.writeLong(value).closeEntry();
+        return getClass().hashCode();
     }
 }

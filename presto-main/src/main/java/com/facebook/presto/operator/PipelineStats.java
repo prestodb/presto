@@ -15,22 +15,32 @@ package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PipelineStats
 {
+    private final int pipelineId;
+
+    private final DateTime firstStartTime;
+    private final DateTime lastStartTime;
+    private final DateTime lastEndTime;
+
     private final boolean inputPipeline;
     private final boolean outputPipeline;
 
@@ -39,9 +49,12 @@ public class PipelineStats
     private final int queuedPartitionedDrivers;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final DataSize memoryReservation;
+    private final DataSize userMemoryReservation;
+    private final DataSize revocableMemoryReservation;
+    private final DataSize systemMemoryReservation;
 
     private final DistributionSnapshot queuedTime;
     private final DistributionSnapshot elapsedTime;
@@ -50,6 +63,8 @@ public class PipelineStats
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
+    private final boolean fullyBlocked;
+    private final Set<BlockedReason> blockedReasons;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -60,11 +75,19 @@ public class PipelineStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize physicalWrittenDataSize;
+
     private final List<OperatorStats> operatorSummaries;
     private final List<DriverStats> drivers;
 
     @JsonCreator
     public PipelineStats(
+            @JsonProperty("pipelineId") int pipelineId,
+
+            @JsonProperty("firstStartTime") DateTime firstStartTime,
+            @JsonProperty("lastStartTime") DateTime lastStartTime,
+            @JsonProperty("lastEndTime") DateTime lastEndTime,
+
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
 
@@ -73,9 +96,12 @@ public class PipelineStats
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
             @JsonProperty("elapsedTime") DistributionSnapshot elapsedTime,
@@ -84,6 +110,8 @@ public class PipelineStats
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -94,9 +122,17 @@ public class PipelineStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("drivers") List<DriverStats> drivers)
     {
+        this.pipelineId = pipelineId;
+
+        this.firstStartTime = firstStartTime;
+        this.lastStartTime = lastStartTime;
+        this.lastEndTime = lastEndTime;
+
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
 
@@ -110,33 +146,68 @@ public class PipelineStats
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
+        this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
-        this.queuedTime = checkNotNull(queuedTime, "queuedTime is null");
-        this.elapsedTime = checkNotNull(elapsedTime, "elapsedTime is null");
-        this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
+        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
 
-        this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
-        this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
+        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+        this.fullyBlocked = fullyBlocked;
+        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
 
-        this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
+        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.operatorSummaries = ImmutableList.copyOf(checkNotNull(operatorSummaries, "operatorSummaries is null"));
-        this.drivers = ImmutableList.copyOf(checkNotNull(drivers, "drivers is null"));
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
+        this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
+    }
+
+    @JsonProperty
+    public int getPipelineId()
+    {
+        return pipelineId;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getFirstStartTime()
+    {
+        return firstStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastStartTime()
+    {
+        return lastStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastEndTime()
+    {
+        return lastEndTime;
     }
 
     @JsonProperty
@@ -182,15 +253,33 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
+    }
+
+    @JsonProperty
     public int getCompletedDrivers()
     {
         return completedDrivers;
     }
 
     @JsonProperty
-    public DataSize getMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return memoryReservation;
+        return userMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
     }
 
     @JsonProperty
@@ -230,6 +319,18 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public boolean isFullyBlocked()
+    {
+        return fullyBlocked;
+    }
+
+    @JsonProperty
+    public Set<BlockedReason> getBlockedReasons()
+    {
+        return blockedReasons;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
@@ -266,6 +367,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
@@ -280,6 +387,10 @@ public class PipelineStats
     public PipelineStats summarize()
     {
         return new PipelineStats(
+                pipelineId,
+                firstStartTime,
+                lastStartTime,
+                lastEndTime,
                 inputPipeline,
                 outputPipeline,
                 totalDrivers,
@@ -287,33 +398,29 @@ public class PipelineStats
                 queuedPartitionedDrivers,
                 runningDrivers,
                 runningPartitionedDrivers,
+                blockedDrivers,
                 completedDrivers,
-                memoryReservation,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                systemMemoryReservation,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,
                 totalCpuTime,
                 totalUserTime,
                 totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
                 rawInputDataSize,
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
-                operatorSummaries,
-                ImmutableList.<DriverStats>of());
-    }
-
-    public static Function<PipelineStats, PipelineStats> summarizePipelineStats()
-    {
-        return new Function<PipelineStats, PipelineStats>()
-        {
-            @Override
-            public PipelineStats apply(PipelineStats input)
-            {
-                return input.summarize();
-            }
-        };
+                physicalWrittenDataSize,
+                operatorSummaries.stream()
+                        .map(OperatorStats::summarize)
+                        .collect(Collectors.toList()),
+                ImmutableList.of());
     }
 }

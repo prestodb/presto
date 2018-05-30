@@ -13,21 +13,20 @@
  */
 package com.facebook.presto.raptor.util;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 
 public final class Types
 {
     private Types() {}
 
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
+    public static boolean isArrayType(Type type)
     {
-        checkNotNull(value, "%s is null", name);
-        checkArgument(target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
+        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+    }
+
+    public static boolean isMapType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 }

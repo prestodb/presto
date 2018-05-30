@@ -13,120 +13,54 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
+import com.facebook.presto.spi.function.ValueWindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
+@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = "T")
+@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
+@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
 public class LagFunction
-        implements WindowFunction
+        extends ValueWindowFunction
 {
-    public static class BigintLagFunction
-            extends LagFunction
-    {
-        public BigintLagFunction(List<Integer> argumentChannels)
-        {
-            super(BIGINT, argumentChannels);
-        }
-    }
-
-    public static class BooleanLagFunction
-            extends LagFunction
-    {
-        public BooleanLagFunction(List<Integer> argumentChannels)
-        {
-            super(BOOLEAN, argumentChannels);
-        }
-    }
-
-    public static class DoubleLagFunction
-            extends LagFunction
-    {
-        public DoubleLagFunction(List<Integer> argumentChannels)
-        {
-            super(DOUBLE, argumentChannels);
-        }
-    }
-
-    public static class VarcharLagFunction
-            extends LagFunction
-    {
-        public VarcharLagFunction(List<Integer> argumentChannels)
-        {
-            super(VARCHAR, argumentChannels);
-        }
-    }
-
-    private final Type type;
     private final int valueChannel;
     private final int offsetChannel;
     private final int defaultChannel;
 
-    private int partitionStartPosition;
-    private int currentPosition;
-    private PagesIndex pagesIndex;
-
-    protected LagFunction(Type type, List<Integer> argumentChannels)
+    public LagFunction(List<Integer> argumentChannels)
     {
-        this.type = type;
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
     }
 
     @Override
-    public Type getType()
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        return type;
-    }
-
-    @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
-    {
-        this.partitionStartPosition = partitionStartPosition;
-        this.currentPosition = partitionStartPosition;
-        this.pagesIndex = pagesIndex;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        if ((offsetChannel >= 0) && pagesIndex.isNull(offsetChannel, currentPosition)) {
+        if ((offsetChannel >= 0) && windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
         }
         else {
-            long offset = (offsetChannel < 0) ? 1 : pagesIndex.getLong(offsetChannel, currentPosition);
+            long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
             long valuePosition = currentPosition - offset;
 
-            if ((valuePosition >= partitionStartPosition) && (valuePosition <= currentPosition)) {
-                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            if ((valuePosition >= 0) && (valuePosition <= currentPosition)) {
+                windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
+            }
+            else if (defaultChannel >= 0) {
+                windowIndex.appendTo(defaultChannel, currentPosition, output);
             }
             else {
-                appendDefault(output);
+                output.appendNull();
             }
-        }
-
-        currentPosition++;
-    }
-
-    private void appendDefault(BlockBuilder output)
-    {
-        if (defaultChannel < 0) {
-            output.appendNull();
-        }
-        else {
-            pagesIndex.appendTo(defaultChannel, currentPosition, output);
         }
     }
 }

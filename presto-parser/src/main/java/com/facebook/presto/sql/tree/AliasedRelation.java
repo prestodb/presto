@@ -13,24 +13,37 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class AliasedRelation
         extends Relation
 {
     private final Relation relation;
-    private final String alias;
-    private final List<String> columnNames;
+    private final Identifier alias;
+    private final List<Identifier> columnNames;
 
-    public AliasedRelation(Relation relation, String alias, List<String> columnNames)
+    public AliasedRelation(Relation relation, Identifier alias, List<Identifier> columnNames)
     {
-        Preconditions.checkNotNull(relation, "relation is null");
-        Preconditions.checkNotNull(alias, " is null");
+        this(Optional.empty(), relation, alias, columnNames);
+    }
+
+    public AliasedRelation(NodeLocation location, Relation relation, Identifier alias, List<Identifier> columnNames)
+    {
+        this(Optional.of(location), relation, alias, columnNames);
+    }
+
+    private AliasedRelation(Optional<NodeLocation> location, Relation relation, Identifier alias, List<Identifier> columnNames)
+    {
+        super(location);
+        requireNonNull(relation, "relation is null");
+        requireNonNull(alias, " is null");
 
         this.relation = relation;
         this.alias = alias;
@@ -42,12 +55,12 @@ public class AliasedRelation
         return relation;
     }
 
-    public String getAlias()
+    public Identifier getAlias()
     {
         return alias;
     }
 
-    public List<String> getColumnNames()
+    public List<Identifier> getColumnNames()
     {
         return columnNames;
     }
@@ -56,6 +69,12 @@ public class AliasedRelation
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitAliasedRelation(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(relation);
     }
 
     @Override
@@ -80,38 +99,14 @@ public class AliasedRelation
         }
 
         AliasedRelation that = (AliasedRelation) o;
-
-        if (!alias.equals(that.alias)) {
-            return false;
-        }
-        if (columnNames != null ? !columnNames.equals(that.columnNames) : that.columnNames != null) {
-            return false;
-        }
-        if (!relation.equals(that.relation)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(relation, that.relation) &&
+                Objects.equals(alias, that.alias) &&
+                Objects.equals(columnNames, that.columnNames);
     }
 
     @Override
     public int hashCode()
     {
-        int result = relation.hashCode();
-        result = 31 * result + alias.hashCode();
-        result = 31 * result + (columnNames != null ? columnNames.hashCode() : 0);
-        return result;
-    }
-
-    public static Function<QualifiedName, QualifiedName> applyAlias(final AliasedRelation node)
-    {
-        return new Function<QualifiedName, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(QualifiedName input)
-            {
-                return QualifiedName.of(node.getAlias(), input.getSuffix()); // TODO: handle column aliases
-            }
-        };
+        return Objects.hash(relation, alias, columnNames);
     }
 }

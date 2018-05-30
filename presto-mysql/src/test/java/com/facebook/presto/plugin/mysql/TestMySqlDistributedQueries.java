@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
@@ -20,7 +21,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test
 public class TestMySqlDistributedQueries
@@ -35,15 +38,48 @@ public class TestMySqlDistributedQueries
     }
 
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
-            throws Exception
     {
-        super(createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
+        super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        closeAllRuntimeException(mysqlServer);
+        mysqlServer.close();
     }
+
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(255)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(255)", "", "")
+                .row("clerk", "varchar(255)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(255)", "", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testDescribeOutput()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testDescribeOutputNamedAndUnnamed()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest
 }

@@ -13,62 +13,77 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.ClientException;
+import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.client.StatementClient;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.jdbc.PrestoResultSet.resultsException;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoStatement
         implements Statement
 {
-    private final AtomicInteger maxRows = new AtomicInteger();
+    private final AtomicLong maxRows = new AtomicLong();
     private final AtomicInteger queryTimeoutSeconds = new AtomicInteger();
     private final AtomicInteger fetchSize = new AtomicInteger();
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
-    private AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
+    private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    private final AtomicLong currentUpdateCount = new AtomicLong(-1);
+    private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
+    private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
+    private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
 
     PrestoStatement(PrestoConnection connection)
     {
-        this.connection = new AtomicReference<>(checkNotNull(connection, "connection is null"));
+        this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
+    }
+
+    public void setProgressMonitor(Consumer<QueryStats> progressMonitor)
+    {
+        progressCallback.set(Optional.of(requireNonNull(progressMonitor, "progressMonitor is null")));
+    }
+
+    public void clearProgressMonitor()
+    {
+        progressCallback.set(Optional.empty());
     }
 
     @Override
     public ResultSet executeQuery(String sql)
             throws SQLException
     {
-        try {
-            ResultSet result = new PrestoResultSet(connection().startQuery(sql));
-            currentResult.set(result);
-            return result;
+        if (!execute(sql)) {
+            throw new SQLException("SQL statement is not a query: " + sql);
         }
-        catch (RuntimeException e) {
-            throw new SQLException("Error executing query", e);
-        }
-    }
-
-    @Override
-    public int executeUpdate(String sql)
-            throws SQLException
-    {
-        throw new UnsupportedOperationException("executeUpdate");
+        return currentResult.get();
     }
 
     @Override
     public void close()
             throws SQLException
     {
-        if (connection.getAndSet(null) != null) {
-            // TODO
-        }
+        connection.set(null);
+        closeResultSet();
     }
 
     @Override
@@ -94,12 +109,30 @@ public class PrestoStatement
     public int getMaxRows()
             throws SQLException
     {
+        long result = getLargeMaxRows();
+        if (result > Integer.MAX_VALUE) {
+            throw new SQLException("Max rows exceeds limit of 2147483647");
+        }
+        return toIntExact(result);
+    }
+
+    @Override
+    public long getLargeMaxRows()
+            throws SQLException
+    {
         checkOpen();
         return maxRows.get();
     }
 
     @Override
     public void setMaxRows(int max)
+            throws SQLException
+    {
+        setLargeMaxRows(max);
+    }
+
+    @Override
+    public void setLargeMaxRows(long max)
             throws SQLException
     {
         checkOpen();
@@ -140,7 +173,14 @@ public class PrestoStatement
     public void cancel()
             throws SQLException
     {
-        throw new UnsupportedOperationException("cancel");
+        checkOpen();
+
+        StatementClient client = executingClient.get();
+        if (client != null) {
+            client.close();
+        }
+
+        closeResultSet();
     }
 
     @Override
@@ -166,14 +206,88 @@ public class PrestoStatement
         // ignore: positioned modifications not supported
     }
 
+    private Map<String, String> getStatementSessionProperties()
+    {
+        ImmutableMap.Builder<String, String> sessionProperties = ImmutableMap.builder();
+        if (queryTimeoutSeconds.get() > 0) {
+            sessionProperties.put("query_max_run_time", queryTimeoutSeconds.get() + "s");
+        }
+        return sessionProperties.build();
+    }
+
     @Override
     public boolean execute(String sql)
             throws SQLException
     {
+        if (connection().shouldStartTransaction()) {
+            internalExecute(connection().getStartTransactionSql());
+        }
+        return internalExecute(sql);
+    }
+
+    boolean internalExecute(String sql)
+            throws SQLException
+    {
+        clearCurrentResults();
         checkOpen();
-        // Only support returning a single result set
-        currentResult.set(executeQuery(sql));
-        return true;
+
+        StatementClient client = null;
+        ResultSet resultSet = null;
+        try {
+            client = connection().startQuery(sql, getStatementSessionProperties());
+            if (client.isFinished()) {
+                QueryStatusInfo finalStatusInfo = client.finalStatusInfo();
+                if (finalStatusInfo.getError() != null) {
+                    throw resultsException(finalStatusInfo);
+                }
+            }
+            executingClient.set(client);
+
+            resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer);
+
+            // check if this is a query
+            if (client.currentStatusInfo().getUpdateType() == null) {
+                currentResult.set(resultSet);
+                return true;
+            }
+
+            // this is an update, not a query
+            while (resultSet.next()) {
+                // ignore rows
+            }
+
+            connection().updateSession(client);
+
+            Long updateCount = client.finalStatusInfo().getUpdateCount();
+            currentUpdateCount.set((updateCount != null) ? updateCount : 0);
+            currentUpdateType.set(client.finalStatusInfo().getUpdateType());
+
+            return false;
+        }
+        catch (ClientException e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        catch (RuntimeException e) {
+            throw new SQLException("Error executing query", e);
+        }
+        finally {
+            executingClient.set(null);
+            if (currentResult.get() == null) {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+                if (client != null) {
+                    client.close();
+                }
+            }
+        }
+    }
+
+    private void clearCurrentResults()
+    {
+        currentResult.set(null);
+        currentUpdateCount.set(-1);
+        currentUpdateType.set(null);
     }
 
     @Override
@@ -188,9 +302,15 @@ public class PrestoStatement
     public int getUpdateCount()
             throws SQLException
     {
+        return Ints.saturatedCast(getLargeUpdateCount());
+    }
+
+    @Override
+    public long getLargeUpdateCount()
+            throws SQLException
+    {
         checkOpen();
-        // Updates are not allowed yet so return -1
-        return -1;
+        return currentUpdateCount.get();
     }
 
     @Override
@@ -198,7 +318,7 @@ public class PrestoStatement
             throws SQLException
     {
         checkOpen();
-        currentResult.get().close();
+        closeResultSet();
         return false;
     }
 
@@ -294,7 +414,7 @@ public class PrestoStatement
         checkOpen();
 
         if (current == CLOSE_CURRENT_RESULT) {
-            currentResult.get().close();
+            closeResultSet();
             return false;
         }
 
@@ -309,49 +429,87 @@ public class PrestoStatement
     public ResultSet getGeneratedKeys()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getGeneratedKeys");
+        throw new SQLFeatureNotSupportedException("getGeneratedKeys");
+    }
+
+    @Override
+    public int executeUpdate(String sql)
+            throws SQLException
+    {
+        return Ints.saturatedCast(executeLargeUpdate(sql));
     }
 
     @Override
     public int executeUpdate(String sql, int autoGeneratedKeys)
             throws SQLException
     {
-        throw new UnsupportedOperationException("executeUpdate");
+        return executeUpdate(sql);
     }
 
     @Override
     public int executeUpdate(String sql, int[] columnIndexes)
             throws SQLException
     {
-        throw new UnsupportedOperationException("executeUpdate");
+        return executeUpdate(sql);
     }
 
     @Override
     public int executeUpdate(String sql, String[] columnNames)
             throws SQLException
     {
-        throw new UnsupportedOperationException("executeUpdate");
+        return executeUpdate(sql);
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql)
+            throws SQLException
+    {
+        if (execute(sql)) {
+            throw new SQLException("SQL is not an update statement: " + sql);
+        }
+        return currentUpdateCount.get();
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, int autoGeneratedKeys)
+            throws SQLException
+    {
+        return executeLargeUpdate(sql);
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, int[] columnIndexes)
+            throws SQLException
+    {
+        return executeLargeUpdate(sql);
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, String[] columnNames)
+            throws SQLException
+    {
+        return executeLargeUpdate(sql);
     }
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys)
             throws SQLException
     {
-        throw new UnsupportedOperationException("execute");
+        return execute(sql);
     }
 
     @Override
     public boolean execute(String sql, int[] columnIndexes)
             throws SQLException
     {
-        throw new UnsupportedOperationException("execute");
+        return execute(sql);
     }
 
     @Override
     public boolean execute(String sql, String[] columnNames)
             throws SQLException
     {
-        throw new UnsupportedOperationException("execute");
+        return execute(sql);
     }
 
     @Override
@@ -418,6 +576,13 @@ public class PrestoStatement
         return iface.isInstance(this);
     }
 
+    public String getUpdateType()
+            throws SQLException
+    {
+        checkOpen();
+        return currentUpdateType.get();
+    }
+
     private void checkOpen()
             throws SQLException
     {
@@ -435,6 +600,15 @@ public class PrestoStatement
             throw new SQLException("Connection is closed");
         }
         return connection;
+    }
+
+    private void closeResultSet()
+            throws SQLException
+    {
+        ResultSet resultSet = currentResult.getAndSet(null);
+        if (resultSet != null) {
+            resultSet.close();
+        }
     }
 
     private static boolean validFetchDirection(int direction)

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier;
 
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 
 import java.util.List;
 
@@ -27,14 +27,23 @@ public interface VerifierDao
             ", name\n" +
             ", test_catalog\n" +
             ", test_schema\n" +
+            ", test_prequeries\n" +
             ", test_query\n" +
+            ", test_postqueries\n" +
+            ", test_username\n" +
+            ", test_password\n" +
             ", control_catalog\n" +
             ", control_schema\n" +
+            ", control_prequeries\n" +
             ", control_query\n" +
+            ", control_postqueries\n" +
+            ", control_username\n" +
+            ", control_password\n" +
+            ", session_properties_json\n" +
             "FROM verifier_queries\n" +
             "WHERE suite = :suite\n" +
             "ORDER BY id\n" +
             "LIMIT :limit")
-    @Mapper(QueryPairMapper.class)
+    @UseRowMapper(QueryPairMapper.class)
     List<QueryPair> getQueriesBySuite(@Bind("suite") String suite, @Bind("limit") int limit);
 }

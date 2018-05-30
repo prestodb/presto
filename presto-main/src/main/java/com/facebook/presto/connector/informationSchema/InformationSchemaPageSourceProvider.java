@@ -13,83 +13,69 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Partition;
-import com.facebook.presto.metadata.PartitionResult;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SerializableNativeValue;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.split.SplitManager;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableBiMap;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
-import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.nullToEmpty;
+import static com.facebook.presto.metadata.MetadataListing.listSchemas;
+import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
+import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
+import static com.facebook.presto.metadata.MetadataListing.listTables;
+import static com.facebook.presto.metadata.MetadataListing.listViews;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final Metadata metadata;
-    private final SplitManager splitManager;
+    private final AccessControl accessControl;
 
-    @Inject
-    public InformationSchemaPageSourceProvider(Metadata metadata, SplitManager splitManager)
+    public InformationSchemaPageSourceProvider(Metadata metadata, AccessControl accessControl)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(split, columns);
+        InternalTable table = getInternalTable(session, split, columns);
 
         List<Integer> channels = new ArrayList<>();
-        for (ConnectorColumnHandle column : columns) {
-            String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
+        for (ColumnHandle column : columns) {
+            String columnName = ((InformationSchemaColumnHandle) column).getColumnName();
             int columnIndex = table.getColumnIndex(columnName);
             channels.add(columnIndex);
         }
@@ -105,146 +91,122 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ConnectorColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
-        InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
 
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
 
         InformationSchemaTableHandle handle = split.getTableHandle();
-        Map<String, SerializableNativeValue> filters = split.getFilters();
+        Set<QualifiedTablePrefix> prefixes = split.getPrefixes();
 
-        return getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
+        return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), prefixes);
     }
 
-    public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Map<String, SerializableNativeValue> filters)
+    public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Set<QualifiedTablePrefix> prefixes)
     {
         if (table.equals(TABLE_COLUMNS)) {
-            return buildColumns(session, catalog, filters);
+            return buildColumns(session, prefixes);
         }
         if (table.equals(TABLE_TABLES)) {
-            return buildTables(session, catalog, filters);
+            return buildTables(session, prefixes);
         }
         if (table.equals(TABLE_VIEWS)) {
-            return buildViews(session, catalog, filters);
+            return buildViews(session, prefixes);
         }
         if (table.equals(TABLE_SCHEMATA)) {
             return buildSchemata(session, catalog);
         }
-        if (table.equals(TABLE_INTERNAL_FUNCTIONS)) {
-            return buildFunctions();
-        }
-        if (table.equals(TABLE_INTERNAL_PARTITIONS)) {
-            return buildPartitions(session, catalog, filters);
+        if (table.equals(TABLE_TABLE_PRIVILEGES)) {
+            return buildTablePrivileges(session, prefixes);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
-    private InternalTable buildColumns(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
+    private InternalTable buildColumns(Session session, Set<QualifiedTablePrefix> prefixes)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
-        for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
-            QualifiedTableName tableName = entry.getKey();
-            for (ColumnMetadata column : entry.getValue()) {
-                if (column.isHidden()) {
-                    continue;
+        for (QualifiedTablePrefix prefix : prefixes) {
+            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
+                SchemaTableName tableName = entry.getKey();
+                int ordinalPosition = 1;
+                for (ColumnMetadata column : entry.getValue()) {
+                    if (column.isHidden()) {
+                        continue;
+                    }
+                    table.add(
+                            prefix.getCatalogName(),
+                            tableName.getSchemaName(),
+                            tableName.getTableName(),
+                            column.getName(),
+                            ordinalPosition,
+                            null,
+                            "YES",
+                            column.getType().getDisplayName(),
+                            column.getComment(),
+                            column.getExtraInfo());
+                    ordinalPosition++;
                 }
-                table.add(
-                        tableName.getCatalogName(),
-                        tableName.getSchemaName(),
-                        tableName.getTableName(),
-                        column.getName(),
-                        column.getOrdinalPosition() + 1,
-                        null,
-                        "YES",
-                        column.getType().getDisplayName(),
-                        column.isPartitionKey() ? "YES" : "NO",
-                        column.getComment());
             }
         }
         return table.build();
     }
 
-    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
+    private InternalTable buildTables(Session session, Set<QualifiedTablePrefix> prefixes)
     {
-        return metadata.listTableColumns(session, extractQualifiedTablePrefix(catalogName, filters));
-    }
-
-    private InternalTable buildTables(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
-    {
-        Set<QualifiedTableName> tables = ImmutableSet.copyOf(getTablesList(session, catalogName, filters));
-        Set<QualifiedTableName> views = ImmutableSet.copyOf(getViewsList(session, catalogName, filters));
-
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLES));
-        for (QualifiedTableName name : union(tables, views)) {
-            // if table and view names overlap, the view wins
-            String type = views.contains(name) ? "VIEW" : "BASE TABLE";
-            table.add(
-                    name.getCatalogName(),
-                    name.getSchemaName(),
-                    name.getTableName(),
-                    type);
+        for (QualifiedTablePrefix prefix : prefixes) {
+            Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
+            Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+
+            for (SchemaTableName name : union(tables, views)) {
+                // if table and view names overlap, the view wins
+                String type = views.contains(name) ? "VIEW" : "BASE TABLE";
+                table.add(
+                        prefix.getCatalogName(),
+                        name.getSchemaName(),
+                        name.getTableName(),
+                        type);
+            }
         }
         return table.build();
     }
 
-    private List<QualifiedTableName> getTablesList(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
+    private InternalTable buildTablePrivileges(Session session, Set<QualifiedTablePrefix> prefixes)
     {
-        return metadata.listTables(session, extractQualifiedTablePrefix(catalogName, filters));
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLE_PRIVILEGES));
+        for (QualifiedTablePrefix prefix : prefixes) {
+            List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
+            for (GrantInfo grant : grants) {
+                for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
+                    table.add(
+                            grant.getGrantor().orElse(null),
+                            grant.getIdentity().getUser(),
+                            prefix.getCatalogName(),
+                            grant.getSchemaTableName().getSchemaName(),
+                            grant.getSchemaTableName().getTableName(),
+                            privilegeInfo.getPrivilege().name(),
+                            privilegeInfo.isGrantOption(),
+                            grant.getWithHierarchy().orElse(null));
+                }
+            }
+        }
+        return table.build();
     }
 
-    private List<QualifiedTableName> getViewsList(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
-    {
-        return metadata.listViews(session, extractQualifiedTablePrefix(catalogName, filters));
-    }
-
-    private InternalTable buildViews(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
+    private InternalTable buildViews(Session session, Set<QualifiedTablePrefix> prefixes)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_VIEWS));
-        for (Entry<QualifiedTableName, ViewDefinition> entry : getViews(session, catalogName, filters).entrySet()) {
-            table.add(
-                    entry.getKey().getCatalogName(),
-                    entry.getKey().getSchemaName(),
-                    entry.getKey().getTableName(),
-                    entry.getValue().getOriginalSql());
-        }
-        return table.build();
-    }
-
-    private Map<QualifiedTableName, ViewDefinition> getViews(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
-    {
-        return metadata.getViews(session, extractQualifiedTablePrefix(catalogName, filters));
-    }
-
-    private InternalTable buildFunctions()
-    {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_FUNCTIONS));
-        for (ParametricFunction function : metadata.listFunctions()) {
-            if (function.isApproximate()) {
-                continue;
+        for (QualifiedTablePrefix prefix : prefixes) {
+            for (Entry<QualifiedObjectName, ViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
+                table.add(
+                        entry.getKey().getCatalogName(),
+                        entry.getKey().getSchemaName(),
+                        entry.getKey().getObjectName(),
+                        entry.getValue().getOriginalSql());
             }
-
-            String functionType;
-            if (function.isAggregate()) {
-                functionType = "aggregate";
-            }
-            else if (function.isWindow()) {
-                functionType = "window";
-            }
-            else if (function.isDeterministic()) {
-                functionType = "scalar";
-            }
-            else {
-                functionType = "scalar (non-deterministic)";
-            }
-
-            table.add(
-                    function.getSignature().getName(),
-                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    function.getSignature().getReturnType().toString(),
-                    functionType,
-                    nullToEmpty(function.getDescription()));
         }
         return table.build();
     }
@@ -252,86 +214,9 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildSchemata(Session session, String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
-        for (String schema : metadata.listSchemaNames(session, catalogName)) {
+        for (String schema : listSchemas(session, metadata, accessControl, catalogName)) {
             table.add(catalogName, schema);
         }
         return table.build();
-    }
-
-    private InternalTable buildPartitions(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
-    {
-        QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
-
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
-        int partitionNumber = 1;
-
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
-        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain<ColumnHandle>>absent());
-
-        for (Partition partition : partitionResult.getPartitions()) {
-            for (Entry<ColumnHandle, SerializableNativeValue> entry : partition.getTupleDomain().extractNullableFixedValues().entrySet()) {
-                ColumnHandle columnHandle = entry.getKey();
-                String columnName = columnHandles.get(columnHandle);
-                String value = null;
-                if (entry.getValue().getValue() != null) {
-                    ColumnMetadata columnMetadata  = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
-                    try {
-                        FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
-                        value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
-                    }
-                    catch (OperatorNotFoundException e) {
-                        value = "<UNREPRESENTABLE VALUE>";
-                    }
-                    catch (Throwable throwable) {
-                        throw Throwables.propagate(throwable);
-                    }
-                }
-                table.add(
-                        catalogName,
-                        tableName.getSchemaName(),
-                        tableName.getTableName(),
-                        partitionNumber,
-                        columnName,
-                        value);
-            }
-            partitionNumber++;
-        }
-        return table.build();
-    }
-
-    private static QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, SerializableNativeValue> filters)
-    {
-        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
-        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
-        Optional<String> tableName = getFilterColumn(filters, "table_name");
-        checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
-        return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
-    }
-
-    private static QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, SerializableNativeValue> filters)
-    {
-        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
-        Optional<String> tableName = getFilterColumn(filters, "table_name");
-        if (!schemaName.isPresent()) {
-            return new QualifiedTablePrefix(catalogName, Optional.<String>absent(), Optional.<String>absent());
-        }
-        return new QualifiedTablePrefix(catalogName, schemaName, tableName);
-    }
-
-    private static Optional<String> getFilterColumn(Map<String, SerializableNativeValue> filters, String columnName)
-    {
-        SerializableNativeValue value = filters.get(columnName);
-        if (value == null || value.getValue() == null) {
-            return Optional.absent();
-        }
-        if (Slice.class.isAssignableFrom(value.getType())) {
-            return Optional.fromNullable(((Slice) value.getValue()).toStringUtf8());
-        }
-        if (String.class.isAssignableFrom(value.getType())) {
-            return Optional.fromNullable((String) value.getValue());
-        }
-        return Optional.absent();
     }
 }

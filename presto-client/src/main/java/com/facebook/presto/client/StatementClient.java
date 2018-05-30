@@ -13,237 +13,59 @@
  */
 package com.facebook.presto.client;
 
-import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
-import io.airlift.http.client.FullJsonResponseHandler;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Request;
-import io.airlift.json.JsonCodec;
+import com.facebook.presto.spi.type.TimeZoneKey;
 
-import javax.annotation.concurrent.ThreadSafe;
+import javax.annotation.Nullable;
 
 import java.io.Closeable;
-import java.net.URI;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static io.airlift.http.client.HttpStatus.Family;
-import static io.airlift.http.client.HttpStatus.familyForStatusCode;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
-
-@ThreadSafe
-public class StatementClient
-        implements Closeable
+public interface StatementClient
+        extends Closeable
 {
-    private static final String USER_AGENT_VALUE = StatementClient.class.getSimpleName() +
-            "/" +
-            Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
+    String getQuery();
 
-    private final HttpClient httpClient;
-    private final FullJsonResponseHandler<QueryResults> responseHandler;
-    private final boolean debug;
-    private final String query;
-    private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
-    private final AtomicBoolean closed = new AtomicBoolean();
-    private final AtomicBoolean gone = new AtomicBoolean();
-    private final AtomicBoolean valid = new AtomicBoolean(true);
-    private final String timeZoneId;
+    TimeZoneKey getTimeZone();
 
-    public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
-    {
-        checkNotNull(httpClient, "httpClient is null");
-        checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(query, "query is null");
+    boolean isRunning();
 
-        this.httpClient = httpClient;
-        this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);
-        this.debug = session.isDebug();
-        this.timeZoneId = session.getTimeZoneId();
-        this.query = query;
+    boolean isClientAborted();
 
-        Request request = buildQueryRequest(session, query);
-        currentResults.set(httpClient.execute(request, responseHandler).getValue());
-    }
+    boolean isClientError();
 
-    private static Request buildQueryRequest(ClientSession session, String query)
-    {
-        Request.Builder builder = preparePost()
-                .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
+    boolean isFinished();
 
-        if (session.getUser() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
-        }
-        if (session.getSource() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
-        }
-        if (session.getCatalog() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
-        }
-        if (session.getSchema() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
-        }
-        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
-        builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
-        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
+    StatementStats getStats();
 
-        Map<String, String> property = session.getProperties();
-        for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
-        }
+    QueryStatusInfo currentStatusInfo();
 
-        return builder.build();
-    }
+    QueryData currentData();
 
-    public String getQuery()
-    {
-        return query;
-    }
+    QueryStatusInfo finalStatusInfo();
 
-    public String getTimeZoneId()
-    {
-        return timeZoneId;
-    }
+    Optional<String> getSetCatalog();
 
-    public boolean isDebug()
-    {
-        return debug;
-    }
+    Optional<String> getSetSchema();
 
-    public boolean isClosed()
-    {
-        return closed.get();
-    }
+    Map<String, String> getSetSessionProperties();
 
-    public boolean isGone()
-    {
-        return gone.get();
-    }
+    Set<String> getResetSessionProperties();
 
-    public boolean isFailed()
-    {
-        return currentResults.get().getError() != null;
-    }
+    Map<String, String> getAddedPreparedStatements();
 
-    public QueryResults current()
-    {
-        checkState(isValid(), "current position is not valid (cursor past end)");
-        return currentResults.get();
-    }
+    Set<String> getDeallocatedPreparedStatements();
 
-    public QueryResults finalResults()
-    {
-        checkState((!isValid()) || isFailed(), "current position is still valid");
-        return currentResults.get();
-    }
+    @Nullable
+    String getStartedTransactionId();
 
-    public boolean isValid()
-    {
-        return valid.get() && (!isGone()) && (!isClosed());
-    }
+    boolean isClearTransactionId();
 
-    public boolean advance()
-    {
-        if (isClosed() || (current().getNextUri() == null)) {
-            valid.set(false);
-            return false;
-        }
+    boolean advance();
 
-        Request request = prepareGet()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(current().getNextUri())
-                .build();
-
-        Exception cause = null;
-        long start = System.nanoTime();
-        long attempts = 0;
-
-        do {
-            // back-off on retry
-            if (attempts > 0) {
-                sleepUninterruptibly(attempts * 100, MILLISECONDS);
-            }
-            attempts++;
-
-            JsonResponse<QueryResults> response;
-            try {
-                response = httpClient.execute(request, responseHandler);
-            }
-            catch (RuntimeException e) {
-                cause = e;
-                continue;
-            }
-
-            if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
-                currentResults.set(response.getValue());
-                return true;
-            }
-
-            if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                gone.set(true);
-                if (!response.hasValue()) {
-                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response: %s", request.getUri(), response), response.getException());
-                }
-                throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
-                        request.getUri(),
-                        response.getStatusCode(),
-                        response.getStatusMessage()));
-            }
-        }
-        while ((System.nanoTime() - start) < MINUTES.toNanos(2) && !isClosed());
-
-        gone.set(true);
-        throw new RuntimeException("Error fetching next", cause);
-    }
-
-    public boolean cancelLeafStage()
-    {
-        checkState(!isClosed(), "client is closed");
-
-        URI uri = current().getPartialCancelUri();
-        if (uri == null) {
-            return false;
-        }
-
-        Request request = prepareDelete()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(uri)
-                .build();
-        StatusResponse status = httpClient.execute(request, createStatusResponseHandler());
-        return familyForStatusCode(status.getStatusCode()) == Family.SUCCESSFUL;
-    }
+    void cancelLeafStage();
 
     @Override
-    public void close()
-    {
-        if (!closed.getAndSet(true)) {
-            URI uri = currentResults.get().getNextUri();
-            if (uri != null) {
-                Request request = prepareDelete()
-                        .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                        .setUri(uri)
-                        .build();
-                httpClient.executeAsync(request, createStatusResponseHandler());
-            }
-        }
-    }
+    void close();
 }

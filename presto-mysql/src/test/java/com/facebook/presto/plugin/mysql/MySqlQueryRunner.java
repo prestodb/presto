@@ -24,11 +24,10 @@ import io.airlift.tpch.TpchTable;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static java.util.Locale.ENGLISH;
 
 public final class MySqlQueryRunner
 {
@@ -54,7 +53,10 @@ public final class MySqlQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = ImmutableMap.of("connection-url", server.getJdbcUrl());
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("connection-url", server.getJdbcUrl())
+                    .put("allow-drop-table", "true")
+                    .build();
 
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog("mysql", "mysql", properties);
@@ -71,13 +73,9 @@ public final class MySqlQueryRunner
 
     public static Session createSession()
     {
-        return Session.builder()
-                .setUser("user")
-                .setSource("test")
+        return testSessionBuilder()
                 .setCatalog("mysql")
                 .setSchema(TPCH_SCHEMA)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 }

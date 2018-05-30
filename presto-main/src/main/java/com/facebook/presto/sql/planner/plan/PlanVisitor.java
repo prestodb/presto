@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-public class PlanVisitor<C, R>
-{
-    protected R visitPlan(PlanNode node, C context)
-    {
-        return null;
-    }
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 
-    public R visitExchange(ExchangeNode node, C context)
+public abstract class PlanVisitor<R, C>
+{
+    protected abstract R visitPlan(PlanNode node, C context);
+
+    public R visitRemoteSource(RemoteSourceNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -70,6 +69,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitExplainAnalyze(ExplainAnalyzeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitValues(ValuesNode node, C context)
     {
         return visitPlan(node, context);
@@ -100,11 +104,6 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitSink(SinkNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitWindow(WindowNode node, C context)
     {
         return visitPlan(node, context);
@@ -115,12 +114,32 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitTableCommit(TableCommitNode node, C context)
+    public R visitDelete(DeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitMetadataDelete(MetadataDeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
     }
 
     public R visitUnion(UnionNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIntersect(IntersectNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitExcept(ExceptNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -135,12 +154,47 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitGroupId(GroupIdNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitRowNumber(RowNumberNode node, C context)
     {
         return visitPlan(node, context);
     }
 
     public R visitTopNRowNumber(TopNRowNumberNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitExchange(ExchangeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitEnforceSingleRow(EnforceSingleRowNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitApply(ApplyNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitAssignUniqueId(AssignUniqueId node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitGroupReference(GroupReference node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitLateralJoin(LateralJoinNode node, C context)
     {
         return visitPlan(node, context);
     }

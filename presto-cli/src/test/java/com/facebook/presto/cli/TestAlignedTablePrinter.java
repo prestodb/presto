@@ -34,10 +34,10 @@ public class TestAlignedTablePrinter
         OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
 
         printer.printRows(rows(
-                        row("hello", "world", 123),
-                        row("a", null, 4.5),
-                        row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
-                        row("bye", "done", -15)),
+                row("hello", "world", 123),
+                row("a", null, 4.5),
+                row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
+                row("bye", "done", -15)),
                 true);
         printer.finish();
 
@@ -105,9 +105,9 @@ public class TestAlignedTablePrinter
         OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
 
         printer.printRows(rows(
-                        row("hello", bytes("hello"), "world"),
-                        row("a", bytes("some long text that is more than 16 bytes"), "b"),
-                        row("cat", bytes(""), "dog")),
+                row("hello", bytes("hello"), "world"),
+                row("a", bytes("some long text that is more than 16 bytes"), "b"),
+                row("cat", bytes(""), "dog")),
                 true);
         printer.finish();
 
@@ -119,6 +119,35 @@ public class TestAlignedTablePrinter
                 "       | 68 61 74 20 69 73 20 6d 6f 72 65 20 74 68 61 6e+|       \n" +
                 "       | 20 31 36 20 62 79 74 65 73                      |       \n" +
                 " cat   |                                                 | dog   \n" +
+                "(3 rows)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testAlignedPrintingWideCharacters()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("go\u7f51", "last", "quantity\u7f51");
+        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+
+        printer.printRows(rows(
+                row("hello", "wide\u7f51", 123),
+                row("some long\ntext \u7f51\ndoes not\u7f51\nfit", "more\ntext", 4567),
+                row("bye", "done", -15)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                "    go\u7f51    |  last  | quantity\u7f51 \n" +
+                "------------+--------+------------\n" +
+                " hello      | wide\u7f51 |        123 \n" +
+                " some long +| more  +|       4567 \n" +
+                " text \u7f51   +| text   |            \n" +
+                " does not\u7f51+|        |            \n" +
+                " fit        |        |            \n" +
+                " bye        | done   |        -15 \n" +
                 "(3 rows)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);

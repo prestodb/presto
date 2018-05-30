@@ -19,7 +19,7 @@ Hive Changes
 ------------
 
 * The maximum retry time for the Hive S3 file system can be configured
-  by setting ``hive.s3.max-retry-time=false``.
+  by setting ``hive.s3.max-retry-time``.
 * Fix Hive partition pruning for null keys (i.e. ``__HIVE_DEFAULT_PARTITION__``).
 
 Cassandra Changes

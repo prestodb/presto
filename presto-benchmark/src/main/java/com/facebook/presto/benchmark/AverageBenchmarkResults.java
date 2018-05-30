@@ -13,16 +13,13 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Maps;
-
-import javax.annotation.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AverageBenchmarkResults
         implements BenchmarkResultHook
@@ -33,7 +30,7 @@ public class AverageBenchmarkResults
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
-        checkNotNull(results, "results is null");
+        requireNonNull(results, "results is null");
         for (Entry<String, Long> entry : results.entrySet()) {
             Long currentSum = resultsSum.get(entry.getKey());
             if (currentSum == null) {
@@ -48,26 +45,12 @@ public class AverageBenchmarkResults
 
     public Map<String, Double> getAverageResultsValues()
     {
-        return Maps.transformValues(resultsSum, new Function<Long, Double>()
-        {
-            @Override
-            public Double apply(@Nullable Long input)
-            {
-                return 1.0 * input / resultsCount;
-            }
-        });
+        return Maps.transformValues(resultsSum, input -> 1.0 * input / resultsCount);
     }
 
     public Map<String, String> getAverageResultsStrings()
     {
-        return Maps.transformValues(resultsSum, new Function<Long, String>()
-        {
-            @Override
-            public String apply(@Nullable Long input)
-            {
-                return String.format("%,3.2f", 1.0 * input / resultsCount);
-            }
-        });
+        return Maps.transformValues(resultsSum, input -> String.format("%,3.2f", 1.0 * input / resultsCount));
     }
 
     @Override

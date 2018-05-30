@@ -14,11 +14,13 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
@@ -39,53 +41,66 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class PrestoConnection
         implements Connection
 {
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicBoolean autoCommit = new AtomicBoolean(true);
+    private final AtomicInteger isolationLevel = new AtomicInteger(TRANSACTION_READ_UNCOMMITTED);
+    private final AtomicBoolean readOnly = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
-    private final URI uri;
-    private final HostAndPort address;
+    private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
+    private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
+
+    private final URI jdbcUri;
+    private final URI httpUri;
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
+    private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
+    private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
     {
-        this.uri = checkNotNull(uri, "uri is null");
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-        this.user = checkNotNull(user, "user is null");
-        this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
-        catalog.set("default");
-        schema.set("default");
+        requireNonNull(uri, "uri is null");
+        this.jdbcUri = uri.getJdbcUri();
+        this.httpUri = uri.getHttpUri();
+        this.schema.set(uri.getSchema());
+        this.catalog.set(uri.getCatalog());
+        this.user = uri.getUser();
+
+        this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
-
-        if (!isNullOrEmpty(uri.getPath())) {
-            setCatalogAndSchema();
-        }
     }
 
     @Override
@@ -101,14 +116,14 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        return new PrestoPreparedStatement(this, sql);
+        throw new NotImplementedException("Connection", "prepareStatement");
     }
 
     @Override
     public CallableStatement prepareCall(String sql)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareCall");
+        throw new NotImplementedException("Connection", "prepareCall");
     }
 
     @Override
@@ -124,8 +139,9 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        if (!autoCommit) {
-            throw new SQLFeatureNotSupportedException("Disabling auto-commit mode not supported");
+        boolean wasAutoCommit = this.autoCommit.getAndSet(autoCommit);
+        if (autoCommit && !wasAutoCommit) {
+            commit();
         }
     }
 
@@ -134,7 +150,7 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        return true;
+        return autoCommit.get();
     }
 
     @Override
@@ -145,7 +161,9 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
-        throw new UnsupportedOperationException("commit");
+        try (PrestoStatement statement = new PrestoStatement(this)) {
+            statement.internalExecute("COMMIT");
+        }
     }
 
     @Override
@@ -156,14 +174,25 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
-        throw new UnsupportedOperationException("rollback");
+        try (PrestoStatement statement = new PrestoStatement(this)) {
+            statement.internalExecute("ROLLBACK");
+        }
     }
 
     @Override
     public void close()
             throws SQLException
     {
-        closed.set(true);
+        try {
+            if (!closed.get() && (transactionId.get() != null)) {
+                try (PrestoStatement statement = new PrestoStatement(this)) {
+                    statement.internalExecute("ROLLBACK");
+                }
+            }
+        }
+        finally {
+            closed.set(true);
+        }
     }
 
     @Override
@@ -185,17 +214,14 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        if (!readOnly) {
-            throw new SQLFeatureNotSupportedException("Disabling read-only mode not supported");
-        }
+        this.readOnly.set(readOnly);
     }
 
     @Override
     public boolean isReadOnly()
             throws SQLException
     {
-        checkOpen();
-        return true;
+        return readOnly.get();
     }
 
     @Override
@@ -218,14 +244,18 @@ public class PrestoConnection
     public void setTransactionIsolation(int level)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setTransactionIsolation");
+        checkOpen();
+        getIsolationLevel(level);
+        isolationLevel.set(level);
     }
 
+    @SuppressWarnings("MagicConstant")
     @Override
     public int getTransactionIsolation()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTransactionIsolation");
+        checkOpen();
+        return isolationLevel.get();
     }
 
     @Override
@@ -247,35 +277,38 @@ public class PrestoConnection
     public Statement createStatement(int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createStatement");
+        checkResultSet(resultSetType, resultSetConcurrency);
+        return createStatement();
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        checkResultSet(resultSetType, resultSetConcurrency);
+        return prepareStatement(sql);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareCall");
+        checkResultSet(resultSetType, resultSetConcurrency);
+        throw new SQLFeatureNotSupportedException("prepareCall");
     }
 
     @Override
     public Map<String, Class<?>> getTypeMap()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTypeMap");
+        throw new SQLFeatureNotSupportedException("getTypeMap");
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setTypeMap");
+        throw new SQLFeatureNotSupportedException("setTypeMap");
     }
 
     @Override
@@ -300,112 +333,121 @@ public class PrestoConnection
     public Savepoint setSavepoint()
             throws SQLException
     {
-        throw new UnsupportedOperationException("setSavepoint");
+        throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
     @Override
     public Savepoint setSavepoint(String name)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setSavepoint");
+        throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
     @Override
     public void rollback(Savepoint savepoint)
             throws SQLException
     {
-        throw new UnsupportedOperationException("rollback");
+        throw new SQLFeatureNotSupportedException("rollback");
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint)
             throws SQLException
     {
-        throw new UnsupportedOperationException("releaseSavepoint");
+        throw new SQLFeatureNotSupportedException("releaseSavepoint");
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createStatement");
+        checkHoldability(resultSetHoldability);
+        return createStatement(resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        checkHoldability(resultSetHoldability);
+        return prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareCall");
+        checkHoldability(resultSetHoldability);
+        return prepareCall(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        if (autoGeneratedKeys != Statement.RETURN_GENERATED_KEYS) {
+            throw new SQLFeatureNotSupportedException("Auto generated keys must be NO_GENERATED_KEYS");
+        }
+        return prepareStatement(sql);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
     @Override
     public Clob createClob()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createClob");
+        throw new SQLFeatureNotSupportedException("createClob");
     }
 
     @Override
     public Blob createBlob()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createBlob");
+        throw new SQLFeatureNotSupportedException("createBlob");
     }
 
     @Override
     public NClob createNClob()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createNClob");
+        throw new SQLFeatureNotSupportedException("createNClob");
     }
 
     @Override
     public SQLXML createSQLXML()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createSQLXML");
+        throw new SQLFeatureNotSupportedException("createSQLXML");
     }
 
     @Override
     public boolean isValid(int timeout)
             throws SQLException
     {
-        throw new UnsupportedOperationException("isValid");
+        if (timeout < 0) {
+            throw new SQLException("Timeout is negative");
+        }
+        return !isClosed();
     }
 
     @Override
     public void setClientInfo(String name, String value)
             throws SQLClientInfoException
     {
-        checkNotNull(name, "name is null");
+        requireNonNull(name, "name is null");
         if (value != null) {
             clientInfo.put(name, value);
         }
@@ -433,7 +475,9 @@ public class PrestoConnection
             throws SQLException
     {
         Properties properties = new Properties();
-        properties.putAll(clientInfo);
+        for (Map.Entry<String, String> entry : clientInfo.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
         return properties;
     }
 
@@ -441,14 +485,14 @@ public class PrestoConnection
     public Array createArrayOf(String typeName, Object[] elements)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createArrayOf");
+        throw new SQLFeatureNotSupportedException("createArrayOf");
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createStruct");
+        throw new SQLFeatureNotSupportedException("createStruct");
     }
 
     @Override
@@ -474,7 +518,7 @@ public class PrestoConnection
 
     public void setTimeZoneId(String timeZoneId)
     {
-        checkNotNull(timeZoneId, "timeZoneId is null");
+        requireNonNull(timeZoneId, "timeZoneId is null");
         this.timeZoneId.set(timeZoneId);
     }
 
@@ -493,8 +537,8 @@ public class PrestoConnection
      */
     public void setSessionProperty(String name, String value)
     {
-        checkNotNull(name, "name is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(value, "value is null");
         checkArgument(!name.isEmpty(), "name is empty");
 
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
@@ -516,14 +560,19 @@ public class PrestoConnection
     public void setNetworkTimeout(Executor executor, int milliseconds)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setNetworkTimeout");
+        checkOpen();
+        if (milliseconds < 0) {
+            throw new SQLException("Timeout is negative");
+        }
+        networkTimeoutMillis.set(milliseconds);
     }
 
     @Override
     public int getNetworkTimeout()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getNetworkTimeout");
+        checkOpen();
+        return networkTimeoutMillis.get();
     }
 
     @SuppressWarnings("unchecked")
@@ -546,7 +595,7 @@ public class PrestoConnection
 
     URI getURI()
     {
-        return uri;
+        return jdbcUri;
     }
 
     String getUser()
@@ -554,24 +603,85 @@ public class PrestoConnection
         return user;
     }
 
-    StatementClient startQuery(String sql)
+    ServerInfo getServerInfo()
+            throws SQLException
     {
-        URI uri = createHttpUri(address);
+        if (serverInfo.get() == null) {
+            try {
+                serverInfo.set(queryExecutor.getServerInfo(httpUri));
+            }
+            catch (RuntimeException e) {
+                throw new SQLException("Error fetching version from server", e);
+            }
+        }
+        return serverInfo.get();
+    }
 
-        String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+    boolean shouldStartTransaction()
+    {
+        return !autoCommit.get() && (transactionId.get() == null);
+    }
+
+    String getStartTransactionSql()
+            throws SQLException
+    {
+        return format(
+                "START TRANSACTION ISOLATION LEVEL %s, READ %s",
+                getIsolationLevel(isolationLevel.get()),
+                readOnly.get() ? "ONLY" : "WRITE");
+    }
+
+    StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
+    {
+        String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
+        Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
+                .split(nullToEmpty(clientInfo.get("ClientTags")));
+
+        Map<String, String> allProperties = new HashMap<>(sessionProperties);
+        allProperties.putAll(sessionPropertiesOverride);
+
+        // zero means no timeout, so use a huge value that is effectively unlimited
+        int millis = networkTimeoutMillis.get();
+        Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
 
         ClientSession session = new ClientSession(
-                uri,
+                httpUri,
                 user,
                 source,
+                traceToken,
+                ImmutableSet.copyOf(clientTags),
+                clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
-                ImmutableMap.copyOf(sessionProperties),
-                false);
+                ImmutableMap.of(),
+                ImmutableMap.copyOf(allProperties),
+                ImmutableMap.copyOf(preparedStatements),
+                transactionId.get(),
+                timeout);
 
         return queryExecutor.startQuery(session, sql);
+    }
+
+    void updateSession(StatementClient client)
+    {
+        client.getSetSessionProperties().forEach(sessionProperties::put);
+        client.getResetSessionProperties().forEach(sessionProperties::remove);
+
+        client.getAddedPreparedStatements().forEach(preparedStatements::put);
+        client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
+
+        client.getSetCatalog().ifPresent(catalog::set);
+        client.getSetSchema().ifPresent(schema::set);
+
+        if (client.getStartedTransactionId() != null) {
+            transactionId.set(client.getStartedTransactionId());
+        }
+        if (client.isClearTransactionId()) {
+            transactionId.set(null);
+        }
     }
 
     private void checkOpen()
@@ -582,50 +692,38 @@ public class PrestoConnection
         }
     }
 
-    private void setCatalogAndSchema()
-            throws SQLException
+    private static void checkResultSet(int resultSetType, int resultSetConcurrency)
+            throws SQLFeatureNotSupportedException
     {
-        String path = uri.getPath();
-        if (path.equals("/")) {
-            return;
+        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY) {
+            throw new SQLFeatureNotSupportedException("Result set type must be TYPE_FORWARD_ONLY");
         }
-
-        // remove first slash
-        if (!path.startsWith("/")) {
-            throw new SQLException("Path does not start with a slash: " + uri);
-        }
-        path = path.substring(1);
-
-        List<String> parts = Splitter.on("/").splitToList(path);
-
-        // remove last item due to a trailing slash
-        if (parts.get(parts.size() - 1).isEmpty()) {
-            parts = parts.subList(0, parts.size() - 1);
-        }
-
-        if (parts.size() > 2) {
-            throw new SQLException("Invalid path segments in URL: " + uri);
-        }
-
-        if (parts.get(0).isEmpty()) {
-            throw new SQLException("Catalog name is empty: " + uri);
-        }
-        catalog.set(parts.get(0));
-
-        if (parts.size() > 1) {
-            if (parts.get(1).isEmpty()) {
-                throw new SQLException("Schema name is empty: " + uri);
-            }
-            schema.set(parts.get(1));
+        if (resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
+            throw new SQLFeatureNotSupportedException("Result set concurrency must be CONCUR_READ_ONLY");
         }
     }
 
-    private static URI createHttpUri(HostAndPort address)
+    private static void checkHoldability(int resultSetHoldability)
+            throws SQLFeatureNotSupportedException
     {
-        return uriBuilder()
-                .scheme("http")
-                .host(address.getHostText())
-                .port(address.getPort())
-                .build();
+        if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
+            throw new SQLFeatureNotSupportedException("Result set holdability must be HOLD_CURSORS_OVER_COMMIT");
+        }
+    }
+
+    private static String getIsolationLevel(int level)
+            throws SQLException
+    {
+        switch (level) {
+            case TRANSACTION_READ_UNCOMMITTED:
+                return "READ UNCOMMITTED";
+            case TRANSACTION_READ_COMMITTED:
+                return "READ COMMITTED";
+            case TRANSACTION_REPEATABLE_READ:
+                return "REPEATABLE READ";
+            case TRANSACTION_SERIALIZABLE:
+                return "SERIALIZABLE";
+        }
+        throw new SQLException("Invalid transaction isolation level: " + level);
     }
 }

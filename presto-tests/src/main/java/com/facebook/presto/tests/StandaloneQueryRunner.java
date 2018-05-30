@@ -14,24 +14,36 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.AllNodes;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Module;
 import io.airlift.testing.Closeables;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class StandaloneQueryRunner
@@ -41,10 +53,12 @@ public final class StandaloneQueryRunner
 
     private final TestingPrestoClient prestoClient;
 
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
     public StandaloneQueryRunner(Session defaultSession)
             throws Exception
     {
-        checkNotNull(defaultSession, "defaultSession is null");
+        requireNonNull(defaultSession, "defaultSession is null");
 
         try {
             server = createTestingPrestoServer();
@@ -59,18 +73,34 @@ public final class StandaloneQueryRunner
         refreshNodes();
 
         server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+
+        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("catalog"), TEST_CATALOG_PROPERTIES);
     }
 
     @Override
     public MaterializedResult execute(@Language("SQL") String sql)
     {
-        return prestoClient.execute(sql);
+        lock.readLock().lock();
+        try {
+            return prestoClient.execute(sql).getResult();
+        }
+        finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return prestoClient.execute(session, sql);
+        lock.readLock().lock();
+        try {
+            return prestoClient.execute(session, sql).getResult();
+        }
+        finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
@@ -90,6 +120,36 @@ public final class StandaloneQueryRunner
     public Session getDefaultSession()
     {
         return prestoClient.getDefaultSession();
+    }
+
+    @Override
+    public TransactionManager getTransactionManager()
+    {
+        return server.getTransactionManager();
+    }
+
+    @Override
+    public Metadata getMetadata()
+    {
+        return server.getMetadata();
+    }
+
+    @Override
+    public NodePartitioningManager getNodePartitioningManager()
+    {
+        return server.getNodePartitioningManager();
+    }
+
+    @Override
+    public StatsCalculator getStatsCalculator()
+    {
+        return server.getStatsCalculator();
+    }
+
+    @Override
+    public TestingAccessControlManager getAccessControl()
+    {
+        return server.getAccessControl();
     }
 
     public TestingPrestoServer getServer()
@@ -114,7 +174,7 @@ public final class StandaloneQueryRunner
         while (allNodes.getActiveNodes().isEmpty());
     }
 
-    private void refreshNodes(String catalogName)
+    private void refreshNodes(ConnectorId connectorId)
     {
         Set<Node> activeNodesWithConnector;
 
@@ -126,7 +186,7 @@ public final class StandaloneQueryRunner
                 Thread.currentThread().interrupt();
                 break;
             }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
+            activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
         }
         while (activeNodesWithConnector.isEmpty());
     }
@@ -138,26 +198,44 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName)
     {
-        createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
+        createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        server.createCatalog(catalogName, connectorName, properties);
+        ConnectorId connectorId = server.createCatalog(catalogName, connectorName, properties);
 
-        refreshNodes(catalogName);
+        refreshNodes(connectorId);
     }
 
     @Override
-    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return prestoClient.listTables(session, catalog, schema);
+        lock.readLock().lock();
+        try {
+            return prestoClient.listTables(session, catalog, schema);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
     public boolean tableExists(Session session, String table)
     {
-        return prestoClient.tableExists(session, table);
+        lock.readLock().lock();
+        try {
+            return prestoClient.tableExists(session, table);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public Lock getExclusiveLock()
+    {
+        return lock.writeLock();
     }
 
     private static TestingPrestoServer createTestingPrestoServer()
@@ -165,11 +243,10 @@ public final class StandaloneQueryRunner
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
-                .put("exchange.http-client.read-timeout", "1h")
-                .put("compiler.interpreter-enabled", "false")
+                .put("exchange.http-client.idle-timeout", "1h")
                 .put("node-scheduler.min-candidates", "1")
                 .put("datasources", "system");
 
-        return new TestingPrestoServer(true, properties.build(), null, null, ImmutableList.<Module>of());
+        return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
     }
 }

@@ -1,0 +1,63 @@
+{
+  "queues": {
+    "user.${USER}": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "user_big.${USER}": {
+      "maxConcurrent": 1,
+      "maxQueued": 1
+    },
+    "user_pipeline.${USER}": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "pipeline": {
+      "maxConcurrent": 10,
+      "maxQueued": 100
+    },
+    "admin": {
+      "maxConcurrent": 100,
+      "maxQueued": 100
+    },
+    "global": {
+      "maxConcurrent": 100,
+      "maxQueued": 1000
+    },
+    "big": {
+      "maxConcurrent": 1,
+      "maxQueued": 10
+    }
+  },
+  "rules": [
+    {
+      "user": "bob",
+      "queues": ["admin"]
+    },
+    {
+      "source": "ping_query",
+      "queues": ["admin"]
+    },
+    {
+      "source": ".*pipeline.*",
+      "queues": [
+        "user_pipeline.${USER}",
+        "pipeline",
+        "global"
+      ]
+    },
+    {
+      "session.experimental_big_query": "true",
+      "queues": [
+        "user_big.${USER}",
+        "big"
+      ]
+    },
+    {
+      "queues": [
+        "user.${USER}",
+        "global"
+      ]
+    }
+  ]
+}

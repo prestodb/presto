@@ -15,21 +15,25 @@ package com.facebook.presto.jdbc;
 
 import java.util.Objects;
 
-public class PrestoIntervalYearMonth
-{
-    private final long months;
+import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
+import static com.facebook.presto.client.IntervalYearMonth.toMonths;
 
-    public PrestoIntervalYearMonth(long months)
+public class PrestoIntervalYearMonth
+        implements Comparable<PrestoIntervalYearMonth>
+{
+    private final int months;
+
+    public PrestoIntervalYearMonth(int months)
     {
         this.months = months;
     }
 
     public PrestoIntervalYearMonth(int year, int months)
     {
-        this.months = (12 * year) + months;
+        this.months = toMonths(year, months);
     }
 
-    public long getMonths()
+    public int getMonths()
     {
         return months;
     }
@@ -50,17 +54,18 @@ public class PrestoIntervalYearMonth
             return false;
         }
         PrestoIntervalYearMonth other = (PrestoIntervalYearMonth) obj;
-        return Objects.equals(this.months, other.months);
+        return this.months == other.months;
+    }
+
+    @Override
+    public int compareTo(PrestoIntervalYearMonth o)
+    {
+        return Integer.compare(months, o.months);
     }
 
     @Override
     public String toString()
     {
         return formatMonths(months);
-    }
-
-    private static String formatMonths(long months)
-    {
-        return (months / 12) + "-" + (months % 12);
     }
 }

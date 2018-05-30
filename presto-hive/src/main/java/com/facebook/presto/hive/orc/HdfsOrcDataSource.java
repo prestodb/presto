@@ -13,34 +13,40 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.presto.orc.DiskRange;
-import com.facebook.presto.orc.OrcDataSource;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.orc.AbstractOrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.spi.PrestoException;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.Map.Entry;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class HdfsOrcDataSource
-        implements OrcDataSource
+        extends AbstractOrcDataSource
 {
     private final FSDataInputStream inputStream;
-    private final String path;
-    private final long size;
-    private long readTimeNanos;
+    private final FileFormatDataSourceStats stats;
 
-    public HdfsOrcDataSource(String path, FSDataInputStream inputStream, long size)
-            throws IOException
+    public HdfsOrcDataSource(
+            OrcDataSourceId id,
+            long size,
+            DataSize maxMergeDistance,
+            DataSize maxReadSize,
+            DataSize streamBufferSize,
+            boolean lazyReadSmallRanges,
+            FSDataInputStream inputStream,
+            FileFormatDataSourceStats stats)
     {
-        this.path = checkNotNull(path, "path is null");
-        this.inputStream = checkNotNull(inputStream, "inputStream is null");
-        this.size = size;
+        super(id, size, maxMergeDistance, maxReadSize, streamBufferSize, lazyReadSmallRanges);
+        this.inputStream = requireNonNull(inputStream, "inputStream is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -51,67 +57,26 @@ public class HdfsOrcDataSource
     }
 
     @Override
-    public long getReadTimeNanos()
+    protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
     {
-        return readTimeNanos;
-    }
-
-    @Override
-    public long getSize()
-    {
-        return size;
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer)
-            throws IOException
-    {
-        readFully(position, buffer, 0, buffer.length);
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
-    {
-        long start = System.nanoTime();
-
-        inputStream.readFully(position, buffer, bufferOffset, bufferLength);
-
-        readTimeNanos += System.nanoTime() - start;
-    }
-
-    @Override
-    public <K> Map<K, Slice> readFully(Map<K, DiskRange> diskRanges)
-            throws IOException
-    {
-        checkNotNull(diskRanges, "diskRanges is null");
-
-        if (diskRanges.isEmpty()) {
-            return ImmutableMap.of();
+        try {
+            long readStart = System.nanoTime();
+            inputStream.readFully(position, buffer, bufferOffset, bufferLength);
+            stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
-
-        // merge ranges
-        DiskRange fullRange = diskRanges.values().iterator().next();
-        for (DiskRange diskRange : diskRanges.values()) {
-            fullRange = fullRange.span(diskRange);
+        catch (PrestoException e) {
+            // just in case there is a Presto wrapper or hook
+            throw e;
         }
-
-        // read full range in one request
-        byte[] buffer = new byte[fullRange.getLength()];
-        readFully(fullRange.getOffset(), buffer);
-
-        ImmutableMap.Builder<K, Slice> slices = ImmutableMap.builder();
-        for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            DiskRange diskRange = entry.getValue();
-            int offset = Ints.checkedCast(diskRange.getOffset() - fullRange.getOffset());
-            slices.put(entry.getKey(), Slices.wrappedBuffer(buffer, offset, diskRange.getLength()));
+        catch (Exception e) {
+            String message = format("Error reading from %s at position %s", this, position);
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            if (e instanceof IOException) {
+                throw new PrestoException(HIVE_FILESYSTEM_ERROR, message, e);
+            }
+            throw new PrestoException(HIVE_UNKNOWN_ERROR, message, e);
         }
-        return slices.build();
-    }
-
-    @Override
-    public String toString()
-    {
-        return path;
     }
 }

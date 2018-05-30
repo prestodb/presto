@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static java.lang.String.format;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -32,7 +32,7 @@ public class ModelType
 
     private ModelType()
     {
-        super(parameterizedTypeName("Model"), Slice.class);
+        super(new TypeSignature("Model"), Slice.class);
     }
 
     protected ModelType(TypeSignature signature)
@@ -47,7 +47,7 @@ public class ModelType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -55,7 +55,7 @@ public class ModelType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     @Override
@@ -77,6 +77,6 @@ public class ModelType
             return null;
         }
 
-        return String.format("<%s>", getTypeSignature());
+        return format("<%s>", getTypeSignature()).getBytes();
     }
 }

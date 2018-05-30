@@ -13,49 +13,52 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.Lists;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCode.NOP;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
 public class CoalesceCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        List<ByteCodeNode> operands = new ArrayList<>();
+        List<BytecodeNode> operands = new ArrayList<>();
         for (RowExpression expression : arguments) {
             operands.add(generatorContext.generate(expression));
         }
 
-        CompilerContext context = generatorContext.getContext();
-        ByteCodeNode nullValue = new Block(context)
-                .putVariable("wasNull", true)
+        Variable wasNull = generatorContext.wasNull();
+        BytecodeNode nullValue = new BytecodeBlock()
+                .append(wasNull.set(constantTrue()))
                 .pushJavaDefault(returnType.getJavaType());
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (ByteCodeNode operand : Lists.reverse(operands)) {
-            Block condition = new Block(context)
+        for (BytecodeNode operand : Lists.reverse(operands)) {
+            IfStatement ifStatement = new IfStatement();
+
+            ifStatement.condition()
                     .append(operand)
-                    .getVariable("wasNull");
+                    .append(wasNull);
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
-            Block nullBlock = new Block(context)
+            ifStatement.ifTrue()
                     .pop(returnType.getJavaType())
-                    .putVariable("wasNull", false)
+                    .append(wasNull.set(constantFalse()))
                     .append(nullValue);
 
-            nullValue = new IfStatement(context, condition, nullBlock, NOP);
+            nullValue = ifStatement;
         }
 
         return nullValue;

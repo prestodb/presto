@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 @Test
 public class TestPostgreSqlDistributedQueries
@@ -37,9 +36,8 @@ public class TestPostgreSqlDistributedQueries
     }
 
     public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
-            throws Exception
     {
-        super(createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
+        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
         this.postgreSqlServer = postgreSqlServer;
     }
 
@@ -47,6 +45,8 @@ public class TestPostgreSqlDistributedQueries
     public final void destroy()
             throws IOException
     {
-        closeAllRuntimeException(postgreSqlServer);
+        postgreSqlServer.close();
     }
+
+    // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest
 }

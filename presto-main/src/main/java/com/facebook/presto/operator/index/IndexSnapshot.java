@@ -19,27 +19,29 @@ import com.facebook.presto.spi.PageBuilder;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class IndexSnapshot
         implements IndexedData
 {
+    private static final Page EMPTY_PAGE = new Page(0);
+
     private final LookupSource values;
     private final LookupSource missingKeys;
 
     public IndexSnapshot(LookupSource values, LookupSource missingKeys)
     {
-        this.values = checkNotNull(values, "values is null");
-        this.missingKeys = checkNotNull(missingKeys, "missingKeys is null");
+        this.values = requireNonNull(values, "values is null");
+        this.missingKeys = requireNonNull(missingKeys, "missingKeys is null");
     }
 
     @Override
     public long getJoinPosition(int position, Page page)
     {
-        long joinPosition = values.getJoinPosition(position, page);
+        long joinPosition = values.getJoinPosition(position, page, page);
         if (joinPosition < 0) {
-            if (missingKeys.getJoinPosition(position, page) < 0) {
+            if (missingKeys.getJoinPosition(position, page, page) < 0) {
                 return UNLOADED_INDEX_KEY;
             }
             else {
@@ -52,7 +54,7 @@ public class IndexSnapshot
     @Override
     public long getNextJoinPosition(long currentPosition)
     {
-        return values.getNextJoinPosition(currentPosition);
+        return values.getNextJoinPosition(currentPosition, -1, EMPTY_PAGE);
     }
 
     @Override

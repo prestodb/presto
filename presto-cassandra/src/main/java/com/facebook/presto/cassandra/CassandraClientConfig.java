@@ -17,9 +17,10 @@ import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.SocketOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -29,33 +30,24 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
+        "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
+        "cassandra.schema-refresh-interval"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private Duration schemaCacheTtl = new Duration(1, TimeUnit.HOURS);
-    private Duration schemaRefreshInterval = new Duration(2, TimeUnit.MINUTES);
-    private int maxSchemaRefreshThreads = 10;
-    private int limitForPartitionKeySelect = 200;
-    private int fetchSizeForPartitionKeySelect = 20_000;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
-    private String partitioner = "Murmur3Partitioner";
-    private int thriftPort = 9160;
-    private String thriftConnectionFactoryClassName = "org.apache.cassandra.thrift.TFramedTransportFactory";
-    private Map<String, String> transportFactoryOptions = new HashMap<>();
     private boolean allowDropTable;
     private String username;
     private String password;
@@ -63,58 +55,17 @@ public class CassandraClientConfig
     private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
-
-    @Min(0)
-    public int getLimitForPartitionKeySelect()
-    {
-        return limitForPartitionKeySelect;
-    }
-
-    @Config("cassandra.limit-for-partition-key-select")
-    public CassandraClientConfig setLimitForPartitionKeySelect(int limitForPartitionKeySelect)
-    {
-        this.limitForPartitionKeySelect = limitForPartitionKeySelect;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxSchemaRefreshThreads()
-    {
-        return maxSchemaRefreshThreads;
-    }
-
-    @Config("cassandra.max-schema-refresh-threads")
-    public CassandraClientConfig setMaxSchemaRefreshThreads(int maxSchemaRefreshThreads)
-    {
-        this.maxSchemaRefreshThreads = maxSchemaRefreshThreads;
-        return this;
-    }
-
-    @NotNull
-    public Duration getSchemaCacheTtl()
-    {
-        return schemaCacheTtl;
-    }
-
-    @Config("cassandra.schema-cache-ttl")
-    public CassandraClientConfig setSchemaCacheTtl(Duration schemaCacheTtl)
-    {
-        this.schemaCacheTtl = schemaCacheTtl;
-        return this;
-    }
-
-    @NotNull
-    public Duration getSchemaRefreshInterval()
-    {
-        return schemaRefreshInterval;
-    }
-
-    @Config("cassandra.schema-refresh-interval")
-    public CassandraClientConfig setSchemaRefreshInterval(Duration schemaRefreshInterval)
-    {
-        this.schemaRefreshInterval = schemaRefreshInterval;
-        return this;
-    }
+    private boolean useDCAware;
+    private String dcAwareLocalDC;
+    private int dcAwareUsedHostsPerRemoteDc;
+    private boolean dcAwareAllowRemoteDCsForLocal;
+    private boolean useTokenAware;
+    private boolean tokenAwareShuffleReplicas;
+    private boolean useWhiteList;
+    private List<String> whiteListAddresses = ImmutableList.of();
+    private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
+    private int speculativeExecutionLimit = 1;
+    private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
 
     @NotNull
     @Size(min = 1)
@@ -176,19 +127,6 @@ public class CassandraClientConfig
     }
 
     @Min(1)
-    public int getFetchSizeForPartitionKeySelect()
-    {
-        return fetchSizeForPartitionKeySelect;
-    }
-
-    @Config("cassandra.fetch-size-for-partition-key-select")
-    public CassandraClientConfig setFetchSizeForPartitionKeySelect(int fetchSizeForPartitionKeySelect)
-    {
-        this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
-        return this;
-    }
-
-    @Min(1)
     public int getPartitionSizeForBatchSelect()
     {
         return partitionSizeForBatchSelect;
@@ -198,18 +136,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setPartitionSizeForBatchSelect(int partitionSizeForBatchSelect)
     {
         this.partitionSizeForBatchSelect = partitionSizeForBatchSelect;
-        return this;
-    }
-
-    public int getThriftPort()
-    {
-        return thriftPort;
-    }
-
-    @Config(("cassandra.thrift-port"))
-    public CassandraClientConfig setThriftPort(int thriftPort)
-    {
-        this.thriftPort = thriftPort;
         return this;
     }
 
@@ -223,43 +149,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setSplitSize(int splitSize)
     {
         this.splitSize = splitSize;
-        return this;
-    }
-
-    public String getPartitioner()
-    {
-        return partitioner;
-    }
-
-    @Config("cassandra.partitioner")
-    public CassandraClientConfig setPartitioner(String partitioner)
-    {
-        this.partitioner = partitioner;
-        return this;
-    }
-
-    public String getThriftConnectionFactoryClassName()
-    {
-        return thriftConnectionFactoryClassName;
-    }
-
-    @Config("cassandra.thrift-connection-factory-class")
-    public CassandraClientConfig setThriftConnectionFactoryClassName(String thriftConnectionFactoryClassName)
-    {
-        this.thriftConnectionFactoryClassName = thriftConnectionFactoryClassName;
-        return this;
-    }
-
-    public Map<String, String> getTransportFactoryOptions()
-    {
-        return transportFactoryOptions;
-    }
-
-    @Config("cassandra.transport-factory-options")
-    public CassandraClientConfig setTransportFactoryOptions(String transportFactoryOptions)
-    {
-        checkNotNull(transportFactoryOptions, "transportFactoryOptions is null");
-        this.transportFactoryOptions = Splitter.on(',').omitEmptyStrings().trimResults().withKeyValueSeparator("=").split(transportFactoryOptions);
         return this;
     }
 
@@ -294,6 +183,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.password")
+    @ConfigSecuritySensitive
     public CassandraClientConfig setPassword(String password)
     {
         this.password = password;
@@ -351,6 +241,142 @@ public class CassandraClientConfig
     public CassandraClientConfig setRetryPolicy(RetryPolicyType retryPolicy)
     {
         this.retryPolicy = retryPolicy;
+        return this;
+    }
+
+    public boolean isUseDCAware()
+    {
+        return this.useDCAware;
+    }
+
+    @Config("cassandra.load-policy.use-dc-aware")
+    public CassandraClientConfig setUseDCAware(boolean useDCAware)
+    {
+        this.useDCAware = useDCAware;
+        return this;
+    }
+
+    public String getDcAwareLocalDC()
+    {
+        return dcAwareLocalDC;
+    }
+
+    @Config("cassandra.load-policy.dc-aware.local-dc")
+    public CassandraClientConfig setDcAwareLocalDC(String dcAwareLocalDC)
+    {
+        this.dcAwareLocalDC = dcAwareLocalDC;
+        return this;
+    }
+
+    @Min(0)
+    public Integer getDcAwareUsedHostsPerRemoteDc()
+    {
+        return dcAwareUsedHostsPerRemoteDc;
+    }
+
+    @Config("cassandra.load-policy.dc-aware.used-hosts-per-remote-dc")
+    public CassandraClientConfig setDcAwareUsedHostsPerRemoteDc(Integer dcAwareUsedHostsPerRemoteDc)
+    {
+        this.dcAwareUsedHostsPerRemoteDc = dcAwareUsedHostsPerRemoteDc;
+        return this;
+    }
+
+    public boolean isDcAwareAllowRemoteDCsForLocal()
+    {
+        return this.dcAwareAllowRemoteDCsForLocal;
+    }
+
+    @Config("cassandra.load-policy.dc-aware.allow-remote-dc-for-local")
+    public CassandraClientConfig setDcAwareAllowRemoteDCsForLocal(boolean dcAwareAllowRemoteDCsForLocal)
+    {
+        this.dcAwareAllowRemoteDCsForLocal = dcAwareAllowRemoteDCsForLocal;
+        return this;
+    }
+
+    public boolean isUseTokenAware()
+    {
+        return this.useTokenAware;
+    }
+
+    @Config("cassandra.load-policy.use-token-aware")
+    public CassandraClientConfig setUseTokenAware(boolean useTokenAware)
+    {
+        this.useTokenAware = useTokenAware;
+        return this;
+    }
+
+    public boolean isTokenAwareShuffleReplicas()
+    {
+        return this.tokenAwareShuffleReplicas;
+    }
+
+    @Config("cassandra.load-policy.token-aware.shuffle-replicas")
+    public CassandraClientConfig setTokenAwareShuffleReplicas(boolean tokenAwareShuffleReplicas)
+    {
+        this.tokenAwareShuffleReplicas = tokenAwareShuffleReplicas;
+        return this;
+    }
+
+    public boolean isUseWhiteList()
+    {
+        return this.useWhiteList;
+    }
+
+    @Config("cassandra.load-policy.use-white-list")
+    public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
+    {
+        this.useWhiteList = useWhiteList;
+        return this;
+    }
+
+    public List<String> getWhiteListAddresses()
+    {
+        return whiteListAddresses;
+    }
+
+    @Config("cassandra.load-policy.white-list.addresses")
+    public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
+    {
+        this.whiteListAddresses = SPLITTER.splitToList(commaSeparatedList);
+        return this;
+    }
+
+    @NotNull
+    public Duration getNoHostAvailableRetryTimeout()
+    {
+        return noHostAvailableRetryTimeout;
+    }
+
+    @Config("cassandra.no-host-available-retry-timeout")
+    public CassandraClientConfig setNoHostAvailableRetryTimeout(Duration noHostAvailableRetryTimeout)
+    {
+        this.noHostAvailableRetryTimeout = noHostAvailableRetryTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getSpeculativeExecutionLimit()
+    {
+        return speculativeExecutionLimit;
+    }
+
+    @Config("cassandra.speculative-execution.limit")
+    public CassandraClientConfig setSpeculativeExecutionLimit(int speculativeExecutionLimit)
+    {
+        this.speculativeExecutionLimit = speculativeExecutionLimit;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getSpeculativeExecutionDelay()
+    {
+        return speculativeExecutionDelay;
+    }
+
+    @Config("cassandra.speculative-execution.delay")
+    public CassandraClientConfig setSpeculativeExecutionDelay(Duration speculativeExecutionDelay)
+    {
+        this.speculativeExecutionDelay = speculativeExecutionDelay;
         return this;
     }
 }

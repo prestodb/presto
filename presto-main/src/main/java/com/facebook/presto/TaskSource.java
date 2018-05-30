@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,23 +23,31 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TaskSource
 {
     private final PlanNodeId planNodeId;
     private final Set<ScheduledSplit> splits;
+    private final Set<Lifespan> noMoreSplitsForLifespan;
     private final boolean noMoreSplits;
 
     @JsonCreator
     public TaskSource(
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("splits") Set<ScheduledSplit> splits,
+            @JsonProperty("noMoreSplitsForLifespan") Set<Lifespan> noMoreSplitsForLifespan,
             @JsonProperty("noMoreSplits") boolean noMoreSplits)
     {
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.splits = ImmutableSet.copyOf(checkNotNull(splits, "splits is null"));
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.splits = ImmutableSet.copyOf(requireNonNull(splits, "splits is null"));
+        this.noMoreSplitsForLifespan = ImmutableSet.copyOf(noMoreSplitsForLifespan);
         this.noMoreSplits = noMoreSplits;
+    }
+
+    public TaskSource(PlanNodeId planNodeId, Set<ScheduledSplit> splits, boolean noMoreSplits)
+    {
+        this(planNodeId, splits, ImmutableSet.of(), noMoreSplits);
     }
 
     @JsonProperty
@@ -54,6 +63,12 @@ public class TaskSource
     }
 
     @JsonProperty
+    public Set<Lifespan> getNoMoreSplitsForLifespan()
+    {
+        return noMoreSplitsForLifespan;
+    }
+
+    @JsonProperty
     public boolean isNoMoreSplits()
     {
         return noMoreSplits;
@@ -66,15 +81,21 @@ public class TaskSource
         if (isNewer(source)) {
             // assure the new source is properly formed
             // we know that either the new source one has new splits and/or it is marking the source as closed
-            checkArgument(!noMoreSplits || source.isNoMoreSplits(), "Source %s has new splits, but no more splits already set", planNodeId);
+            checkArgument(!noMoreSplits || splits.containsAll(source.getSplits()), "Source %s has new splits, but no more splits already set", planNodeId);
 
             Set<ScheduledSplit> newSplits = ImmutableSet.<ScheduledSplit>builder()
                     .addAll(splits)
                     .addAll(source.getSplits())
                     .build();
+            Set<Lifespan> newNoMoreSplitsForDriverGroup = ImmutableSet.<Lifespan>builder()
+                    .addAll(noMoreSplitsForLifespan)
+                    .addAll(source.getNoMoreSplitsForLifespan())
+                    .build();
 
-            return new TaskSource(planNodeId,
+            return new TaskSource(
+                    planNodeId,
                     newSplits,
+                    newNoMoreSplitsForDriverGroup,
                     source.isNoMoreSplits());
         }
         else {
@@ -88,6 +109,7 @@ public class TaskSource
         // the specified source is newer if it changes the no more
         // splits flag or if it contains new splits
         return (!noMoreSplits && source.isNoMoreSplits()) ||
+                (!noMoreSplitsForLifespan.containsAll(source.getNoMoreSplitsForLifespan())) ||
                 (!splits.containsAll(source.getSplits()));
     }
 

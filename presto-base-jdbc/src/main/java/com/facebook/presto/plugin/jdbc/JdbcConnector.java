@@ -13,47 +13,89 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcConnector
         implements Connector
 {
-    private final JdbcMetadata jdbcMetadata;
+    private static final Logger log = Logger.get(JdbcConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
+    private final JdbcMetadataFactory jdbcMetadataFactory;
     private final JdbcSplitManager jdbcSplitManager;
     private final JdbcRecordSetProvider jdbcRecordSetProvider;
-    private final JdbcHandleResolver jdbcHandleResolver;
-    private final JdbcRecordSinkProvider jdbcRecordSinkProvider;
+    private final JdbcPageSinkProvider jdbcPageSinkProvider;
+
+    private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
 
     @Inject
     public JdbcConnector(
-            JdbcMetadata jdbcMetadata,
+            LifeCycleManager lifeCycleManager,
+            JdbcMetadataFactory jdbcMetadataFactory,
             JdbcSplitManager jdbcSplitManager,
             JdbcRecordSetProvider jdbcRecordSetProvider,
-            JdbcHandleResolver jdbcHandleResolver,
-            JdbcRecordSinkProvider jdbcRecordSinkProvider)
+            JdbcPageSinkProvider jdbcPageSinkProvider)
     {
-        this.jdbcMetadata = checkNotNull(jdbcMetadata, "jdbcMetadata is null");
-        this.jdbcSplitManager = checkNotNull(jdbcSplitManager, "jdbcSplitManager is null");
-        this.jdbcRecordSetProvider = checkNotNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
-        this.jdbcHandleResolver = checkNotNull(jdbcHandleResolver, "jdbcHandleResolver is null");
-        this.jdbcRecordSinkProvider = checkNotNull(jdbcRecordSinkProvider, "jdbcRecordSinkProvider is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.jdbcMetadataFactory = requireNonNull(jdbcMetadataFactory, "jdbcMetadataFactory is null");
+        this.jdbcSplitManager = requireNonNull(jdbcSplitManager, "jdbcSplitManager is null");
+        this.jdbcRecordSetProvider = requireNonNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
+        this.jdbcPageSinkProvider = requireNonNull(jdbcPageSinkProvider, "jdbcPageSinkProvider is null");
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public boolean isSingleStatementWritesOnly()
     {
-        return jdbcMetadata;
+        return true;
+    }
+
+    @Override
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    {
+        checkConnectorSupports(READ_COMMITTED, isolationLevel);
+        JdbcTransactionHandle transaction = new JdbcTransactionHandle();
+        transactions.put(transaction, jdbcMetadataFactory.create());
+        return transaction;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    {
+        JdbcMetadata metadata = transactions.get(transaction);
+        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        return metadata;
+    }
+
+    @Override
+    public void commit(ConnectorTransactionHandle transaction)
+    {
+        checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
+    }
+
+    @Override
+    public void rollback(ConnectorTransactionHandle transaction)
+    {
+        JdbcMetadata metadata = transactions.remove(transaction);
+        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        metadata.rollback();
     }
 
     @Override
@@ -63,32 +105,25 @@ public class JdbcConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return jdbcRecordSetProvider;
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
+    public ConnectorPageSinkProvider getPageSinkProvider()
     {
-        return jdbcHandleResolver;
+        return jdbcPageSinkProvider;
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public final void shutdown()
     {
-        return jdbcRecordSinkProvider;
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

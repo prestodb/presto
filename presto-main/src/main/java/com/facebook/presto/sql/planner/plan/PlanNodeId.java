@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanNodeId
@@ -28,7 +28,7 @@ public class PlanNodeId
     @JsonCreator
     public PlanNodeId(String id)
     {
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         this.id = id;
     }
 

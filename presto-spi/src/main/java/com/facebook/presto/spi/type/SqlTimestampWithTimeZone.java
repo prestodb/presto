@@ -15,17 +15,21 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.TimeZone;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 
 public final class SqlTimestampWithTimeZone
 {
+    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
+    public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS VV";
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(JSON_FORMAT);
+
     private final long millisUtc;
     private final TimeZoneKey timeZoneKey;
 
@@ -73,16 +77,14 @@ public final class SqlTimestampWithTimeZone
             return false;
         }
         SqlTimestampWithTimeZone other = (SqlTimestampWithTimeZone) obj;
-        return Objects.equals(this.millisUtc, other.millisUtc) &&
-                Objects.equals(this.timeZoneKey, other.timeZoneKey);
+        return this.millisUtc == other.millisUtc &&
+                this.timeZoneKey == other.timeZoneKey;
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-        format.setTimeZone(getTimeZoneForKey(timeZoneKey));
-        return format.format(new Date(millisUtc)) + " " + timeZoneKey.getId();
+        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(timeZoneKey.getId())).format(formatter);
     }
 }

@@ -14,53 +14,50 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
-import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static java.util.Objects.requireNonNull;
 
 public class DwrfPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TypeManager typeManager;
-    private final boolean enabled;
+    private final HdfsEnvironment hdfsEnvironment;
+    private final FileFormatDataSourceStats stats;
 
     @Inject
-    public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
+    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled());
-    }
-
-    public DwrfPageSourceFactory(TypeManager typeManager)
-    {
-        this(typeManager, true);
-    }
-
-    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled)
-    {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.enabled = enabled;
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -69,32 +66,41 @@ public class DwrfPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
-            return Optional.absent();
+        if (!isDeserializerClass(schema, OrcSerde.class)) {
+            return Optional.empty();
         }
 
-        @SuppressWarnings("deprecation")
-        Deserializer deserializer = getDeserializer(schema);
-        if (!(deserializer instanceof OrcSerde)) {
-            return Optional.absent();
+        if (fileSize == 0) {
+            throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + path);
         }
 
         return Optional.of(createOrcPageSource(
-                new DwrfMetadataReader(),
+                DWRF,
+                hdfsEnvironment,
+                session.getUser(),
                 configuration,
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
-                partitionKeys,
+                false,
                 effectivePredicate,
                 hiveStorageTimeZone,
-                typeManager));
+                typeManager,
+                getOrcMaxMergeDistance(session),
+                getOrcMaxBufferSize(session),
+                getOrcStreamBufferSize(session),
+                getOrcTinyStripeThreshold(session),
+                getOrcMaxReadBlockSize(session),
+                getOrcLazyReadSmallRanges(session),
+                false,
+                stats));
     }
 }

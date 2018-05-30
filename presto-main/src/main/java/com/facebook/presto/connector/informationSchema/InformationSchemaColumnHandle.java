@@ -13,25 +13,23 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 
-import java.util.Map;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     private final String columnName;
 
     @JsonCreator
     public InformationSchemaColumnHandle(@JsonProperty("columnName") String columnName)
     {
-        this.columnName = columnName;
+        this.columnName = requireNonNull(columnName, "columnName is null");
     }
 
     @JsonProperty
@@ -43,7 +41,7 @@ public class InformationSchemaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(columnName);
+        return columnName.hashCode();
     }
 
     @Override
@@ -55,23 +53,13 @@ public class InformationSchemaColumnHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final InformationSchemaColumnHandle other = (InformationSchemaColumnHandle) obj;
-        return Objects.equal(this.columnName, other.columnName);
+        InformationSchemaColumnHandle other = (InformationSchemaColumnHandle) obj;
+        return Objects.equals(columnName, other.columnName);
     }
 
     @Override
     public String toString()
     {
-        return "information_schema:" + columnName;
-    }
-
-    public static Map<String, ConnectorColumnHandle> toInformationSchemaColumnHandles(ConnectorTableMetadata tableMetadata)
-    {
-        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            columnHandles.put(columnMetadata.getName(), new InformationSchemaColumnHandle(columnMetadata.getName()));
-        }
-
-        return columnHandles.build();
+        return columnName;
     }
 }

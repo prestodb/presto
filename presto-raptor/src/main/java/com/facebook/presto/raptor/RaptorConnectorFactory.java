@@ -13,19 +13,22 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.backup.BackupModule;
+import com.facebook.presto.raptor.security.RaptorSecurityModule;
 import com.facebook.presto.raptor.storage.StorageModule;
-import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
-import com.google.inject.Binder;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -33,35 +36,24 @@ import javax.management.MBeanServer;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Module module;
-    private final Map<String, String> optionalConfig;
-    private final NodeManager nodeManager;
-    private final BlockEncodingSerde blockEncodingSerde;
-    private final TypeManager typeManager;
+    private final Module metadataModule;
+    private final Map<String, Module> backupProviders;
 
-    public RaptorConnectorFactory(
-            String name,
-            Module module,
-            Map<String, String> optionalConfig,
-            NodeManager nodeManager,
-            BlockEncodingSerde blockEncodingSerde,
-            TypeManager typeManager)
+    public RaptorConnectorFactory(String name, Module metadataModule, Map<String, Module> backupProviders)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = checkNotNull(module, "module is null");
-        this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
+        this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
     }
 
     @Override
@@ -71,41 +63,43 @@ public class RaptorConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config)
+    public ConnectorHandleResolver getHandleResolver()
     {
+        return new RaptorHandleResolver();
+    }
+
+    @Override
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    {
+        NodeManager nodeManager = context.getNodeManager();
         try {
             Bootstrap app = new Bootstrap(
+                    new JsonModule(),
                     new MBeanModule(),
-                    new Module()
-                    {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            CurrentNodeId currentNodeId = new CurrentNodeId(nodeManager.getCurrentNode().getNodeIdentifier());
-                            MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
-
-                            binder.bind(MBeanServer.class).toInstance(mbeanServer);
-                            binder.bind(CurrentNodeId.class).toInstance(currentNodeId);
-                            binder.bind(NodeManager.class).toInstance(nodeManager);
-                            binder.bind(BlockEncodingSerde.class).toInstance(blockEncodingSerde);
-                            binder.bind(TypeManager.class).toInstance(typeManager);
-                        }
+                    binder -> {
+                        MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
+                        binder.bind(MBeanServer.class).toInstance(mbeanServer);
+                        binder.bind(NodeManager.class).toInstance(nodeManager);
+                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
-                    module,
-                    new StorageModule(),
-                    new RaptorModule(connectorId));
+                    metadataModule,
+                    new BackupModule(backupProviders),
+                    new StorageModule(connectorId),
+                    new RaptorModule(connectorId),
+                    new RaptorSecurityModule());
 
             Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(RaptorConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

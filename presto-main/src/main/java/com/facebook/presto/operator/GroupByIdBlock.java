@@ -15,22 +15,26 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
+
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class GroupByIdBlock
         implements Block
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupByIdBlock.class).instanceSize();
+
     private final long groupCount;
     private final Block block;
 
     public GroupByIdBlock(long groupCount, Block block)
     {
-        checkNotNull(block, "block is null");
+        requireNonNull(block, "block is null");
         this.groupCount = groupCount;
         this.block = block;
     }
@@ -52,9 +56,21 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getLength(int position)
+    public long getRegionSizeInBytes(int positionOffset, int length)
     {
-        return block.getLength(position);
+        return block.getRegionSizeInBytes(positionOffset, length);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        return block.copyRegion(positionOffset, length);
+    }
+
+    @Override
+    public int getSliceLength(int position)
+    {
+        return block.getSliceLength(position);
     }
 
     @Override
@@ -82,21 +98,15 @@ public class GroupByIdBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        return block.getFloat(position, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return block.getDouble(position, offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         return block.getSlice(position, offset, length);
+    }
+
+    @Override
+    public <T> T getObject(int position, Class<T> clazz)
+    {
+        return block.getObject(position, clazz);
     }
 
     @Override
@@ -118,13 +128,19 @@ public class GroupByIdBlock
     }
 
     @Override
+    public void writePositionTo(int position, BlockBuilder blockBuilder)
+    {
+        block.writePositionTo(position, blockBuilder);
+    }
+
+    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         return block.equals(position, offset, otherBlock, otherPosition, otherOffset, length);
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         return block.hash(position, offset, length);
     }
@@ -154,15 +170,34 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return block.getSizeInBytes();
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public long getRetainedSizeInBytes()
     {
-        return block.getEncoding();
+        return INSTANCE_SIZE + block.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(block, block.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
+    }
+
+    @Override
+    public String getEncodingName()
+    {
+        throw new UnsupportedOperationException("GroupByIdBlock does not support serialization");
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        return block.copyPositions(positions, offset, length);
     }
 
     @Override

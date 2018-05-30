@@ -13,20 +13,24 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class FixedSplitSource
         implements ConnectorSplitSource
 {
-    private final String dataSourceName;
     private final List<ConnectorSplit> splits;
     private int offset;
 
-    public FixedSplitSource(String dataSourceName, Iterable<? extends ConnectorSplit> splits)
+    public FixedSplitSource(Iterable<? extends ConnectorSplit> splits)
     {
-        this.dataSourceName = dataSourceName;
         if (splits == null) {
             throw new NullPointerException("splits is null");
         }
@@ -37,21 +41,20 @@ public class FixedSplitSource
         this.splits = Collections.unmodifiableList(splitsList);
     }
 
+    @SuppressWarnings("ObjectEquality")
     @Override
-    public String getDataSourceName()
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
-        return dataSourceName;
-    }
+        if (!partitionHandle.equals(NOT_PARTITIONED)) {
+            throw new IllegalArgumentException("partitionHandle must be NOT_PARTITIONED");
+        }
 
-    @Override
-    public List<ConnectorSplit> getNextBatch(int maxSize)
-            throws InterruptedException
-    {
         int remainingSplits = splits.size() - offset;
         int size = Math.min(remainingSplits, maxSize);
         List<ConnectorSplit> results = splits.subList(offset, offset + size);
         offset += size;
-        return results;
+
+        return completedFuture(new ConnectorSplitBatch(results, isFinished()));
     }
 
     @Override

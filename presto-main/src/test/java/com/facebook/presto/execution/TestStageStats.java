@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
@@ -41,23 +44,43 @@ public class TestStageStats
             7,
             8,
             10,
+            26,
             11,
 
-            new DataSize(12, BYTE),
+            12.0,
+            new DataSize(13, BYTE),
+            new DataSize(14, BYTE),
+            new DataSize(15, BYTE),
 
-            new Duration(13, NANOSECONDS),
-            new Duration(14, NANOSECONDS),
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
-
-            new DataSize(17, BYTE),
-            18,
+            new Duration(17, NANOSECONDS),
+            new Duration(18, NANOSECONDS),
+            false,
+            ImmutableSet.of(),
 
             new DataSize(19, BYTE),
             20,
 
             new DataSize(21, BYTE),
-            22);
+            22,
+
+            new DataSize(23, BYTE),
+            new DataSize(24, BYTE),
+            25,
+
+            new DataSize(26, BYTE),
+
+            new StageGcStatistics(
+                    101,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107),
+
+            ImmutableList.of());
 
     @Test
     public void testJson()
@@ -85,23 +108,38 @@ public class TestStageStats
         assertEquals(actual.getTotalDrivers(), 7);
         assertEquals(actual.getQueuedDrivers(), 8);
         assertEquals(actual.getRunningDrivers(), 10);
+        assertEquals(actual.getBlockedDrivers(), 26);
         assertEquals(actual.getCompletedDrivers(), 11);
 
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(12, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 12.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(13, BYTE));
+        assertEquals(actual.getTotalMemoryReservation(), new DataSize(14, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(15, BYTE));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(13, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(14, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(15, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(17, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(17, BYTE));
-        assertEquals(actual.getRawInputPositions(), 18);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
+        assertEquals(actual.getRawInputPositions(), 20);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(19, BYTE));
-        assertEquals(actual.getProcessedInputPositions(), 20);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(21, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 22);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(21, BYTE));
-        assertEquals(actual.getOutputPositions(), 22);
+        assertEquals(actual.getBufferedDataSize(), new DataSize(23, BYTE));
+        assertEquals(actual.getOutputDataSize(), new DataSize(24, BYTE));
+        assertEquals(actual.getOutputPositions(), 25);
+
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(26, BYTE));
+
+        assertEquals(actual.getGcInfo().getStageId(), 101);
+        assertEquals(actual.getGcInfo().getTasks(), 102);
+        assertEquals(actual.getGcInfo().getFullGcTasks(), 103);
+        assertEquals(actual.getGcInfo().getMinFullGcSec(), 104);
+        assertEquals(actual.getGcInfo().getMaxFullGcSec(), 105);
+        assertEquals(actual.getGcInfo().getTotalFullGcSec(), 106);
+        assertEquals(actual.getGcInfo().getAverageFullGcSec(), 107);
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

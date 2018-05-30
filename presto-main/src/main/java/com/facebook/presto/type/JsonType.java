@@ -16,14 +16,11 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 /**
  * The stack representation for JSON objects must have the keys in natural sorted order.
@@ -35,7 +32,7 @@ public class JsonType
 
     public JsonType()
     {
-        super(parameterizedTypeName(StandardTypes.JSON), Slice.class);
+        super(new TypeSignature(StandardTypes.JSON), Slice.class);
     }
 
     @Override
@@ -45,11 +42,17 @@ public class JsonType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
-        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
+        Slice leftValue = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition));
+        Slice rightValue = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
+        return leftValue.equals(rightValue);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
@@ -59,7 +62,7 @@ public class JsonType
             return null;
         }
 
-        return block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
+        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
     }
 
     @Override
@@ -69,7 +72,7 @@ public class JsonType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -77,7 +80,7 @@ public class JsonType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)
@@ -95,11 +98,5 @@ public class JsonType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new VariableWidthBlockBuilder(blockBuilderStatus);
     }
 }

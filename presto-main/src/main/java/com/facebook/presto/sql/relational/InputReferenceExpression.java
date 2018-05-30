@@ -15,9 +15,10 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class InputReferenceExpression
         extends RowExpression
@@ -27,7 +28,7 @@ public final class InputReferenceExpression
 
     public InputReferenceExpression(int field, Type type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
 
         this.field = field;
         this.type = type;
@@ -59,7 +60,7 @@ public final class InputReferenceExpression
     }
 
     @Override
-    public <C, R> R accept(RowExpressionVisitor<C, R> visitor, C context)
+    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitInputReference(this, context);
     }

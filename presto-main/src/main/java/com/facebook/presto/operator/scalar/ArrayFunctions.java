@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.ArrayType;
 
-import javax.annotation.Nullable;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
 {
@@ -25,35 +27,11 @@ public final class ArrayFunctions
     {
     }
 
-    @Nullable
-    @ScalarFunction
-    @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean contains(@SqlType("array<bigint>") Slice slice, @SqlType(StandardTypes.BIGINT) long value)
+    @ScalarFunction(hidden = true)
+    @SqlType("array(unknown)")
+    public static Block arrayConstructor()
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
-    }
-
-    @Nullable
-    @ScalarFunction
-    @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean contains(@SqlType("array<boolean>") Slice slice, @SqlType(StandardTypes.BOOLEAN) boolean value)
-    {
-        return JsonFunctions.jsonArrayContains(slice, value);
-    }
-
-    @Nullable
-    @ScalarFunction
-    @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean contains(@SqlType("array<double>") Slice slice, @SqlType(StandardTypes.DOUBLE) double value)
-    {
-        return JsonFunctions.jsonArrayContains(slice, value);
-    }
-
-    @Nullable
-    @ScalarFunction
-    @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean contains(@SqlType("array<varchar>") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice value)
-    {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        BlockBuilder blockBuilder = new ArrayType(UNKNOWN).createBlockBuilder(null, 0);
+        return blockBuilder.build();
     }
 }

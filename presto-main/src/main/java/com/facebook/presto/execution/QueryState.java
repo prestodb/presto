@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum QueryState
 {
@@ -30,25 +33,27 @@ public enum QueryState
      */
     STARTING(false),
     /**
-     * Query has at least one task in the output stage.
+     * Query has at least one running task.
      */
     RUNNING(false),
+    /**
+     * Query is finishing (e.g. commit for autocommit queries)
+     */
+    FINISHING(false),
     /**
      * Query has finished executing and all output has been consumed.
      */
     FINISHED(true),
     /**
-     * Query was canceled by a user.
-     */
-    CANCELED(true),
-    /**
      * Query execution failed.
      */
     FAILED(true);
 
+    public static final Set<QueryState> TERMINAL_QUERY_STATES = Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet());
+
     private final boolean doneState;
 
-    private QueryState(boolean doneState)
+    QueryState(boolean doneState)
     {
         this.doneState = doneState;
     }
@@ -59,17 +64,5 @@ public enum QueryState
     public boolean isDone()
     {
         return doneState;
-    }
-
-    public static Predicate<QueryState> inDoneState()
-    {
-        return new Predicate<QueryState>()
-        {
-            @Override
-            public boolean apply(QueryState state)
-            {
-                return state.isDone();
-            }
-        };
     }
 }

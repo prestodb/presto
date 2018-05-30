@@ -18,11 +18,12 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
         implements ConnectorTableHandle
@@ -41,11 +42,11 @@ public final class JdbcTableHandle
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.schemaTableName = checkNotNull(schemaTableName, "schemaTableName is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty
@@ -90,14 +91,14 @@ public final class JdbcTableHandle
             return false;
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
-        return Objects.equal(this.connectorId, o.connectorId) &&
-                Objects.equal(this.schemaTableName, o.schemaTableName);
+        return Objects.equals(this.connectorId, o.connectorId) &&
+                Objects.equals(this.schemaTableName, o.schemaTableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaTableName);
+        return Objects.hash(connectorId, schemaTableName);
     }
 
     @Override

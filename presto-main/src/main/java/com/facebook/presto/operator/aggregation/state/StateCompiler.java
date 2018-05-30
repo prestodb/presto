@@ -13,62 +13,92 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.Variable;
+import com.facebook.presto.array.BlockBigArray;
+import com.facebook.presto.array.BooleanBigArray;
+import com.facebook.presto.array.ByteBigArray;
+import com.facebook.presto.array.DoubleBigArray;
+import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
-import com.facebook.presto.util.array.BooleanBigArray;
-import com.facebook.presto.util.array.ByteBigArray;
-import com.facebook.presto.util.array.DoubleBigArray;
-import com.facebook.presto.util.array.LongBigArray;
-import com.facebook.presto.util.array.SliceBigArray;
-import com.google.common.base.Throwables;
+import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import io.airlift.slice.SizeOf;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
-import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
-import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
-import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
-import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.STATIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.add;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantClass;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNumber;
+import static io.airlift.bytecode.expression.BytecodeExpressions.defaultValue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
+import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static java.util.Objects.requireNonNull;
 
 public class StateCompiler
 {
+    private StateCompiler()
+    {
+    }
+
     private static Class<?> getBigArrayType(Class<?> type)
     {
         if (type.equals(long.class)) {
@@ -83,19 +113,36 @@ public class StateCompiler
         if (type.equals(boolean.class)) {
             return BooleanBigArray.class;
         }
+        if (type.equals(int.class)) {
+            return IntBigArray.class;
+        }
         if (type.equals(Slice.class)) {
             return SliceBigArray.class;
+        }
+        if (type.equals(Block.class)) {
+            return BlockBigArray.class;
         }
         // TODO: support more reference types
         throw new IllegalArgumentException("Unsupported type: " + type.getName());
     }
 
-    public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
+    public static Set<Class<?>> getSupportedFieldTypes()
+    {
+        // byte.class and int.class are needed for TriStateBooleanState and Object/SliceBlockPositionState respectively
+        return ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class, Slice.class, Block.class);
+    }
+
+    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
     }
 
-    public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
+    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
+    {
+        return generateStateSerializer(clazz, ImmutableMap.of(), classLoader);
+    }
+
+    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != void.class) {
@@ -103,7 +150,7 @@ public class StateCompiler
                 return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -118,53 +165,38 @@ public class StateCompiler
         // Generate constructor
         definition.declareDefaultConstructor(a(PUBLIC));
 
-        List<StateField> fields = enumerateFields(clazz);
+        List<StateField> fields = enumerateFields(clazz, fieldTypes);
         generateGetSerializedType(definition, fields, callSiteBinder);
-        generateSerialize(definition, clazz, fields);
-        generateDeserialize(definition, clazz, fields);
+        generateSerialize(definition, callSiteBinder, clazz, fields);
+        generateDeserialize(definition, callSiteBinder, clazz, fields);
 
         Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
             return (AccumulatorStateSerializer<T>) serializerClass.newInstance();
         }
         catch (InstantiationException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
     private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields, CallSiteBinder callSiteBinder)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block body = definition.declareMethod(compilerContext, a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
+        BytecodeBlock body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
         Type type;
         if (fields.size() > 1) {
-            type = VARCHAR;
+            List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
+            type = RowType.anonymous(types);
+        }
+        else if (fields.size() == 1) {
+            type = getOnlyElement(fields).getSqlType();
         }
         else {
-            Class<?> stackType = fields.get(0).getType();
-            if (stackType == long.class) {
-                type = BIGINT;
-            }
-            else if (stackType == double.class) {
-                type = DOUBLE;
-            }
-            else if (stackType == boolean.class) {
-                type = BOOLEAN;
-            }
-            else if (stackType == byte.class) {
-                type = BIGINT;
-            }
-            else if (stackType == Slice.class) {
-                type = VARCHAR;
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type: " + stackType);
-            }
+            type = UNKNOWN;
         }
 
         body.comment("return %s", type.getTypeSignature())
-                .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
+                .append(constantType(callSiteBinder, type))
                 .retObject();
     }
 
@@ -185,102 +217,104 @@ public class StateCompiler
         return null;
     }
 
-    private static <T> void generateDeserialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
+    private static <T> void generateDeserialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block deserializerBody = definition.declareMethod(compilerContext, a(PUBLIC), "deserialize", type(void.class), arg("block", com.facebook.presto.spi.block.Block.class), arg("index", int.class), arg("state", Object.class)).getBody();
-
+        Parameter block = arg("block", Block.class);
+        Parameter index = arg("index", int.class);
+        Parameter state = arg("state", Object.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
+        BytecodeBlock deserializerBody = method.getBody();
+        Scope scope = method.getScope();
         if (fields.size() == 1) {
-            generatePrimitiveDeserializer(deserializerBody, getSetter(clazz, fields.get(0)));
+            StateField field = getOnlyElement(fields);
+            Method setter = getSetter(clazz, field);
+            if (!field.isPrimitiveType()) {
+                deserializerBody.append(new IfStatement()
+                        .condition(block.invoke("isNull", boolean.class, index))
+                        .ifTrue(state.cast(setter.getDeclaringClass()).invoke(setter, constantNull(field.getType())))
+                        .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(binder, field.getSqlType()).getValue(block, index))));
+            }
+            else {
+                // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
+                deserializerBody.append(
+                        state.cast(setter.getDeclaringClass()).invoke(
+                                setter,
+                                constantType(binder, field.getSqlType()).getValue(block, index).cast(field.getType())));
+            }
         }
-        else {
-            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
-            deserializerBody.comment("Slice slice = block.getSlice(index, 0, block.getLength(index));")
-                    .getVariable("block")
-                    .getVariable("index")
-                    .push(0)
-                    .getVariable("block")
-                    .getVariable("index")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLength", int.class, int.class)
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class, int.class, int.class)
-                    .putVariable(slice);
-
+        else if (fields.size() > 1) {
+            Variable row = scope.declareVariable(Block.class, "row");
+            deserializerBody.append(row.set(block.invoke("getObject", Object.class, index, constantClass(Block.class)).cast(Block.class)));
+            int position = 0;
             for (StateField field : fields) {
-                generateDeserializeFromSlice(deserializerBody, slice, getSetter(clazz, field), offsetOfField(field, fields));
+                Method setter = getSetter(clazz, field);
+                if (!field.isPrimitiveType()) {
+                    deserializerBody.append(new IfStatement()
+                            .condition(row.invoke("isNull", boolean.class, constantInt(position)))
+                            .ifTrue(state.cast(setter.getDeclaringClass()).invoke(setter, constantNull(field.getType())))
+                            .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(binder, field.getSqlType()).getValue(row, constantInt(position)))));
+                }
+                else {
+                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
+                    deserializerBody.append(
+                            state.cast(setter.getDeclaringClass()).invoke(
+                                    setter,
+                                    constantType(binder, field.getSqlType()).getValue(row, constantInt(position)).cast(field.getType())));
+                }
+                position++;
             }
         }
         deserializerBody.ret();
     }
 
-    private static <T> void generateSerialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
+    private static <T> void generateSerialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block serializerBody = definition.declareMethod(compilerContext, a(PUBLIC), "serialize", type(void.class), arg("state", Object.class), arg("out", BlockBuilder.class)).getBody();
+        Parameter state = arg("state", Object.class);
+        Parameter out = arg("out", BlockBuilder.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
+        Scope scope = method.getScope();
+        BytecodeBlock serializerBody = method.getBody();
 
-        if (fields.size() == 1) {
-            generatePrimitiveSerializer(serializerBody, getGetter(clazz, fields.get(0)));
+        if (fields.size() == 0) {
+            serializerBody.append(out.invoke("appendNull", BlockBuilder.class).pop());
         }
-        else {
-            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
-            int size = serializedSizeOf(clazz);
-            serializerBody.comment("Slice slice = Slices.allocate(%d);", size)
-                    .push(size)
-                    .invokeStatic(Slices.class, "allocate", Slice.class, int.class)
-                    .putVariable(slice);
-
-            for (StateField field : fields) {
-                generateSerializeFieldToSlice(serializerBody, slice, getGetter(clazz, field), offsetOfField(field, fields));
+        else if (fields.size() == 1) {
+            Method getter = getGetter(clazz, getOnlyElement(fields));
+            SqlTypeBytecodeExpression sqlType = constantType(binder, getOnlyElement(fields).getSqlType());
+            Variable fieldValue = scope.declareVariable(getter.getReturnType(), "value");
+            serializerBody.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
+            if (!getOnlyElement(fields).isPrimitiveType()) {
+                serializerBody.append(new IfStatement()
+                        .condition(equal(fieldValue, constantNull(getter.getReturnType())))
+                        .ifTrue(out.invoke("appendNull", BlockBuilder.class).pop())
+                        .ifFalse(sqlType.writeValue(out, fieldValue)));
             }
-            serializerBody.comment("out.appendSlice(slice);")
-                    .getVariable("out")
-                    .getVariable(slice)
-                    .push(0)
-                    .push(size)
-                    .invokeInterface(BlockBuilder.class, "writeBytes", BlockBuilder.class, Slice.class, int.class, int.class)
-                    .invokeInterface(BlockBuilder.class, "closeEntry", BlockBuilder.class)
-                    .pop();
+            else {
+                // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
+                serializerBody.append(sqlType.writeValue(out, fieldValue.cast(getOnlyElement(fields).getSqlType().getJavaType())));
+            }
+        }
+        else if (fields.size() > 1) {
+            Variable rowBuilder = scope.declareVariable(BlockBuilder.class, "rowBuilder");
+            serializerBody.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
+            for (StateField field : fields) {
+                Method getter = getGetter(clazz, field);
+                SqlTypeBytecodeExpression sqlType = constantType(binder, field.getSqlType());
+                Variable fieldValue = scope.createTempVariable(getter.getReturnType());
+                serializerBody.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
+                if (!field.isPrimitiveType()) {
+                    serializerBody.append(new IfStatement().condition(equal(fieldValue, constantNull(getter.getReturnType())))
+                            .ifTrue(rowBuilder.invoke("appendNull", BlockBuilder.class).pop())
+                            .ifFalse(sqlType.writeValue(rowBuilder, fieldValue)));
+                }
+                else {
+                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
+                    serializerBody.append(sqlType.writeValue(rowBuilder, fieldValue.cast(field.getSqlType().getJavaType())));
+                }
+            }
+            serializerBody.append(out.invoke("closeEntry", BlockBuilder.class).pop());
         }
         serializerBody.ret();
-    }
-
-    private static void generateSerializeFieldToSlice(Block body, Variable slice, Method getter, int offset)
-    {
-        Method sliceSetterMethod = StateCompilerUtils.getSliceSetter(getter.getReturnType());
-        body.comment("slice.%s(offset, state.%s())", sliceSetterMethod.getName(), getter.getName())
-                .getVariable(slice)
-                .push(offset)
-                .getVariable("state")
-                .invokeInterface(getter)
-                .invokeStatic(sliceSetterMethod);
-    }
-
-    /**
-     * Computes the byte offset to store this field at, when serializing it to a Slice
-     */
-    private static int offsetOfField(StateField targetField, List<StateField> fields)
-    {
-        int offset = 0;
-        for (StateField field : fields) {
-            if (targetField.getName().equals(field.getName())) {
-                break;
-            }
-            offset += field.sizeOfType();
-        }
-
-        return offset;
-    }
-
-    /**
-     * Computes the size in bytes that this state will occupy, when serialized as a Slice
-     */
-    private static int serializedSizeOf(Class<?> stateClass)
-    {
-        List<StateField> fields = enumerateFields(stateClass);
-        int size = 0;
-        for (StateField field : fields) {
-            size += field.sizeOfType();
-        }
-        return size;
     }
 
     private static Method getSetter(Class<?> clazz, StateField field)
@@ -289,7 +323,7 @@ public class StateCompiler
             return clazz.getMethod(field.getSetterName(), field.getType());
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -299,48 +333,21 @@ public class StateCompiler
             return clazz.getMethod(field.getGetterName());
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
-    private static void generatePrimitiveSerializer(Block body, Method getter)
-    {
-        Method method = StateCompilerUtils.getBlockBuilderAppend(getter.getReturnType());
-        body.comment("out.%s(state.%s());", method.getName(), getter.getName())
-                .getVariable("out")
-                .getVariable("state")
-                .invokeInterface(getter)
-                .invokeStatic(method);
-    }
-
-    private static void generatePrimitiveDeserializer(Block body, Method setter)
-    {
-        Method method = StateCompilerUtils.getBlockGetter(setter.getParameterTypes()[0]);
-        body.comment("state.%s(block.%s));", setter.getName(), method.getName())
-                .getVariable("state")
-                .getVariable("block")
-                .getVariable("index")
-                .invokeStatic(method)
-                .invokeInterface(setter);
-    }
-
-    private static void generateDeserializeFromSlice(Block body, Variable slice, Method setter, int offset)
-    {
-        Method sliceGetterMethod = StateCompilerUtils.getSliceGetter(setter.getParameterTypes()[0]);
-        body.comment("state.%s(slice.%s(%d))", setter.getName(), sliceGetterMethod.getName(), offset)
-                .getVariable("state")
-                .getVariable(slice)
-                .push(offset)
-                .invokeStatic(sliceGetterMethod)
-                .invokeInterface(setter);
-    }
-
-    public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
+    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
         return generateStateFactory(clazz, new DynamicClassLoader(clazz.getClassLoader()));
     }
 
-    public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
+    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
+    {
+        return generateStateFactory(clazz, ImmutableMap.of(), classLoader);
+    }
+
+    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != void.class) {
@@ -348,12 +355,12 @@ public class StateCompiler
                 return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
-        Class<? extends T> singleStateClass = generateSingleStateClass(clazz, classLoader);
-        Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, classLoader);
+        Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes, classLoader);
+        Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes, classLoader);
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -396,11 +403,11 @@ public class StateCompiler
             return (AccumulatorStateFactory<T>) factoryClass.newInstance();
         }
         catch (InstantiationException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
-    private static <T> Class<? extends T> generateSingleStateClass(Class<T> clazz, DynamicClassLoader classLoader)
+    private static <T> Class<? extends T> generateSingleStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -408,41 +415,49 @@ public class StateCompiler
                 type(Object.class),
                 type(clazz));
 
-        // Store class size in static field
-        FieldDefinition classSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "CLASS_SIZE", long.class);
-        definition.getClassInitializer()
-                .getBody()
-                .comment("CLASS_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
-                .push(definition.getType())
-                .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
-                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
-                .intToLong()
-                .putStaticField(classSize);
+        FieldDefinition instanceSize = generateInstanceSize(definition);
 
         // Add getter for class size
-        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getEstimatedSize", type(long.class))
+        definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
-                .getStaticField(classSize)
+                .getStaticField(instanceSize)
                 .retLong();
 
         // Generate constructor
-        Block constructor = definition.declareConstructor(a(PUBLIC))
-                .getBody()
-                .pushThis()
+        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+
+        constructor.getBody()
+                .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
         // Generate fields
-        List<StateField> fields = enumerateFields(clazz);
+        List<StateField> fields = enumerateFields(clazz, fieldTypes);
         for (StateField field : fields) {
             generateField(definition, constructor, field);
         }
 
-        constructor.ret();
+        constructor.getBody()
+                .ret();
 
         return defineClass(definition, clazz, classLoader);
     }
 
-    private static <T> Class<? extends T> generateGroupedStateClass(Class<T> clazz, DynamicClassLoader classLoader)
+    private static FieldDefinition generateInstanceSize(ClassDefinition definition)
+    {
+        // Store instance size in static field
+        FieldDefinition instanceSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "INSTANCE_SIZE", long.class);
+        definition.getClassInitializer()
+                .getBody()
+                .comment("INSTANCE_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
+                .push(definition.getType())
+                .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
+                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
+                .intToLong()
+                .putStaticField(instanceSize);
+        return instanceSize;
+    }
+
+    private static <T> Class<? extends T> generateGroupedStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -451,16 +466,18 @@ public class StateCompiler
                 type(clazz),
                 type(GroupedAccumulator.class));
 
-        List<StateField> fields = enumerateFields(clazz);
+        FieldDefinition instanceSize = generateInstanceSize(definition);
+
+        List<StateField> fields = enumerateFields(clazz, fieldTypes);
 
         // Create constructor
-        Block constructor = definition.declareConstructor(
-                a(PUBLIC))
-                .getBody()
-                .pushThis()
+        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        constructor.getBody()
+                .append(constructor.getThis())
                 .invokeConstructor(AbstractGroupedAccumulatorState.class);
+
         // Create ensureCapacity
-        Block ensureCapacity = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class)).getBody();
+        MethodDefinition ensureCapacity = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class));
 
         // Generate fields, constructor, and ensureCapacity
         List<FieldDefinition> fieldDefinitions = new ArrayList<>();
@@ -468,127 +485,97 @@ public class StateCompiler
             fieldDefinitions.add(generateGroupedField(definition, constructor, ensureCapacity, field));
         }
 
-        constructor.ret();
-        ensureCapacity.ret();
+        constructor.getBody().ret();
+        ensureCapacity.getBody().ret();
 
         // Generate getEstimatedSize
-        Block getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
-                .getBody()
-                .comment("long size = 0;")
-                .push(0L);
+        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        BytecodeBlock body = getEstimatedSize.getBody();
+
+        Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
+
+        // initialize size to the size of the instance
+        body.append(size.set(getStatic(instanceSize)));
+
+        // add field to size
         for (FieldDefinition field : fieldDefinitions) {
-            getEstimatedSize
-                    .comment("size += %s.sizeOf();", field.getName())
-                    .pushThis()
-                    .getField(field)
-                    .invokeVirtual(field.getType(), "sizeOf", type(long.class))
-                    .longAdd();
+            body.append(size.set(add(size, getEstimatedSize.getThis().getField(field).invoke("sizeOf", long.class))));
         }
-        getEstimatedSize.comment("return size;");
-        getEstimatedSize.retLong();
+
+        // return size
+        body.append(size.ret());
 
         return defineClass(definition, clazz, classLoader);
     }
 
-    private static void generateField(ClassDefinition definition, Block constructor, StateField stateField)
+    private static void generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
     {
         FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.getName()) + "Value", stateField.getType());
 
         // Generate getter
-        definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()))
-                .getBody()
-                .pushThis()
-                .getField(field)
-                .ret(stateField.getType());
+        MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
+        getter.getBody()
+                .append(getter.getThis().getField(field).ret());
 
         // Generate setter
-        definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()))
-                .getBody()
-                .pushThis()
-                .getVariable("value")
-                .putField(field)
+        Parameter value = arg("value", stateField.getType());
+        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), value);
+        setter.getBody()
+                .append(setter.getThis().setField(field, value))
                 .ret();
 
-        constructor.pushThis();
-        pushInitialValue(constructor, stateField);
-        constructor.putField(field);
+        constructor.getBody()
+                .append(constructor.getThis().setField(field, stateField.initialValueExpression()));
     }
 
-    private static FieldDefinition generateGroupedField(ClassDefinition definition, Block constructor, Block ensureCapacity, StateField stateField)
+    private static FieldDefinition generateGroupedField(ClassDefinition definition, MethodDefinition constructor, MethodDefinition ensureCapacity, StateField stateField)
     {
         Class<?> bigArrayType = getBigArrayType(stateField.getType());
         FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.getName()) + "Values", bigArrayType);
 
         // Generate getter
-        definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()))
-                .getBody()
-                .comment("return field.get(getGroupId());")
-                .pushThis()
-                .getField(field)
-                .pushThis()
-                .invokeVirtual(AbstractGroupedAccumulatorState.class, "getGroupId", long.class)
-                .invokeVirtual(bigArrayType, "get", stateField.getType(), long.class)
-                .ret(stateField.getType());
+        MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
+        getter.getBody()
+                .append(getter.getThis().getField(field).invoke(
+                        "get",
+                        stateField.getType(),
+                        getter.getThis().invoke("getGroupId", long.class))
+                        .ret());
 
         // Generate setter
-        definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()))
-                .getBody()
-                .comment("return field.set(getGroupId(), value);")
-                .pushThis()
-                .getField(field)
-                .pushThis()
-                .invokeVirtual(AbstractGroupedAccumulatorState.class, "getGroupId", long.class)
-                .getVariable("value")
-                .invokeVirtual(bigArrayType, "set", void.class, long.class, stateField.getType())
+        Parameter value = arg("value", stateField.getType());
+        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), value);
+        setter.getBody()
+                .append(setter.getThis().getField(field).invoke(
+                        "set",
+                        void.class,
+                        setter.getThis().invoke("getGroupId", long.class),
+                        value))
                 .ret();
 
-        ensureCapacity.pushThis()
-                .getField(field)
-                .getVariable("size")
-                .invokeVirtual(field.getType(), "ensureCapacity", type(void.class), type(long.class));
+        Scope ensureCapacityScope = ensureCapacity.getScope();
+        ensureCapacity.getBody()
+                .append(ensureCapacity.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityScope.getVariable("size")));
 
         // Initialize field in constructor
-        constructor.pushThis()
-                .newObject(field.getType())
-                .dup();
-        pushInitialValue(constructor, stateField);
-        constructor.invokeConstructor(field.getType(), type(stateField.getType()));
-        constructor.putField(field);
+        constructor.getBody()
+                .append(constructor.getThis().setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
 
         return field;
-    }
-
-    private static void pushInitialValue(Block block, StateField stateField)
-    {
-        Object initialValue = stateField.getInitialValue();
-        if (initialValue != null) {
-            if (initialValue instanceof Number) {
-                block.push((Number) initialValue);
-            }
-            else if (initialValue instanceof Boolean) {
-                block.push((boolean) initialValue);
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
-            }
-        }
-        else {
-            block.pushJavaDefault(stateField.getType());
-        }
     }
 
     /**
      * Enumerates all the fields in this state interface.
      *
      * @param clazz a subclass of AccumulatorState
+     * @param fieldTypes a map of field name and Type
      * @return list of state fields. Ordering is guaranteed to be stable, and have all primitive fields at the beginning.
      */
-    private static List<StateField> enumerateFields(Class<?> clazz)
+    private static List<StateField> enumerateFields(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        final Set<Class<?>> primitiveClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class);
-        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class);
-
+        final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
+        Set<Class<?>> supportedClasses = getSupportedFieldTypes();
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
                 continue;
@@ -597,13 +584,13 @@ public class StateCompiler
                 Class<?> type = method.getReturnType();
                 checkArgument(supportedClasses.contains(type), type.getName() + " is not supported");
                 String name = method.getName().substring(3);
-                builder.add(new StateField(name, type, getInitialValue(method)));
+                builder.add(new StateField(name, type, getInitialValue(method), method.getName(), Optional.ofNullable(fieldTypes.get(name))));
             }
             if (method.getName().startsWith("is")) {
                 Class<?> type = method.getReturnType();
                 checkArgument(type == boolean.class, "Only boolean is support for 'is' methods");
                 String name = method.getName().substring(2);
-                builder.add(new StateField(name, type, getInitialValue(method), method.getName()));
+                builder.add(new StateField(name, type, getInitialValue(method), method.getName(), Optional.of(BOOLEAN)));
             }
         }
 
@@ -667,6 +654,10 @@ public class StateCompiler
         }
 
         for (Method method : clazz.getMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+
             if (method.getName().equals("getEstimatedSize")) {
                 checkArgument(method.getReturnType().equals(long.class), "getEstimatedSize must return long");
                 checkArgument(method.getParameterTypes().length == 0, "getEstimatedSize may not have parameters");
@@ -710,27 +701,60 @@ public class StateCompiler
         private final String getterName;
         private final Class<?> type;
         private final Object initialValue;
+        private final Optional<Type> sqlType;
 
-        private StateField(String name, Class<?> type, Object initialValue)
+        private StateField(String name, Class<?> type, Object initialValue, String getterName, Optional<Type> sqlType)
         {
-            this(name, type, initialValue, "get" + name);
-        }
-
-        private StateField(String name, Class<?> type, Object initialValue, String getterName)
-        {
-            this.name = checkNotNull(name, "name is null");
+            this.name = requireNonNull(name, "name is null");
             checkArgument(!name.isEmpty(), "name is empty");
-            this.type = checkNotNull(type, "type is null");
-            this.getterName = checkNotNull(getterName, "getterName is null");
+            this.type = requireNonNull(type, "type is null");
+            this.getterName = requireNonNull(getterName, "getterName is null");
             this.initialValue = initialValue;
+            checkArgument(sqlType != null, "sqlType is null");
+            if (sqlType.isPresent()) {
+                checkArgument(
+                        (sqlType.get().getJavaType() == type) ||
+                                ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
+                                ((type == int.class) && INTEGER.equals(sqlType.get())),
+                        "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());
+            }
+            else {
+                sqlType = sqlTypeFromStackType(type);
+            }
+            this.sqlType = sqlType;
         }
 
-        public String getGetterName()
+        private static Optional<Type> sqlTypeFromStackType(Class<?> stackType)
+        {
+            if (stackType == long.class) {
+                return Optional.of(BIGINT);
+            }
+            else if (stackType == double.class) {
+                return Optional.of(DOUBLE);
+            }
+            else if (stackType == boolean.class) {
+                return Optional.of(BOOLEAN);
+            }
+            else if (stackType == byte.class) {
+                return Optional.of(TINYINT);
+            }
+            else if (stackType == int.class) {
+                return Optional.of(INTEGER);
+            }
+            else if (stackType == Slice.class) {
+                return Optional.of(VARBINARY);
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+
+        String getGetterName()
         {
             return getterName;
         }
 
-        public String getSetterName()
+        String getSetterName()
         {
             return "set" + getName();
         }
@@ -745,25 +769,34 @@ public class StateCompiler
             return type;
         }
 
-        public int sizeOfType()
+        Type getSqlType()
         {
-            if (getType() == long.class) {
-                return SizeOf.SIZE_OF_LONG;
+            if (!sqlType.isPresent()) {
+                throw new IllegalArgumentException("Unsupported type: " + type);
             }
-            else if (getType() == double.class) {
-                return SizeOf.SIZE_OF_DOUBLE;
-            }
-            else if (getType() == boolean.class || getType() == byte.class) {
-                return SizeOf.SIZE_OF_BYTE;
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type: " + getType());
-            }
+            return sqlType.get();
         }
 
-        public Object getInitialValue()
+        boolean isPrimitiveType()
         {
-            return initialValue;
+            Class<?> type = getType();
+            return (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class);
+        }
+
+        public BytecodeExpression initialValueExpression()
+        {
+            if (initialValue == null) {
+                return defaultValue(type);
+            }
+            if (initialValue instanceof Number) {
+                return constantNumber((Number) initialValue);
+            }
+            else if (initialValue instanceof Boolean) {
+                return constantBoolean((boolean) initialValue);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            }
         }
     }
 }

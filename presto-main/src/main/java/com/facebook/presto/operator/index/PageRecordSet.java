@@ -23,8 +23,8 @@ import io.airlift.slice.Slice;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PageRecordSet
         implements RecordSet
@@ -34,8 +34,8 @@ public class PageRecordSet
 
     public PageRecordSet(List<Type> types, Page page)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.page = checkNotNull(page, "page is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.page = requireNonNull(page, "page is null");
         checkArgument(types.size() == page.getChannelCount(), "Types do not match page channels");
     }
 
@@ -60,15 +60,9 @@ public class PageRecordSet
 
         private PageRecordCursor(List<Type> types, Page page)
         {
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.page = checkNotNull(page, "page is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.page = requireNonNull(page, "page is null");
             checkArgument(types.size() == page.getChannelCount(), "Types do not match page channels");
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return page.getSizeInBytes();
         }
 
         @Override
@@ -133,6 +127,15 @@ public class PageRecordSet
             checkState(position < page.getPositionCount(), "Already finished");
             Type type = types.get(field);
             return type.getSlice(page.getBlock(field), position);
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            checkState(position >= 0, "Not yet advanced");
+            checkState(position < page.getPositionCount(), "Already finished");
+            Type type = types.get(field);
+            return type.getObject(page.getBlock(field), position);
         }
 
         @Override

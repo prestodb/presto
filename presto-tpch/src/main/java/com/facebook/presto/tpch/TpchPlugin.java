@@ -13,41 +13,16 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
-
-import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchPlugin
         implements Plugin
 {
-    private NodeManager nodeManager;
-
-    @Inject
-    public void setNodeManager(NodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-    }
-
     @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        if (type == ConnectorFactory.class) {
-            checkNotNull(nodeManager, "nodeManager is null");
-            return ImmutableList.of(type.cast(new TpchConnectorFactory(nodeManager)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new TpchConnectorFactory());
     }
 }

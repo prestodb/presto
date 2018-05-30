@@ -13,31 +13,30 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class IntervalLiteral
         extends Literal
 {
     public enum Sign
     {
-        POSITIVE
-                {
-                    @Override
-                    public int multiplier()
-                    {
-                        return 1;
-                    }
-                },
-        NEGATIVE
-                {
-                    @Override
-                    public int multiplier()
-                    {
-                        return -1;
-                    }
-                };
+        POSITIVE {
+            @Override
+            public int multiplier()
+            {
+                return 1;
+            }
+        },
+        NEGATIVE {
+            @Override
+            public int multiplier()
+            {
+                return -1;
+            }
+        };
 
         public abstract int multiplier();
     }
@@ -50,18 +49,30 @@ public class IntervalLiteral
     private final String value;
     private final Sign sign;
     private final IntervalField startField;
-    private final IntervalField endField;
+    private final Optional<IntervalField> endField;
 
     public IntervalLiteral(String value, Sign sign, IntervalField startField)
     {
-        this(value, sign, startField, null);
+        this(Optional.empty(), value, sign, startField, Optional.empty());
     }
 
-    public IntervalLiteral(String value, Sign sign, IntervalField startField, IntervalField endField)
+    public IntervalLiteral(String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
-        Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkNotNull(sign, "sign is null");
-        Preconditions.checkNotNull(startField, "startField is null");
+        this(Optional.empty(), value, sign, startField, endField);
+    }
+
+    public IntervalLiteral(NodeLocation location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
+    {
+        this(Optional.of(location), value, sign, startField, endField);
+    }
+
+    private IntervalLiteral(Optional<NodeLocation> location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
+        requireNonNull(sign, "sign is null");
+        requireNonNull(startField, "startField is null");
+        requireNonNull(endField, "endField is null");
 
         this.value = value;
         this.sign = sign;
@@ -84,7 +95,7 @@ public class IntervalLiteral
         return startField;
     }
 
-    public IntervalField getEndField()
+    public Optional<IntervalField> getEndField()
     {
         return endField;
     }

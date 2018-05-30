@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class RaptorConnectorId
 {
@@ -23,7 +23,7 @@ public final class RaptorConnectorId
 
     public RaptorConnectorId(String id)
     {
-        this.id = checkNotNull(id, "id is null");
+        this.id = requireNonNull(id, "id is null");
     }
 
     @Override
@@ -35,7 +35,7 @@ public final class RaptorConnectorId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
@@ -49,6 +49,6 @@ public final class RaptorConnectorId
         }
 
         RaptorConnectorId other = (RaptorConnectorId) obj;
-        return Objects.equal(this.id, other.id);
+        return Objects.equals(this.id, other.id);
     }
 }

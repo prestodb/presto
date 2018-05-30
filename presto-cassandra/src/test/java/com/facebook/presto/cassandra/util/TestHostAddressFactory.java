@@ -32,13 +32,13 @@ public class TestHostAddressFactory
     public void testToHostAddressList()
             throws Exception
     {
-        Set<Host> hosts = ImmutableSet.<Host>of(
+        Set<Host> hosts = ImmutableSet.of(
                 new TestHost(
-                    new InetSocketAddress(
-                        InetAddress.getByAddress(new byte[] {
-                            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                        }),
-                        3000)),
+                        new InetSocketAddress(
+                                InetAddress.getByAddress(new byte[] {
+                                        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+                                }),
+                                3000)),
                 new TestHost(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 2, 3, 4}), 3000)));
 
         HostAddressFactory hostAddressFactory = new HostAddressFactory();

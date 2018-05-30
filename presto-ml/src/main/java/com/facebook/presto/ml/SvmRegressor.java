@@ -14,7 +14,6 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.ModelType;
-import com.google.common.base.Throwables;
 import libsvm.svm;
 import libsvm.svm_model;
 import libsvm.svm_parameter;
@@ -23,9 +22,10 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SvmRegressor
         extends AbstractSvmModel
@@ -54,14 +54,14 @@ public class SvmRegressor
             return new SvmRegressor(model);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
     @Override
     public double regress(FeatureVector features)
     {
-        checkNotNull(model, "model is null");
+        requireNonNull(model, "model is null");
         return svm.svm_predict(model, toSvmNodes(features));
     }
 

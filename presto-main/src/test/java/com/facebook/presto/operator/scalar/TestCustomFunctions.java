@@ -16,33 +16,35 @@ package com.facebook.presto.operator.scalar;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-public class TestCustomFunctions
-{
-    private FunctionAssertions functionAssertions;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
+public class TestCustomFunctions
+        extends AbstractTestFunctions
+{
     @BeforeClass
     public void setupClass()
     {
-        functionAssertions = new FunctionAssertions().addScalarFunctions(CustomFunctions.class);
+        registerScalar(CustomFunctions.class);
     }
 
     @Test
     public void testCustomAdd()
     {
-        functionAssertions.assertFunction("custom_add(123, 456)", 579L);
+        assertFunction("custom_add(123, 456)", BIGINT, 579L);
     }
 
     @Test
     public void testSliceIsNull()
     {
-        functionAssertions.assertFunction("custom_is_null(CAST(NULL AS VARCHAR))", true);
-        functionAssertions.assertFunction("custom_is_null('not null')", false);
+        assertFunction("custom_is_null(CAST(NULL AS VARCHAR))", BOOLEAN, true);
+        assertFunction("custom_is_null('not null')", BOOLEAN, false);
     }
 
     @Test
     public void testLongIsNull()
     {
-        functionAssertions.assertFunction("custom_is_null(CAST(NULL AS BIGINT))", true);
-        functionAssertions.assertFunction("custom_is_null(0)", false);
+        assertFunction("custom_is_null(CAST(NULL AS BIGINT))", BOOLEAN, true);
+        assertFunction("custom_is_null(0)", BOOLEAN, false);
     }
 }

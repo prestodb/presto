@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,17 +31,25 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public final class BlockAssertions
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     private BlockAssertions()
     {
     }
@@ -69,6 +82,7 @@ public final class BlockAssertions
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
+        assertEquals(actual.getPositionCount(), expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
             assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
         }
@@ -76,14 +90,14 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(String... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createStringsBlock(Arrays.asList(values));
     }
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
 
         for (String value : values) {
             if (value == null) {
@@ -97,9 +111,31 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createSlicesBlock(Slice... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+        return createSlicesBlock(Arrays.asList(values));
+    }
+
+    public static Block createSlicesBlock(Iterable<Slice> values)
+    {
+        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 100);
+
+        for (Slice value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                VARBINARY.writeSlice(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
 
         for (int i = start; i < end; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
@@ -108,9 +144,42 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createStringDictionaryBlock(int start, int length)
+    {
+        checkArgument(length > 5, "block must have more than 5 entries");
+
+        int dictionarySize = length / 5;
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, dictionarySize);
+        for (int i = start; i < start + dictionarySize; i++) {
+            VARCHAR.writeString(builder, String.valueOf(i));
+        }
+        int[] ids = new int[length];
+        for (int i = 0; i < length; i++) {
+            ids[i] = i % dictionarySize;
+        }
+        return new DictionaryBlock(builder.build(), ids);
+    }
+
+    public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
+    {
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        BlockBuilder builder = arrayType.createBlockBuilder(null, 100);
+
+        for (Iterable<String> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                arrayType.writeObject(builder, createStringsBlock(value));
+            }
+        }
+
+        return builder.build();
+    }
+
     public static Block createBooleansBlock(Boolean... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createBooleansBlock(Arrays.asList(values));
     }
@@ -122,7 +191,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 100);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -136,10 +205,86 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createShortDecimalsBlock(String... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
+        return createShortDecimalsBlock(Arrays.asList(values));
+    }
+
+    public static Block createShortDecimalsBlock(Iterable<String> values)
+    {
+        DecimalType shortDecimalType = DecimalType.createDecimalType(1);
+        BlockBuilder builder = shortDecimalType.createBlockBuilder(null, 100);
+
+        for (String value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                shortDecimalType.writeLong(builder, new BigDecimal(value).unscaledValue().longValue());
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createLongDecimalsBlock(String... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
+        return createLongDecimalsBlock(Arrays.asList(values));
+    }
+
+    public static Block createLongDecimalsBlock(Iterable<String> values)
+    {
+        DecimalType longDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
+        BlockBuilder builder = longDecimalType.createBlockBuilder(null, 100);
+
+        for (String value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                writeBigDecimal(longDecimalType, builder, new BigDecimal(value));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createIntsBlock(Integer... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
+        return createIntsBlock(Arrays.asList(values));
+    }
+
+    public static Block createIntsBlock(Iterable<Integer> values)
+    {
+        BlockBuilder builder = INTEGER.createBlockBuilder(null, 100);
+
+        for (Integer value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                INTEGER.writeLong(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createEmptyLongsBlock()
+    {
+        return BIGINT.createFixedSizeBlockBuilder(0).build();
+    }
+
     // This method makes it easy to create blocks without having to add an L to every value
     public static Block createLongsBlock(int... values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, 100);
 
         for (int value : values) {
             BIGINT.writeLong(builder, (long) value);
@@ -150,21 +295,26 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Long... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createLongsBlock(Arrays.asList(values));
     }
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        return createTypedLongsBlock(BIGINT, values);
+    }
+
+    public static Block createTypedLongsBlock(Type type, Iterable<Long> values)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, 100);
 
         for (Long value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                BIGINT.writeLong(builder, value);
+                type.writeLong(builder, value);
             }
         }
 
@@ -173,7 +323,7 @@ public final class BlockAssertions
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
             BIGINT.writeLong(builder, i);
@@ -182,9 +332,43 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createLongDictionaryBlock(int start, int length)
+    {
+        checkArgument(length > 5, "block must have more than 5 entries");
+
+        int dictionarySize = length / 5;
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, dictionarySize);
+        for (int i = start; i < start + dictionarySize; i++) {
+            BIGINT.writeLong(builder, i);
+        }
+        int[] ids = new int[length];
+        for (int i = 0; i < length; i++) {
+            ids[i] = i % dictionarySize;
+        }
+        return new DictionaryBlock(builder.build(), ids);
+    }
+
+    public static Block createLongRepeatBlock(int value, int length)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            BIGINT.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
+    public static Block createTimestampsWithTimezoneBlock(Long... values)
+    {
+        BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
+        for (long value : values) {
+            TIMESTAMP_WITH_TIME_ZONE.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
             BOOLEAN.writeBoolean(builder, i % 2 == 0);
@@ -193,16 +377,48 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createBlockOfReals(Float... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
+        return createBlockOfReals(Arrays.asList(values));
+    }
+
+    private static Block createBlockOfReals(Iterable<Float> values)
+    {
+        BlockBuilder builder = REAL.createBlockBuilder(null, 100);
+        for (Float value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                REAL.writeLong(builder, floatToRawIntBits(value));
+            }
+        }
+        return builder.build();
+    }
+
+    public static Block createSequenceBlockOfReal(int start, int end)
+    {
+        BlockBuilder builder = REAL.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            REAL.writeLong(builder, floatToRawIntBits((float) i));
+        }
+
+        return builder.build();
+    }
+
     public static Block createDoublesBlock(Double... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createDoublesBlock(Arrays.asList(values));
     }
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = DOUBLE.createBlockBuilder(null, 100);
 
         for (Double value : values) {
             if (value == null) {
@@ -218,12 +434,89 @@ public final class BlockAssertions
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
             DOUBLE.writeDouble(builder, (double) i);
         }
 
         return builder.build();
+    }
+
+    public static Block createArrayBigintBlock(Iterable<? extends Iterable<Long>> values)
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        BlockBuilder builder = arrayType.createBlockBuilder(null, 100);
+
+        for (Iterable<Long> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                arrayType.writeObject(builder, createLongsBlock(value));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createDateSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = DATE.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            DATE.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createTimestampSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = TIMESTAMP.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            TIMESTAMP.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createShortDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        long base = BigInteger.TEN.pow(type.getScale()).longValue();
+
+        for (int i = start; i < end; ++i) {
+            type.writeLong(builder, base * i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createLongDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        BigInteger base = BigInteger.TEN.pow(type.getScale());
+
+        for (int i = start; i < end; ++i) {
+            type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
+        }
+
+        return builder.build();
+    }
+
+    public static RunLengthEncodedBlock createRLEBlock(double value, int positionCount)
+    {
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
+        DOUBLE.writeDouble(blockBuilder, value);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+    }
+
+    public static RunLengthEncodedBlock createRLEBlock(long value, int positionCount)
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+        BIGINT.writeLong(blockBuilder, value);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 }

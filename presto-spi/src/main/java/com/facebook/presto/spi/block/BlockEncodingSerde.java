@@ -21,10 +21,10 @@ public interface BlockEncodingSerde
     /**
      * Read a block encoding from the input.
      */
-    BlockEncoding readBlockEncoding(SliceInput input);
+    Block readBlock(SliceInput input);
 
     /**
      * Write a blockEncoding to the output.
      */
-    void writeBlockEncoding(SliceOutput output, BlockEncoding encoding);
+    void writeBlock(SliceOutput output, Block block);
 }

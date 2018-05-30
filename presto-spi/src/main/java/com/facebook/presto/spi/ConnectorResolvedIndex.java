@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.spi;
 
-import java.util.Objects;
+import com.facebook.presto.spi.predicate.TupleDomain;
+
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorResolvedIndex
 {
     private final ConnectorIndexHandle indexHandle;
-    private final TupleDomain<ConnectorColumnHandle> unresolvedTupleDomain;
+    private final TupleDomain<ColumnHandle> unresolvedTupleDomain;
 
-    public ConnectorResolvedIndex(ConnectorIndexHandle indexHandle, TupleDomain<ConnectorColumnHandle> unresolvedTupleDomain)
+    public ConnectorResolvedIndex(ConnectorIndexHandle indexHandle, TupleDomain<ColumnHandle> unresolvedTupleDomain)
     {
-        this.indexHandle = Objects.requireNonNull(indexHandle, "indexHandle is null");
-        this.unresolvedTupleDomain = Objects.requireNonNull(unresolvedTupleDomain, "unresolvedTupleDomain is null");
+        this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
+        this.unresolvedTupleDomain = requireNonNull(unresolvedTupleDomain, "unresolvedTupleDomain is null");
     }
 
     public ConnectorIndexHandle getIndexHandle()
@@ -31,7 +33,7 @@ public class ConnectorResolvedIndex
         return indexHandle;
     }
 
-    public TupleDomain<ConnectorColumnHandle> getUnresolvedTupleDomain()
+    public TupleDomain<ColumnHandle> getUnresolvedTupleDomain()
     {
         return unresolvedTupleDomain;
     }

@@ -13,75 +13,65 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
+/**
+ * Lightweight version of QueryInfo. Parts of the web UI depend on the fields
+ * being named consistently across these classes.
+ */
 @Immutable
 public class BasicQueryInfo
 {
     private final QueryId queryId;
-    private final Session session;
+    private final SessionRepresentation session;
     private final QueryState state;
+    private final MemoryPoolId memoryPool;
     private final boolean scheduled;
     private final URI self;
     private final String query;
-    private final Duration elapsedTime;
-    private final DateTime endTime;
-    private final DateTime createTime;
-    private final int runningDrivers;
-    private final int queuedDrivers;
-    private final int completedDrivers;
-    private final int totalDrivers;
+    private final BasicQueryStats queryStats;
+    private final ErrorType errorType;
+    private final ErrorCode errorCode;
 
     @JsonCreator
     public BasicQueryInfo(
             @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("session") Session session,
+            @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("state") QueryState state,
+            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("query") String query,
-            @JsonProperty("elapsedTime") Duration elapsedTime,
-            @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("totalDrivers") int totalDrivers)
-
+            @JsonProperty("queryStats") BasicQueryStats queryStats,
+            @JsonProperty("errorType") ErrorType errorType,
+            @JsonProperty("errorCode") ErrorCode errorCode)
     {
-        this.queryId = checkNotNull(queryId, "queryId is null");
-        this.session = checkNotNull(session, "session is null");
-        this.state = checkNotNull(state, "state is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.session = requireNonNull(session, "session is null");
+        this.state = requireNonNull(state, "state is null");
+        this.memoryPool = memoryPool;
+        this.errorType = errorType;
+        this.errorCode = errorCode;
         this.scheduled = scheduled;
-        this.self = checkNotNull(self, "self is null");
-        this.query = checkNotNull(query, "query is null");
-        this.elapsedTime = elapsedTime;
-        this.endTime = endTime;
-        this.createTime = createTime;
-
-        checkArgument(runningDrivers >= 0, "runningDrivers is less than zero");
-        this.runningDrivers = runningDrivers;
-        checkArgument(queuedDrivers >= 0, "queuedDrivers is less than zero");
-        this.queuedDrivers = queuedDrivers;
-        checkArgument(completedDrivers >= 0, "completedDrivers is less than zero");
-        this.completedDrivers = completedDrivers;
-        checkArgument(totalDrivers >= 0, "totalDrivers is less than zero");
-        this.totalDrivers = totalDrivers;
+        this.self = requireNonNull(self, "self is null");
+        this.query = requireNonNull(query, "query is null");
+        this.queryStats = requireNonNull(queryStats, "queryStats is null");
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -89,16 +79,13 @@ public class BasicQueryInfo
         this(queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
+                queryInfo.getMemoryPool(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getQuery(),
-                queryInfo.getQueryStats().getElapsedTime(),
-                queryInfo.getQueryStats().getEndTime(),
-                queryInfo.getQueryStats().getCreateTime(),
-                queryInfo.getQueryStats().getRunningDrivers(),
-                queryInfo.getQueryStats().getQueuedDrivers(),
-                queryInfo.getQueryStats().getCompletedDrivers(),
-                queryInfo.getQueryStats().getTotalDrivers());
+                new BasicQueryStats(queryInfo.getQueryStats()),
+                queryInfo.getErrorType(),
+                queryInfo.getErrorCode());
     }
 
     @JsonProperty
@@ -108,7 +95,7 @@ public class BasicQueryInfo
     }
 
     @JsonProperty
-    public Session getSession()
+    public SessionRepresentation getSession()
     {
         return session;
     }
@@ -117,6 +104,12 @@ public class BasicQueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public MemoryPoolId getMemoryPool()
+    {
+        return memoryPool;
     }
 
     @JsonProperty
@@ -138,45 +131,23 @@ public class BasicQueryInfo
     }
 
     @JsonProperty
-    public Duration getElapsedTime()
+    public BasicQueryStats getQueryStats()
     {
-        return elapsedTime;
+        return queryStats;
     }
 
+    @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public ErrorType getErrorType()
     {
-        return endTime;
+        return errorType;
     }
 
+    @Nullable
     @JsonProperty
-    public int getRunningDrivers()
+    public ErrorCode getErrorCode()
     {
-        return runningDrivers;
-    }
-
-    @JsonProperty
-    public int getQueuedDrivers()
-    {
-        return queuedDrivers;
-    }
-
-    @JsonProperty
-    public int getTotalDrivers()
-    {
-        return totalDrivers;
-    }
-
-    @JsonProperty
-    public int getCompletedDrivers()
-    {
-        return completedDrivers;
-    }
-
-    @JsonProperty
-    public DateTime getCreateTime()
-    {
-        return createTime;
+        return errorCode;
     }
 
     @Override

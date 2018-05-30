@@ -18,46 +18,46 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestHiddenColumns
 {
     private LocalQueryRunner runner;
 
-    public TestHiddenColumns()
+    @BeforeClass
+    public void setUp()
     {
         runner = new LocalQueryRunner(TEST_SESSION);
-        runner.createCatalog(TEST_SESSION.getCatalog(), new TpchConnectorFactory(runner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+        runner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroy()
     {
         if (runner != null) {
             runner.close();
+            runner = null;
         }
     }
 
     @Test
     public void testDescribeTable()
-            throws Exception
     {
-        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                .row("regionkey", "bigint", true, false, "")
-                .row("name", "varchar", true, false, "")
-                .row("comment", "varchar", true, false, "")
+        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("regionkey", "bigint", "", "")
+                .row("name", "varchar(25)", "", "")
+                .row("comment", "varchar(152)", "", "")
                 .build();
         assertEquals(runner.execute("DESC REGION"), expected);
     }
 
     @Test
     public void testSimpleSelect()
-            throws Exception
     {
         assertEquals(runner.execute("SELECT * from REGION"), runner.execute("SELECT regionkey, name, comment from REGION"));
         assertEquals(runner.execute("SELECT *, row_number from REGION"), runner.execute("SELECT regionkey, name, comment, row_number from REGION"));

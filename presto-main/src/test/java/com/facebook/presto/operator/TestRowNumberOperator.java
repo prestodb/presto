@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -32,20 +32,28 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -53,144 +61,185 @@ import static org.testng.Assert.assertTrue;
 public class TestRowNumberOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
+    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
+    }
+
+    @DataProvider
+    public Object[][] dataType()
+    {
+        return new Object[][] {{VARCHAR}, {BIGINT}};
     }
 
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     private DriverContext getDriverContext()
     {
-        return new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+        return createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
     @Test
-    public void testRowNumberUnPartitioned()
-            throws Exception
+    public void testRowNumberUnpartitioned()
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
-                ImmutableList.<Type>of(),
-                Optional.<Integer>absent(),
-                Optional.<Integer>absent(),
-                10);
-
-        Operator operator = operatorFactory.createOperator(driverContext);
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                10,
+                joinCompiler);
 
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.3, 1)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
-                .row(0.2, 2)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
-                .row(0.1, 3)
-                .row(0.19, 3)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
+    }
+
+    @Test(dataProvider = "dataType")
+    public void testMemoryReservationYield(Type type)
+    {
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+
+        OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(type),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(type),
+                Optional.empty(),
+                Optional.empty(),
+                1,
+                joinCompiler);
+
+        // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 1_400_000);
+        assertGreaterThan(result.getYieldCount(), 5);
+        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+
+        int count = 0;
+        for (Page page : result.getOutput()) {
+            assertEquals(page.getChannelCount(), 3);
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                count++;
+            }
+        }
+        assertEquals(count, 6_000 * 600);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testRowNumberPartitioned(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(10),
                 rowPagesBuilder.getHashChannel(),
-                10);
-
-        Operator operator = operatorFactory.createOperator(driverContext);
+                10,
+                joinCompiler);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.3, 1)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
                 .build();
 
         MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.2, 2)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
                 .build();
 
         MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.1, 3)
-                .row(0.19, 3)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -202,57 +251,56 @@ public class TestRowNumberOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testRowNumberPartitionedLimit(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(3),
-                Optional.<Integer>absent(),
-                10);
-
-        Operator operator = operatorFactory.createOperator(driverContext);
+                Optional.empty(),
+                10,
+                joinCompiler);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.3, 1)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
                 .build();
 
         MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.2, 2)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
                 .build();
 
         MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.1, 3)
-                .row(0.19, 3)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 8);
         // Check that all row numbers generated are <= 3
@@ -261,7 +309,7 @@ public class TestRowNumberOperator
         }
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -272,56 +320,55 @@ public class TestRowNumberOperator
     }
 
     @Test
-    public void testRowNumberUnPartitionedLimit()
-            throws Exception
+    public void testRowNumberUnpartitionedLimit()
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
-                ImmutableList.<Type>of(),
+                ImmutableList.of(),
                 Optional.of(3),
-                Optional.<Integer>absent(),
-                10);
-
-        Operator operator = operatorFactory.createOperator(driverContext);
+                Optional.empty(),
+                10,
+                joinCompiler);
 
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(0.3, 1)
-                .row(0.2, 2)
-                .row(0.1, 3)
-                .row(0.19, 3)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
+                .row(0.3, 1L)
+                .row(0.2, 2L)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 3);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         assertEquals(actual.getMaterializedRows().size(), 3);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());
@@ -330,7 +377,7 @@ public class TestRowNumberOperator
 
     private static Block getRowNumberColumn(List<Page> pages)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, pages.size() * 100);
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
@@ -342,14 +389,14 @@ public class TestRowNumberOperator
 
     private static List<Page> stripRowNumberColumn(List<Page> input)
     {
-        return IterableTransformer.on(input).transform(new Function<Page, Page>()
-        {
-            @Override
-            public Page apply(Page page)
-            {
-                Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
-                return new Page(blocks);
-            }
-        }).list();
+        return input.stream()
+                .map(page -> {
+                    Block[] blocks = new Block[page.getChannelCount() - 1];
+                    for (int i = 0; i < page.getChannelCount() - 1; i++) {
+                        blocks[i] = page.getBlock(i);
+                    }
+                    return new Page(page.getPositionCount(), blocks);
+                })
+                .collect(toImmutableList());
     }
 }

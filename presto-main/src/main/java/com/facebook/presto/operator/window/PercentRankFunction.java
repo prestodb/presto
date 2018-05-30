@@ -13,35 +13,30 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.function.RankingWindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
+@WindowFunctionSignature(name = "percent_rank", returnType = "double")
 public class PercentRankFunction
-        implements WindowFunction
+        extends RankingWindowFunction
 {
     private long totalCount;
     private long rank;
     private long count;
 
     @Override
-    public Type getType()
+    public void reset()
     {
-        return DOUBLE;
-    }
-
-    @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
-    {
-        totalCount = partitionRowCount;
+        totalCount = windowIndex.size();
         rank = 0;
         count = 1;
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (totalCount == 1) {
             DOUBLE.writeDouble(output, 0.0);

@@ -13,40 +13,31 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaTableHandle
         implements ConnectorTableHandle
 {
-    private final Session session;
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
     public InformationSchemaTableHandle(
-            @JsonProperty("session") Session session,
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.session = session;
-        this.catalogName = checkNotNull(catalogName, "catalogName is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-    }
-
-    @JsonProperty
-    public Session getSession()
-    {
-        return session;
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty
@@ -75,13 +66,13 @@ public class InformationSchemaTableHandle
     @Override
     public String toString()
     {
-        return "information_schema:" + catalogName + ":" + schemaName + ":" + tableName;
+        return catalogName + ":" + schemaName + ":" + tableName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(session, catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, schemaName, tableName);
     }
 
     @Override
@@ -94,9 +85,8 @@ public class InformationSchemaTableHandle
             return false;
         }
         InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
-        return Objects.equal(this.session, other.session) &&
-                Objects.equal(this.catalogName, other.catalogName) &&
-                Objects.equal(this.schemaName, other.schemaName) &&
-                Objects.equal(this.tableName, other.tableName);
+        return Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
     }
 }

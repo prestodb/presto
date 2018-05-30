@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import io.airlift.stats.cardinality.HyperLogLog;
 
 import javax.validation.constraints.NotNull;

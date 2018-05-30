@@ -23,8 +23,9 @@ public interface SplitRunner
 {
     boolean isFinished();
 
-    ListenableFuture<?> processFor(Duration duration)
-            throws Exception;
+    ListenableFuture<?> processFor(Duration duration);
+
+    String getInfo();
 
     @Override
     void close();

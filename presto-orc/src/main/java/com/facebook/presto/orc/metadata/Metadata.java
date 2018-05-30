@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+
 import java.util.List;
 
 public class Metadata

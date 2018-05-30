@@ -13,122 +13,88 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.google.common.primitives.Ints;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 
+@ScalarFunction("array_sort")
+@Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
-        extends ParametricScalar
 {
-    public static final ArraySortFunction ARRAY_SORT_FUNCTION = new ArraySortFunction();
-    private static final String FUNCTION_NAME = "array_sort";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Slice.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
+    private final PageBuilder pageBuilder;
+    private static final int INITIAL_LENGTH = 128;
+    private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
 
-    @Override
-    public Signature getSignature()
+    @TypeParameter("E")
+    public ArraySortFunction(@TypeParameter("E") Type elementType)
     {
-        return SIGNATURE;
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
     }
 
-    @Override
-    public boolean isHidden()
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public Block sort(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block block)
     {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Sorts the given array in ascending order according to the natural ordering of its elements.";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
-    {
-        checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
-        Type type = types.get("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
-        Signature signature = new Signature(FUNCTION_NAME,
-                parameterizedTypeName("array", type.getTypeSignature()),
-                parameterizedTypeName("array", type.getTypeSignature()));
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false));
-    }
-
-    public static Slice sort(final Type type, Slice jsonArray)
-    {
-        List<Object> elements;
-        try {
-            elements = OBJECT_MAPPER.readValue(jsonArray.getInput(), COLLECTION_TYPE);
+        int arrayLength = block.getPositionCount();
+        if (positions.size() < arrayLength) {
+            positions = Ints.asList(new int[arrayLength]);
         }
-        catch (IOException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        for (int i = 0; i < arrayLength; i++) {
+            positions.set(i, i);
         }
-        Collections.sort(elements, new Comparator<Object>()
+
+        Collections.sort(positions.subList(0, arrayLength), new Comparator<Integer>()
         {
             @Override
-            public int compare(Object o1, Object o2)
+            public int compare(Integer p1, Integer p2)
             {
-                return type.compareTo(createBlock(type, o1), 0, createBlock(type, o2), 0);
+                boolean nullLeft = block.isNull(p1);
+                boolean nullRight = block.isNull(p2);
+                if (nullLeft && nullRight) {
+                    return 0;
+                }
+                if (nullLeft) {
+                    return 1;
+                }
+                if (nullRight) {
+                    return -1;
+                }
+
+                //TODO: This could be quite slow, it should use parametric equals
+                return type.compareTo(block, p1, block, p2);
             }
         });
-        return toStackRepresentation(elements);
-    }
 
-    private static Block createBlock(Type type, Object element)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        Class<?> javaType = type.getJavaType();
-        if (javaType == boolean.class) {
-            type.writeBoolean(blockBuilder, (Boolean) element);
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
         }
-        else if (javaType == long.class) {
-            type.writeLong(blockBuilder, ((Number) element).longValue());
+
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+
+        for (int i = 0; i < arrayLength; i++) {
+            type.appendTo(block, positions.get(i), blockBuilder);
         }
-        else if (javaType == double.class) {
-            type.writeDouble(blockBuilder, (Double) element);
-        }
-        else if (javaType == Slice.class) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
-        }
-        else {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));
-        }
-        return blockBuilder.build();
+        pageBuilder.declarePositions(arrayLength);
+
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
     }
 }

@@ -8,10 +8,14 @@ Presto Documentation
 
     overview
     installation
+    security
+    admin
     connector
     functions
     language
     sql
     migration
-    spi
+    develop
     release
+
+.. Note: If "release" is not the last item, the CSS must be updated.

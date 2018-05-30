@@ -13,21 +13,32 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveSplitSourceProvider.HiveSplitSource;
-import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.stats.CounterStat;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -35,112 +46,92 @@ public class TestHiveSplitSource
 {
     @Test
     public void testOutstandingSplitCount()
-            throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
         // remove 1 split
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
+        assertEquals(getSplits(hiveSplitSource, 1).size(), 1);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 9);
 
         // remove 4 splits
-        assertEquals(hiveSplitSource.getNextBatch(4).size(), 4);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 5);
+        assertEquals(getSplits(hiveSplitSource, 4).size(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 5);
 
         // try to remove 20 splits, and verify we only got 5
-        assertEquals(hiveSplitSource.getNextBatch(20).size(), 5);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 0);
-    }
-
-    @Test
-    public void testSuspendResume()
-            throws Exception
-    {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
-
-        // almost fill the source
-        for (int i = 0; i < 9; i++) {
-            hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
-            assertFalse(suspendingExecutor.isSuspended());
-        }
-
-        // add one more split so the source is now full and verify that the executor is suspended
-        hiveSplitSource.addToQueue(new TestSplit(10));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 10);
-        assertTrue(suspendingExecutor.isSuspended());
-
-        // remove one split so the source is no longer full and verify the executor is resumed
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
-        assertFalse(suspendingExecutor.isSuspended());
-
-        // add two more splits so the source is now full and verify that the executor is suspended
-        hiveSplitSource.addToQueue(new TestSplit(11));
-        hiveSplitSource.addToQueue(new TestSplit(12));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 11);
-        assertTrue(suspendingExecutor.isSuspended());
-
-        // remove two splits so the source is no longer full and verify the executor is resumed
-        assertEquals(hiveSplitSource.getNextBatch(2).size(), 2);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
-        assertFalse(suspendingExecutor.isSuspended());
+        assertEquals(getSplits(hiveSplitSource, 20).size(), 5);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
     }
 
     @Test
     public void testFail()
-            throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
 
         // add some splits
         for (int i = 0; i < 5; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
         // remove a split and verify
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(getSplits(hiveSplitSource, 1).size(), 1);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4);
 
         // fail source
         hiveSplitSource.fail(new RuntimeException("test"));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4);
 
         // try to remove a split and verify we got the expected exception
         try {
-            hiveSplitSource.getNextBatch(1);
+            getSplits(hiveSplitSource, 1);
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getCause().getMessage(), "test");
+            assertEquals(e.getMessage(), "test");
         }
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4); // 3 splits + poison
 
         // attempt to add another split and verify it does not work
         hiveSplitSource.addToQueue(new TestSplit(99));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4); // 3 splits + poison
 
         // fail source again
         hiveSplitSource.fail(new RuntimeException("another failure"));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4); // 3 splits + poison
 
         // try to remove a split and verify we got the first exception
         try {
-            hiveSplitSource.getNextBatch(1);
+            getSplits(hiveSplitSource, 1);
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getCause().getMessage(), "test");
+            assertEquals(e.getMessage(), "test");
         }
     }
 
@@ -148,8 +139,17 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        final HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
 
         final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -162,7 +162,7 @@ public class TestHiveSplitSource
             {
                 try {
                     started.countDown();
-                    List<ConnectorSplit> batch = hiveSplitSource.getNextBatch(1);
+                    List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
                     assertEquals(batch.size(), 1);
                     splits.set(batch.get(0));
                 }
@@ -185,8 +185,8 @@ public class TestHiveSplitSource
             hiveSplitSource.addToQueue(new TestSplit(33));
 
             // wait for thread to get the split
-            ConnectorSplit split = splits.get(200, TimeUnit.MILLISECONDS);
-            assertSame(split.getInfo(), 33);
+            ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
+            assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
         }
         finally {
             // make sure the thread exits
@@ -194,44 +194,126 @@ public class TestHiveSplitSource
         }
     }
 
-    private SuspendingExecutor createSuspendingExecutor()
+    @Test
+    public void testOutstandingSplitSize()
     {
-        return new SuspendingExecutor(new Executor()
+        DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                10000,
+                maxOutstandingSplitsSize,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
+        int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
+
+        int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
+        for (int i = 0; i < maxSplitCount; i++) {
+            hiveSplitSource.addToQueue(new TestSplit(i));
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
+        }
+
+        assertEquals(getSplits(hiveSplitSource, maxSplitCount).size(), maxSplitCount);
+
+        for (int i = 0; i < maxSplitCount; i++) {
+            hiveSplitSource.addToQueue(new TestSplit(i));
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
+        }
+        try {
+            hiveSplitSource.addToQueue(new TestSplit(0));
+            fail("expect failure");
+        }
+        catch (PrestoException e) {
+            assertContains(e.getMessage(), "Split buffering for database.table exceeded memory limit");
+        }
+    }
+
+    @Test
+    public void testEmptyBucket()
+    {
+        final HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
+                SESSION,
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
+        hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
+        hiveSplitSource.noMoreSplits();
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(0), 10).size(), 0);
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(1), 10).size(), 0);
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(2), 10).size(), 1);
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(3), 10).size(), 0);
+    }
+
+    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
+    {
+        return getSplits(source, OptionalInt.empty(), maxSize);
+    }
+
+    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, OptionalInt bucketNumber, int maxSize)
+    {
+        if (bucketNumber.isPresent()) {
+            return getFutureValue(source.getNextBatch(new HivePartitionHandle(bucketNumber.getAsInt()), maxSize)).getSplits();
+        }
+        else {
+            return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
+        }
+    }
+
+    private static class TestingHiveSplitLoader
+            implements HiveSplitLoader
+    {
+        @Override
+        public void start(HiveSplitSource splitSource)
         {
-            @Override
-            public void execute(Runnable command)
-            {
-                throw new UnsupportedOperationException();
-            }
-        });
+        }
+
+        @Override
+        public void stop()
+        {
+        }
     }
 
     private static class TestSplit
-            implements ConnectorSplit
+            extends InternalHiveSplit
     {
-        private final int id;
-
         private TestSplit(int id)
         {
-            this.id = id;
+            this(id, OptionalInt.empty());
         }
 
-        @Override
-        public boolean isRemotelyAccessible()
+        private TestSplit(int id, OptionalInt bucketNumber)
         {
-            throw new UnsupportedOperationException();
+            super(
+                    "partition-name",
+                    "path",
+                    0,
+                    100,
+                    100,
+                    properties("id", String.valueOf(id)),
+                    ImmutableList.of(),
+                    ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of())),
+                    bucketNumber,
+                    true,
+                    false,
+                    ImmutableMap.of(),
+                    Optional.empty());
         }
 
-        @Override
-        public List<HostAddress> getAddresses()
+        private static Properties properties(String key, String value)
         {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Object getInfo()
-        {
-            return id;
+            Properties properties = new Properties();
+            properties.put(key, value);
+            return properties;
         }
     }
 }

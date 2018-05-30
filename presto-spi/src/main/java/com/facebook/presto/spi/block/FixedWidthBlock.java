@@ -13,20 +13,29 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.function.BiConsumer;
+
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
+import static com.facebook.presto.spi.block.BlockUtil.compactSlice;
+import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlock.class).instanceSize();
+
     private final int positionCount;
     private final Slice slice;
-    private final boolean[] valueIsNull;
+    private final Slice valueIsNull;
 
-    public FixedWidthBlock(int fixedSize, int positionCount, Slice slice, boolean[] valueIsNull)
+    public FixedWidthBlock(int fixedSize, int positionCount, Slice slice, Slice valueIsNull)
     {
         super(fixedSize);
 
@@ -35,9 +44,12 @@ public class FixedWidthBlock
         }
         this.positionCount = positionCount;
 
-        this.slice = Objects.requireNonNull(slice, "slice is null");
+        this.slice = requireNonNull(slice, "slice is null");
+        if (slice.length() < fixedSize * positionCount) {
+            throw new IllegalArgumentException("slice length is less n positionCount * fixedSize");
+        }
 
-        if (valueIsNull.length < positionCount) {
+        if (valueIsNull.length() < positionCount) {
             throw new IllegalArgumentException("valueIsNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -52,7 +64,7 @@ public class FixedWidthBlock
     @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position];
+        return valueIsNull.getByte(position) != 0;
     }
 
     @Override
@@ -62,24 +74,63 @@ public class FixedWidthBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        long size = getRawSlice().length() + SizeOf.sizeOf(valueIsNull);
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
+        return getRawSlice().length() + (long) valueIsNull.length();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(slice, slice.getRetainedSize());
+        consumer.accept(valueIsNull, valueIsNull.getRetainedSize());
+        consumer.accept(this, (long) INSTANCE_SIZE);
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        checkArrayRange(positions, offset, length);
+
+        SliceOutput newSlice = Slices.allocate(length * fixedSize).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(length).getOutput();
+
+        for (int i = offset; i < offset + length; ++i) {
+            int position = positions[i];
+            checkValidPosition(position, positionCount);
+            newSlice.writeBytes(slice, position * fixedSize, fixedSize);
+            newValueIsNull.writeByte(valueIsNull.getByte(position));
         }
-        return (int) size;
+        return new FixedWidthBlock(fixedSize, length, newSlice.slice(), newValueIsNull.slice());
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
-        }
+        checkValidRegion(positionCount, positionOffset, length);
 
         Slice newSlice = slice.slice(positionOffset * fixedSize, length * fixedSize);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        Slice newValueIsNull = valueIsNull.slice(positionOffset, length);
+        return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        checkValidRegion(positionCount, positionOffset, length);
+
+        Slice newSlice = compactSlice(slice, positionOffset * fixedSize, length * fixedSize);
+        Slice newValueIsNull = compactSlice(valueIsNull, positionOffset, length);
+
+        if (newSlice == slice && newValueIsNull == valueIsNull) {
+            return this;
+        }
         return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 

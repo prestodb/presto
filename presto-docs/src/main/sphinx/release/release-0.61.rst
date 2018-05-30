@@ -58,41 +58,6 @@ Amazon S3 support
 
 * Add support for writing data to S3.
 
-Approximate Aggregation Queries
--------------------------------
-
-We have added experimental support for aggregate queries that return
-approximate results with error bounds. This feature is designed to be
-used with sampled tables generated using the ``TABLESAMPLE POISSONIZED RESCALED``.
-For example, the following query will create a 1% sample::
-
-    CREATE TABLE lineitems_sample AS
-    SELECT *
-    FROM tpch.sf10.lineitems TABLESAMPLE POISSONIZED (1) RESCALED
-
-Then, to run an approximate query::
-
-    SELECT COUNT(*)
-    FROM lineitems_sample
-    APPROXIMATE AT 95.0 CONFIDENCE
-
-
-.. code-block:: none
-
-               _col0
-    ----------------------------
-     5.991790345E7 +/- 14835.75
-    (1 row)
-
-
-To enable this feature you must add ``analyzer.experimental-syntax-enabled=true`` to your config.
-
-.. note::
-
-    The syntax and functionality for approximate queries is experimental and will likely
-    change in future versions.
-
-
 Miscellaneous
 -------------
 

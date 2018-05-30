@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.NotFoundException;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class ViewAlreadyExistsException
-        extends NotFoundException
+        extends PrestoException
 {
     private final SchemaTableName viewName;
 
@@ -30,7 +31,7 @@ public class ViewAlreadyExistsException
 
     public ViewAlreadyExistsException(SchemaTableName viewName, String message)
     {
-        super(message);
+        super(ALREADY_EXISTS, message);
         this.viewName = viewName;
     }
 

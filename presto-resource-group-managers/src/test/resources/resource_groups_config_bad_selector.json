@@ -1,0 +1,46 @@
+{
+  "rootGroups": [
+    {
+      "name": "a",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "subGroups": [
+        {
+          "name": "b",
+          "softMemoryLimit": "1MB",
+          "hardConcurrencyLimit": 100,
+          "maxQueued": 1000,
+          "subGroups": [
+            {
+              "name": "c",
+              "softMemoryLimit": "1MB",
+              "hardConcurrencyLimit": 100,
+              "maxQueued": 1000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000
+    }
+  ],
+  "selectors": [
+    {
+      "group": "a.b"
+    },
+    {
+      "group": "a.b.c"
+    },
+    {
+      "group": "A"
+    },
+    {
+      "group": "a.b.c.X"
+    }
+  ]
+}

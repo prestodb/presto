@@ -14,24 +14,29 @@
 package com.facebook.presto.ml;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Dataset
 {
     private final List<FeatureVector> datapoints;
     private final List<Double> labels;
+    private final Map<Integer, String> labelEnumeration;
 
-    public Dataset(List<Double> labels, List<FeatureVector> datapoints)
+    public Dataset(List<Double> labels, List<FeatureVector> datapoints, Map<Integer, String> labelEnumeration)
     {
-        checkNotNull(datapoints, "datapoints is null");
-        checkNotNull(labels, "labels is null");
+        requireNonNull(datapoints, "datapoints is null");
+        requireNonNull(labels, "labels is null");
+        requireNonNull(labelEnumeration, "labelEnumeration is null");
         checkArgument(datapoints.size() == labels.size(), "datapoints and labels have different sizes");
         this.labels = ImmutableList.copyOf(labels);
         this.datapoints = ImmutableList.copyOf(datapoints);
+        this.labelEnumeration = ImmutableMap.copyOf(labelEnumeration);
     }
 
     public List<FeatureVector> getDatapoints()
@@ -42,5 +47,10 @@ public class Dataset
     public List<Double> getLabels()
     {
         return labels;
+    }
+
+    public Map<Integer, String> getLabelEnumeration()
+    {
+        return labelEnumeration;
     }
 }

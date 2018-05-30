@@ -17,12 +17,36 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
+import static java.lang.String.format;
 
 public class ExceededMemoryLimitException
         extends PrestoException
 {
-    public ExceededMemoryLimitException(DataSize maxMemory)
+    private final DataSize maxMemory;
+
+    public static ExceededMemoryLimitException exceededGlobalLimit(DataSize maxMemory)
     {
-        super(EXCEEDED_MEMORY_LIMIT, String.format("Task exceeded max memory size of %s", maxMemory));
+        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded max memory size of %s", maxMemory));
+    }
+
+    public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory)
+    {
+        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded local user memory limit of %s", maxMemory));
+    }
+
+    public static ExceededMemoryLimitException exceededLocalTotalMemoryLimit(DataSize maxMemory)
+    {
+        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded local total memory limit of %s", maxMemory));
+    }
+
+    private ExceededMemoryLimitException(DataSize maxMemory, String message)
+    {
+        super(EXCEEDED_MEMORY_LIMIT, message);
+        this.maxMemory = maxMemory;
+    }
+
+    public DataSize getMaxMemory()
+    {
+        return maxMemory;
     }
 }

@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.sql.parser;
 
-import org.antlr.runtime.IntStream;
-import org.antlr.runtime.RecognitionException;
-
-import java.util.EnumSet;
-
 public enum IdentifierSymbol
 {
     COLON(':'),
@@ -33,17 +28,5 @@ public enum IdentifierSymbol
     public char getSymbol()
     {
         return symbol;
-    }
-
-    public static void validateIdentifier(IntStream input, String name, EnumSet<IdentifierSymbol> allowedSymbols)
-    {
-        for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedSymbols)) {
-            char symbol = identifierSymbol.getSymbol();
-            if (name.indexOf(symbol) >= 0) {
-                // rewind so that the error location is at the start of the identifier
-                input.rewind();
-                throw new ParsingException("identifiers must not contain '" + identifierSymbol.getSymbol() + "'", new RecognitionException(input));
-            }
-        }
     }
 }

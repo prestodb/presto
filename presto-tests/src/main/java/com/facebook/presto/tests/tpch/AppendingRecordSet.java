@@ -17,14 +17,15 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
+import static java.util.Objects.requireNonNull;
 
 class AppendingRecordSet
         implements RecordSet
@@ -35,14 +36,14 @@ class AppendingRecordSet
 
     public AppendingRecordSet(RecordSet delegate, List<Object> appendedValues, List<Type> appendedTypes)
     {
-        this.delegate = checkNotNull(delegate, "delegate is null");
-        this.appendedValues = new ArrayList<>(checkNotNull(appendedValues, "appendedValues is null")); // May contain null elements
-        this.appendedTypes = ImmutableList.copyOf(checkNotNull(appendedTypes, "appendedTypes is null"));
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.appendedValues = new ArrayList<>(requireNonNull(appendedValues, "appendedValues is null")); // May contain null elements
+        this.appendedTypes = ImmutableList.copyOf(requireNonNull(appendedTypes, "appendedTypes is null"));
         checkArgument(appendedValues.size() == appendedTypes.size(), "appendedValues must have the same size as appendedTypes");
         for (int i = 0; i < appendedValues.size(); i++) {
             Object value = appendedValues.get(i);
             if (value != null) {
-                checkArgument(appendedTypes.get(i).getJavaType().isInstance(value), "Object value does not match declared type");
+                checkArgument(Primitives.wrap(appendedTypes.get(i).getJavaType()).isInstance(value), "Object value does not match declared type");
             }
         }
     }
@@ -72,18 +73,12 @@ class AppendingRecordSet
 
         private AppendingRecordCursor(RecordCursor delegate, int delegateFieldCount, List<Object> appendedValues, List<Type> appendedTypes)
         {
-            this.delegate = checkNotNull(delegate, "delegate is null");
+            this.delegate = requireNonNull(delegate, "delegate is null");
             this.delegateFieldCount = delegateFieldCount;
             checkArgument(delegateFieldCount >= 0, "delegateFieldCount must be greater than or equal to zero");
-            this.appendedValues = checkNotNull(appendedValues, "appendedValues is null"); // May contain null elements
-            this.appendedTypes = ImmutableList.copyOf(checkNotNull(appendedTypes, "appendedTypes is null"));
+            this.appendedValues = requireNonNull(appendedValues, "appendedValues is null"); // May contain null elements
+            this.appendedTypes = ImmutableList.copyOf(requireNonNull(appendedTypes, "appendedTypes is null"));
             checkArgument(appendedValues.size() == appendedTypes.size(), "appendedValues must have the same size as appendedTypes");
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return 0;
         }
 
         @Override
@@ -162,6 +157,12 @@ class AppendingRecordSet
             else {
                 return (Slice) appendedValues.get(field - delegateFieldCount);
             }
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

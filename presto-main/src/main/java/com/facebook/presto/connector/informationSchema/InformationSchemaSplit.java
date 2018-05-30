@@ -13,37 +13,38 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.SerializableNativeValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaSplit
         implements ConnectorSplit
 {
     private final InformationSchemaTableHandle tableHandle;
-    private final Map<String, SerializableNativeValue> filters;
+    private final Set<QualifiedTablePrefix> prefixes;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public InformationSchemaSplit(
             @JsonProperty("tableHandle") InformationSchemaTableHandle tableHandle,
-            @JsonProperty("filters") Map<String, SerializableNativeValue> filters,
+            @JsonProperty("prefixes") Set<QualifiedTablePrefix> prefixes,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-        this.filters = checkNotNull(filters, "filters is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
 
-        checkNotNull(addresses, "hosts is null");
+        requireNonNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
     }
@@ -68,9 +69,9 @@ public class InformationSchemaSplit
     }
 
     @JsonProperty
-    public Map<String, SerializableNativeValue> getFilters()
+    public Set<QualifiedTablePrefix> getPrefixes()
     {
-        return filters;
+        return prefixes;
     }
 
     @Override
@@ -84,7 +85,7 @@ public class InformationSchemaSplit
     {
         return toStringHelper(this)
                 .add("tableHandle", tableHandle)
-                .add("filters", filters)
+                .add("prefixes", prefixes)
                 .add("addresses", addresses)
                 .toString();
     }

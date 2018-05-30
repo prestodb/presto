@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class WindowFrame
         extends Node
@@ -31,11 +34,22 @@ public class WindowFrame
     private final FrameBound start;
     private final Optional<FrameBound> end;
 
-    public WindowFrame(Type type, FrameBound start, FrameBound end)
+    public WindowFrame(Type type, FrameBound start, Optional<FrameBound> end)
     {
-        this.type = checkNotNull(type, "type is null");
-        this.start = checkNotNull(start, "start is null");
-        this.end = Optional.fromNullable(end);
+        this(Optional.empty(), type, start, end);
+    }
+
+    public WindowFrame(NodeLocation location, Type type, FrameBound start, Optional<FrameBound> end)
+    {
+        this(Optional.of(location), type, start, end);
+    }
+
+    private WindowFrame(Optional<NodeLocation> location, Type type, FrameBound start, Optional<FrameBound> end)
+    {
+        super(location);
+        this.type = requireNonNull(type, "type is null");
+        this.start = requireNonNull(start, "start is null");
+        this.end = requireNonNull(end, "end is null");
     }
 
     public Type getType()
@@ -60,6 +74,15 @@ public class WindowFrame
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(start);
+        end.ifPresent(nodes::add);
+        return nodes.build();
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
@@ -69,15 +92,15 @@ public class WindowFrame
             return false;
         }
         WindowFrame o = (WindowFrame) obj;
-        return Objects.equal(type, o.type) &&
-                Objects.equal(start, o.start) &&
-                Objects.equal(end, o.end);
+        return Objects.equals(type, o.type) &&
+                Objects.equals(start, o.start) &&
+                Objects.equals(end, o.end);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(type, start, end);
+        return Objects.hash(type, start, end);
     }
 
     @Override

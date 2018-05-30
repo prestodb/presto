@@ -16,22 +16,21 @@ package com.facebook.presto.hive;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
     public TestHiveDistributedQueries()
-            throws Exception
     {
-        super(createQueryRunner(getTables()), createSampledSession());
+        super(() -> createQueryRunner(getTables()));
     }
 
     @Override
-    public void testInsert()
-            throws Exception
+    public void testDelete()
     {
-        // Hive connector currently does not support insert
+        // Hive connector currently does not support row-by-row delete
     }
+
+    // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }

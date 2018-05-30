@@ -13,35 +13,36 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     private final String connectorId;
     private final String columnName;
+    private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
-    private final int ordinalPosition;
 
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("ordinalPosition") int ordinalPosition)
+            @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
+            @JsonProperty("columnType") Type columnType)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.columnName = checkNotNull(columnName, "columnName is null");
-        this.columnType = checkNotNull(columnType, "columnType is null");
-        this.ordinalPosition = ordinalPosition;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
     }
 
     @JsonProperty
@@ -57,20 +58,20 @@ public final class JdbcColumnHandle
     }
 
     @JsonProperty
+    public JdbcTypeHandle getJdbcTypeHandle()
+    {
+        return jdbcTypeHandle;
+    }
+
+    @JsonProperty
     public Type getColumnType()
     {
         return columnType;
     }
 
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, ordinalPosition, false);
+        return new ColumnMetadata(columnName, columnType);
     }
 
     @Override
@@ -83,14 +84,14 @@ public final class JdbcColumnHandle
             return false;
         }
         JdbcColumnHandle o = (JdbcColumnHandle) obj;
-        return Objects.equal(this.connectorId, o.connectorId) &&
-                Objects.equal(this.columnName, o.columnName);
+        return Objects.equals(this.connectorId, o.connectorId) &&
+                Objects.equals(this.columnName, o.columnName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, columnName);
+        return Objects.hash(connectorId, columnName);
     }
 
     @Override
@@ -99,8 +100,8 @@ public final class JdbcColumnHandle
         return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
+                .add("jdbcTypeHandle", jdbcTypeHandle)
                 .add("columnType", columnType)
-                .add("ordinalPosition", ordinalPosition)
                 .toString();
     }
 }

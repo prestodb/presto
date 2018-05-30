@@ -13,19 +13,15 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.google.inject.name.Named;
-
-import javax.inject.Inject;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific {@link com.facebook.presto.spi.ConnectorHandleResolver} implementation.
@@ -33,52 +29,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class KafkaHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    KafkaHandleResolver(@Named("connectorId") String connectorId,
-            KafkaConnectorConfig kafkaConnectorConfig)
-    {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle != null && tableHandle instanceof KafkaTableHandle && connectorId.equals(((KafkaTableHandle) tableHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
-    {
-        return columnHandle != null && columnHandle instanceof KafkaColumnHandle && connectorId.equals(((KafkaColumnHandle) columnHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split != null && split instanceof KafkaSplit && connectorId.equals(((KafkaSplit) split).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -86,7 +36,7 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return KafkaColumnHandle.class;
     }
@@ -98,48 +48,42 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
-        throw new UnsupportedOperationException();
+        return KafkaTableLayoutHandle.class;
     }
 
     @Override
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
-        throw new UnsupportedOperationException();
+        return KafkaTransactionHandle.class;
     }
 
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    static KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof KafkaTableHandle, "tableHandle is not an instance of KafkaTableHandle");
-        KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) tableHandle;
-        checkArgument(kafkaTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-
-        return kafkaTableHandle;
+        return (KafkaTableHandle) tableHandle;
     }
 
-    KafkaColumnHandle convertColumnHandle(ConnectorColumnHandle columnHandle)
+    static KafkaColumnHandle convertColumnHandle(ColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
+        requireNonNull(columnHandle, "columnHandle is null");
         checkArgument(columnHandle instanceof KafkaColumnHandle, "columnHandle is not an instance of KafkaColumnHandle");
-        KafkaColumnHandle kafkaColumnHandle = (KafkaColumnHandle) columnHandle;
-        checkArgument(kafkaColumnHandle.getConnectorId().equals(connectorId), "columnHandle is not for this connector");
-        return kafkaColumnHandle;
+        return (KafkaColumnHandle) columnHandle;
     }
 
-    KafkaSplit convertSplit(ConnectorSplit split)
+    static KafkaSplit convertSplit(ConnectorSplit split)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
         checkArgument(split instanceof KafkaSplit, "split is not an instance of KafkaSplit");
-        KafkaSplit kafkaSplit = (KafkaSplit) split;
-        checkArgument(kafkaSplit.getConnectorId().equals(connectorId), "split is not for this connector");
-        return kafkaSplit;
+        return (KafkaSplit) split;
+    }
+
+    static KafkaTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
+    {
+        requireNonNull(layout, "layout is null");
+        checkArgument(layout instanceof KafkaTableLayoutHandle, "layout is not an instance of KafkaTableLayoutHandle");
+        return (KafkaTableLayoutHandle) layout;
     }
 }

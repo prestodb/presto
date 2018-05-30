@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 
 public abstract class RowExpression
 {
@@ -22,23 +21,12 @@ public abstract class RowExpression
 
     @Override
     public abstract boolean equals(Object other);
+
     @Override
     public abstract int hashCode();
 
     @Override
     public abstract String toString();
 
-    public static Function<RowExpression, Type> typeGetter()
-    {
-        return new Function<RowExpression, Type>()
-        {
-            @Override
-            public Type apply(RowExpression input)
-            {
-                return input.getType();
-            }
-        };
-    }
-
-    public abstract <C, R> R accept(RowExpressionVisitor<C, R> visitor, C context);
+    public abstract <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context);
 }

@@ -18,19 +18,38 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class SymbolAllocator
 {
-    private final Map<Symbol, Type> symbols = new HashMap<>();
+    private final Map<Symbol, Type> symbols;
     private int nextId;
+
+    public SymbolAllocator()
+    {
+        symbols = new HashMap<>();
+    }
+
+    public SymbolAllocator(Map<Symbol, Type> initial)
+    {
+        symbols = new HashMap<>(initial);
+    }
+
+    public Symbol newSymbol(Symbol symbolHint)
+    {
+        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
+        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+    }
 
     public Symbol newSymbol(String nameHint, Type type)
     {
@@ -44,7 +63,8 @@ public class SymbolAllocator
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)
     {
-        Preconditions.checkNotNull(nameHint, "name is null");
+        requireNonNull(nameHint, "name is null");
+        requireNonNull(type, "type is null");
 
         // TODO: workaround for the fact that QualifiedName lowercases parts
         nameHint = nameHint.toLowerCase(ENGLISH);
@@ -66,11 +86,12 @@ public class SymbolAllocator
             unique = unique + "$" + suffix;
         }
 
-        if (symbols.containsKey(new Symbol(unique))) {
-            unique += "_" + nextId();
+        String attempt = unique;
+        while (symbols.containsKey(new Symbol(attempt))) {
+            attempt = unique + "_" + nextId();
         }
 
-        Symbol symbol = new Symbol(unique);
+        Symbol symbol = new Symbol(attempt);
         symbols.put(symbol, type);
         return symbol;
     }
@@ -83,11 +104,17 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression, Type type, String suffix)
     {
         String nameHint = "expr";
-        if (expression instanceof QualifiedNameReference) {
-            nameHint = ((QualifiedNameReference) expression).getName().getSuffix();
+        if (expression instanceof Identifier) {
+            nameHint = ((Identifier) expression).getValue();
         }
         else if (expression instanceof FunctionCall) {
             nameHint = ((FunctionCall) expression).getName().getSuffix();
+        }
+        else if (expression instanceof SymbolReference) {
+            nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping";
         }
 
         return newSymbol(nameHint, type, suffix);
@@ -95,7 +122,7 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Field field)
     {
-        String nameHint = field.getName().or("field");
+        String nameHint = field.getName().orElse("field");
         return newSymbol(nameHint, field.getType());
     }
 

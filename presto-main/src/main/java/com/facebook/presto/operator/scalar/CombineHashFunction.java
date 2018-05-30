@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 
 public final class CombineHashFunction
 {
@@ -24,6 +25,6 @@ public final class CombineHashFunction
     @SqlType(StandardTypes.BIGINT)
     public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
     {
-        return 31 * previousHashValue + value;
+        return (31 * previousHashValue + value);
     }
 }

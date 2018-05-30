@@ -21,8 +21,6 @@ import java.io.Closeable;
 public interface RecordCursor
         extends Closeable
 {
-    long getTotalBytes();
-
     long getCompletedBytes();
 
     long getReadTimeNanos();
@@ -39,7 +37,15 @@ public interface RecordCursor
 
     Slice getSlice(int field);
 
+    Object getObject(int field);
+
     boolean isNull(int field);
+
+    default long getSystemMemoryUsage()
+    {
+        // TODO: implement this method in subclasses and remove this default implementation
+        return 0;
+    }
 
     @Override
     void close();

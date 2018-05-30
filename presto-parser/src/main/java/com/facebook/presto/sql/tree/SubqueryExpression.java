@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 public class SubqueryExpression
         extends Expression
 {
@@ -20,6 +26,17 @@ public class SubqueryExpression
 
     public SubqueryExpression(Query query)
     {
+        this(Optional.empty(), query);
+    }
+
+    public SubqueryExpression(NodeLocation location, Query query)
+    {
+        this(Optional.of(location), query);
+    }
+
+    private SubqueryExpression(Optional<NodeLocation> location, Query query)
+    {
+        super(location);
         this.query = query;
     }
 
@@ -35,6 +52,12 @@ public class SubqueryExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(query);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -45,12 +68,7 @@ public class SubqueryExpression
         }
 
         SubqueryExpression that = (SubqueryExpression) o;
-
-        if (!query.equals(that.query)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(query, that.query);
     }
 
     @Override

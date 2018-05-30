@@ -14,25 +14,37 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Values
         extends QueryBody
 {
-    private final List<Row> rows;
+    private final List<Expression> rows;
 
-    public Values(List<Row> rows)
+    public Values(List<Expression> rows)
     {
-        checkNotNull(rows, "rows is null");
+        this(Optional.empty(), rows);
+    }
+
+    public Values(NodeLocation location, List<Expression> rows)
+    {
+        this(Optional.of(location), rows);
+    }
+
+    private Values(Optional<NodeLocation> location, List<Expression> rows)
+    {
+        super(location);
+        requireNonNull(rows, "rows is null");
         this.rows = ImmutableList.copyOf(rows);
     }
 
-    public List<Row> getRows()
+    public List<Expression> getRows()
     {
         return rows;
     }
@@ -44,6 +56,12 @@ public final class Values
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return rows;
+    }
+
+    @Override
     public String toString()
     {
         return "(" + Joiner.on(", ").join(rows) + ")";
@@ -52,7 +70,7 @@ public final class Values
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(rows);
+        return Objects.hash(rows);
     }
 
     @Override
@@ -65,6 +83,6 @@ public final class Values
             return false;
         }
         Values other = (Values) obj;
-        return Objects.equal(this.rows, other.rows);
+        return Objects.equals(this.rows, other.rows);
     }
 }

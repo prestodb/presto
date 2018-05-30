@@ -1,229 +1,120 @@
 <!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-    <link rel="shortcut icon" href="favicon.ico"/>
+    <meta name="description" content="Cluster Overview - Presto">
+    <title>Cluster Overview - Presto</title>
 
-    <script src="vendor/d3/d3-3.3.4.js"></script>
+    <link rel="icon" href="assets/favicon.ico">
 
-    <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <!-- Bootstrap core -->
+    <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
 
-    <style type="text/css">
-         table td:nth-child(2) {
-             white-space: nowrap;
-         }
-    </style>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- React (comment out for development)-->
+    <script src="vendor/react/react-15.0.1.min.js"></script>
+    <script src="vendor/react/react-dom-15.0.1.min.js"></script>
+
+    <!-- React (uncomment for development)-->
+    <!--
+    <script src="vendor/react/react-15.0.1.js"></script>
+    <script src="vendor/react/react-dom-15.0.1.js"></script>
+    -->
+
+    <!-- jQuery -->
+    <script type="text/javascript" src="vendor/jquery/jquery-2.2.3.min.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+
+    <!-- Sparkline -->
+    <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
+
+    <!-- CSS loader -->
+    <link href="vendor/css-loaders/loader.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="assets/presto.css" rel="stylesheet">
+
+    <!-- Custom JS -->
+    <script type="text/javascript" src="assets/utils.js"></script>
 </head>
 
 <body>
 
 <div class="container">
-    <div class="page-header">
-        <h1>Presto</h1>
+    <nav class="navbar">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <table>
+                    <tr>
+                        <td>
+                            <a href="/"><img src="assets/logo.png"/></a>
+                        </td>
+                        <td>
+                            <span class="navbar-brand">Cluster Overview</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <span class="navbar-cluster-info">
+                            <span class="uppercase">Version</span><br/>
+                            <span class="text uppercase" id="version-number"></span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="navbar-cluster-info">
+                            <span class="uppercase">Environment</span><br/>
+                            <span class="text uppercase" id="environment"></span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="navbar-cluster-info">
+                            <span class="uppercase">Uptime</span><br/>
+                            <span class="status-light" id="status-indicator"></span> <span class="text" id="uptime"></span>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hud-container">
+        <div id="cluster-hud">
+            <div class="loader">Loading...</div>
+        </div>
     </div>
 
-    <table id="running" class="table table-striped">
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Elapsed</th>
-            <th>Query</th>
-            <th>Source</th>
-            <th>User</th>
-            <th>State</th>
-            <th>Progress</th>
-            <th>Queued</th>
-            <th>Running</th>
-            <th>Done</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div id="query-list-container">
+        <div id="query-list-title">
+            Query Details
+        </div>
+        <div id="query-list" class="font-white"><div class="loader">Loading...</div></div>
+    </div>
 
-    <table id="done" class="table table-striped">
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Elapsed</th>
-            <th>Query</th>
-            <th>Source</th>
-            <th>User</th>
-            <th>State</th>
-            <th>Done</th>
-            <th>Total</th>
-            <th>Completion</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-</div>
+</div> <!-- /container -->
+
+
+<script type="text/javascript">
+    window.setInterval(updateClusterInfo, 1000)
+</script>
+
+<script src="vendor/react/browser.min.js"></script>
+<script type="text/babel" src="assets/cluster-hud.js"></script>
+<script type="text/babel" src="assets/query-list.js"></script>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
 
 </body>
-
-<script>
-
-function redraw()
-{
-    d3.json('/v1/query', function (queries)
-    {
-        var runningQueries = [];
-        var doneQueries = [];
-        if (queries) {
-            runningQueries = queries.filter(function (query)
-            {
-                return query.state != 'FINISHED' && query.state != 'FAILED' && query.state != 'CANCELED';
-            });
-
-            doneQueries = queries.filter(function (query)
-            {
-                return query.state == 'FINISHED' || query.state == 'FAILED' || query.state == 'CANCELED';
-            });
-        }
-
-        renderRunningQueries(runningQueries);
-        renderDoneQueries(doneQueries);
-    });
-}
-
-function renderDoneQueries(queries)
-{
-    var tbody = d3.select("#done").select("tbody");
-
-    var rows = tbody.selectAll("tr")
-            .data(queries, function (query) { return query.queryId; });
-
-    rows.enter()
-            .append("tr")
-            .attr("class", function (query) {
-                          switch (query.state) {
-                          case "FINISHED":
-                              return "success";
-                          case "FAILED":
-                              return "error";
-                          case "CANCELED":
-                              return "warning";
-                          default:
-                              return "info";
-                      }
-                  })
-            .on("click", function(query) { window.location = "query.html?" + query.queryId });
-
-    rows.exit()
-            .remove();
-
-    rows.selectAll("td")
-            .data(function (queryInfo) {
-                      var splits = queryInfo.totalDrivers;
-                      var completedSplits = queryInfo.completedDrivers;
-
-                      var query = queryInfo.query;
-                      if (query.length > 200) {
-                          query = query.substring(0, 200) + "...";
-                      }
-
-                      return [
-                          queryInfo.queryId,
-                          queryInfo.elapsedTime,
-                          query,
-                          queryInfo.session.source,
-                          queryInfo.session.user,
-                          queryInfo.state,
-                          completedSplits,
-                          splits,
-                          d3.format("%")(splits == 0 ? 0 : completedSplits / splits)
-                      ]
-                  })
-            .enter()
-            .append("td")
-            .text(function (d)
-                  {
-                      return d;
-                  });
-
-    tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.endTime, b.endTime); });
-}
-
-function renderRunningQueries(queries)
-{
-    var tbody = d3.select("#running").select("tbody");
-
-    var rows = tbody.selectAll("tr")
-            .data(queries, function (query) { return query.queryId; })
-
-    rows.exit()
-            .remove();
-
-    rows.enter()
-            .append("tr")
-            .attr("class", "info")
-            .on("click", function(query) { window.location = "query.html?" + query.queryId });
-
-    var cells = rows.selectAll("td")
-            .data(function (queryInfo)
-                  {
-                      var splits = queryInfo.totalDrivers;
-                      var completedSplits = queryInfo.completedDrivers;
-
-                      var runningSplits = queryInfo.runningDrivers;
-                      var queuedSplits = queryInfo.queuedDrivers;
-
-                      var query = queryInfo.query;
-                      if (query.length > 200) {
-                          query = query.substring(0, 200) + "...";
-                      }
-
-                      var progress = "N/A";
-                      if (queryInfo.scheduled) {
-                          progress = d3.format("%")(splits == 0 ? 0 : completedSplits / splits);
-                      }
-
-                      return [
-                          queryInfo.queryId,
-                          queryInfo.elapsedTime,
-                          query,
-                          queryInfo.session.source,
-                          queryInfo.session.user,
-                          queryInfo.state,
-                          progress,
-                          queuedSplits,
-                          runningSplits,
-                          completedSplits
-                      ]
-                  });
-
-    cells.text(function (d) { return d; });
-
-    cells.enter()
-            .append("td")
-            .text(function (d) { return d; });
-
-    tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.createTime, b.createTime); });
-}
-
-function allStages(stage)
-{
-    if (stage == undefined) {
-        return [];
-    }
-
-    if (stage.subStages.length == 0) {
-        return [stage];
-    }
-
-    var substages = stage.subStages.map(function (substage) { return allStages(substage); });
-    return [stage].concat(flatten(substages));
-}
-
-
-function flatten(array)
-{
-    return [].concat.apply([], array);
-}
-
-setInterval(function () { redraw(); }, 1000);
-
-redraw();
-
-</script>
+</html>

@@ -23,7 +23,7 @@ import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RemoteSplit
         implements ConnectorSplit
@@ -33,7 +33,7 @@ public class RemoteSplit
     @JsonCreator
     public RemoteSplit(@JsonProperty("location") URI location)
     {
-        this.location = checkNotNull(location, "location is null");
+        this.location = requireNonNull(location, "location is null");
     }
 
     @JsonProperty

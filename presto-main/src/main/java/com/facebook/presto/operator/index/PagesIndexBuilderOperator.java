@@ -18,38 +18,30 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PagesIndexBuilderOperator
-    implements Operator
+        implements Operator
 {
     public static class PagesIndexBuilderOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final IndexSnapshotBuilder indexSnapshotBuilder;
         private boolean closed;
 
-        public PagesIndexBuilderOperatorFactory(int operatorId, IndexSnapshotBuilder indexSnapshotBuilder)
+        public PagesIndexBuilderOperatorFactory(int operatorId, PlanNodeId planNodeId, IndexSnapshotBuilder indexSnapshotBuilder)
         {
             this.operatorId = operatorId;
-            this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.indexSnapshotBuilder = requireNonNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
         }
 
         @Override
@@ -57,14 +49,20 @@ public class PagesIndexBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PagesIndexBuilderOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PagesIndexBuilderOperator.class.getSimpleName());
             return new PagesIndexBuilderOperator(operatorContext, indexSnapshotBuilder);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new PagesIndexBuilderOperatorFactory(operatorId, planNodeId, indexSnapshotBuilder);
         }
     }
 
@@ -75,20 +73,14 @@ public class PagesIndexBuilderOperator
 
     public PagesIndexBuilderOperator(OperatorContext operatorContext, IndexSnapshotBuilder indexSnapshotBuilder)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.indexSnapshotBuilder = requireNonNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
     }
 
     @Override
@@ -104,12 +96,6 @@ public class PagesIndexBuilderOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
-    }
-
-    @Override
     public boolean needsInput()
     {
         return !finished;
@@ -118,7 +104,7 @@ public class PagesIndexBuilderOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
         if (!indexSnapshotBuilder.tryAddPage(page)) {

@@ -14,18 +14,17 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.operator.PageProcessor;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -43,17 +42,22 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -67,11 +71,10 @@ public class BenchmarkPageProcessor
     private static final int SHIP_DATE = 2;
     private static final int QUANTITY = 3;
 
-    private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
-    private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
+    private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
+    private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
     private Page inputPage;
-    private PageProcessor handCodedProcessor;
     private PageProcessor compiledProcessor;
 
     @Setup
@@ -79,26 +82,30 @@ public class BenchmarkPageProcessor
     {
         inputPage = createInputPage();
 
-        handCodedProcessor = new Tpch1FilterAndProject();
-
-        compiledProcessor = new ExpressionCompiler(new MetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        compiledProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(FILTER), ImmutableList.of(PROJECT)).get();
     }
 
     @Benchmark
     public Page handCoded()
     {
-        return execute(inputPage, handCodedProcessor);
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
+        int count = Tpch1FilterAndProject.process(inputPage, 0, inputPage.getPositionCount(), pageBuilder);
+        checkState(count == inputPage.getPositionCount());
+        return pageBuilder.build();
     }
 
     @Benchmark
-    public Page compiled()
+    public List<Optional<Page>> compiled()
     {
-        return execute(inputPage, compiledProcessor);
+        return ImmutableList.copyOf(compiledProcessor.process(null, new DriverYieldSignal(), inputPage));
     }
 
     public static void main(String[] args)
             throws RunnerException
     {
+        new BenchmarkPageProcessor().setup();
+
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkPageProcessor.class.getSimpleName() + ".*")
@@ -107,34 +114,26 @@ public class BenchmarkPageProcessor
         new Runner(options).run();
     }
 
-    public static Page execute(Page inputPage, PageProcessor processor)
+    private static Page createInputPage()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
-        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
-        return pageBuilder.build();
-    }
-
-    public static Page createInputPage()
-    {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, BIGINT));
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
         for (int i = 0; i < 10_000; i++) {
+            pageBuilder.declarePosition();
+
             LineItem lineItem = iterator.next();
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(SHIP_DATE), Slices.utf8Slice(lineItem.getShipDate()));
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
+            DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
+            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
         }
         return pageBuilder.build();
     }
 
     private static final class Tpch1FilterAndProject
-            implements PageProcessor
     {
-        @Override
-        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
+        public static int process(Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(DISCOUNT);
             int position = start;
@@ -154,6 +153,7 @@ public class BenchmarkPageProcessor
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
         {
+            pageBuilder.declarePosition();
             if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
                 pageBuilder.getBlockBuilder(0).appendNull();
             }
@@ -168,7 +168,7 @@ public class BenchmarkPageProcessor
                     !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
-                    !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;
+                    !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
         }
     }
 
@@ -177,37 +177,37 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = call(new Signature("AND", StandardTypes.BOOLEAN),
+    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
             BOOLEAN,
-            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
+            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     BOOLEAN,
                     field(SHIP_DATE, VARCHAR),
                     constant(MIN_SHIP_DATE, VARCHAR)),
-            call(new Signature("AND", StandardTypes.BOOLEAN),
+            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                     BOOLEAN,
-                    call(new Signature(OperatorType.LESS_THAN.name(), StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
+                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             BOOLEAN,
                             field(SHIP_DATE, VARCHAR),
                             constant(MAX_SHIP_DATE, VARCHAR)),
-                    call(new Signature("AND", StandardTypes.BOOLEAN),
+                    call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                             BOOLEAN,
-                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                     BOOLEAN,
                                     field(DISCOUNT, DOUBLE),
                                     constant(0.05, DOUBLE)),
-                            call(new Signature("AND", StandardTypes.BOOLEAN),
+                            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                                     BOOLEAN,
-                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                                    call(internalOperator(OperatorType.LESS_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,
                                             field(DISCOUNT, DOUBLE),
                                             constant(0.07, DOUBLE)),
-                                    call(new Signature(OperatorType.LESS_THAN.name(), StandardTypes.BOOLEAN, StandardTypes.BIGINT, StandardTypes.BIGINT),
+                                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,
-                                            field(QUANTITY, BIGINT),
-                                            constant((long) 24, BIGINT))))));
+                                            field(QUANTITY, DOUBLE),
+                                            constant(24.0, DOUBLE))))));
 
     private static final RowExpression PROJECT = call(
-            new Signature(OperatorType.MULTIPLY.name(), StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+            internalOperator(OperatorType.MULTIPLY, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
             DOUBLE,
             field(EXTENDED_PRICE, DOUBLE),
             field(DISCOUNT, DOUBLE));

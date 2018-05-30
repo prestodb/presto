@@ -14,19 +14,21 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStatementBuilder
 {
@@ -34,7 +36,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStatementBuilder()
-            throws Exception
     {
         printStatement("select * from foo");
         printStatement("explain select * from foo");
@@ -65,6 +66,24 @@ public class TestStatementBuilder
         printStatement("select x from unnest(array[1, 2, 3]) t(x)");
         printStatement("select * from users cross join unnest(friends)");
         printStatement("select id, friend from users cross join unnest(friends) t(friend)");
+        printStatement("select * from unnest(t.my_array) with ordinality");
+        printStatement("select * from unnest(array[1, 2, 3]) with ordinality");
+        printStatement("select x from unnest(array[1, 2, 3]) with ordinality t(x)");
+        printStatement("select * from users cross join unnest(friends) with ordinality");
+        printStatement("select id, friend from users cross join unnest(friends) with ordinality t(friend)");
+
+        printStatement("select count(*) x from src group by k, v");
+        printStatement("select count(*) x from src group by cube (k, v)");
+        printStatement("select count(*) x from src group by rollup (k, v)");
+        printStatement("select count(*) x from src group by grouping sets ((k, v))");
+        printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
+        printStatement("select count(*) x from src group by grouping sets (k, v, k)");
+
+        printStatement("select count(*) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(distinct x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(x) filter (where x > 4) over (partition by y) z from t");
 
         printStatement("" +
                 "select depname, empno, salary\n" +
@@ -100,7 +119,9 @@ public class TestStatementBuilder
         printStatement("show partitions from foo where name = 'foo'");
         printStatement("show partitions from foo order by x");
         printStatement("show partitions from foo limit 10");
+        printStatement("show partitions from foo limit all");
         printStatement("show partitions from foo order by x desc limit 10");
+        printStatement("show partitions from foo order by x desc limit all");
 
         printStatement("show functions");
 
@@ -109,22 +130,37 @@ public class TestStatementBuilder
         printStatement("select * from a.b.c");
         printStatement("select * from a.b.c.e.f.g");
 
-        printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
+        printStatement("select \"TOTALPRICE\" \"my price\" from \"$MY\"\"ORDERS\"");
 
         printStatement("select * from foo tablesample system (10+1)");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
+        printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
-        printStatement("select * from foo tablesample bernoulli (10) stratify on (id)");
-        printStatement("select * from foo tablesample system (50) stratify on (id, name)");
+        printStatement("create table foo as (select * from abc)");
+        printStatement("create table if not exists foo as (select * from abc)");
+        printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
+        printStatement("create table foo comment 'test' with (a = 'apple') as select * from abc");
+        printStatement("create table foo as select * from abc WITH NO DATA");
 
-        printStatement("select * from foo tablesample poissonized (100)");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t)");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t)");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
 
-        printStatement("select * from foo approximate at 90 confidence");
-
-        printStatement("create table foo as select * from abc");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t)");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t)");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t) WITH NO DATA");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t) WITH NO DATA");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
+
+        printStatement("delete from foo");
+        printStatement("delete from foo where a = b");
 
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
@@ -133,6 +169,9 @@ public class TestStatementBuilder
         printStatement("(table foo)");
         printStatement("(table foo) limit 10");
         printStatement("(table foo limit 5) limit 10");
+
+        printStatement("select * from a limit all");
+        printStatement("select * from a order by x limit all");
 
         printStatement("select * from a union select * from b");
         printStatement("table a union all table b");
@@ -150,10 +189,83 @@ public class TestStatementBuilder
         printStatement("alter table foo rename to bar");
         printStatement("alter table a.b.c rename to d.e.f");
 
+        printStatement("alter table a.b.c rename column x to y");
+
+        printStatement("alter table a.b.c add column x bigint");
+
+        printStatement("alter table a.b.c drop column x");
+
+        printStatement("create schema test");
+        printStatement("create schema if not exists test");
+        printStatement("create schema test with (a = 'apple', b = 123)");
+
+        printStatement("drop schema test");
+        printStatement("drop schema test cascade");
+        printStatement("drop schema if exists test");
+        printStatement("drop schema if exists test restrict");
+
+        printStatement("alter schema foo rename to bar");
+        printStatement("alter schema foo.bar rename to baz");
+
+        printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
+        printStatement("create table test (a boolean, b bigint comment 'test')");
+        printStatement("create table if not exists baz (a timestamp, b varchar)");
+        printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
+        printStatement("create table test (a boolean, b bigint) comment 'test' with (a = 'apple')");
+        printStatement("drop table test");
+
         printStatement("create view foo as with a as (select 123) select * from a");
         printStatement("create or replace view foo as select 123 from t");
 
         printStatement("drop view foo");
+
+        printStatement("insert into t select * from t");
+        printStatement("insert into t (c1, c2) select * from t");
+
+        printStatement("start transaction");
+        printStatement("start transaction isolation level read uncommitted");
+        printStatement("start transaction isolation level read committed");
+        printStatement("start transaction isolation level repeatable read");
+        printStatement("start transaction isolation level serializable");
+        printStatement("start transaction read only");
+        printStatement("start transaction read write");
+        printStatement("start transaction isolation level read committed, read only");
+        printStatement("start transaction read only, isolation level read committed");
+        printStatement("start transaction read write, isolation level serializable");
+        printStatement("commit");
+        printStatement("commit work");
+        printStatement("rollback");
+        printStatement("rollback work");
+
+        printStatement("call foo()");
+        printStatement("call foo(123, a => 1, b => 'go', 456)");
+
+        printStatement("grant select on foo to alice with grant option");
+        printStatement("grant all privileges on foo to alice");
+        printStatement("grant delete, select on foo to public");
+        printStatement("revoke grant option for select on foo from alice");
+        printStatement("revoke all privileges on foo from alice");
+        printStatement("revoke insert, delete on foo from public"); //check support for public
+        printStatement("show grants on table t");
+        printStatement("show grants on t");
+        printStatement("show grants");
+
+        printStatement("prepare p from select * from (select * from T) \"A B\"");
+
+        printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
+        printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
+        printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
+    }
+
+    @Test
+    public void testStringFormatter()
+    {
+        assertSqlFormatter("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
+                "U&'hello\\6D4B\\8BD5\\+10FFFFworld\\7F16\\7801'");
+        assertSqlFormatter("'hello world'", "'hello world'");
+        assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
+        assertSqlFormatter("U&'\\+10FFFF\\6D4B\\8BD5\\0041\\0042\\0043\\6D4B\\8BD5'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
+        assertSqlFormatter("U&'\\\\abc\\6D4B'''", "U&'\\\\abc\\6D4B'''");
     }
 
     @Test
@@ -196,20 +308,24 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        CommonTree tree = SQL_PARSER.parseStatement(sql);
-        println(treeToString(tree));
-        println("");
-
-        Statement statement = SQL_PARSER.createStatement(tree);
+        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        Statement statement = SQL_PARSER.createStatement(sql, parsingOptions);
         println(statement.toString());
         println("");
 
-        println(SqlFormatter.formatSql(statement));
+        println(SqlFormatter.formatSql(statement, Optional.empty()));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 
         println(repeat("=", 60));
         println("");
+    }
+
+    private static void assertSqlFormatter(String expression, String formatted)
+    {
+        Expression originalExpression = SQL_PARSER.createExpression(expression);
+        String real = SqlFormatter.formatSql(originalExpression, Optional.empty());
+        assertTrue(real.equals(formatted));
     }
 
     private static void println(String s)
@@ -243,7 +359,7 @@ public class TestStatementBuilder
     private static String readResource(String name)
             throws IOException
     {
-        return Resources.toString(Resources.getResource(name), Charsets.UTF_8);
+        return Resources.toString(Resources.getResource(name), UTF_8);
     }
 
     private static String fixTpchQuery(String s)

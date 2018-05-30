@@ -50,12 +50,6 @@ public class RecordPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return cursor.getTotalBytes();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return cursor.getCompletedBytes();
@@ -65,6 +59,12 @@ public class RecordPageSource
     public long getReadTimeNanos()
     {
         return cursor.getReadTimeNanos();
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return cursor.getSystemMemoryUsage() + pageBuilder.getSizeInBytes();
     }
 
     @Override
@@ -118,7 +118,7 @@ public class RecordPageSource
                             type.writeSlice(output, slice, 0, slice.length());
                         }
                         else {
-                            throw new AssertionError("Unimplemented type: " + javaType.getName());
+                            type.writeObject(output, cursor.getObject(column));
                         }
                     }
                 }

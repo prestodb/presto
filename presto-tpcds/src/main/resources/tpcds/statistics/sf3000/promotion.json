@@ -1,0 +1,94 @@
+ {
+    "rowCount" : 1800.0,
+     "columns" : {
+        "p_channel_dmail" : {
+             "distinctValuesCount" : 2.0,
+             "nullsCount" : 19.000000
+        },
+        "p_channel_details" : {
+             "distinctValuesCount" : 1955.0,
+             "nullsCount" : 17.000000
+        },
+        "p_end_date_sk" : {
+             "distinctValuesCount" : 1066.0,
+             "nullsCount" : 20.000000,
+             "min" : 2450107,
+             "max" : 2450970
+        },
+        "p_channel_email" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 22.000000
+        },
+        "p_channel_tv" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 21.000000
+        },
+        "p_response_targe" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 29.000000,
+             "min" : 1,
+             "max" : 1
+        },
+        "p_promo_name" : {
+             "distinctValuesCount" : 11.0,
+             "nullsCount" : 25.000000
+        },
+        "p_channel_demo" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 21.000000
+        },
+        "p_start_date_sk" : {
+             "distinctValuesCount" : 753.0,
+             "nullsCount" : 25.000000,
+             "min" : 2450096,
+             "max" : 2450915
+        },
+        "p_promo_sk" : {
+             "distinctValuesCount" : 1507.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 1800
+        },
+        "p_channel_press" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 21.000000
+        },
+        "p_item_sk" : {
+             "distinctValuesCount" : 1792.0,
+             "nullsCount" : 23.000000,
+             "min" : 56,
+             "max" : 359779
+        },
+        "p_channel_catalog" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 21.000000
+        },
+        "p_channel_radio" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 24.000000
+        },
+        "p_purpose" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 20.000000
+        },
+        "p_discount_active" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 27.000000
+        },
+        "p_channel_event" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 20.000000
+        },
+        "p_cost" : {
+             "distinctValuesCount" : 2.0,
+             "nullsCount" : 22.000000,
+             "min" : 100000,
+             "max" : 100000
+        },
+        "p_promo_id" : {
+             "distinctValuesCount" : 2041.0,
+             "nullsCount" : 0.000000
+        },
+        "dummyColumn" : {}
+    }
+}

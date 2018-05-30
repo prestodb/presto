@@ -23,6 +23,7 @@ ARTIFACTS = {
     'cli': ('presto-cli', 'jar', 'executable'),
     'jdbc': ('presto-jdbc', 'jar', None),
     'verifier': ('presto-verifier', 'jar', 'executable'),
+    'benchmark-driver': ('presto-benchmark-driver', 'jar', 'executable'),
 }
 
 
@@ -32,7 +33,7 @@ def maven_filename(artifact, version, packaging, classifier):
 
 
 def maven_download(group, artifact, version, packaging, classifier):
-    base = 'http://central.maven.org/maven2/'
+    base = 'https://repo1.maven.org/maven2/'
     group_path = group.replace('.', '/')
     filename = maven_filename(artifact, version, packaging, classifier)
     return base + '/'.join((group_path, artifact, version, filename))
@@ -55,5 +56,4 @@ def setup(app):
         node = nodes.reference(title, title, internal=False, refuri=uri)
 
         return [node], []
-
-    app.add_role('download', download_link_role)
+    app.add_role('maven_download', download_link_role)

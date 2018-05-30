@@ -15,37 +15,28 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Objects;
-
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 
 public final class SqlDate
 {
-    private final long millisAtMidnight;
-    private final TimeZoneKey sessionTimeZoneKey;
+    private final int days;
 
-    public SqlDate(long millisAtMidnight, TimeZoneKey sessionTimeZoneKey)
+    // TODO accept long
+    public SqlDate(int days)
     {
-        this.millisAtMidnight = millisAtMidnight;
-        this.sessionTimeZoneKey = sessionTimeZoneKey;
+        this.days = days;
     }
 
-    public long getMillisAtMidnight()
+    public int getDays()
     {
-        return millisAtMidnight;
-    }
-
-    public TimeZoneKey getSessionTimeZoneKey()
-    {
-        return sessionTimeZoneKey;
+        return days;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisAtMidnight, sessionTimeZoneKey);
+        return days;
     }
 
     @Override
@@ -58,16 +49,13 @@ public final class SqlDate
             return false;
         }
         SqlDate other = (SqlDate) obj;
-        return Objects.equals(this.millisAtMidnight, other.millisAtMidnight) &&
-                Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
+        return Objects.equals(days, other.days);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-        format.setTimeZone(getTimeZoneForKey(sessionTimeZoneKey));
-        return format.format(new Date(millisAtMidnight));
+        return LocalDate.ofEpochDay(days).toString();
     }
 }

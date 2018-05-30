@@ -16,20 +16,33 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 
+import javax.annotation.concurrent.NotThreadSafe;
+
 import java.io.Closeable;
 
+@NotThreadSafe
 public interface LookupSource
         extends Closeable
 {
     int getChannelCount();
 
-    long getJoinPosition(int position, Page page, int rawHash);
+    long getInMemorySizeInBytes();
 
-    long getJoinPosition(int position, Page page);
+    long getJoinPositionCount();
 
-    long getNextJoinPosition(long currentPosition);
+    long joinPositionWithinPartition(long joinPosition);
+
+    long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash);
+
+    long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage);
+
+    long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
+
+    boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
+
+    boolean isEmpty();
 
     @Override
     void close();

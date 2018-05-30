@@ -13,26 +13,38 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Window
         extends Node
 {
     private final List<Expression> partitionBy;
-    private final List<SortItem> orderBy;
+    private final Optional<OrderBy> orderBy;
     private final Optional<WindowFrame> frame;
 
-    public Window(List<Expression> partitionBy, List<SortItem> orderBy, WindowFrame frame)
+    public Window(List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
     {
-        this.partitionBy = checkNotNull(partitionBy, "partitionBy is null");
-        this.orderBy = checkNotNull(orderBy, "orderBy is null");
-        this.frame = Optional.fromNullable(frame);
+        this(Optional.empty(), partitionBy, orderBy, frame);
+    }
+
+    public Window(NodeLocation location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
+    {
+        this(Optional.of(location), partitionBy, orderBy, frame);
+    }
+
+    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
+    {
+        super(location);
+        this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
+        this.orderBy = requireNonNull(orderBy, "orderBy is null");
+        this.frame = requireNonNull(frame, "frame is null");
     }
 
     public List<Expression> getPartitionBy()
@@ -40,7 +52,7 @@ public class Window
         return partitionBy;
     }
 
-    public List<SortItem> getOrderBy()
+    public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
     }
@@ -57,6 +69,16 @@ public class Window
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.addAll(partitionBy);
+        orderBy.ifPresent(nodes::add);
+        frame.ifPresent(nodes::add);
+        return nodes.build();
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
@@ -66,15 +88,15 @@ public class Window
             return false;
         }
         Window o = (Window) obj;
-        return Objects.equal(partitionBy, o.partitionBy) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(frame, o.frame);
+        return Objects.equals(partitionBy, o.partitionBy) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(frame, o.frame);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partitionBy, orderBy, frame);
+        return Objects.hash(partitionBy, orderBy, frame);
     }
 
     @Override

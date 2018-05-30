@@ -13,28 +13,41 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class WithQuery
         extends Node
 {
-    private final String name;
+    private final Identifier name;
     private final Query query;
-    private final List<String> columnNames;
+    private final Optional<List<Identifier>> columnNames;
 
-    public WithQuery(String name, Query query, List<String> columnNames)
+    public WithQuery(Identifier name, Query query, Optional<List<Identifier>> columnNames)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
-        this.columnNames = columnNames;
+        this(Optional.empty(), name, query, columnNames);
     }
 
-    public String getName()
+    public WithQuery(NodeLocation location, Identifier name, Query query, Optional<List<Identifier>> columnNames)
+    {
+        this(Optional.of(location), name, query, columnNames);
+    }
+
+    private WithQuery(Optional<NodeLocation> location, Identifier name, Query query, Optional<List<Identifier>> columnNames)
+    {
+        super(location);
+        this.name = name;
+        this.query = requireNonNull(query, "query is null");
+        this.columnNames = requireNonNull(columnNames, "columnNames is null");
+    }
+
+    public Identifier getName()
     {
         return name;
     }
@@ -44,7 +57,7 @@ public class WithQuery
         return query;
     }
 
-    public List<String> getColumnNames()
+    public Optional<List<Identifier>> getColumnNames()
     {
         return columnNames;
     }
@@ -53,6 +66,12 @@ public class WithQuery
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitWithQuery(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(query);
     }
 
     @Override
@@ -69,7 +88,7 @@ public class WithQuery
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query, columnNames);
+        return Objects.hash(name, query, columnNames);
     }
 
     @Override
@@ -82,8 +101,8 @@ public class WithQuery
             return false;
         }
         WithQuery o = (WithQuery) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(query, o.query) &&
-                Objects.equal(columnNames, o.columnNames);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(query, o.query) &&
+                Objects.equals(columnNames, o.columnNames);
     }
 }

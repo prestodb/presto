@@ -13,21 +13,23 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
@@ -35,41 +37,43 @@ import static com.google.common.base.Preconditions.checkState;
 public class AggregationOperator
         implements Operator
 {
+    private final boolean partial;
+
     public static class AggregationOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final Step step;
         private final List<AccumulatorFactory> accumulatorFactories;
-        private final List<Type> types;
         private boolean closed;
 
-        public AggregationOperatorFactory(int operatorId, Step step, List<AccumulatorFactory> accumulatorFactories)
+        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, Step step, List<AccumulatorFactory> accumulatorFactories)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
-            this.types = toTypes(step, accumulatorFactories);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, AggregationOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
             return new AggregationOperator(operatorContext, step, accumulatorFactories);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories);
         }
     }
 
@@ -81,25 +85,26 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
+    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext userMemoryContext;
     private final List<Aggregator> aggregates;
 
     private State state = State.NEEDS_INPUT;
 
     public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.userMemoryContext = operatorContext.localUserMemoryContext();
 
-        checkNotNull(step, "step is null");
-        checkNotNull(accumulatorFactories, "accumulatorFactories is null");
-
-        this.types = toTypes(step, accumulatorFactories);
-        MemoryManager memoryManager = new MemoryManager(operatorContext);
+        requireNonNull(step, "step is null");
+        this.partial = step.isOutputPartial();
 
         // wrapper each function with an aggregator
+        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            builder.add(new Aggregator(accumulatorFactory, step, memoryManager));
+            builder.add(new Aggregator(accumulatorFactory, step));
         }
         aggregates = builder.build();
     }
@@ -108,12 +113,6 @@ public class AggregationOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -131,12 +130,6 @@ public class AggregationOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
-    }
-
-    @Override
     public boolean needsInput()
     {
         return state == State.NEEDS_INPUT;
@@ -146,10 +139,18 @@ public class AggregationOperator
     public void addInput(Page page)
     {
         checkState(needsInput(), "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
 
+        long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
             aggregate.processPage(page);
+            memorySize += aggregate.getEstimatedSize();
+        }
+        if (partial) {
+            systemMemoryContext.setBytes(memorySize);
+        }
+        else {
+            userMemoryContext.setBytes(memorySize);
         }
     }
 
@@ -161,48 +162,44 @@ public class AggregationOperator
         }
 
         // project results into output blocks
-        Block[] blocks = new Block[aggregates.size()];
-        for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = aggregates.get(i).evaluate();
-        }
-        state = State.FINISHED;
-        return new Page(blocks);
-    }
+        List<Type> types = aggregates.stream().map(Aggregator::getType).collect(toImmutableList());
 
-    private static List<Type> toTypes(Step step, List<AccumulatorFactory> accumulatorFactories)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            types.add(new Aggregator(accumulatorFactory, step, null).getType());
+        PageBuilder pageBuilder = new PageBuilder(types);
+
+        pageBuilder.declarePosition();
+        for (int i = 0; i < aggregates.size(); i++) {
+            Aggregator aggregator = aggregates.get(i);
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
+            aggregator.evaluate(blockBuilder);
         }
-        return types.build();
+
+        state = State.FINISHED;
+        return pageBuilder.build();
     }
 
     private static class Aggregator
     {
         private final Accumulator aggregation;
         private final Step step;
-        private final MemoryManager memoryManager;
         private final int intermediateChannel;
 
-        private Aggregator(AccumulatorFactory accumulatorFactory, Step step, MemoryManager memoryManager)
+        private Aggregator(AccumulatorFactory accumulatorFactory, Step step)
         {
-            if (step == Step.FINAL) {
+            if (step.isInputRaw()) {
+                intermediateChannel = -1;
+                aggregation = accumulatorFactory.createAccumulator();
+            }
+            else {
                 checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
                 intermediateChannel = accumulatorFactory.getInputChannels().get(0);
                 aggregation = accumulatorFactory.createIntermediateAccumulator();
             }
-            else {
-                intermediateChannel = -1;
-                aggregation = accumulatorFactory.createAccumulator();
-            }
             this.step = step;
-            this.memoryManager = memoryManager;
         }
 
         public Type getType()
         {
-            if (step == Step.PARTIAL) {
+            if (step.isOutputPartial()) {
                 return aggregation.getIntermediateType();
             }
             else {
@@ -212,25 +209,27 @@ public class AggregationOperator
 
         public void processPage(Page page)
         {
-            if (step == Step.FINAL) {
-                aggregation.addIntermediate(page.getBlock(intermediateChannel));
-            }
-            else {
+            if (step.isInputRaw()) {
                 aggregation.addInput(page);
             }
-            if (!memoryManager.canUse(aggregation.getEstimatedSize())) {
-                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
+            else {
+                aggregation.addIntermediate(page.getBlock(intermediateChannel));
             }
         }
 
-        public Block evaluate()
+        public void evaluate(BlockBuilder blockBuilder)
         {
-            if (step == Step.PARTIAL) {
-                return aggregation.evaluateIntermediate();
+            if (step.isOutputPartial()) {
+                aggregation.evaluateIntermediate(blockBuilder);
             }
             else {
-                return aggregation.evaluateFinal();
+                aggregation.evaluateFinal(blockBuilder);
             }
+        }
+
+        public long getEstimatedSize()
+        {
+            return aggregation.getEstimatedSize();
         }
     }
 }

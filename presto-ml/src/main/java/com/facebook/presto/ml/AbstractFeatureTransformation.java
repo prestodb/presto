@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractFeatureTransformation
-    implements FeatureTransformation
+        implements FeatureTransformation
 {
     @Override
     public Dataset transform(Dataset dataset)
@@ -26,6 +26,6 @@ public abstract class AbstractFeatureTransformation
         for (FeatureVector features : dataset.getDatapoints()) {
             transformed.add(transform(features));
         }
-        return new Dataset(dataset.getLabels(), transformed);
+        return new Dataset(dataset.getLabels(), transformed, dataset.getLabelEnumeration());
     }
 }

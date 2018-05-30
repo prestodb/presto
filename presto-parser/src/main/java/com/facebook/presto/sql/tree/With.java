@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class With
         extends Node
@@ -30,7 +31,18 @@ public class With
 
     public With(boolean recursive, List<WithQuery> queries)
     {
-        checkNotNull(queries, "queries is null");
+        this(Optional.empty(), recursive, queries);
+    }
+
+    public With(NodeLocation location, boolean recursive, List<WithQuery> queries)
+    {
+        this(Optional.of(location), recursive, queries);
+    }
+
+    private With(Optional<NodeLocation> location, boolean recursive, List<WithQuery> queries)
+    {
+        super(location);
+        requireNonNull(queries, "queries is null");
         checkArgument(!queries.isEmpty(), "queries is empty");
 
         this.recursive = recursive;
@@ -54,6 +66,12 @@ public class With
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return queries;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
@@ -63,14 +81,14 @@ public class With
             return false;
         }
         With o = (With) obj;
-        return Objects.equal(recursive, o.recursive) &&
-                Objects.equal(queries, o.queries);
+        return Objects.equals(recursive, o.recursive) &&
+                Objects.equals(queries, o.queries);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(recursive, queries);
+        return Objects.hash(recursive, queries);
     }
 
     @Override

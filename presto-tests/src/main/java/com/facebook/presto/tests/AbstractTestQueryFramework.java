@@ -14,55 +14,79 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.system.SystemSplitManager;
-import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanOptimizersFactory;
+import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
+import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static java.lang.String.format;
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    protected final H2QueryRunner h2QueryRunner;
-    protected final QueryRunner queryRunner;
-    private final SqlParser sqlParser;
+    private QueryRunnerSupplier queryRunnerSupplier;
+    private QueryRunner queryRunner;
+    private H2QueryRunner h2QueryRunner;
+    private SqlParser sqlParser;
 
-    protected AbstractTestQueryFramework(QueryRunner queryRunner)
+    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
-        this.queryRunner = queryRunner;
+        this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+    }
+
+    @BeforeClass
+    public void init()
+            throws Exception
+    {
+        queryRunner = queryRunnerSupplier.get();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
     }
 
     @AfterClass(alwaysRun = true)
-    private void close()
+    public void close()
             throws Exception
     {
-        try {
-            h2QueryRunner.close();
-        }
-        finally {
-            queryRunner.close();
-        }
+        closeAllRuntimeException(queryRunner, h2QueryRunner);
+        queryRunner = null;
+        h2QueryRunner = null;
+        sqlParser = null;
+        queryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -77,90 +101,254 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return queryRunner.execute(getSession(), sql).toJdbcTypes();
+        return computeActual(getSession(), sql);
+    }
+
+    protected MaterializedResult computeActual(Session session, @Language("SQL") String sql)
+    {
+        return queryRunner.execute(session, sql).toTestTypes();
+    }
+
+    protected Object computeScalar(@Language("SQL") String sql)
+    {
+        return computeActual(sql).getOnlyValue();
     }
 
     protected void assertQuery(@Language("SQL") String sql)
-            throws Exception
     {
-        QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, false);
+        assertQuery(getSession(), sql);
     }
 
-    public void assertQueryOrdered(@Language("SQL") String sql)
-            throws Exception
+    protected void assertQuery(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, true);
+        QueryAssertions.assertQuery(queryRunner, session, sql, h2QueryRunner, sql, false, false);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
-        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false);
+        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false, false);
+    }
+
+    protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false);
+    }
+
+    public void assertQueryOrdered(@Language("SQL") String sql)
+    {
+        assertQueryOrdered(getSession(), sql);
+    }
+
+    public void assertQueryOrdered(Session session, @Language("SQL") String sql)
+    {
+        assertQueryOrdered(session, sql, sql);
     }
 
     protected void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
-        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, true);
+        assertQueryOrdered(getSession(), actual, expected);
     }
 
-    protected void assertQueryTrue(@Language("SQL") String sql)
-            throws Exception
+    protected void assertQueryOrdered(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        assertQuery(sql, "SELECT true");
+        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, true, false);
     }
 
-    public void assertApproximateQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
+    protected void assertUpdate(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertApproximateQuery(queryRunner,
-                session,
-                actual,
-                h2QueryRunner,
-                expected);
+        assertUpdate(getSession(), actual, expected);
+    }
+
+    protected void assertUpdate(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, true);
+    }
+
+    protected void assertUpdate(@Language("SQL") String sql)
+    {
+        assertUpdate(getSession(), sql);
+    }
+
+    protected void assertUpdate(Session session, @Language("SQL") String sql)
+    {
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty());
+    }
+
+    protected void assertUpdate(@Language("SQL") String sql, long count)
+    {
+        assertUpdate(getSession(), sql, count);
+    }
+
+    protected void assertUpdate(Session session, @Language("SQL") String sql, long count)
+    {
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
+    }
+
+    protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
+    {
+        QueryAssertions.assertQueryFailsEventually(queryRunner, getSession(), sql, expectedMessageRegExp, timeout);
+    }
+
+    protected void assertQueryFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        QueryAssertions.assertQueryFails(queryRunner, getSession(), sql, expectedMessageRegExp);
+    }
+
+    protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+    }
+
+    protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
+    {
+        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+    }
+
+    protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
+    {
+        assertAccessAllowed(getSession(), sql, deniedPrivileges);
+    }
+
+    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
+    {
+        executeExclusively(() -> {
+            try {
+                queryRunner.getAccessControl().deny(deniedPrivileges);
+                queryRunner.execute(session, sql);
+            }
+            finally {
+                queryRunner.getAccessControl().reset();
+            }
+        });
+    }
+
+    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
+    {
+        assertAccessDenied(getSession(), sql, exceptionsMessageRegExp, deniedPrivileges);
+    }
+
+    protected void assertAccessDenied(
+            Session session,
+            @Language("SQL") String sql,
+            @Language("RegExp") String exceptionsMessageRegExp,
+            TestingPrivilege... deniedPrivileges)
+    {
+        executeExclusively(() -> {
+            try {
+                queryRunner.getAccessControl().deny(deniedPrivileges);
+                queryRunner.execute(session, sql);
+                fail("Expected " + AccessDeniedException.class.getSimpleName());
+            }
+            catch (RuntimeException e) {
+                assertExceptionMessage(sql, e, ".*Access Denied: " + exceptionsMessageRegExp);
+            }
+            finally {
+                queryRunner.getAccessControl().reset();
+            }
+        });
+    }
+
+    protected void assertTableColumnNames(String tableName, String... columnNames)
+    {
+        MaterializedResult result = computeActual("DESCRIBE " + tableName);
+        List<String> expected = ImmutableList.copyOf(columnNames);
+        List<String> actual = result.getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toImmutableList());
+        assertEquals(actual, expected);
+    }
+
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
+    {
+        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+        }
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
-        return h2QueryRunner.execute(sql, resultTypes);
+        return h2QueryRunner.execute(getSession(), sql, resultTypes);
     }
 
-    public Function<MaterializedRow, String> onlyColumnGetter()
+    protected void executeExclusively(Runnable executionBlock)
     {
-        return new Function<MaterializedRow, String>()
-        {
-            @Override
-            public String apply(MaterializedRow input)
-            {
-                assertEquals(input.getFieldCount(), 1);
-                return (String) input.getField(0);
-            }
-        };
+        queryRunner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            queryRunner.getExclusiveLock().unlock();
+        }
+    }
+
+    protected String formatSqlText(String sql)
+    {
+        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())), Optional.empty());
     }
 
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(sqlParser.createStatement(query), planType);
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList());
+                });
     }
 
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(sqlParser.createStatement(query), planType);
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList());
+                });
     }
 
     private QueryExplainer getQueryExplainer()
     {
-        Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry(), new SystemTablesMetadata());
-        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(new SystemSplitManager(new InMemoryNodeManager())), new IndexManager(), featuresConfig).get();
-        return new QueryExplainer(queryRunner.getDefaultSession(),
-                optimizers,
+        Metadata metadata = queryRunner.getMetadata();
+        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
+        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        CostCalculator costCalculator = new CostCalculatorUsingExchanges(queryRunner::getNodeCount);
+        List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                featuresConfig.isExperimentalSyntaxEnabled(),
-                featuresConfig.isDistributedIndexJoinsEnabled(),
-                featuresConfig.isDistributedJoinsEnabled());
+                featuresConfig,
+                forceSingleNode,
+                new MBeanExporter(new TestingMBeanServer()),
+                queryRunner.getStatsCalculator(),
+                costCalculator,
+                new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner::getNodeCount),
+                new CostComparator(featuresConfig)).get();
+        return new QueryExplainer(
+                optimizers,
+                metadata,
+                queryRunner.getNodePartitioningManager(),
+                queryRunner.getAccessControl(),
+                sqlParser,
+                queryRunner.getStatsCalculator(),
+                costCalculator,
+                ImmutableMap.of());
+    }
+
+    protected static void skipTestUnless(boolean requirement)
+    {
+        if (!requirement) {
+            throw new SkipException("requirement not met");
+        }
+    }
+
+    protected QueryRunner getQueryRunner()
+    {
+        checkState(queryRunner != null, "queryRunner not set");
+        return queryRunner;
+    }
+
+    public interface QueryRunnerSupplier
+    {
+        QueryRunner get()
+                throws Exception;
     }
 }

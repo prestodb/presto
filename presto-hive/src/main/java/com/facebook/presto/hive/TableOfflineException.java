@@ -17,26 +17,36 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class TableOfflineException
         extends PrestoException
 {
     private final SchemaTableName tableName;
 
-    public TableOfflineException(SchemaTableName tableName)
+    public TableOfflineException(SchemaTableName tableName, boolean forPresto, String offlineMessage)
     {
-        this(tableName, String.format("Table '%s' is offline", tableName));
-    }
-
-    public TableOfflineException(SchemaTableName tableName, String message)
-    {
-        super(HIVE_TABLE_OFFLINE, message);
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        super(HIVE_TABLE_OFFLINE, formatMessage(tableName, forPresto, offlineMessage));
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     public SchemaTableName getTableName()
     {
         return tableName;
+    }
+
+    private static String formatMessage(SchemaTableName tableName, boolean forPresto, String offlineMessage)
+    {
+        StringBuilder resultBuilder = new StringBuilder()
+                .append("Table '").append(tableName).append("'")
+                .append(" is offline");
+        if (forPresto) {
+            resultBuilder.append(" for Presto");
+        }
+        if (!isNullOrEmpty(offlineMessage)) {
+            resultBuilder.append(": ").append(offlineMessage);
+        }
+        return resultBuilder.toString();
     }
 }

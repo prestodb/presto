@@ -23,7 +23,7 @@ import java.net.URL;
 
 import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -44,7 +44,7 @@ public class TestExampleClient
         ExampleTable table = client.getTable("example", "numbers");
         assertNotNull(table, "table is null");
         assertEquals(table.getName(), "numbers");
-        assertEquals(table.getColumns(), ImmutableList.of(new ExampleColumn("text", VARCHAR), new ExampleColumn("value", BIGINT)));
+        assertEquals(table.getColumns(), ImmutableList.of(new ExampleColumn("text", createUnboundedVarcharType()), new ExampleColumn("value", BIGINT)));
         assertEquals(table.getSources(), ImmutableList.of(metadata.resolve("numbers-1.csv"), metadata.resolve("numbers-2.csv")));
     }
 }

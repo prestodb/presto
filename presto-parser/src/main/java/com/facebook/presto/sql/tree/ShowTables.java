@@ -13,30 +13,57 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ShowTables
         extends Statement
 {
-    private final QualifiedName schema;
-    private final String likePattern;
+    private final Optional<QualifiedName> schema;
+    private final Optional<String> likePattern;
+    private final Optional<String> escape;
 
-    public ShowTables(QualifiedName schema, String likePattern)
+    public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        this.schema = schema;
-        this.likePattern = likePattern;
+        this(Optional.empty(), schema, likePattern, escape);
     }
 
-    public QualifiedName getSchema()
+    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
+    {
+        this(Optional.of(location), schema, likePattern, escape);
+    }
+
+    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
+    {
+        super(location);
+        requireNonNull(schema, "schema is null");
+        requireNonNull(likePattern, "likePattern is null");
+        requireNonNull(escape, "escape is null");
+
+        this.schema = schema;
+        this.likePattern = likePattern;
+        this.escape = escape;
+    }
+
+    public Optional<QualifiedName> getSchema()
     {
         return schema;
     }
 
-    public String getLikePattern()
+    public Optional<String> getLikePattern()
     {
         return likePattern;
+    }
+
+    public Optional<String> getEscape()
+    {
+        return escape;
     }
 
     @Override
@@ -46,9 +73,15 @@ public class ShowTables
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hashCode(schema, likePattern);
+        return Objects.hash(schema, likePattern, escape);
     }
 
     @Override
@@ -61,8 +94,9 @@ public class ShowTables
             return false;
         }
         ShowTables o = (ShowTables) obj;
-        return Objects.equal(schema, o.schema) &&
-                Objects.equal(likePattern, o.likePattern);
+        return Objects.equals(schema, o.schema) &&
+                Objects.equals(likePattern, o.likePattern) &&
+                Objects.equals(escape, o.escape);
     }
 
     @Override
@@ -71,6 +105,7 @@ public class ShowTables
         return toStringHelper(this)
                 .add("schema", schema)
                 .add("likePattern", likePattern)
+                .add("escape", escape)
                 .toString();
     }
 }

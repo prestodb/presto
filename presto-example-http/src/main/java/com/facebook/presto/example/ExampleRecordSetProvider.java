@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -35,19 +36,19 @@ public class ExampleRecordSetProvider
     @Inject
     public ExampleRecordSetProvider(ExampleConnectorId connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        checkNotNull(split, "partitionChunk is null");
-        ExampleSplit exampleSplit = checkType(split, ExampleSplit.class, "split");
+        requireNonNull(split, "partitionChunk is null");
+        ExampleSplit exampleSplit = (ExampleSplit) split;
         checkArgument(exampleSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         ImmutableList.Builder<ExampleColumnHandle> handles = ImmutableList.builder();
-        for (ConnectorColumnHandle handle : columns) {
-            handles.add(checkType(handle, ExampleColumnHandle.class, "handle"));
+        for (ColumnHandle handle : columns) {
+            handles.add((ExampleColumnHandle) handle);
         }
 
         return new ExampleRecordSet(exampleSplit, handles.build());

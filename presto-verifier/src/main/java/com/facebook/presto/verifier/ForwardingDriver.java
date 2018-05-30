@@ -21,7 +21,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class ForwardingDriver
         implements Driver
@@ -30,7 +30,7 @@ class ForwardingDriver
 
     ForwardingDriver(Driver driver)
     {
-        this.driver = checkNotNull(driver);
+        this.driver = requireNonNull(driver);
     }
 
     @Override

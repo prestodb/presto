@@ -14,10 +14,12 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class BooleanStreamCheckpoint
         implements StreamCheckpoint
@@ -28,12 +30,12 @@ public final class BooleanStreamCheckpoint
     public BooleanStreamCheckpoint(int offset, ByteStreamCheckpoint byteStreamCheckpoint)
     {
         this.offset = offset;
-        this.byteStreamCheckpoint = checkNotNull(byteStreamCheckpoint, "byteStreamCheckpoint is null");
+        this.byteStreamCheckpoint = requireNonNull(byteStreamCheckpoint, "byteStreamCheckpoint is null");
     }
 
-    public BooleanStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public BooleanStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        byteStreamCheckpoint = new ByteStreamCheckpoint(compressionKind, positionsList);
+        byteStreamCheckpoint = new ByteStreamCheckpoint(compressed, positionsList);
         offset = positionsList.nextPosition();
     }
 
@@ -47,10 +49,18 @@ public final class BooleanStreamCheckpoint
         return byteStreamCheckpoint;
     }
 
+    public List<Integer> toPositionList(boolean compressed)
+    {
+        return ImmutableList.<Integer>builder()
+                .addAll(byteStreamCheckpoint.toPositionList(compressed))
+                .add(offset)
+                .build();
+    }
+
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("offset", offset)
                 .add("byteStreamCheckpoint", byteStreamCheckpoint)
                 .toString();

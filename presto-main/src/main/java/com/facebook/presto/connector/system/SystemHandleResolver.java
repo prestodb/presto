@@ -13,53 +13,16 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class SystemHandleResolver
         implements ConnectorHandleResolver
 {
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof SystemTableHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
-    {
-        return columnHandle instanceof SystemColumnHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof SystemSplit;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -67,7 +30,13 @@ public class SystemHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return SystemTableLayoutHandle.class;
+    }
+
+    @Override
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return SystemColumnHandle.class;
     }
@@ -79,20 +48,8 @@ public class SystemHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
+        return SystemTransactionHandle.class;
     }
 }

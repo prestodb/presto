@@ -14,108 +14,260 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
+import java.util.OptionalInt;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
+import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class WindowFilterPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", StandardTypes.BIGINT, ImmutableList.<String>of());
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
+
+    private final Metadata metadata;
+    private final DomainTranslator domainTranslator;
+
+    public WindowFilterPushDown(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
+    }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, domainTranslator, session, types), plan, null);
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Constraint>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final Metadata metadata;
+        private final DomainTranslator domainTranslator;
+        private final Session session;
+        private final Map<Symbol, Type> types;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator)
+        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, DomainTranslator domainTranslator, Session session, Map<Symbol, Type> types)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+            this.session = requireNonNull(session, "session is null");
+            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
-        public PlanNode rewriteWindow(WindowNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            if (canOptimizeWindowFunction(node)) {
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                Optional<Integer> limit = getLimit(node, filter);
-                if (node.getOrderBy().isEmpty()) {
-                    return new RowNumberNode(idAllocator.getNextId(),
-                            rewrittenSource,
-                            node.getPartitionBy(),
-                            getOnlyElement(node.getWindowFunctions().keySet()),
-                            limit,
-                            Optional.<Symbol>absent());
-                }
-                if (limit.isPresent()) {
-                    return new TopNRowNumberNode(idAllocator.getNextId(),
-                            rewrittenSource,
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
-                            getOnlyElement(node.getWindowFunctions().keySet()),
-                            limit.get(),
-                            false,
-                            Optional.<Symbol>absent());
-                }
+            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+
+            if (canReplaceWithRowNumber(node)) {
+                return new RowNumberNode(idAllocator.getNextId(),
+                        rewrittenSource,
+                        node.getPartitionBy(),
+                        getOnlyElement(node.getWindowFunctions().keySet()),
+                        Optional.empty(),
+                        Optional.empty());
             }
-            return planRewriter.defaultRewrite(node, null);
+            return replaceChildren(node, ImmutableList.of(rewrittenSource));
         }
 
-        private static Optional<Integer> getLimit(WindowNode node, Constraint filter)
+        @Override
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
         {
-            if (filter == null || (!filter.getLimit().isPresent() && !filter.getFilterExpression().isPresent())) {
-                return Optional.absent();
+            // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
+            if (node.getCount() > Integer.MAX_VALUE) {
+                return context.defaultRewrite(node);
             }
-            if (filter.getLimit().isPresent()) {
-                return filter.getLimit();
+
+            PlanNode source = context.rewrite(node.getSource());
+            int limit = toIntExact(node.getCount());
+            if (source instanceof RowNumberNode) {
+                RowNumberNode rowNumberNode = mergeLimit(((RowNumberNode) source), limit);
+                if (rowNumberNode.getPartitionBy().isEmpty()) {
+                    return rowNumberNode;
+                }
+                source = rowNumberNode;
             }
-            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get())) {
-                Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-                return WindowLimitExtractor.extract(filter.getFilterExpression().get(), rowNumberSymbol);
+            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source)) {
+                WindowNode windowNode = (WindowNode) source;
+                // verify that unordered row_number window functions are replaced by RowNumberNode
+                verify(windowNode.getOrderingScheme().isPresent());
+                TopNRowNumberNode topNRowNumberNode = convertToTopNRowNumber(windowNode, limit);
+                if (windowNode.getPartitionBy().isEmpty()) {
+                    return topNRowNumberNode;
+                }
+                source = topNRowNumberNode;
             }
-            return Optional.absent();
+            return replaceChildren(node, ImmutableList.of(source));
+        }
+
+        @Override
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+
+            TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, session, node.getPredicate(), types).getTupleDomain();
+
+            if (source instanceof RowNumberNode) {
+                Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
+                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+
+                if (upperBound.isPresent()) {
+                    source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                }
+            }
+            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source)) {
+                WindowNode windowNode = (WindowNode) source;
+                Symbol rowNumberSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();
+                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+
+                if (upperBound.isPresent()) {
+                    source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                }
+            }
+            return replaceChildren(node, ImmutableList.of(source));
+        }
+
+        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
+        {
+            ExtractionResult extractionResult = fromPredicate(metadata, session, filterNode.getPredicate(), types);
+            TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+
+            if (!isEqualRange(tupleDomain, rowNumberSymbol, upperBound)) {
+                return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
+            }
+
+            // Remove the row number domain because it is absorbed into the node
+            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals(rowNumberSymbol))
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            // Construct a new predicate
+            TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
+            Expression newPredicate = ExpressionUtils.combineConjuncts(
+                    extractionResult.getRemainingExpression(),
+                    domainTranslator.toPredicate(newTupleDomain));
+
+            if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+                return source;
+            }
+            return new FilterNode(filterNode.getId(), source, newPredicate);
+        }
+
+        private static boolean isEqualRange(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
+        {
+            if (tupleDomain.isNone()) {
+                return false;
+            }
+            Domain domain = tupleDomain.getDomains().get().get(symbol);
+            return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
+        }
+
+        private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
+        {
+            if (tupleDomain.isNone()) {
+                return OptionalInt.empty();
+            }
+
+            Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
+            if (rowNumberDomain == null) {
+                return OptionalInt.empty();
+            }
+            ValueSet values = rowNumberDomain.getValues();
+            if (values.isAll() || values.isNone() || values.getRanges().getRangeCount() <= 0) {
+                return OptionalInt.empty();
+            }
+
+            Range span = values.getRanges().getSpan();
+
+            if (span.getHigh().isUpperUnbounded()) {
+                return OptionalInt.empty();
+            }
+
+            verify(rowNumberDomain.getType().equals(BIGINT));
+            long upperBound = (Long) span.getHigh().getValue();
+            if (span.getHigh().getBound() == BELOW) {
+                upperBound--;
+            }
+
+            if (upperBound > 0 && upperBound <= Integer.MAX_VALUE) {
+                return OptionalInt.of(toIntExact(upperBound));
+            }
+            return OptionalInt.empty();
+        }
+
+        private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
+        {
+            if (node.getMaxRowCountPerPartition().isPresent()) {
+                newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
+            }
+            return new RowNumberNode(node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberSymbol(), Optional.of(newRowCountPerPartition), node.getHashSymbol());
+        }
+
+        private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)
+        {
+            return new TopNRowNumberNode(idAllocator.getNextId(),
+                    windowNode.getSource(),
+                    windowNode.getSpecification(),
+                    getOnlyElement(windowNode.getWindowFunctions().keySet()),
+                    limit,
+                    false,
+                    Optional.empty());
+        }
+
+        private static boolean canReplaceWithRowNumber(WindowNode node)
+        {
+            return canOptimizeWindowFunction(node) && !node.getOrderingScheme().isPresent();
         }
 
         private static boolean canOptimizeWindowFunction(WindowNode node)
@@ -124,152 +276,12 @@ public class WindowFilterPushDown
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getSignatures().get(rowNumberSymbol));
+            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getSignature());
         }
 
-        private static boolean filterContainsWindowFunctions(WindowNode node, Expression filterPredicate)
+        private static boolean isRowNumberSignature(Signature signature)
         {
-            Set<Symbol> windowFunctionSymbols = node.getWindowFunctions().keySet();
-            Sets.SetView<Symbol> commonSymbols = Sets.intersection(DependencyExtractor.extractUnique(filterPredicate), windowFunctionSymbols);
-            return !commonSymbols.isEmpty();
-        }
-
-        @Override
-        public PlanNode rewriteLimit(LimitNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
-        {
-            // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
-            if (node.getCount() >= Integer.MAX_VALUE) {
-                return planRewriter.defaultRewrite(node, null);
-            }
-            Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.<Expression>absent());
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), constraint);
-
-            if (rewrittenSource != node.getSource()) {
-                return rewrittenSource;
-            }
-
-            return planRewriter.defaultRewrite(node, null);
-        }
-
-        @Override
-        public PlanNode rewriteFilter(FilterNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
-        {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), new Constraint(Optional.<Integer>absent(), Optional.of(node.getPredicate())));
-            if (rewrittenSource != node.getSource()) {
-                if (rewrittenSource instanceof TopNRowNumberNode) {
-                    return rewrittenSource;
-                }
-                return new FilterNode(idAllocator.getNextId(), rewrittenSource, node.getPredicate());
-            }
-            return planRewriter.defaultRewrite(node, null);
-        }
-    }
-
-    private static boolean isRowNumberSignature(Signature signature)
-    {
-        return signature.equals(ROW_NUMBER_SIGNATURE);
-    }
-
-    private static class Constraint
-    {
-        private final Optional<Integer> limit;
-        private final Optional<Expression> filterExpression;
-
-        private Constraint(Optional<Integer> limit, Optional<Expression> filterExpression)
-        {
-            this.limit = limit;
-            this.filterExpression = filterExpression;
-        }
-
-        public Optional<Integer> getLimit()
-        {
-            return limit;
-        }
-
-        public Optional<Expression> getFilterExpression()
-        {
-            return filterExpression;
-        }
-    }
-
-    private static final class WindowLimitExtractor
-    {
-        private WindowLimitExtractor() {}
-
-        public static Optional<Integer> extract(Expression expression, Symbol rowNumberSymbol)
-        {
-            Visitor visitor = new Visitor();
-            Long limit = visitor.process(expression, rowNumberSymbol);
-            if (limit == null || limit >= Integer.MAX_VALUE) {
-                return Optional.absent();
-            }
-
-            return Optional.of(limit.intValue());
-        }
-
-        private static class Visitor
-                extends DefaultExpressionTraversalVisitor<Long, Symbol>
-        {
-            @Override
-            protected Long visitComparisonExpression(ComparisonExpression node, Symbol rowNumberSymbol)
-            {
-                QualifiedNameReference reference = extractReference(node);
-                Literal literal = extractLiteral(node);
-                if (!Symbol.fromQualifiedName(reference.getName()).equals(rowNumberSymbol)) {
-                    return null;
-                }
-
-                if (node.getLeft() instanceof QualifiedNameReference && node.getRight() instanceof Literal) {
-                    if (node.getType() == ComparisonExpression.Type.LESS_THAN_OR_EQUAL) {
-                        return extractValue(literal);
-                    }
-                    if (node.getType() == ComparisonExpression.Type.LESS_THAN) {
-                        return extractValue(literal) - 1;
-                    }
-                }
-                else if (node.getLeft() instanceof Literal && node.getRight() instanceof QualifiedNameReference) {
-                    if (node.getType() == ComparisonExpression.Type.GREATER_THAN_OR_EQUAL) {
-                        return extractValue(literal);
-                    }
-                    if (node.getType() == ComparisonExpression.Type.GREATER_THAN) {
-                        return extractValue(literal) - 1;
-                    }
-                }
-                return null;
-            }
-        }
-
-        private static QualifiedNameReference extractReference(ComparisonExpression expression)
-        {
-            if (expression.getLeft() instanceof QualifiedNameReference) {
-                return (QualifiedNameReference) expression.getLeft();
-            }
-            if (expression.getRight() instanceof QualifiedNameReference) {
-                return (QualifiedNameReference) expression.getRight();
-            }
-            throw new IllegalArgumentException("Comparison does not have a child of type QualifiedNameReference");
-        }
-
-        private static Literal extractLiteral(ComparisonExpression expression)
-        {
-            if (expression.getLeft() instanceof Literal) {
-                return (Literal) expression.getLeft();
-            }
-            if (expression.getRight() instanceof Literal) {
-                return (Literal) expression.getRight();
-            }
-            throw new IllegalArgumentException("Comparison does not have a child of type Literal");
-        }
-
-        private static long extractValue(Literal literal)
-        {
-            if (literal instanceof DoubleLiteral) {
-                return (long) ((DoubleLiteral) literal).getValue();
-            }
-            if (literal instanceof LongLiteral) {
-                return ((LongLiteral) literal).getValue();
-            }
-            throw new IllegalArgumentException("Row number compared to non numeric literal");
+            return signature.equals(ROW_NUMBER_SIGNATURE);
         }
     }
 }

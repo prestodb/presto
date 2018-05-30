@@ -14,31 +14,27 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FinishedOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.spi.Index;
+import com.facebook.presto.operator.SplitOperatorInfo;
+import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
-import javax.annotation.concurrent.GuardedBy;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
-import java.util.List;
-
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSourceOperator
         implements SourceOperator
@@ -48,23 +44,20 @@ public class IndexSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final Index index;
-        private final List<Type> types;
+        private final ConnectorIndex index;
         private final Function<RecordSet, RecordSet> probeKeyNormalizer;
         private boolean closed;
 
         public IndexSourceOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                Index index,
-                List<Type> types,
+                ConnectorIndex index,
                 Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.index = checkNotNull(index, "index is null");
-            this.types = checkNotNull(types, "types is null");
-            this.probeKeyNormalizer = checkNotNull(probeKeyNormalizer, "probeKeyNormalizer is null");
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.index = requireNonNull(index, "index is null");
+            this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
         }
 
         @Override
@@ -74,26 +67,19 @@ public class IndexSourceOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, IndexSourceOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, IndexSourceOperator.class.getSimpleName());
             return new IndexSourceOperator(
                     operatorContext,
                     sourceId,
                     index,
-                    types,
                     probeKeyNormalizer);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -101,25 +87,21 @@ public class IndexSourceOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
-    private final Index index;
-    private final List<Type> types;
+    private final ConnectorIndex index;
     private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
-    @GuardedBy("this")
     private Operator source;
 
     public IndexSourceOperator(
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
-            Index index,
-            List<Type> types,
+            ConnectorIndex index,
             Function<RecordSet, RecordSet> probeKeyNormalizer)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.index = checkNotNull(index, "index is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.probeKeyNormalizer = checkNotNull(probeKeyNormalizer, "probeKeyNormalizer is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.index = requireNonNull(index, "index is null");
+        this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
     }
 
     @Override
@@ -135,66 +117,45 @@ public class IndexSourceOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
-        checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
-        checkState(getSource() == null, "Index source split already set");
+        requireNonNull(split, "split is null");
+        checkState(source == null, "Index source split already set");
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
-        RecordSet result = index.lookup(normalizedRecordSet);
-        source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
+        ConnectorPageSource result = index.lookup(normalizedRecordSet);
+        source = new PageSourceOperator(result, operatorContext);
 
-        operatorContext.setInfoSupplier(Suppliers.ofInstance(split.getInfo()));
+        Object splitInfo = split.getInfo();
+        if (splitInfo != null) {
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+        }
+
+        return Optional::empty;
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
         if (source == null) {
-            source = new FinishedOperator(operatorContext, types);
+            source = new FinishedOperator(operatorContext);
         }
-    }
-
-    private synchronized Operator getSource()
-    {
-        return source;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
     public void finish()
     {
-        Operator delegate;
-        synchronized (this) {
-            delegate = getSource();
-            if (delegate == null) {
-                source = new FinishedOperator(operatorContext, types);
-                return;
-            }
-        }
-        delegate.finish();
+        noMoreSplits();
+        source.finish();
     }
 
     @Override
     public boolean isFinished()
     {
-        Operator delegate = getSource();
-        return delegate != null && delegate.isFinished();
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
+        return (source != null) && source.isFinished();
     }
 
     @Override
@@ -212,10 +173,18 @@ public class IndexSourceOperator
     @Override
     public Page getOutput()
     {
-        Operator delegate = getSource();
-        if (delegate == null) {
+        if (source == null) {
             return null;
         }
-        return delegate.getOutput();
+        return source.getOutput();
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (source != null) {
+            source.close();
+        }
     }
 }

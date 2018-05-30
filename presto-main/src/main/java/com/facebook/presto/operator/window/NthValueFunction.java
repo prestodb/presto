@@ -13,111 +13,48 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
+import com.facebook.presto.spi.function.ValueWindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
+@WindowFunctionSignature(name = "nth_value", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 public class NthValueFunction
-        implements WindowFunction
+        extends ValueWindowFunction
 {
-    public static class BigintNthValueFunction
-            extends NthValueFunction
-    {
-        public BigintNthValueFunction(List<Integer> argumentChannels)
-        {
-            super(BIGINT, argumentChannels);
-        }
-    }
-
-    public static class BooleanNthValueFunction
-            extends NthValueFunction
-    {
-        public BooleanNthValueFunction(List<Integer> argumentChannels)
-        {
-            super(BOOLEAN, argumentChannels);
-        }
-    }
-
-    public static class DoubleNthValueFunction
-            extends NthValueFunction
-    {
-        public DoubleNthValueFunction(List<Integer> argumentChannels)
-        {
-            super(DOUBLE, argumentChannels);
-        }
-    }
-
-    public static class VarcharNthValueFunction
-            extends NthValueFunction
-    {
-        public VarcharNthValueFunction(List<Integer> argumentChannels)
-        {
-            super(VARCHAR, argumentChannels);
-        }
-    }
-
-    private final Type type;
     private final int valueChannel;
     private final int offsetChannel;
 
-    private int partitionStartPosition;
-    private int currentPosition;
-    private int partitionRowCount;
-    private PagesIndex pagesIndex;
-
-    protected NthValueFunction(Type type, List<Integer> argumentChannels)
+    public NthValueFunction(List<Integer> argumentChannels)
     {
-        this.type = type;
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = argumentChannels.get(1);
     }
 
     @Override
-    public Type getType()
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        return type;
-    }
-
-    @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
-    {
-        this.partitionStartPosition = partitionStartPosition;
-        this.currentPosition = partitionStartPosition;
-        this.partitionRowCount = partitionRowCount;
-        this.pagesIndex = pagesIndex;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        if (pagesIndex.isNull(offsetChannel, currentPosition)) {
+        if ((frameStart < 0) || windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
         }
         else {
-            long offset = pagesIndex.getLong(offsetChannel, currentPosition);
+            long offset = windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
             // offset is base 1
-            long valuePosition = (partitionStartPosition + offset) - 1;
+            long valuePosition = frameStart + (offset - 1);
 
-            if ((valuePosition >= 0) && (valuePosition < (partitionStartPosition + partitionRowCount))) {
-                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
+                windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else {
                 output.appendNull();
             }
         }
-
-        currentPosition++;
     }
 }

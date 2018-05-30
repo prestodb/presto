@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
@@ -22,18 +23,24 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.verifier.QueryType.CREATE;
+import static com.facebook.presto.verifier.QueryType.MODIFY;
+import static com.facebook.presto.verifier.QueryType.READ;
+
 public class TestVerifierConfig
 {
     @Test
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(VerifierConfig.class)
-                .setTestUsername("verifier-test")
-                .setControlUsername("verifier-test")
-                .setTestPassword(null)
-                .setControlPassword(null)
+                .setTestUsernameOverride(null)
+                .setControlUsernameOverride(null)
+                .setTestPasswordOverride(null)
+                .setControlPasswordOverride(null)
                 .setSuite(null)
                 .setSuites(null)
+                .setControlQueryTypes(Joiner.on(",").join(READ, CREATE, MODIFY))
+                .setTestQueryTypes(Joiner.on(",").join(READ, CREATE, MODIFY))
                 .setSource(null)
                 .setRunId(new DateTime().toString("yyyy-MM-dd"))
                 .setEventClients("human-readable")
@@ -50,8 +57,10 @@ public class TestVerifierConfig
                 .setAlwaysReport(false)
                 .setSuiteRepetitions(1)
                 .setCheckCorrectnessEnabled(true)
+                .setCheckCpuEnabled(true)
                 .setExplainOnly(false)
                 .setSkipCorrectnessRegex("^$")
+                .setSkipCpuCheckRegex("(?i)(?s).*LIMIT.*")
                 .setQueryRepetitions(1)
                 .setTestCatalogOverride(null)
                 .setTestSchemaOverride(null)
@@ -62,7 +71,14 @@ public class TestVerifierConfig
                 .setEventLogFile(null)
                 .setAdditionalJdbcDriverPath(null)
                 .setTestJdbcDriverName(null)
-                .setControlJdbcDriverName(null));
+                .setControlJdbcDriverName(null)
+                .setDoublePrecision(3)
+                .setRegressionMinCpuTime(new Duration(5, TimeUnit.MINUTES))
+                .setShadowWrites(true)
+                .setShadowTestTablePrefix("tmp_verifier_")
+                .setShadowControlTablePrefix("tmp_verifier_")
+                .setControlTeardownRetries(1)
+                .setTestTeardownRetries(1));
     }
 
     @Test
@@ -71,6 +87,8 @@ public class TestVerifierConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("suites", "my_suite")
                 .put("suite", "my_suite")
+                .put("control.query-types", Joiner.on(",").join(CREATE, MODIFY))
+                .put("test.query-types", MODIFY.name())
                 .put("source", "my_source")
                 .put("run-id", "my_run_id")
                 .put("event-client", "file,human-readable")
@@ -84,19 +102,21 @@ public class TestVerifierConfig
                 .put("suite-repetitions", "2")
                 .put("query-repetitions", "2")
                 .put("check-correctness", "false")
+                .put("check-cpu", "false")
                 .put("explain-only", "true")
                 .put("skip-correctness-regex", "limit")
+                .put("skip-cpu-check-regex", "LIMIT")
                 .put("quiet", "true")
                 .put("event-log-file", "./test")
                 .put("query-database", "jdbc:mysql://localhost:3306/my_database?user=my_username&password=my_password")
-                .put("test.username", "test_user")
-                .put("test.password", "test_password")
+                .put("test.username-override", "test_user")
+                .put("test.password-override", "test_password")
                 .put("test.gateway", "jdbc:presto://localhost:8080")
                 .put("test.timeout", "1s")
                 .put("test.catalog-override", "my_catalog")
                 .put("test.schema-override", "my_schema")
-                .put("control.username", "control_user")
-                .put("control.password", "control_password")
+                .put("control.username-override", "control_user")
+                .put("control.password-override", "control_password")
                 .put("control.gateway", "jdbc:presto://localhost:8081")
                 .put("control.timeout", "1s")
                 .put("control.catalog-override", "my_catalog")
@@ -104,11 +124,20 @@ public class TestVerifierConfig
                 .put("additional-jdbc-driver-path", "/test/path")
                 .put("test.jdbc-driver-class", "com.facebook.exampleclass")
                 .put("control.jdbc-driver-class", "com.facebook.exampleclass")
+                .put("expected-double-precision", "5")
+                .put("regression.min-cpu-time", "30s")
+                .put("shadow-writes.enabled", "false")
+                .put("shadow-writes.test-table-prefix", "tmp_")
+                .put("shadow-writes.control-table-prefix", "schema.tmp_")
+                .put("control.teardown-retries", "5")
+                .put("test.teardown-retries", "7")
                 .build();
 
-        VerifierConfig expected = new VerifierConfig().setTestUsername("verifier-test")
+        VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
                 .setSuites("my_suite")
                 .setSuite("my_suite")
+                .setControlQueryTypes(Joiner.on(",").join(CREATE, MODIFY))
+                .setTestQueryTypes(MODIFY.name())
                 .setSource("my_source")
                 .setRunId("my_run_id")
                 .setEventClients("file,human-readable")
@@ -122,26 +151,35 @@ public class TestVerifierConfig
                 .setSuiteRepetitions(2)
                 .setQueryRepetitions(2)
                 .setCheckCorrectnessEnabled(false)
+                .setCheckCpuEnabled(false)
                 .setExplainOnly(true)
                 .setSkipCorrectnessRegex("limit")
+                .setSkipCpuCheckRegex("LIMIT")
                 .setQuiet(true)
                 .setEventLogFile("./test")
                 .setQueryDatabase("jdbc:mysql://localhost:3306/my_database?user=my_username&password=my_password")
-                .setTestUsername("test_user")
-                .setTestPassword("test_password")
+                .setTestUsernameOverride("test_user")
+                .setTestPasswordOverride("test_password")
                 .setTestGateway("jdbc:presto://localhost:8080")
                 .setTestTimeout(new Duration(1, TimeUnit.SECONDS))
                 .setTestCatalogOverride("my_catalog")
                 .setTestSchemaOverride("my_schema")
-                .setControlUsername("control_user")
-                .setControlPassword("control_password")
+                .setControlUsernameOverride("control_user")
+                .setControlPasswordOverride("control_password")
                 .setControlGateway("jdbc:presto://localhost:8081")
                 .setControlTimeout(new Duration(1, TimeUnit.SECONDS))
                 .setControlCatalogOverride("my_catalog")
                 .setControlSchemaOverride("my_schema")
                 .setAdditionalJdbcDriverPath("/test/path")
                 .setTestJdbcDriverName("com.facebook.exampleclass")
-                .setControlJdbcDriverName("com.facebook.exampleclass");
+                .setControlJdbcDriverName("com.facebook.exampleclass")
+                .setDoublePrecision(5)
+                .setRegressionMinCpuTime(new Duration(30, TimeUnit.SECONDS))
+                .setShadowWrites(false)
+                .setShadowTestTablePrefix("tmp_")
+                .setShadowControlTablePrefix("schema.tmp_")
+                .setControlTeardownRetries(5)
+                .setTestTeardownRetries(7);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

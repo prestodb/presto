@@ -23,17 +23,21 @@ public class ColumnMetadata
 {
     private final String name;
     private final Type type;
-    private final int ordinalPosition;
-    private final boolean partitionKey;
     private final String comment;
+    private final String extraInfo;
     private final boolean hidden;
 
-    public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey)
+    public ColumnMetadata(String name, Type type)
     {
-        this(name, type, ordinalPosition, partitionKey, null, false);
+        this(name, type, null, false);
     }
 
-    public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey, String comment, boolean hidden)
+    public ColumnMetadata(String name, Type type, String comment, boolean hidden)
+    {
+        this(name, type, comment, null, hidden);
+    }
+
+    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -41,15 +45,11 @@ public class ColumnMetadata
         if (type == null) {
             throw new NullPointerException("type is null");
         }
-        if (ordinalPosition < 0) {
-            throw new IllegalArgumentException("ordinalPosition is negative");
-        }
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
-        this.ordinalPosition = ordinalPosition;
-        this.partitionKey = partitionKey;
         this.comment = comment;
+        this.extraInfo = extraInfo;
         this.hidden = hidden;
     }
 
@@ -63,19 +63,14 @@ public class ColumnMetadata
         return type;
     }
 
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
-    public boolean isPartitionKey()
-    {
-        return partitionKey;
-    }
-
     public String getComment()
     {
         return comment;
+    }
+
+    public String getExtraInfo()
+    {
+        return extraInfo;
     }
 
     public boolean isHidden()
@@ -89,10 +84,11 @@ public class ColumnMetadata
         StringBuilder sb = new StringBuilder("ColumnMetadata{");
         sb.append("name='").append(name).append('\'');
         sb.append(", type=").append(type);
-        sb.append(", ordinalPosition=").append(ordinalPosition);
-        sb.append(", partitionKey=").append(partitionKey);
         if (comment != null) {
             sb.append(", comment='").append(comment).append('\'');
+        }
+        if (extraInfo != null) {
+            sb.append(", extraInfo='").append(extraInfo).append('\'');
         }
         if (hidden) {
             sb.append(", hidden");
@@ -104,7 +100,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, ordinalPosition, partitionKey, comment, hidden);
+        return Objects.hash(name, type, comment, extraInfo, hidden);
     }
 
     @Override
@@ -119,9 +115,8 @@ public class ColumnMetadata
         ColumnMetadata other = (ColumnMetadata) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
-                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
-                Objects.equals(this.partitionKey, other.partitionKey) &&
                 Objects.equals(this.comment, other.comment) &&
+                Objects.equals(this.extraInfo, other.extraInfo) &&
                 Objects.equals(this.hidden, other.hidden);
     }
 }

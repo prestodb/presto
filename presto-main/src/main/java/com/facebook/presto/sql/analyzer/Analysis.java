@@ -13,290 +13,474 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 
-import java.util.IdentityHashMap;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
+
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableCollection;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
+import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
-    private Query query;
+    @Nullable
+    private final Statement root;
+    private final List<Expression> parameters;
+    private String updateType;
 
-    private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
+    private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
-    private TupleDescriptor outputDescriptor;
-    private final IdentityHashMap<Node, TupleDescriptor> outputDescriptors = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Map<QualifiedName, Integer>> resolvedNames = new IdentityHashMap<>();
+    private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
-    private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, Expression> where = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, Expression> having = new IdentityHashMap<>();
-    private final IdentityHashMap<Node, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Node, List<FieldOrExpression>> outputExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
+    // a map of users to the columns per table that they access
+    private final Map<Identity, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
-    private final IdentityHashMap<Join, List<EquiJoinClause>> joins = new IdentityHashMap<>();
-    private final SetMultimap<Node, InPredicate> inPredicates = HashMultimap.create();
-    private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
+    private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<List<Expression>>> groupByExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
 
-    private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
+    private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
+    private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
 
-    private final IdentityHashMap<Expression, Boolean> rowFieldAccesors = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
-    private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
+    private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
-    private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
+    private final Map<NodeRef<Table>, TableHandle> tables = new LinkedHashMap<>();
 
-    private final IdentityHashMap<SampledRelation, Double> sampleRatios = new IdentityHashMap<>();
+    private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
+    private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
+    private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, Signature> functionSignature = new LinkedHashMap<>();
+    private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
+
+    private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
+
+    private final Map<NodeRef<SampledRelation>, Double> sampleRatios = new LinkedHashMap<>();
+
+    private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
 
     // for create table
-    private Optional<QualifiedTableName> createTableDestination = Optional.absent();
+    private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
+    private Map<String, Expression> createTableProperties = ImmutableMap.of();
+    private boolean createTableAsSelectWithData = true;
+    private boolean createTableAsSelectNoOp;
+    private Optional<List<Identifier>> createTableColumnAliases = Optional.empty();
+    private Optional<String> createTableComment = Optional.empty();
 
-    // for insert
-    private Optional<TableHandle> insertTarget = Optional.absent();
+    private Optional<Insert> insert = Optional.empty();
 
-    public Query getQuery()
+    // for describe input and describe output
+    private final boolean isDescribe;
+
+    // for recursive view detection
+    private final Deque<Table> tablesForView = new ArrayDeque<>();
+
+    public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
-        return query;
+        requireNonNull(parameters);
+
+        this.root = root;
+        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
+        this.isDescribe = isDescribe;
     }
 
-    public void setQuery(Query query)
+    public Statement getStatement()
     {
-        this.query = query;
+        return root;
     }
 
-    public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)
+    public String getUpdateType()
     {
-        resolvedNames.put(expression, mappings);
+        return updateType;
     }
 
-    public Map<QualifiedName, Integer> getResolvedNames(Expression expression)
+    public void setUpdateType(String updateType)
     {
-        return resolvedNames.get(expression);
+        this.updateType = updateType;
+    }
+
+    public boolean isCreateTableAsSelectWithData()
+    {
+        return createTableAsSelectWithData;
+    }
+
+    public void setCreateTableAsSelectWithData(boolean createTableAsSelectWithData)
+    {
+        this.createTableAsSelectWithData = createTableAsSelectWithData;
+    }
+
+    public boolean isCreateTableAsSelectNoOp()
+    {
+        return createTableAsSelectNoOp;
+    }
+
+    public void setCreateTableAsSelectNoOp(boolean createTableAsSelectNoOp)
+    {
+        this.createTableAsSelectNoOp = createTableAsSelectNoOp;
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
     {
-        this.aggregates.put(node, aggregates);
+        this.aggregates.put(NodeRef.of(node), ImmutableList.copyOf(aggregates));
     }
 
     public List<FunctionCall> getAggregates(QuerySpecification query)
     {
-        return aggregates.get(query);
+        return aggregates.get(NodeRef.of(query));
     }
 
-    public IdentityHashMap<Expression, Type> getTypes()
+    public void setOrderByAggregates(OrderBy node, List<Expression> aggregates)
     {
-        return new IdentityHashMap<>(types);
+        this.orderByAggregates.put(NodeRef.of(node), ImmutableList.copyOf(aggregates));
     }
 
-    public boolean isRowFieldAccessor(QualifiedNameReference qualifiedNameReference)
+    public List<Expression> getOrderByAggregates(OrderBy node)
     {
-        return rowFieldAccesors.containsKey(qualifiedNameReference);
+        return orderByAggregates.get(NodeRef.of(node));
+    }
+
+    public Map<NodeRef<Expression>, Type> getTypes()
+    {
+        return unmodifiableMap(types);
     }
 
     public Type getType(Expression expression)
     {
-        Preconditions.checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
-        return types.get(expression);
+        Type type = types.get(NodeRef.of(expression));
+        checkArgument(type != null, "Expression not analyzed: %s", expression);
+        return type;
+    }
+
+    public Type getTypeWithCoercions(Expression expression)
+    {
+        NodeRef<Expression> key = NodeRef.of(expression);
+        checkArgument(types.containsKey(key), "Expression not analyzed: %s", expression);
+        if (coercions.containsKey(key)) {
+            return coercions.get(key);
+        }
+        return types.get(key);
+    }
+
+    public Type[] getRelationCoercion(Relation relation)
+    {
+        return Optional.ofNullable(relationCoercions.get(NodeRef.of(relation)))
+                .map(types -> types.stream().toArray(Type[]::new))
+                .orElse(null);
+    }
+
+    public void addRelationCoercion(Relation relation, Type[] types)
+    {
+        relationCoercions.put(NodeRef.of(relation), ImmutableList.copyOf(types));
+    }
+
+    public Map<NodeRef<Expression>, Type> getCoercions()
+    {
+        return unmodifiableMap(coercions);
+    }
+
+    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
+    {
+        return unmodifiableSet(typeOnlyCoercions);
     }
 
     public Type getCoercion(Expression expression)
     {
-        return coercions.get(expression);
+        return coercions.get(NodeRef.of(expression));
     }
 
-    public void setGroupByExpressions(QuerySpecification node, List<FieldOrExpression> expressions)
+    public void addLambdaArgumentReferences(Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences)
     {
-        groupByExpressions.put(node, expressions);
+        this.lambdaArgumentReferences.putAll(lambdaArgumentReferences);
     }
 
-    public List<FieldOrExpression> getGroupByExpressions(QuerySpecification node)
+    public LambdaArgumentDeclaration getLambdaArgumentReference(Identifier identifier)
     {
-        return groupByExpressions.get(node);
+        return lambdaArgumentReferences.get(NodeRef.of(identifier));
     }
 
-    public void setWhere(QuerySpecification node, Expression expression)
+    public Map<NodeRef<Identifier>, LambdaArgumentDeclaration> getLambdaArgumentReferences()
     {
-        where.put(node, expression);
+        return unmodifiableMap(lambdaArgumentReferences);
+    }
+
+    public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
+    {
+        groupByExpressions.put(NodeRef.of(node), listOfListsCopy(expressions));
+    }
+
+    public boolean isTypeOnlyCoercion(Expression expression)
+    {
+        return typeOnlyCoercions.contains(NodeRef.of(expression));
+    }
+
+    public List<List<Expression>> getGroupingSets(QuerySpecification node)
+    {
+        return groupByExpressions.get(NodeRef.of(node));
+    }
+
+    public void setWhere(Node node, Expression expression)
+    {
+        where.put(NodeRef.of(node), expression);
     }
 
     public Expression getWhere(QuerySpecification node)
     {
-        return where.get(node);
+        return where.get(NodeRef.<Node>of(node));
     }
 
-    public void setOrderByExpressions(Node node, List<FieldOrExpression> items)
+    public void setOrderByExpressions(Node node, List<Expression> items)
     {
-        orderByExpressions.put(node, items);
+        orderByExpressions.put(NodeRef.of(node), ImmutableList.copyOf(items));
     }
 
-    public List<FieldOrExpression> getOrderByExpressions(Node node)
+    public List<Expression> getOrderByExpressions(Node node)
     {
-        return orderByExpressions.get(node);
+        return orderByExpressions.get(NodeRef.of(node));
     }
 
-    public void setOutputExpressions(Node node, List<FieldOrExpression> expressions)
+    public void setOutputExpressions(Node node, List<Expression> expressions)
     {
-        outputExpressions.put(node, expressions);
+        outputExpressions.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
     }
 
-    public List<FieldOrExpression> getOutputExpressions(Node node)
+    public List<Expression> getOutputExpressions(Node node)
     {
-        return outputExpressions.get(node);
+        return outputExpressions.get(NodeRef.of(node));
     }
 
     public void setHaving(QuerySpecification node, Expression expression)
     {
-        having.put(node, expression);
+        having.put(NodeRef.of(node), expression);
     }
 
-    public void setEquijoinCriteria(Join node, List<EquiJoinClause> clauses)
+    public void setJoinCriteria(Join node, Expression criteria)
     {
-        joins.put(node, clauses);
+        joins.put(NodeRef.of(node), criteria);
     }
 
-    public List<EquiJoinClause> getJoinCriteria(Join join)
+    public Expression getJoinCriteria(Join join)
     {
-        return joins.get(join);
+        return joins.get(NodeRef.of(join));
     }
 
-    public void addInPredicates(Query node, Set<InPredicate> inPredicates)
+    public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        this.inPredicates.putAll(node, inPredicates);
+        NodeRef<Node> key = NodeRef.of(node);
+        this.inPredicatesSubqueries.putAll(key, dereference(expressionAnalysis.getSubqueryInPredicates()));
+        this.scalarSubqueries.putAll(key, dereference(expressionAnalysis.getScalarSubqueries()));
+        this.existsSubqueries.putAll(key, dereference(expressionAnalysis.getExistsSubqueries()));
+        this.quantifiedComparisonSubqueries.putAll(key, dereference(expressionAnalysis.getQuantifiedComparisons()));
     }
 
-    public void addInPredicates(QuerySpecification node, Set<InPredicate> inPredicates)
+    private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
     {
-        this.inPredicates.putAll(node, inPredicates);
+        return nodeRefs.stream()
+                .map(NodeRef::getNode)
+                .collect(toImmutableList());
     }
 
-    public Set<InPredicate> getInPredicates(Query node)
+    public List<InPredicate> getInPredicateSubqueries(Node node)
     {
-        return inPredicates.get(node);
+        return ImmutableList.copyOf(inPredicatesSubqueries.get(NodeRef.of(node)));
     }
 
-    public Set<InPredicate> getInPredicates(QuerySpecification node)
+    public List<SubqueryExpression> getScalarSubqueries(Node node)
     {
-        return inPredicates.get(node);
+        return ImmutableList.copyOf(scalarSubqueries.get(NodeRef.of(node)));
     }
 
-    public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)
+    public List<ExistsPredicate> getExistsSubqueries(Node node)
     {
-        this.joinInPredicates.put(node, joinInPredicates);
+        return ImmutableList.copyOf(existsSubqueries.get(NodeRef.of(node)));
     }
 
-    public JoinInPredicates getJoinInPredicates(Join node)
+    public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
     {
-        return joinInPredicates.get(node);
+        return unmodifiableList(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
     {
-        windowFunctions.put(node, functions);
-    }
-
-    public Map<QuerySpecification, List<FunctionCall>> getWindowFunctions()
-    {
-        return windowFunctions;
+        windowFunctions.put(NodeRef.of(node), ImmutableList.copyOf(functions));
     }
 
     public List<FunctionCall> getWindowFunctions(QuerySpecification query)
     {
-        return windowFunctions.get(query);
+        return windowFunctions.get(NodeRef.of(query));
     }
 
-    public void setOutputDescriptor(TupleDescriptor descriptor)
+    public void setOrderByWindowFunctions(OrderBy node, List<FunctionCall> functions)
     {
-        outputDescriptor = descriptor;
+        orderByWindowFunctions.put(NodeRef.of(node), ImmutableList.copyOf(functions));
     }
 
-    public TupleDescriptor getOutputDescriptor()
+    public List<FunctionCall> getOrderByWindowFunctions(OrderBy query)
     {
-        return outputDescriptor;
+        return orderByWindowFunctions.get(NodeRef.of(query));
     }
 
-    public void setOutputDescriptor(Node node, TupleDescriptor descriptor)
+    public void addColumnReferences(Map<NodeRef<Expression>, FieldId> columnReferences)
     {
-        outputDescriptors.put(node, descriptor);
+        this.columnReferences.putAll(columnReferences);
     }
 
-    public TupleDescriptor getOutputDescriptor(Node node)
+    public Scope getScope(Node node)
     {
-        Preconditions.checkState(outputDescriptors.containsKey(node), "Output descriptor missing for %s. Broken analysis?", node);
-        return outputDescriptors.get(node);
+        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException(String.format("Analysis does not contain information for node: %s", node)));
+    }
+
+    public Optional<Scope> tryGetScope(Node node)
+    {
+        NodeRef<Node> key = NodeRef.of(node);
+        if (scopes.containsKey(key)) {
+            return Optional.of(scopes.get(key));
+        }
+
+        return Optional.empty();
+    }
+
+    public Scope getRootScope()
+    {
+        return getScope(root);
+    }
+
+    public void setScope(Node node, Scope scope)
+    {
+        scopes.put(NodeRef.of(node), scope);
+    }
+
+    public RelationType getOutputDescriptor()
+    {
+        return getOutputDescriptor(root);
+    }
+
+    public RelationType getOutputDescriptor(Node node)
+    {
+        return getScope(node).getRelationType();
     }
 
     public TableHandle getTableHandle(Table table)
     {
-        return tables.get(table);
+        return tables.get(NodeRef.of(table));
+    }
+
+    public Collection<TableHandle> getTables()
+    {
+        return unmodifiableCollection(tables.values());
     }
 
     public void registerTable(Table table, TableHandle handle)
     {
-        tables.put(table, handle);
+        tables.put(NodeRef.of(table), handle);
     }
 
-    public FunctionInfo getFunctionInfo(FunctionCall function)
+    public Signature getFunctionSignature(FunctionCall function)
     {
-        return functionInfo.get(function);
+        return functionSignature.get(NodeRef.of(function));
     }
 
-    public void addFunctionInfos(IdentityHashMap<FunctionCall, FunctionInfo> infos)
+    public void addFunctionSignatures(Map<NodeRef<FunctionCall>, Signature> infos)
     {
-        functionInfo.putAll(infos);
+        functionSignature.putAll(infos);
     }
 
-    public void addTypes(IdentityHashMap<Expression, Type> types)
+    public Set<NodeRef<Expression>> getColumnReferences()
+    {
+        return unmodifiableSet(columnReferences.keySet());
+    }
+
+    public Map<NodeRef<Expression>, FieldId> getColumnReferenceFields()
+    {
+        return unmodifiableMap(columnReferences);
+    }
+
+    public boolean isColumnReference(Expression expression)
+    {
+        requireNonNull(expression, "expression is null");
+        checkArgument(getType(expression) != null, "expression %s has not been analyzed", expression);
+        return columnReferences.containsKey(NodeRef.of(expression));
+    }
+
+    public void addTypes(Map<NodeRef<Expression>, Type> types)
     {
         this.types.putAll(types);
     }
 
-    public void addRowFieldAccessors(IdentityHashMap<Expression, Boolean> rowFieldAccesors)
+    public void addCoercion(Expression expression, Type type, boolean isTypeOnlyCoercion)
     {
-        this.rowFieldAccesors.putAll(rowFieldAccesors);
+        this.coercions.put(NodeRef.of(expression), type);
+        if (isTypeOnlyCoercion) {
+            this.typeOnlyCoercions.add(NodeRef.of(expression));
+        }
     }
 
-    public void addCoercion(Expression expression, Type type)
-    {
-        this.coercions.put(expression, type);
-    }
-
-    public void addCoercions(IdentityHashMap<Expression, Type> coercions)
+    public void addCoercions(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
     {
         this.coercions.putAll(coercions);
+        this.typeOnlyCoercions.addAll(typeOnlyCoercions);
     }
 
     public Expression getHaving(QuerySpecification query)
     {
-        return having.get(query);
+        return having.get(NodeRef.of(query));
     }
 
     public void setColumn(Field field, ColumnHandle handle)
@@ -309,89 +493,204 @@ public class Analysis
         return columns.get(field);
     }
 
-    public void setCreateTableDestination(QualifiedTableName destination)
+    public void setCreateTableDestination(QualifiedObjectName destination)
     {
         this.createTableDestination = Optional.of(destination);
     }
 
-    public Optional<QualifiedTableName> getCreateTableDestination()
+    public Optional<QualifiedObjectName> getCreateTableDestination()
     {
         return createTableDestination;
     }
 
-    public void setInsertTarget(TableHandle target)
+    public void setCreateTableProperties(Map<String, Expression> createTableProperties)
     {
-        this.insertTarget = Optional.of(target);
+        this.createTableProperties = ImmutableMap.copyOf(createTableProperties);
     }
 
-    public Optional<TableHandle> getInsertTarget()
+    public Map<String, Expression> getCreateTableProperties()
     {
-        return insertTarget;
+        return createTableProperties;
+    }
+
+    public Optional<List<Identifier>> getColumnAliases()
+    {
+        return createTableColumnAliases;
+    }
+
+    public void setCreateTableColumnAliases(List<Identifier> createTableColumnAliases)
+    {
+        this.createTableColumnAliases = Optional.of(createTableColumnAliases);
+    }
+
+    public void setCreateTableComment(Optional<String> createTableComment)
+    {
+        this.createTableComment = requireNonNull(createTableComment);
+    }
+
+    public Optional<String> getCreateTableComment()
+    {
+        return createTableComment;
+    }
+
+    public void setInsert(Insert insert)
+    {
+        this.insert = Optional.of(insert);
+    }
+
+    public Optional<Insert> getInsert()
+    {
+        return insert;
     }
 
     public Query getNamedQuery(Table table)
     {
-        return namedQueries.get(table);
+        return namedQueries.get(NodeRef.of(table));
     }
 
     public void registerNamedQuery(Table tableReference, Query query)
     {
-        checkNotNull(tableReference, "tableReference is null");
-        checkNotNull(query, "query is null");
+        requireNonNull(tableReference, "tableReference is null");
+        requireNonNull(query, "query is null");
 
-        namedQueries.put(tableReference, query);
+        namedQueries.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerTableForView(Table tableReference)
+    {
+        tablesForView.push(requireNonNull(tableReference, "table is null"));
+    }
+
+    public void unregisterTableForView()
+    {
+        tablesForView.pop();
+    }
+
+    public boolean hasTableInView(Table tableReference)
+    {
+        return tablesForView.contains(tableReference);
     }
 
     public void setSampleRatio(SampledRelation relation, double ratio)
     {
-        sampleRatios.put(relation, ratio);
+        sampleRatios.put(NodeRef.of(relation), ratio);
     }
 
     public double getSampleRatio(SampledRelation relation)
     {
-        Preconditions.checkState(sampleRatios.containsKey(relation), "Sample ratio missing for %s. Broken analysis?", relation);
-        return sampleRatios.get(relation);
+        NodeRef<SampledRelation> key = NodeRef.of(relation);
+        checkState(sampleRatios.containsKey(key), "Sample ratio missing for %s. Broken analysis?", relation);
+        return sampleRatios.get(key);
     }
 
-    public static class JoinInPredicates
+    public void setGroupingOperations(QuerySpecification querySpecification, List<GroupingOperation> groupingOperations)
     {
-        private final Set<InPredicate> leftInPredicates;
-        private final Set<InPredicate> rightInPredicates;
+        this.groupingOperations.put(NodeRef.of(querySpecification), ImmutableList.copyOf(groupingOperations));
+    }
 
-        public JoinInPredicates(Set<InPredicate> leftInPredicates, Set<InPredicate> rightInPredicates)
+    public List<GroupingOperation> getGroupingOperations(QuerySpecification querySpecification)
+    {
+        return Optional.ofNullable(groupingOperations.get(NodeRef.of(querySpecification)))
+                .orElse(emptyList());
+    }
+
+    public List<Expression> getParameters()
+    {
+        return parameters;
+    }
+
+    public boolean isDescribe()
+    {
+        return isDescribe;
+    }
+
+    public void setJoinUsing(Join node, JoinUsingAnalysis analysis)
+    {
+        joinUsing.put(NodeRef.of(node), analysis);
+    }
+
+    public JoinUsingAnalysis getJoinUsing(Join node)
+    {
+        return joinUsing.get(NodeRef.of(node));
+    }
+
+    public void addTableColumnReferences(Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    {
+        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.putIfAbsent(identity, new LinkedHashMap<>());
+        tableColumnMap.asMap()
+                .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
+    }
+
+    public void addEmptyColumnReferencesForTable(Identity identity, QualifiedObjectName table)
+    {
+        tableColumnReferences.putIfAbsent(identity, new LinkedHashMap<>());
+        tableColumnReferences.get(identity).putIfAbsent(table, new HashSet<>());
+    }
+
+    public Map<QualifiedObjectName, Set<String>> getTableColumnReferences(Identity identity)
+    {
+        return tableColumnReferences.getOrDefault(identity, ImmutableMap.of());
+    }
+
+    @Immutable
+    public static final class Insert
+    {
+        private final TableHandle target;
+        private final List<ColumnHandle> columns;
+
+        public Insert(TableHandle target, List<ColumnHandle> columns)
         {
-            this.leftInPredicates = ImmutableSet.copyOf(checkNotNull(leftInPredicates, "leftInPredicates is null"));
-            this.rightInPredicates = ImmutableSet.copyOf(checkNotNull(rightInPredicates, "rightInPredicates is null"));
+            this.target = requireNonNull(target, "target is null");
+            this.columns = requireNonNull(columns, "columns is null");
+            checkArgument(columns.size() > 0, "No columns given to insert");
         }
 
-        public Set<InPredicate> getLeftInPredicates()
+        public List<ColumnHandle> getColumns()
         {
-            return leftInPredicates;
+            return columns;
         }
 
-        public Set<InPredicate> getRightInPredicates()
+        public TableHandle getTarget()
         {
-            return rightInPredicates;
+            return target;
+        }
+    }
+
+    public static final class JoinUsingAnalysis
+    {
+        private final List<Integer> leftJoinFields;
+        private final List<Integer> rightJoinFields;
+        private final List<Integer> otherLeftFields;
+        private final List<Integer> otherRightFields;
+
+        JoinUsingAnalysis(List<Integer> leftJoinFields, List<Integer> rightJoinFields, List<Integer> otherLeftFields, List<Integer> otherRightFields)
+        {
+            this.leftJoinFields = ImmutableList.copyOf(leftJoinFields);
+            this.rightJoinFields = ImmutableList.copyOf(rightJoinFields);
+            this.otherLeftFields = ImmutableList.copyOf(otherLeftFields);
+            this.otherRightFields = ImmutableList.copyOf(otherRightFields);
+
+            checkArgument(leftJoinFields.size() == rightJoinFields.size(), "Expected join fields for left and right to have the same size");
         }
 
-        @Override
-        public int hashCode()
+        public List<Integer> getLeftJoinFields()
         {
-            return Objects.hashCode(leftInPredicates, rightInPredicates);
+            return leftJoinFields;
         }
 
-        @Override
-        public boolean equals(Object obj)
+        public List<Integer> getRightJoinFields()
         {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final JoinInPredicates other = (JoinInPredicates) obj;
-            return Objects.equal(this.leftInPredicates, other.leftInPredicates) &&
-                    Objects.equal(this.rightInPredicates, other.rightInPredicates);
+            return rightJoinFields;
+        }
+
+        public List<Integer> getOtherLeftFields()
+        {
+            return otherLeftFields;
+        }
+
+        public List<Integer> getOtherRightFields()
+        {
+            return otherRightFields;
         }
     }
 }

@@ -14,46 +14,48 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-@Test
+@Test(singleThreaded = true)
 public class TestJdbcMetadata
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     private TestingDatabase database;
     private JdbcMetadata metadata;
     private JdbcTableHandle tableHandle;
 
-    @BeforeClass
+    @BeforeMethod
     public void setUp()
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new JdbcMetadata(new JdbcConnectorId(CONNECTOR_ID), database.getJdbcClient());
+        metadata = new JdbcMetadata(database.getJdbcClient(), false);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
-    @AfterClass
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -80,9 +82,10 @@ public class TestJdbcMetadata
     public void testGetColumnHandles()
     {
         // known table
-        assertEquals(metadata.getColumnHandles(tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR, 0),
-                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT, 1)));
+        assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
+                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR),
+                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
@@ -92,7 +95,7 @@ public class TestJdbcMetadata
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
     {
         try {
-            metadata.getColumnHandles(tableHandle);
+            metadata.getColumnHandles(SESSION, tableHandle);
             fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
         }
         catch (TableNotFoundException ignored) {
@@ -103,11 +106,20 @@ public class TestJdbcMetadata
     public void getTableMetadata()
     {
         // known table
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, 0, false),
-                new ColumnMetadata("value", BIGINT, 1, false)));
+                new ColumnMetadata("text", VARCHAR),
+                new ColumnMetadata("text_short", createVarcharType(32)),
+                new ColumnMetadata("value", BIGINT)));
+
+        // escaping name patterns
+        JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("exa_ple", "num_ers"));
+        ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
+        assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
+        assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
+                new ColumnMetadata("te_t", VARCHAR),
+                new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
@@ -118,7 +130,7 @@ public class TestJdbcMetadata
     private void unknownTableMetadata(JdbcTableHandle tableHandle)
     {
         try {
-            metadata.getTableMetadata(tableHandle);
+            metadata.getTableMetadata(SESSION, tableHandle);
             fail("Expected getTableMetadata of unknown table to throw a TableNotFoundException");
         }
         catch (TableNotFoundException ignored) {
@@ -131,15 +143,24 @@ public class TestJdbcMetadata
         // all schemas
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, null)), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "view_source"),
+                new SchemaTableName("example", "view"),
                 new SchemaTableName("tpch", "orders"),
-                new SchemaTableName("tpch", "lineitem")));
+                new SchemaTableName("tpch", "lineitem"),
+                new SchemaTableName("exa_ple", "table_with_float_col"),
+                new SchemaTableName("exa_ple", "num_ers")));
 
         // specific schema
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "example")), ImmutableSet.of(
-                new SchemaTableName("example", "numbers")));
+                new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "view_source"),
+                new SchemaTableName("example", "view")));
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "tpch")), ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "exa_ple")), ImmutableSet.of(
+                new SchemaTableName("exa_ple", "num_ers"),
+                new SchemaTableName("exa_ple", "table_with_float_col")));
 
         // unknown schema
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "unknown")), ImmutableSet.of());
@@ -149,21 +170,39 @@ public class TestJdbcMetadata
     public void getColumnMetadata()
     {
         assertEquals(
-                metadata.getColumnMetadata(tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
-                new ColumnMetadata("text", VARCHAR, 0, false));
+                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR)),
+                new ColumnMetadata("text", VARCHAR));
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testCreateTable()
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR))),
+                false);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testDropTableTable()
     {
-        metadata.dropTable(tableHandle);
+        try {
+            metadata.dropTable(SESSION, tableHandle);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
+        }
+
+        metadata = new JdbcMetadata(database.getJdbcClient(), true);
+        metadata.dropTable(SESSION, tableHandle);
+
+        try {
+            metadata.getTableMetadata(SESSION, tableHandle);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
+        }
     }
 }

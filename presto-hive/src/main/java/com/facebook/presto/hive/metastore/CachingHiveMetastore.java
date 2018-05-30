@@ -13,42 +13,20 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.ForHiveMetastore;
+import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveCluster;
-import com.facebook.presto.hive.HiveMetastoreClient;
-import com.facebook.presto.hive.HiveViewNotSupportedException;
-import com.facebook.presto.hive.TableAlreadyExistsException;
-import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
-import com.facebook.presto.hive.util.BackgroundCacheLoader;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
-import org.apache.hadoop.hive.common.FileUtils;
-import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.Warehouse;
-import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
-import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.metastore.api.UnknownDBException;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -58,177 +36,157 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Callable;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
-import static com.facebook.presto.hive.HiveUtil.isPrestoView;
-import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.cache.CacheLoader.asyncReloading;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Streams.stream;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 
 /**
  * Hive Metastore Cache
  */
 @ThreadSafe
 public class CachingHiveMetastore
-        implements HiveMetastore
+        implements ExtendedHiveMetastore
 {
-    private final CachingHiveMetastoreStats stats = new CachingHiveMetastoreStats();
-    protected final HiveCluster clientProvider;
+    protected final ExtendedHiveMetastore delegate;
+    private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
-    private final LoadingCache<String, Database> databaseCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
-    private final LoadingCache<String, List<String>> viewNamesCache;
-    private final LoadingCache<HiveTableName, List<String>> partitionNamesCache;
-    private final LoadingCache<HiveTableName, Table> tableCache;
-    private final LoadingCache<HivePartitionName, Partition> partitionCache;
-    private final LoadingCache<PartitionFilter, List<String>> partitionFilterCache;
+    private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
+    private final LoadingCache<String, Optional<List<String>>> tableNamesCache;
+    private final LoadingCache<HiveTableName, Map<String, HiveColumnStatistics>> tableColumnStatisticsCache;
+    private final LoadingCache<HivePartitionName, Map<String, HiveColumnStatistics>> partitionColumnStatisticsCache;
+    private final LoadingCache<String, Optional<List<String>>> viewNamesCache;
+    private final LoadingCache<HivePartitionName, Optional<Partition>> partitionCache;
+    private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
+    private final LoadingCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
+    private final LoadingCache<String, Set<String>> userRolesCache;
+    private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> userTablePrivileges;
 
     @Inject
-    public CachingHiveMetastore(HiveCluster hiveCluster, @ForHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
+    public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
     {
-        this(checkNotNull(hiveCluster, "hiveCluster is null"),
-                checkNotNull(executor, "executor is null"),
-                checkNotNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
-                hiveClientConfig.getMetastoreRefreshInterval());
+        this(
+                delegate,
+                executor,
+                hiveClientConfig.getMetastoreCacheTtl(),
+                hiveClientConfig.getMetastoreRefreshInterval(),
+                hiveClientConfig.getMetastoreCacheMaximumSize());
     }
 
-    public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
+    public CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)
     {
-        this.clientProvider = checkNotNull(hiveCluster, "hiveCluster is null");
+        this(
+                delegate,
+                executor,
+                OptionalLong.of(cacheTtl.toMillis()),
+                refreshInterval.toMillis() >= cacheTtl.toMillis() ? OptionalLong.empty() : OptionalLong.of(refreshInterval.toMillis()),
+                maximumSize);
+    }
 
-        long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
-        long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
+    public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, long maximumSize)
+    {
+        return new CachingHiveMetastore(
+                delegate,
+                newDirectExecutorService(),
+                OptionalLong.empty(),
+                OptionalLong.empty(),
+                maximumSize);
+    }
 
-        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
+    private CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, long maximumSize)
+    {
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        requireNonNull(executor, "executor is null");
 
-        databaseNamesCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+        databaseNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadAllDatabases), executor));
+
+        databaseCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadDatabase), executor));
+
+        tableNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadAllTables), executor));
+
+        tableColumnStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(new CacheLoader<HiveTableName, Map<String, HiveColumnStatistics>>()
                 {
                     @Override
-                    public List<String> load(String key)
-                            throws Exception
+                    public Map<String, HiveColumnStatistics> load(HiveTableName key)
                     {
-                        return loadAllDatabases();
+                        return loadTableColumnStatistics(key);
                     }
-                });
+                }, executor));
 
-        databaseCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, Database>(listeningExecutor)
+        partitionColumnStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(new CacheLoader<HivePartitionName, Map<String, HiveColumnStatistics>>()
                 {
                     @Override
-                    public Database load(String databaseName)
-                            throws Exception
+                    public Map<String, HiveColumnStatistics> load(HivePartitionName key)
                     {
-                        return loadDatabase(databaseName);
+                        return loadPartitionColumnStatistics(key);
                     }
-                });
 
-        tableNamesCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
-                {
                     @Override
-                    public List<String> load(String databaseName)
-                            throws Exception
+                    public Map<HivePartitionName, Map<String, HiveColumnStatistics>> loadAll(Iterable<? extends HivePartitionName> keys)
                     {
-                        return loadAllTables(databaseName);
+                        return loadPartitionColumnStatistics(keys);
                     }
-                });
+                }, executor));
 
-        tableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HiveTableName, Table>(listeningExecutor)
+        tableCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
+
+        viewNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadAllViews), executor));
+
+        partitionNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadPartitionNames), executor));
+
+        partitionFilterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByParts), executor));
+
+        partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(new CacheLoader<HivePartitionName, Optional<Partition>>()
                 {
                     @Override
-                    public Table load(HiveTableName hiveTableName)
-                            throws Exception
-                    {
-                        return loadTable(hiveTableName);
-                    }
-                });
-
-        viewNamesCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
-                {
-                    @Override
-                    public List<String> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadAllViews(databaseName);
-                    }
-                });
-
-        partitionNamesCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HiveTableName, List<String>>(listeningExecutor)
-                {
-                    @Override
-                    public List<String> load(HiveTableName hiveTableName)
-                            throws Exception
-                    {
-                        return loadPartitionNames(hiveTableName);
-                    }
-                });
-
-        partitionFilterCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<PartitionFilter, List<String>>(listeningExecutor)
-                {
-                    @Override
-                    public List<String> load(PartitionFilter partitionFilter)
-                            throws Exception
-                    {
-                        return loadPartitionNamesByParts(partitionFilter);
-                    }
-                });
-
-        partitionCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HivePartitionName, Partition>(listeningExecutor)
-                {
-                    @Override
-                    public Partition load(HivePartitionName partitionName)
-                            throws Exception
+                    public Optional<Partition> load(HivePartitionName partitionName)
                     {
                         return loadPartitionByName(partitionName);
                     }
 
                     @Override
-                    public Map<HivePartitionName, Partition> loadAll(Iterable<? extends HivePartitionName> partitionNames)
-                            throws Exception
+                    public Map<HivePartitionName, Optional<Partition>> loadAll(Iterable<? extends HivePartitionName> partitionNames)
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
-                });
+                }, executor));
+
+        userRolesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadRoles), executor));
+
+        userTablePrivileges = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable())), executor));
     }
 
-    @Managed
-    @Flatten
-    public CachingHiveMetastoreStats getStats()
-    {
-        return stats;
-    }
-
-    @Override
     @Managed
     public void flushCache()
     {
@@ -240,493 +198,479 @@ public class CachingHiveMetastore
         tableCache.invalidateAll();
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
+        userTablePrivileges.invalidateAll();
     }
 
-    private static <K, V, E extends Exception> V get(LoadingCache<K, V> cache, K key, Class<E> exceptionClass)
-            throws E
+    private static <K, V> V get(LoadingCache<K, V> cache, K key)
     {
         try {
-            return cache.get(key);
+            return cache.getUnchecked(key);
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            Throwable t = e.getCause();
-            Throwables.propagateIfInstanceOf(t, exceptionClass);
-            throw Throwables.propagate(t);
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
         }
     }
 
-    private static <K, V, E extends Exception> Map<K, V> getAll(LoadingCache<K, V> cache, Iterable<K> keys, Class<E> exceptionClass)
-            throws E
+    private static <K, V> Map<K, V> getAll(LoadingCache<K, V> cache, Iterable<K> keys)
     {
         try {
             return cache.getAll(keys);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            Throwable t = e.getCause();
-            Throwables.propagateIfInstanceOf(t, exceptionClass);
-            throw Throwables.propagate(t);
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfUnchecked(e);
+            throw new UncheckedExecutionException(e);
         }
+    }
+
+    @Override
+    public Optional<Database> getDatabase(String databaseName)
+    {
+        return get(databaseCache, databaseName);
+    }
+
+    private Optional<Database> loadDatabase(String databaseName)
+    {
+        return delegate.getDatabase(databaseName);
     }
 
     @Override
     public List<String> getAllDatabases()
     {
-        return get(databaseNamesCache, "", RuntimeException.class);
+        return get(databaseNamesCache, "");
     }
 
     private List<String> loadAllDatabases()
-            throws Exception
     {
-        try {
-            return retry().stopOnIllegalExceptions().run("getAllDatabases", stats.getGetAllDatabases().wrap(new Callable<List<String>>()
-            {
-                @Override
-                public List<String> call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        return client.get_all_databases();
-                    }
-                }
-            }));
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
+        return delegate.getAllDatabases();
     }
 
     @Override
-    public Database getDatabase(String databaseName)
-            throws NoSuchObjectException
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return get(databaseCache, databaseName, NoSuchObjectException.class);
+        return get(tableCache, HiveTableName.table(databaseName, tableName));
     }
 
-    private Database loadDatabase(final String databaseName)
-            throws Exception
+    private Optional<Table> loadTable(HiveTableName hiveTableName)
     {
-        try {
-            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getDatabase", stats.getGetDatabase().wrap(new Callable<Database>()
-            {
-                @Override
-                public Database call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        return client.get_database(databaseName);
-                    }
-                }
-            }));
-        }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
+        return delegate.getTable(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
-            throws NoSuchObjectException
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
-        return get(tableNamesCache, databaseName, NoSuchObjectException.class);
+        return get(tableColumnStatisticsCache, new HiveTableName(databaseName, tableName));
     }
 
-    private List<String> loadAllTables(final String databaseName)
-            throws Exception
+    private Map<String, HiveColumnStatistics> loadTableColumnStatistics(HiveTableName hiveTableName)
     {
-        final Callable<List<String>> getAllTables = stats.getGetAllTables().wrap(new Callable<List<String>>()
-        {
-            @Override
-            public List<String> call()
-                    throws Exception
-            {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_all_tables(databaseName);
+        return delegate.getTableColumnStatistics(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
+    }
+
+    @Override
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    {
+        List<HivePartitionName> partitions = partitionNames.stream()
+                .map(partitionName -> HivePartitionName.partition(databaseName, tableName, partitionName))
+                .collect(toImmutableList());
+        Map<HivePartitionName, Map<String, HiveColumnStatistics>> statistics = getAll(partitionColumnStatisticsCache, partitions);
+        return statistics.entrySet()
+                .stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName(), Entry::getValue));
+    }
+
+    private Map<String, HiveColumnStatistics> loadPartitionColumnStatistics(HivePartitionName partition)
+    {
+        Map<String, Map<String, HiveColumnStatistics>> columnStatistics = delegate.getPartitionColumnStatistics(
+                partition.getHiveTableName().getDatabaseName(),
+                partition.getHiveTableName().getTableName(),
+                ImmutableSet.of(partition.getPartitionName()));
+        return columnStatistics.getOrDefault(partition.getPartitionName(), ImmutableMap.of());
+    }
+
+    private Map<HivePartitionName, Map<String, HiveColumnStatistics>> loadPartitionColumnStatistics(Iterable<? extends HivePartitionName> keys)
+    {
+        SetMultimap<HiveTableName, HivePartitionName> tablePartitions = stream(keys)
+                .collect(toImmutableSetMultimap(HivePartitionName::getHiveTableName, key -> key));
+        ImmutableMap.Builder<HivePartitionName, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
+        tablePartitions.keySet().forEach(table -> {
+            Set<String> partitionNames = tablePartitions.get(table).stream()
+                    .map(HivePartitionName::getPartitionName)
+                    .collect(toImmutableSet());
+            Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = delegate.getPartitionColumnStatistics(table.getDatabaseName(), table.getTableName(), partitionNames);
+            for (String partitionName : partitionNames) {
+                if (partitionStatistics.containsKey(partitionName)) {
+                    result.put(HivePartitionName.partition(table, partitionName), partitionStatistics.get(partitionName));
+                }
+                else {
+                    result.put(HivePartitionName.partition(table, partitionName), ImmutableMap.of());
                 }
             }
         });
+        return result.build();
+    }
 
-        final Callable<Void> getDatabase = stats.getGetDatabase().wrap(new Callable<Void>()
-        {
-            @Override
-            public Void call()
-                    throws Exception
-            {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.get_database(databaseName);
-                    return null;
-                }
-            }
-        });
+    @Override
+    public Optional<List<String>> getAllTables(String databaseName)
+    {
+        return get(tableNamesCache, databaseName);
+    }
 
+    private Optional<List<String>> loadAllTables(String databaseName)
+    {
+        return delegate.getAllTables(databaseName);
+    }
+
+    @Override
+    public Optional<List<String>> getAllViews(String databaseName)
+    {
+        return get(viewNamesCache, databaseName);
+    }
+
+    private Optional<List<String>> loadAllViews(String databaseName)
+    {
+        return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public void createDatabase(Database database)
+    {
         try {
-            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getAllTables", new Callable<List<String>>()
-            {
-                @Override
-                public List<String> call()
-                        throws Exception
-                {
-                    List<String> tables = getAllTables.call();
-                    if (tables.isEmpty()) {
-                        // Check to see if the database exists
-                        getDatabase.call();
-                    }
-                    return tables;
-                }
-            });
+            delegate.createDatabase(database);
         }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        finally {
+            invalidateDatabase(database.getDatabaseName());
         }
     }
 
     @Override
-    public Table getTable(String databaseName, String tableName)
-            throws NoSuchObjectException
-    {
-        return get(tableCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
-    }
-
-    @Override
-    public List<String> getAllViews(String databaseName)
-            throws NoSuchObjectException
-    {
-        return get(viewNamesCache, databaseName, NoSuchObjectException.class);
-    }
-
-    private List<String> loadAllViews(final String databaseName)
-            throws Exception
+    public void dropDatabase(String databaseName)
     {
         try {
-            return retry().stopOn(UnknownDBException.class).stopOnIllegalExceptions().run("getAllViews", stats.getAllViews().wrap(new Callable<List<String>>()
-            {
-                @Override
-                public List<String> call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
-                        return client.get_table_names_by_filter(databaseName, filter, (short) -1);
-                    }
-                }
-            }));
+            delegate.dropDatabase(databaseName);
         }
-        catch (UnknownDBException e) {
-            throw new NoSuchObjectException(e.getMessage());
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        finally {
+            invalidateDatabase(databaseName);
         }
     }
 
     @Override
-    public void createTable(final Table table)
+    public void renameDatabase(String databaseName, String newDatabaseName)
     {
         try {
-            retry()
-                    .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
-                    .stopOnIllegalExceptions()
-                    .run("createTable", stats.getCreateTable().wrap(new Callable<Void>()
-                    {
-                        @Override
-                        public Void call()
-                                throws Exception
-                        {
-                            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                                client.create_table(table);
-                            }
-                            tableNamesCache.invalidate(table.getDbName());
-                            viewNamesCache.invalidate(table.getDbName());
-                            return null;
-                        }
-                    }));
+            delegate.renameDatabase(databaseName, newDatabaseName);
         }
-        catch (AlreadyExistsException e) {
-            throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
+        finally {
+            invalidateDatabase(databaseName);
+            invalidateDatabase(newDatabaseName);
         }
-        catch (InvalidObjectException | NoSuchObjectException | MetaException e) {
-            throw Throwables.propagate(e);
+    }
+
+    protected void invalidateDatabase(String databaseName)
+    {
+        databaseCache.invalidate(databaseName);
+        databaseNamesCache.invalidateAll();
+    }
+
+    @Override
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
+    {
+        try {
+            delegate.createTable(table, principalPrivileges);
         }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
+        finally {
+            invalidateTable(table.getDatabaseName(), table.getTableName());
         }
     }
 
     @Override
-    public void dropTable(final String databaseName, final String tableName)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         try {
-            retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("dropTable", stats.getDropTable().wrap(new Callable<Void>()
-            {
-                @Override
-                public Void call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        client.drop_table(databaseName, tableName, true);
-                    }
-                    tableCache.invalidate(new HiveTableName(databaseName, tableName));
-                    tableNamesCache.invalidate(databaseName);
-                    viewNamesCache.invalidate(databaseName);
-                    return null;
-                }
-            }));
+            delegate.dropTable(databaseName, tableName, deleteData);
         }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
+        finally {
+            invalidateTable(databaseName, tableName);
         }
     }
 
     @Override
-    public void renameTable(final String databaseName, final String tableName, final String newDatabaseName, final String newTableName)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         try {
-            retry()
-                    .stopOn(InvalidOperationException.class, MetaException.class)
-                    .stopOnIllegalExceptions()
-                    .run("renameTable", stats.getRenameTable().wrap(new Callable<Void>()
-                    {
-                        @Override
-                        public Void call()
-                                throws Exception
-                        {
-                            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                                Table table = new Table(loadTable(new HiveTableName(databaseName, tableName)));
-                                table.setDbName(newDatabaseName);
-                                table.setTableName(newTableName);
-                                client.alter_table(databaseName, tableName, table);
-                            }
-                            tableCache.invalidate(new HiveTableName(databaseName, tableName));
-                            tableNamesCache.invalidate(databaseName);
-                            viewNamesCache.invalidate(databaseName);
-                            return null;
-                        }
-                    }));
+            delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
         }
-        catch (InvalidOperationException | MetaException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private Table loadTable(final HiveTableName hiveTableName)
-            throws Exception
-    {
-        try {
-            return retry().stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class).stopOnIllegalExceptions().run("getTable", stats.getGetTable().wrap(new Callable<Table>()
-            {
-                @Override
-                public Table call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
-                        if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
-                            throw new HiveViewNotSupportedException(new SchemaTableName(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
-                        }
-                        return table;
-                    }
-                }
-            }));
-        }
-        catch (NoSuchObjectException | HiveViewNotSupportedException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        finally {
+            invalidateTable(databaseName, tableName);
+            invalidateTable(newTable.getDatabaseName(), newTable.getTableName());
         }
     }
 
     @Override
-    public List<String> getPartitionNames(String databaseName, String tableName)
-            throws NoSuchObjectException
-    {
-        return get(partitionNamesCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
-    }
-
-    private List<String> loadPartitionNames(final HiveTableName hiveTableName)
-            throws Exception
+    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         try {
-            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNames", stats.getGetPartitionNames().wrap(new Callable<List<String>>()
-            {
-                @Override
-                public List<String> call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        return client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
-                    }
-                }
-            }));
+            delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName);
         }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        finally {
+            invalidateTable(databaseName, tableName);
+            invalidateTable(newDatabaseName, newTableName);
         }
     }
 
     @Override
-    public List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
-            throws NoSuchObjectException
-    {
-        return get(partitionFilterCache, PartitionFilter.partitionFilter(databaseName, tableName, parts), NoSuchObjectException.class);
-    }
-
-    private List<String> loadPartitionNamesByParts(final PartitionFilter partitionFilter)
-            throws Exception
+    public void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
     {
         try {
-            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNamesByParts", stats.getGetPartitionNamesPs().wrap(new Callable<List<String>>()
-            {
-                @Override
-                public List<String> call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        return client.get_partition_names_ps(partitionFilter.getHiveTableName().getDatabaseName(),
-                                partitionFilter.getHiveTableName().getTableName(),
-                                partitionFilter.getParts(),
-                                (short) -1);
-                    }
-                }
-            }));
+            delegate.updateTableParameters(databaseName, tableName, update);
         }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        finally {
+            invalidateTable(databaseName, tableName);
         }
     }
 
-    public Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
-            throws NoSuchObjectException
+    @Override
+    public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        Iterable<HivePartitionName> names = transform(partitionNames, partitionNameCreator(databaseName, tableName));
+        try {
+            delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
 
-        ImmutableMap.Builder<String, Partition> partitionsByName = ImmutableMap.builder();
-        Map<HivePartitionName, Partition> all = getAll(partitionCache, names, NoSuchObjectException.class);
-        for (Entry<HivePartitionName, Partition> entry : all.entrySet()) {
+    @Override
+    public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
+    {
+        try {
+            delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
+    public void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        try {
+            delegate.dropColumn(databaseName, tableName, columnName);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    protected void invalidateTable(String databaseName, String tableName)
+    {
+        tableCache.invalidate(new HiveTableName(databaseName, tableName));
+        tableNamesCache.invalidate(databaseName);
+        viewNamesCache.invalidate(databaseName);
+        userTablePrivileges.asMap().keySet().stream()
+                .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
+                .forEach(userTablePrivileges::invalidate);
+        invalidatePartitionCache(databaseName, tableName);
+    }
+
+    @Override
+    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
+    {
+        HivePartitionName name = HivePartitionName.partition(databaseName, tableName, partitionValues);
+        return get(partitionCache, name);
+    }
+
+    @Override
+    public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
+    {
+        return get(partitionNamesCache, HiveTableName.table(databaseName, tableName));
+    }
+
+    private Optional<List<String>> loadPartitionNames(HiveTableName hiveTableName)
+    {
+        return delegate.getPartitionNames(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
+    }
+
+    @Override
+    public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+    {
+        return get(partitionFilterCache, PartitionFilter.partitionFilter(databaseName, tableName, parts));
+    }
+
+    private Optional<List<String>> loadPartitionNamesByParts(PartitionFilter partitionFilter)
+    {
+        return delegate.getPartitionNamesByParts(
+                partitionFilter.getHiveTableName().getDatabaseName(),
+                partitionFilter.getHiveTableName().getTableName(),
+                partitionFilter.getParts());
+    }
+
+    @Override
+    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    {
+        Iterable<HivePartitionName> names = transform(partitionNames, name -> HivePartitionName.partition(databaseName, tableName, name));
+
+        Map<HivePartitionName, Optional<Partition>> all = getAll(partitionCache, names);
+        ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
+        for (Entry<HivePartitionName, Optional<Partition>> entry : all.entrySet()) {
             partitionsByName.put(entry.getKey().getPartitionName(), entry.getValue());
         }
         return partitionsByName.build();
     }
 
-    private Partition loadPartitionByName(final HivePartitionName partitionName)
-            throws Exception
+    private Optional<Partition> loadPartitionByName(HivePartitionName partitionName)
     {
-        checkNotNull(partitionName, "partitionName is null");
-        try {
-            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionsByNames", stats.getGetPartitionByName().wrap(new Callable<Partition>()
-            {
-                @Override
-                public Partition call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        return client.get_partition_by_name(partitionName.getHiveTableName().getDatabaseName(),
-                                partitionName.getHiveTableName().getTableName(),
-                                partitionName.getPartitionName());
-                    }
-                }
-            }));
-        }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
+        return delegate.getPartition(
+                partitionName.getHiveTableName().getDatabaseName(),
+                partitionName.getHiveTableName().getTableName(),
+                partitionName.getPartitionValues());
     }
 
-    private Map<HivePartitionName, Partition> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
-            throws Exception
+    private Map<HivePartitionName, Optional<Partition>> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
     {
-        checkNotNull(partitionNames, "partitionNames is null");
+        requireNonNull(partitionNames, "partitionNames is null");
         checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
 
         HivePartitionName firstPartition = Iterables.get(partitionNames, 0);
 
         HiveTableName hiveTableName = firstPartition.getHiveTableName();
-        final String databaseName = hiveTableName.getDatabaseName();
-        final String tableName = hiveTableName.getTableName();
+        String databaseName = hiveTableName.getDatabaseName();
+        String tableName = hiveTableName.getTableName();
 
-        final List<String> partitionsToFetch = new ArrayList<>();
+        List<String> partitionsToFetch = new ArrayList<>();
         for (HivePartitionName partitionName : partitionNames) {
             checkArgument(partitionName.getHiveTableName().equals(hiveTableName), "Expected table name %s but got %s", hiveTableName, partitionName.getHiveTableName());
             partitionsToFetch.add(partitionName.getPartitionName());
         }
 
-        final List<String> partitionColumnNames = ImmutableList.copyOf(Warehouse.makeSpecFromName(firstPartition.getPartitionName()).keySet());
+        ImmutableMap.Builder<HivePartitionName, Optional<Partition>> partitions = ImmutableMap.builder();
+        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(databaseName, tableName, partitionsToFetch);
+        for (Entry<String, Optional<Partition>> entry : partitionsByNames.entrySet()) {
+            partitions.put(HivePartitionName.partition(hiveTableName, entry.getKey()), entry.getValue());
+        }
+        return partitions.build();
+    }
 
+    @Override
+    public void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    {
         try {
-            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionsByNames", stats.getGetPartitionsByNames().wrap(new Callable<Map<HivePartitionName, Partition>>()
-            {
-                @Override
-                public Map<HivePartitionName, Partition> call()
-                        throws Exception
-                {
-                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                        ImmutableMap.Builder<HivePartitionName, Partition> partitions = ImmutableMap.builder();
-                        for (Partition partition : client.get_partitions_by_names(databaseName, tableName, partitionsToFetch)) {
-                            String partitionId = FileUtils.makePartName(partitionColumnNames, partition.getValues(), null);
-                            partitions.put(HivePartitionName.partition(databaseName, tableName, partitionId), partition);
-                        }
-                        return partitions.build();
-                    }
-                }
-            }));
+            delegate.addPartitions(databaseName, tableName, partitions);
         }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        finally {
+            // todo do we need to invalidate all partitions?
+            invalidatePartitionCache(databaseName, tableName);
         }
     }
 
-    private static Function<String, HivePartitionName> partitionNameCreator(final String databaseName, final String tableName)
+    @Override
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        return new Function<String, HivePartitionName>()
-        {
-            @SuppressWarnings("ClassEscapesDefinedScope")
-            @Override
-            public HivePartitionName apply(String partitionName)
-            {
-                return HivePartitionName.partition(databaseName, tableName, partitionName);
-            }
-        };
+        try {
+            delegate.dropPartition(databaseName, tableName, parts, deleteData);
+        }
+        finally {
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
+    @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+    {
+        try {
+            delegate.alterPartition(databaseName, tableName, partition);
+        }
+        finally {
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
+    @Override
+    public void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
+    {
+        try {
+            delegate.updatePartitionParameters(databaseName, tableName, partitionValues, update);
+        }
+        finally {
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
+    private void invalidatePartitionCache(String databaseName, String tableName)
+    {
+        HiveTableName hiveTableName = HiveTableName.table(databaseName, tableName);
+        partitionNamesCache.invalidate(hiveTableName);
+        partitionCache.asMap().keySet().stream()
+                .filter(partitionName -> partitionName.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionCache::invalidate);
+        partitionFilterCache.asMap().keySet().stream()
+                .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionFilterCache::invalidate);
+    }
+
+    @Override
+    public Set<String> getRoles(String user)
+    {
+        return get(userRolesCache, user);
+    }
+
+    private Set<String> loadRoles(String user)
+    {
+        return delegate.getRoles(user);
+    }
+
+    @Override
+    public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
+    {
+        return delegate.getDatabasePrivileges(user, databaseName);
+    }
+
+    @Override
+    public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
+    {
+        return get(userTablePrivileges, new UserTableKey(user, tableName, databaseName));
+    }
+
+    private Set<HivePrivilegeInfo> loadTablePrivileges(String user, String databaseName, String tableName)
+    {
+        return delegate.getTablePrivileges(user, databaseName, tableName);
+    }
+
+    @Override
+    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        try {
+            delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
+        }
+        finally {
+            userTablePrivileges.invalidate(new UserTableKey(grantee, tableName, databaseName));
+        }
+    }
+
+    @Override
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        try {
+            delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
+        }
+        finally {
+            userTablePrivileges.invalidate(new UserTableKey(grantee, tableName, databaseName));
+        }
+    }
+
+    private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize)
+    {
+        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
+        if (expiresAfterWriteMillis.isPresent()) {
+            cacheBuilder = cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
+        }
+        if (refreshMillis.isPresent() && (!expiresAfterWriteMillis.isPresent() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
+            cacheBuilder = cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
+        }
+        cacheBuilder = cacheBuilder.maximumSize(maximumSize);
+        return cacheBuilder;
     }
 
     private static class HiveTableName
@@ -774,32 +718,44 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            HiveTableName that = (HiveTableName) o;
-
-            return Objects.equal(databaseName, that.databaseName) && Objects.equal(tableName, that.tableName);
+            HiveTableName other = (HiveTableName) o;
+            return Objects.equals(databaseName, other.databaseName) &&
+                    Objects.equals(tableName, other.tableName);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(databaseName, tableName);
+            return Objects.hash(databaseName, tableName);
         }
     }
 
     private static class HivePartitionName
     {
         private final HiveTableName hiveTableName;
-        private final String partitionName;
+        private final List<String> partitionValues;
+        private final String partitionName; // does not participate in hashCode/equals
 
-        private HivePartitionName(HiveTableName hiveTableName, String partitionName)
+        private HivePartitionName(HiveTableName hiveTableName, List<String> partitionValues, String partitionName)
         {
-            this.hiveTableName = hiveTableName;
+            this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
+            this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
             this.partitionName = partitionName;
+        }
+
+        public static HivePartitionName partition(HiveTableName hiveTableName, String partitionName)
+        {
+            return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), partitionName);
         }
 
         public static HivePartitionName partition(String databaseName, String tableName, String partitionName)
         {
-            return new HivePartitionName(HiveTableName.table(databaseName, tableName), partitionName);
+            return partition(HiveTableName.table(databaseName, tableName), partitionName);
+        }
+
+        public static HivePartitionName partition(String databaseName, String tableName, List<String> partitionValues)
+        {
+            return new HivePartitionName(HiveTableName.table(databaseName, tableName), partitionValues, null);
         }
 
         public HiveTableName getHiveTableName()
@@ -807,9 +763,14 @@ public class CachingHiveMetastore
             return hiveTableName;
         }
 
+        public List<String> getPartitionValues()
+        {
+            return partitionValues;
+        }
+
         public String getPartitionName()
         {
-            return partitionName;
+            return requireNonNull(partitionName, "partitionName is null");
         }
 
         @Override
@@ -817,6 +778,7 @@ public class CachingHiveMetastore
         {
             return toStringHelper(this)
                     .add("hiveTableName", hiveTableName)
+                    .add("partitionValues", partitionValues)
                     .add("partitionName", partitionName)
                     .toString();
         }
@@ -831,15 +793,15 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            HivePartitionName that = (HivePartitionName) o;
-
-            return Objects.equal(hiveTableName, that.hiveTableName) && Objects.equal(partitionName, that.partitionName);
+            HivePartitionName other = (HivePartitionName) o;
+            return Objects.equals(hiveTableName, other.hiveTableName) &&
+                    Objects.equals(partitionValues, other.partitionValues);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(hiveTableName, partitionName);
+            return Objects.hash(hiveTableName, partitionValues);
         }
     }
 
@@ -888,15 +850,80 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            PartitionFilter that = (PartitionFilter) o;
-
-            return Objects.equal(hiveTableName, that.hiveTableName) && Objects.equal(parts, that.parts);
+            PartitionFilter other = (PartitionFilter) o;
+            return Objects.equals(hiveTableName, other.hiveTableName) &&
+                    Objects.equals(parts, other.parts);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(hiveTableName, parts);
+            return Objects.hash(hiveTableName, parts);
+        }
+    }
+
+    private static class UserTableKey
+    {
+        private final String user;
+        private final String database;
+        private final String table;
+
+        public UserTableKey(String user, String table, String database)
+        {
+            this.user = requireNonNull(user, "principalName is null");
+            this.table = requireNonNull(table, "table is null");
+            this.database = requireNonNull(database, "database is null");
+        }
+
+        public String getUser()
+        {
+            return user;
+        }
+
+        public String getDatabase()
+        {
+            return database;
+        }
+
+        public String getTable()
+        {
+            return table;
+        }
+
+        public boolean matches(String databaseName, String tableName)
+        {
+            return this.database.equals(databaseName) && this.table.equals(tableName);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            UserTableKey that = (UserTableKey) o;
+            return Objects.equals(user, that.user) &&
+                    Objects.equals(table, that.table) &&
+                    Objects.equals(database, that.database);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(user, table, database);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("principalName", user)
+                    .add("table", table)
+                    .add("database", database)
+                    .toString();
         }
     }
 }

@@ -20,21 +20,21 @@ The result of an ``AND`` comparison may be ``NULL`` if one or both
 sides of the expression are ``NULL``. If at least one side of an
 ``AND`` operator is ``FALSE`` the expression evaluates to ``FALSE``::
 
-    SELECT CAST(null AS boolean) AND true; => null
+    SELECT CAST(null AS boolean) AND true; -- null
 
-    SELECT CAST(null AS boolean) AND false; => false
+    SELECT CAST(null AS boolean) AND false; -- false
 
-    SELECT CAST(null AS boolean) AND CAST(null AS boolean); => null
+    SELECT CAST(null AS boolean) AND CAST(null AS boolean); -- null
 
 The result of an ``OR`` comparison may be ``NULL`` if one or both
 sides of the expression are ``NULL``.  If at least one side of an
 ``OR`` operator is ``TRUE`` the expression evaluates to ``TRUE``::
 
-    SELECT CAST(null AS boolean) OR CAST(null AS boolean); => null
+    SELECT CAST(null AS boolean) OR CAST(null AS boolean); -- null
 
-    SELECT CAST(null AS boolean) OR false; => null
+    SELECT CAST(null AS boolean) OR false; -- null
 
-    SELECT CAST(null AS boolean) OR true; => true
+    SELECT CAST(null AS boolean) OR true; -- true
 
 The following truth table demonstrates the handling of
 ``NULL`` in ``AND`` and ``OR``:
@@ -55,7 +55,7 @@ a          b          a AND b    a OR b
 
 The logical complement of ``NULL`` is ``NULL`` as shown in the following example::
 
-    SELECT NOT CAST(null AS boolean); => null
+    SELECT NOT CAST(null AS boolean); -- null
 
 The following truth table demonstrates the handling of ``NULL`` in ``NOT``:
 

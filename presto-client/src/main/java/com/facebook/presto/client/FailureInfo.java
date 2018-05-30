@@ -17,15 +17,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class FailureInfo
@@ -48,9 +48,9 @@ public class FailureInfo
             @JsonProperty("stack") List<String> stack,
             @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation)
     {
-        checkNotNull(type, "type is null");
-        checkNotNull(suppressed, "suppressed is null");
-        checkNotNull(stack, "stack is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(suppressed, "suppressed is null");
+        requireNonNull(stack, "stack is null");
 
         this.type = type;
         this.message = message;
@@ -60,7 +60,7 @@ public class FailureInfo
         this.errorLocation = errorLocation;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public String getType()
     {
@@ -81,14 +81,14 @@ public class FailureInfo
         return cause;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public List<FailureInfo> getSuppressed()
     {
         return suppressed;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public List<String> getStack()
     {
@@ -153,7 +153,7 @@ public class FailureInfo
         FailureException(String type, String message, FailureException cause)
         {
             super(message, cause, true, true);
-            this.type = checkNotNull(type, "type is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         public String getType()

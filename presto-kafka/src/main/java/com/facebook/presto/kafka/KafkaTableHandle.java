@@ -17,10 +17,11 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific {@link ConnectorTableHandle}.
@@ -61,12 +62,12 @@ public final class KafkaTableHandle
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.topicName = checkNotNull(topicName, "topicName is null");
-        this.keyDataFormat = checkNotNull(keyDataFormat, "keyDataFormat is null");
-        this.messageDataFormat = checkNotNull(messageDataFormat, "messageDataFormat is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.topicName = requireNonNull(topicName, "topicName is null");
+        this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
+        this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
     }
 
     @JsonProperty
@@ -113,7 +114,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat);
+        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat);
     }
 
     @Override
@@ -127,12 +128,12 @@ public final class KafkaTableHandle
         }
 
         KafkaTableHandle other = (KafkaTableHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId)
-                && Objects.equal(this.schemaName, other.schemaName)
-                && Objects.equal(this.tableName, other.tableName)
-                && Objects.equal(this.topicName, other.topicName)
-                && Objects.equal(this.keyDataFormat, other.keyDataFormat)
-                && Objects.equal(this.messageDataFormat, other.messageDataFormat);
+        return Objects.equals(this.connectorId, other.connectorId)
+                && Objects.equals(this.schemaName, other.schemaName)
+                && Objects.equals(this.tableName, other.tableName)
+                && Objects.equals(this.topicName, other.topicName)
+                && Objects.equals(this.keyDataFormat, other.keyDataFormat)
+                && Objects.equals(this.messageDataFormat, other.messageDataFormat);
     }
 
     @Override

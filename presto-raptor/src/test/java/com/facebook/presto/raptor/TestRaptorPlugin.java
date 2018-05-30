@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestRaptorPlugin
@@ -39,12 +37,7 @@ public class TestRaptorPlugin
     {
         RaptorPlugin plugin = loadPlugin(RaptorPlugin.class);
 
-        plugin.setNodeManager(new InMemoryNodeManager());
-        plugin.setBlockEncodingSerde(createTestingBlockEncodingManager());
-        plugin.setTypeManager(new TypeRegistry());
-
-        List<ConnectorFactory> factories = plugin.getServices(ConnectorFactory.class);
-        ConnectorFactory factory = getOnlyElement(factories);
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, RaptorConnectorFactory.class);
 
         File tmpDir = Files.createTempDir();
@@ -55,10 +48,10 @@ public class TestRaptorPlugin
                     .put("storage.data-directory", tmpDir.getAbsolutePath())
                     .build();
 
-            factory.create("test", config);
+            factory.create("test", config, new TestingConnectorContext());
         }
         finally {
-            FileUtils.deleteRecursively(tmpDir);
+            deleteRecursively(tmpDir.toPath(), ALLOW_INSECURE);
         }
     }
 

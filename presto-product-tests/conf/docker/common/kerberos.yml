@@ -1,0 +1,26 @@
+version: '2'
+services:
+
+  hadoop-master:
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
+    ports:
+      - '88:88'
+      - '88:88/udp'
+
+  presto-master:
+    domainname: docker.cluster
+    hostname: presto-master
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
+    networks:
+      default:
+        aliases:
+         - presto-master.docker.cluster
+    ports:
+      - '7778:7778'
+
+  application-runner:
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-kerberos.yaml
+      - CLI_ARGUMENTS=--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456 --krb5-config-path /etc/krb5.conf --krb5-principal presto-client/presto-master.docker.cluster@LABS.TERADATA.COM --krb5-keytab-path /etc/presto/conf/presto-client.keytab --krb5-remote-service-name presto-server --krb5-disable-remote-service-hostname-canonicalization

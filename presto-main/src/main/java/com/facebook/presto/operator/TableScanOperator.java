@@ -13,28 +13,31 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.UpdatablePageSource;
+import com.facebook.presto.split.EmptySplit;
+import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Suppliers;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.FinishedPageSource.FINISHED_PAGE_SOURCE;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
         implements SourceOperator, Closeable
@@ -45,7 +48,6 @@ public class TableScanOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
-        private final List<Type> types;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
@@ -53,14 +55,12 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.types = checkNotNull(types, "types is null");
-            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-            this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
         @Override
@@ -70,26 +70,19 @@ public class TableScanOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TableScanOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TableScanOperator.class.getSimpleName());
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
-                    types,
                     columns);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -98,12 +91,14 @@ public class TableScanOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
-    private final List<Type> types;
     private final List<ColumnHandle> columns;
-    private final SettableFuture<?> blocked;
+    private final LocalMemoryContext systemMemoryContext;
+    private final SettableFuture<?> blocked = SettableFuture.create();
 
-    @GuardedBy("this")
+    private Split split;
     private ConnectorPageSource source;
+
+    private boolean finished;
 
     private long completedBytes;
     private long readTimeNanos;
@@ -112,15 +107,13 @@ public class TableScanOperator
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
-            List<Type> types,
             Iterable<ColumnHandle> columns)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.types = checkNotNull(types, "types is null");
-        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-        this.blocked = SettableFuture.create();
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
     }
 
     @Override
@@ -136,41 +129,47 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
-        checkState(getSource() == null, "Table scan split already set");
+        requireNonNull(split, "split is null");
+        checkState(this.split == null, "Table scan split already set");
 
-        source = pageSourceProvider.createPageSource(split, columns);
+        if (finished) {
+            return Optional::empty;
+        }
+
+        this.split = split;
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+        }
+
+        blocked.set(null);
+
+        if (split.getConnectorSplit() instanceof EmptySplit) {
+            source = new EmptySplitPageSource();
+        }
+
+        return () -> {
+            if (source instanceof UpdatablePageSource) {
+                return Optional.of((UpdatablePageSource) source);
+            }
+            return Optional.empty();
+        };
+    }
+
+    @Override
+    public void noMoreSplits()
+    {
+        if (split == null) {
+            finished = true;
         }
         blocked.set(null);
     }
 
     @Override
-    public synchronized void noMoreSplits()
-    {
-        if (source == null) {
-            source = FINISHED_PAGE_SOURCE;
-        }
-    }
-
-    private synchronized ConnectorPageSource getSource()
-    {
-        return source;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
-    public synchronized void close()
+    public void close()
     {
         finish();
     }
@@ -178,33 +177,44 @@ public class TableScanOperator
     @Override
     public void finish()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate == null) {
-            return;
-        }
-        try {
-            delegate.close();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        finished = true;
+        blocked.set(null);
+
+        if (source != null) {
+            try {
+                source.close();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            systemMemoryContext.setBytes(source.getSystemMemoryUsage());
         }
     }
 
     @Override
     public boolean isFinished()
     {
-        ConnectorPageSource delegate = getSource();
-        return delegate != null && delegate.isFinished();
+        if (!finished) {
+            finished = (source != null) && source.isFinished();
+            if (source != null) {
+                systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+            }
+        }
+
+        return finished;
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate != null) {
-            return NOT_BLOCKED;
+        if (!blocked.isDone()) {
+            return blocked;
         }
-        return blocked;
+        if (source != null) {
+            CompletableFuture<?> pageSourceBlocked = source.isBlocked();
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -222,23 +232,28 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate == null) {
+        if (split == null) {
             return null;
         }
+        if (source == null) {
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+        }
 
-        Page page = delegate.getNextPage();
+        Page page = source.getNextPage();
         if (page != null) {
             // assure the page is in memory before handing to another operator
             page.assureLoaded();
 
             // update operator stats
-            long endCompletedBytes = delegate.getCompletedBytes();
-            long endReadTimeNanos = delegate.getReadTimeNanos();
+            long endCompletedBytes = source.getCompletedBytes();
+            long endReadTimeNanos = source.getReadTimeNanos();
             operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
             completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
         }
+
+        // updating system memory usage should happen after page is loaded.
+        systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
         return page;
     }

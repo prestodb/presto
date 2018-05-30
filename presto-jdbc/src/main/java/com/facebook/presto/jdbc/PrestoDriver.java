@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.base.Throwables;
+import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -26,51 +24,54 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.lang.String.format;
+import static com.facebook.presto.client.OkHttpUtil.userAgent;
+import static com.google.common.base.Strings.nullToEmpty;
+import static java.lang.Integer.parseInt;
 
 public class PrestoDriver
         implements Driver, Closeable
 {
-    static final int VERSION_MAJOR = 1;
-    static final int VERSION_MINOR = 0;
-
-    static final int JDBC_VERSION_MAJOR = 4;
-    static final int JDBC_VERSION_MINOR = 1;
-
     static final String DRIVER_NAME = "Presto JDBC Driver";
-    static final String DRIVER_VERSION = VERSION_MAJOR + "." + VERSION_MINOR;
+    static final String DRIVER_VERSION;
+    static final int DRIVER_VERSION_MAJOR;
+    static final int DRIVER_VERSION_MINOR;
 
-    private static final DriverPropertyInfo[] DRIVER_PROPERTY_INFOS = {};
-
-    private static final String JDBC_URL_START = "jdbc:";
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
-    private static final String USER_PROPERTY = "user";
-
-    private final QueryExecutor queryExecutor;
+    private final OkHttpClient httpClient = new OkHttpClient().newBuilder()
+            .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION))
+            .build();
 
     static {
-        JettyLogging.useJavaUtilLogging();
+        String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
+        Matcher matcher = Pattern.compile("^(\\d+)\\.(\\d+)($|[.-])").matcher(version);
+        if (!matcher.find()) {
+            DRIVER_VERSION = "unknown";
+            DRIVER_VERSION_MAJOR = 0;
+            DRIVER_VERSION_MINOR = 0;
+        }
+        else {
+            DRIVER_VERSION = version;
+            DRIVER_VERSION_MAJOR = parseInt(matcher.group(1));
+            DRIVER_VERSION_MINOR = parseInt(matcher.group(2));
+        }
 
         try {
             DriverManager.registerDriver(new PrestoDriver());
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
-    }
-
-    public PrestoDriver()
-    {
-        this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
     }
 
     @Override
     public void close()
     {
-        queryExecutor.close();
+        httpClient.dispatcher().executorService().shutdown();
+        httpClient.connectionPool().evictAll();
     }
 
     @Override
@@ -81,12 +82,13 @@ public class PrestoDriver
             return null;
         }
 
-        String user = info.getProperty(USER_PROPERTY);
-        if (isNullOrEmpty(user)) {
-            throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
-        }
+        PrestoDriverUri uri = new PrestoDriverUri(url, info);
 
-        return new PrestoConnection(parseDriverUrl(url), user, queryExecutor);
+        OkHttpClient.Builder builder = httpClient.newBuilder();
+        uri.setupClient(builder);
+        QueryExecutor executor = new QueryExecutor(builder.build());
+
+        return new PrestoConnection(uri, executor);
     }
 
     @Override
@@ -100,19 +102,23 @@ public class PrestoDriver
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
             throws SQLException
     {
-        return DRIVER_PROPERTY_INFOS;
+        Properties properties = new PrestoDriverUri(url, info).getProperties();
+
+        return ConnectionProperties.allProperties().stream()
+                .map(property -> property.getDriverPropertyInfo(properties))
+                .toArray(DriverPropertyInfo[]::new);
     }
 
     @Override
     public int getMajorVersion()
     {
-        return VERSION_MAJOR;
+        return DRIVER_VERSION_MAJOR;
     }
 
     @Override
     public int getMinorVersion()
     {
-        return VERSION_MINOR;
+        return DRIVER_VERSION_MINOR;
     }
 
     @Override
@@ -128,27 +134,5 @@ public class PrestoDriver
     {
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
-    }
-
-    private static URI parseDriverUrl(String url)
-            throws SQLException
-    {
-        URI uri;
-        try {
-            uri = new URI(url.substring(JDBC_URL_START.length()));
-        }
-        catch (URISyntaxException e) {
-            throw new SQLException("Invalid JDBC URL: " + url, e);
-        }
-        if (isNullOrEmpty(uri.getHost())) {
-            throw new SQLException("No host specified: " + url);
-        }
-        if (uri.getPort() == -1) {
-            throw new SQLException("No port number specified: " + url);
-        }
-        if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
-            throw new SQLException("Invalid port number: " + url);
-        }
-        return uri;
     }
 }

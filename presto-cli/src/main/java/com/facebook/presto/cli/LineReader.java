@@ -28,8 +28,7 @@ public class LineReader
 {
     private boolean interrupted;
 
-    LineReader(History history,
-            Completer completer)
+    LineReader(History history, Completer... completers)
             throws IOException
     {
         setExpandEvents(false);
@@ -37,7 +36,9 @@ public class LineReader
         setHandleUserInterrupt(true);
         setHistory(history);
         setHistoryEnabled(false);
-        addCompleter(completer);
+        for (Completer completer : completers) {
+            addCompleter(completer);
+        }
     }
 
     @Override
@@ -50,8 +51,6 @@ public class LineReader
             line = super.readLine(prompt, mask);
         }
         catch (UserInterruptException e) {
-            // TODO: remove when fixed in jline: https://github.com/jline/jline2/pull/112
-            getHistory().moveToEnd();
             interrupted = true;
             return null;
         }

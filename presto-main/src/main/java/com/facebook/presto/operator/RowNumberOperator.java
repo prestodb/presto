@@ -13,24 +13,30 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class RowNumberOperator
         implements Operator
@@ -39,6 +45,7 @@ public class RowNumberOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final Optional<Integer> maxRowsPerPartition;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
@@ -46,36 +53,33 @@ public class RowNumberOperator
         private final List<Type> partitionTypes;
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
-        private final List<Type> types;
         private boolean closed;
+        private final JoinCompiler joinCompiler;
 
         public RowNumberOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<Integer> partitionChannels,
                 List<? extends Type> partitionTypes,
                 Optional<Integer> maxRowsPerPartition,
                 Optional<Integer> hashChannel,
-                int expectedPositions)
+                int expectedPositions,
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
-            this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
-            this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
-            this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
-            this.maxRowsPerPartition = checkNotNull(maxRowsPerPartition, "maxRowsPerPartition is null");
+            this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
+            this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
+            this.partitionTypes = ImmutableList.copyOf(requireNonNull(partitionTypes, "partitionTypes is null"));
+            this.maxRowsPerPartition = requireNonNull(maxRowsPerPartition, "maxRowsPerPartition is null");
 
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
-            this.types = toTypes(sourceTypes, outputChannels);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
+            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         }
 
         @Override
@@ -83,7 +87,7 @@ public class RowNumberOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, RowNumberOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, RowNumberOperator.class.getSimpleName());
             return new RowNumberOperator(
                     operatorContext,
                     sourceTypes,
@@ -92,17 +96,25 @@ public class RowNumberOperator
                     partitionTypes,
                     maxRowsPerPartition,
                     hashChannel,
-                    expectedPositions);
+                    expectedPositions,
+                    joinCompiler);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, joinCompiler);
         }
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext localUserMemoryContext;
     private boolean finishing;
 
     private final int[] outputChannels;
@@ -115,6 +127,9 @@ public class RowNumberOperator
     private final LongBigArray partitionRowCount;
     private final Optional<Integer> maxRowsPerPartition;
 
+    // for yield when memory is not available
+    private Work<GroupByIdBlock> unfinishedWork;
+
     public RowNumberOperator(
             OperatorContext operatorContext,
             List<Type> sourceTypes,
@@ -123,19 +138,21 @@ public class RowNumberOperator
             List<Type> partitionTypes,
             Optional<Integer> maxRowsPerPartition,
             Optional<Integer> hashChannel,
-            int expectedPositions)
+            int expectedPositions,
+            JoinCompiler joinCompiler)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.outputChannels = Ints.toArray(outputChannels);
         this.maxRowsPerPartition = maxRowsPerPartition;
 
         this.partitionRowCount = new LongBigArray(0);
         if (partitionChannels.isEmpty()) {
-            this.groupByHash = Optional.absent();
+            this.groupByHash = Optional.empty();
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, channels, hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, channels, hashChannel, expectedPositions, isDictionaryAggregationEnabled(operatorContext.getSession()), joinCompiler, this::updateMemoryReservation));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }
@@ -144,12 +161,6 @@ public class RowNumberOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -162,16 +173,13 @@ public class RowNumberOperator
     public boolean isFinished()
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
+            if (finishing && !hasUnfinishedInput()) {
+                return true;
+            }
             return partitionRowCount.get(0) == maxRowsPerPartition.get();
         }
 
-        return finishing && inputPage == null;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
+        return finishing && !hasUnfinishedInput();
     }
 
     @Override
@@ -179,27 +187,32 @@ public class RowNumberOperator
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
             // Check if single partition is done
-            return partitionRowCount.get(0) < maxRowsPerPartition.get();
+            return partitionRowCount.get(0) < maxRowsPerPartition.get() && !finishing && !hasUnfinishedInput();
         }
-        return !finishing && inputPage == null;
+        return !finishing && !hasUnfinishedInput();
     }
 
     @Override
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
-        checkState(inputPage == null);
+        requireNonNull(page, "page is null");
+        checkState(!hasUnfinishedInput());
         inputPage = page;
         if (groupByHash.isPresent()) {
-            partitionIds = groupByHash.get().getGroupIds(inputPage);
-            partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
+            unfinishedWork = groupByHash.get().getGroupIds(inputPage);
+            processUnfinishedWork();
         }
+        updateMemoryReservation();
     }
 
     @Override
     public Page getOutput()
     {
+        if (unfinishedWork != null && !processUnfinishedWork()) {
+            return null;
+        }
+
         if (inputPage == null) {
             return null;
         }
@@ -213,7 +226,43 @@ public class RowNumberOperator
         }
 
         inputPage = null;
+        updateMemoryReservation();
         return outputPage;
+    }
+
+    private boolean hasUnfinishedInput()
+    {
+        return inputPage != null || unfinishedWork != null;
+    }
+
+    /**
+     * Update memory usage.
+     *
+     * @return true if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed (#9049)
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryReservation()
+    {
+        // Operator/driver will be blocked on memory after we call localUserMemoryContext.setBytes().
+        // If memory is not available, once we return, this operator will be blocked until memory is available.
+        long memorySizeInBytes = groupByHash.map(GroupByHash::getEstimatedSize).orElse(0L) + partitionRowCount.sizeOf();
+        localUserMemoryContext.setBytes(memorySizeInBytes);
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private boolean processUnfinishedWork()
+    {
+        verify(unfinishedWork != null);
+        if (!unfinishedWork.process()) {
+            return false;
+        }
+        partitionIds = unfinishedWork.getResult();
+        partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
+        unfinishedWork = null;
+        return true;
     }
 
     private boolean isSinglePartition()
@@ -258,9 +307,10 @@ public class RowNumberOperator
             if (rowCount == maxRowsPerPartition.get()) {
                 continue;
             }
+            pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.length; i++) {
                 int channel = outputChannels[i];
-                Type type = types.get(channel);
+                Type type = types.get(i);
                 type.appendTo(inputPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
             }
             BIGINT.writeLong(pageBuilder.getBlockBuilder(rowNumberChannel), rowCount + 1);
@@ -285,5 +335,11 @@ public class RowNumberOperator
         }
         types.add(BIGINT);
         return types.build();
+    }
+
+    @VisibleForTesting
+    public int getCapacity()
+    {
+        return groupByHash.map(GroupByHash::getCapacity).orElse(0);
     }
 }

@@ -13,19 +13,39 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.spiller.SingleStreamSpiller;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
+import java.util.Queue;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.checkSuccess;
+import static io.airlift.concurrent.MoreFutures.getDone;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class HashBuilderOperator
@@ -35,86 +55,214 @@ public class HashBuilderOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final SettableLookupSourceSupplier lookupSourceSupplier;
+        private final PlanNodeId planNodeId;
+        private final JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager;
+        private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
-        private final Optional<Integer> hashChannel;
+        private final OptionalInt preComputedHashChannel;
+        private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+        private final Optional<Integer> sortChannel;
+        private final List<JoinFilterFunctionFactory> searchFunctionFactories;
+        private final PagesIndex.Factory pagesIndexFactory;
 
         private final int expectedPositions;
+        private final boolean spillEnabled;
+        private final SingleStreamSpillerFactory singleStreamSpillerFactory;
+
+        private final Map<Lifespan, Integer> partitionIndexManager = new HashMap<>();
+
         private boolean closed;
 
         public HashBuilderOperatorFactory(
                 int operatorId,
-                List<Type> types,
+                PlanNodeId planNodeId,
+                JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactory,
+                List<Integer> outputChannels,
                 List<Integer> hashChannels,
-                Optional<Integer> hashChannel,
-                int expectedPositions)
+                OptionalInt preComputedHashChannel,
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+                Optional<Integer> sortChannel,
+                List<JoinFilterFunctionFactory> searchFunctionFactories,
+                int expectedPositions,
+                PagesIndex.Factory pagesIndexFactory,
+                boolean spillEnabled,
+                SingleStreamSpillerFactory singleStreamSpillerFactory)
         {
             this.operatorId = operatorId;
-            this.lookupSourceSupplier = new SettableLookupSourceSupplier(checkNotNull(types, "types is null"));
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            requireNonNull(sortChannel, "sortChannel can not be null");
+            requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
+            checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
+            this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactory, "lookupSourceFactoryManager");
 
-            Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
-            this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
+            this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
+            this.preComputedHashChannel = requireNonNull(preComputedHashChannel, "preComputedHashChannel is null");
+            this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
+            this.sortChannel = sortChannel;
+            this.searchFunctionFactories = ImmutableList.copyOf(searchFunctionFactories);
+            this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+            this.spillEnabled = spillEnabled;
+            this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
 
-            this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
-        }
-
-        public LookupSourceSupplier getLookupSourceSupplier()
-        {
-            return lookupSourceSupplier;
+            this.expectedPositions = expectedPositions;
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return lookupSourceSupplier.getTypes();
-        }
-
-        @Override
-        public Operator createOperator(DriverContext driverContext)
+        public HashBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
+
+            LookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.forLifespan(driverContext.getLifespan());
+            int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
+            verify(partitionIndex < lookupSourceFactory.partitions());
             return new HashBuilderOperator(
                     operatorContext,
-                    lookupSourceSupplier,
+                    lookupSourceFactory,
+                    partitionIndex,
+                    outputChannels,
                     hashChannels,
-                    hashChannel,
-                    expectedPositions);
+                    preComputedHashChannel,
+                    filterFunctionFactory,
+                    sortChannel,
+                    searchFunctionFactories,
+                    expectedPositions,
+                    pagesIndexFactory,
+                    spillEnabled,
+                    singleStreamSpillerFactory);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            throw new UnsupportedOperationException("Parallel hash build can not be duplicated");
+        }
+
+        private int getAndIncrementPartitionIndex(Lifespan lifespan)
+        {
+            return partitionIndexManager.compute(lifespan, (k, v) -> v == null ? 1 : v + 1) - 1;
+        }
     }
 
+    @VisibleForTesting
+    public enum State
+    {
+        /**
+         * Operator accepts input
+         */
+        CONSUMING_INPUT,
+
+        /**
+         * Memory revoking occurred during {@link #CONSUMING_INPUT}. Operator accepts input and spills it
+         */
+        SPILLING_INPUT,
+
+        /**
+         * LookupSource has been built and passed on without any spill occurring
+         */
+        LOOKUP_SOURCE_BUILT,
+
+        /**
+         * Input has been finished and spilled
+         */
+        INPUT_SPILLED,
+
+        /**
+         * Spilled input is being unspilled
+         */
+        INPUT_UNSPILLING,
+
+        /**
+         * Spilled input has been unspilled, LookupSource built from it
+         */
+        INPUT_UNSPILLED_AND_BUILT,
+
+        /**
+         * No longer needed
+         */
+        CLOSED
+    }
+
+    private static final double INDEX_COMPACTION_ON_REVOCATION_TARGET = 0.8;
+
     private final OperatorContext operatorContext;
-    private final SettableLookupSourceSupplier lookupSourceSupplier;
+    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localRevocableMemoryContext;
+    private final LookupSourceFactory lookupSourceFactory;
+    private final ListenableFuture<?> lookupSourceFactoryDestroyed;
+    private final int partitionIndex;
+
+    private final List<Integer> outputChannels;
     private final List<Integer> hashChannels;
-    private final Optional<Integer> hashChannel;
+    private final OptionalInt preComputedHashChannel;
+    private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+    private final Optional<Integer> sortChannel;
+    private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
-    private final PagesIndex pagesIndex;
+    private final PagesIndex index;
 
-    private boolean finished;
+    private final boolean spillEnabled;
+    private final SingleStreamSpillerFactory singleStreamSpillerFactory;
+
+    private final HashCollisionsCounter hashCollisionsCounter;
+
+    private State state = State.CONSUMING_INPUT;
+    private Optional<ListenableFuture<?>> lookupSourceNotNeeded = Optional.empty();
+    private SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
+    private Optional<SingleStreamSpiller> spiller = Optional.empty();
+    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
+    private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
+    @Nullable
+    private LookupSourceSupplier lookupSourceSupplier;
+    private OptionalLong lookupSourceChecksum = OptionalLong.empty();
+
+    private Optional<Runnable> finishMemoryRevoke = Optional.empty();
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            SettableLookupSourceSupplier lookupSourceSupplier,
+            LookupSourceFactory lookupSourceFactory,
+            int partitionIndex,
+            List<Integer> outputChannels,
             List<Integer> hashChannels,
-            Optional<Integer> hashChannel,
-            int expectedPositions)
+            OptionalInt preComputedHashChannel,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean spillEnabled,
+            SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
-        this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "hashSupplier is null");
+        this.operatorContext = operatorContext;
+        this.partitionIndex = partitionIndex;
+        this.filterFunctionFactory = filterFunctionFactory;
+        this.sortChannel = sortChannel;
+        this.searchFunctionFactories = searchFunctionFactories;
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.localRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
 
-        Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
-        this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
-        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        this.index = pagesIndexFactory.newPagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
+        this.lookupSourceFactory = lookupSourceFactory;
+        lookupSourceFactoryDestroyed = lookupSourceFactory.isDestroyed();
 
-        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
+        this.outputChannels = outputChannels;
+        this.hashChannels = hashChannels;
+        this.preComputedHashChannel = preComputedHashChannel;
+
+        this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
+        operatorContext.setInfoSupplier(hashCollisionsCounter);
+
+        this.spillEnabled = spillEnabled;
+        this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
     }
 
     @Override
@@ -123,55 +271,365 @@ public class HashBuilderOperator
         return operatorContext;
     }
 
-    @Override
-    public List<Type> getTypes()
+    @VisibleForTesting
+    public State getState()
     {
-        return lookupSourceSupplier.getTypes();
-    }
-
-    @Override
-    public void finish()
-    {
-        if (finished) {
-            return;
-        }
-
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
-        lookupSourceSupplier.setLookupSource(lookupSource);
-        finished = true;
-    }
-
-    @Override
-    public boolean isFinished()
-    {
-        return finished;
+        return state;
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return NOT_BLOCKED;
+        switch (state) {
+            case CONSUMING_INPUT:
+                return NOT_BLOCKED;
+
+            case SPILLING_INPUT:
+                return spillInProgress;
+
+            case LOOKUP_SOURCE_BUILT:
+                return lookupSourceNotNeeded.orElseThrow(() -> new IllegalStateException("Lookup source built, but disposal future not set"));
+
+            case INPUT_SPILLED:
+                return spilledLookupSourceHandle.getUnspillingOrDisposeRequested();
+
+            case INPUT_UNSPILLING:
+                return unspillInProgress.orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
+
+            case INPUT_UNSPILLED_AND_BUILT:
+                return spilledLookupSourceHandle.getDisposeRequested();
+
+            case CLOSED:
+                return NOT_BLOCKED;
+        }
+        throw new IllegalStateException("Unhandled state: " + state);
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finished;
+        boolean stateNeedsInput = (state == State.CONSUMING_INPUT)
+                || (state == State.SPILLING_INPUT && spillInProgress.isDone());
+
+        return stateNeedsInput && !lookupSourceFactoryDestroyed.isDone();
     }
 
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
-        checkState(!isFinished(), "Operator is already finished");
+        requireNonNull(page, "page is null");
 
-        pagesIndex.addPage(page);
+        if (lookupSourceFactoryDestroyed.isDone()) {
+            close();
+            return;
+        }
+
+        if (state == State.SPILLING_INPUT) {
+            spillInput(page);
+            return;
+        }
+
+        checkState(state == State.CONSUMING_INPUT);
+        updateIndex(page);
+    }
+
+    private void updateIndex(Page page)
+    {
+        index.addPage(page);
+
+        if (spillEnabled) {
+            localRevocableMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+        }
+        else {
+            if (!localUserMemoryContext.trySetBytes(index.getEstimatedSize().toBytes())) {
+                index.compact();
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+            }
+        }
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+    }
+
+    private void spillInput(Page page)
+    {
+        checkState(spillInProgress.isDone(), "Previous spill still in progress");
+        checkSuccess(spillInProgress, "spilling failed");
+        spillInProgress = getSpiller().spill(page);
+    }
+
+    @Override
+    public ListenableFuture<?> startMemoryRevoke()
+    {
+        checkState(spillEnabled, "Spill not enabled, no revokable memory should be reserved");
+
+        if (state == State.CONSUMING_INPUT) {
+            long indexSizeBeforeCompaction = index.getEstimatedSize().toBytes();
+            index.compact();
+            long indexSizeAfterCompaction = index.getEstimatedSize().toBytes();
+            if (indexSizeAfterCompaction < indexSizeBeforeCompaction * INDEX_COMPACTION_ON_REVOCATION_TARGET) {
+                finishMemoryRevoke = Optional.of(() -> {});
+                return immediateFuture(null);
+            }
+
+            finishMemoryRevoke = Optional.of(() -> {
+                index.clear();
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localRevocableMemoryContext.setBytes(0);
+                lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
+                state = State.SPILLING_INPUT;
+            });
+            return spillIndex();
+        }
+        else if (state == State.LOOKUP_SOURCE_BUILT) {
+            finishMemoryRevoke = Optional.of(() -> {
+                lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
+                lookupSourceNotNeeded = Optional.empty();
+                index.clear();
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localRevocableMemoryContext.setBytes(0);
+                lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
+                lookupSourceSupplier = null;
+                state = State.INPUT_SPILLED;
+            });
+            return spillIndex();
+        }
+        else if (operatorContext.getReservedRevocableBytes() == 0) {
+            // Probably stale revoking request
+            finishMemoryRevoke = Optional.of(() -> {});
+            return immediateFuture(null);
+        }
+
+        throw new IllegalStateException(format("State %s can not have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
+    }
+
+    private ListenableFuture<?> spillIndex()
+    {
+        checkState(!spiller.isPresent(), "Spiller already created");
+        spiller = Optional.of(singleStreamSpillerFactory.create(
+                index.getTypes(),
+                operatorContext.getSpillContext().newLocalSpillContext(),
+                operatorContext.newLocalSystemMemoryContext()));
+        return getSpiller().spill(index.getPages());
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        checkState(finishMemoryRevoke.isPresent(), "Cannot finish unknown revoking");
+        finishMemoryRevoke.get().run();
+        finishMemoryRevoke = Optional.empty();
     }
 
     @Override
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void finish()
+    {
+        if (lookupSourceFactoryDestroyed.isDone()) {
+            close();
+            return;
+        }
+
+        if (finishMemoryRevoke.isPresent()) {
+            return;
+        }
+
+        switch (state) {
+            case CONSUMING_INPUT:
+                finishInput();
+                return;
+
+            case LOOKUP_SOURCE_BUILT:
+                disposeLookupSourceIfRequested();
+                return;
+
+            case SPILLING_INPUT:
+                finishSpilledInput();
+                return;
+
+            case INPUT_SPILLED:
+                if (spilledLookupSourceHandle.getDisposeRequested().isDone()) {
+                    close();
+                }
+                else {
+                    unspillLookupSourceIfRequested();
+                }
+                return;
+
+            case INPUT_UNSPILLING:
+                finishLookupSourceUnspilling();
+                return;
+
+            case INPUT_UNSPILLED_AND_BUILT:
+                disposeUnspilledLookupSourceIfRequested();
+                return;
+
+            case CLOSED:
+                // no-op
+                return;
+        }
+
+        throw new IllegalStateException("Unhandled state: " + state);
+    }
+
+    private void finishInput()
+    {
+        checkState(state == State.CONSUMING_INPUT);
+        if (lookupSourceFactoryDestroyed.isDone()) {
+            close();
+            return;
+        }
+
+        LookupSourceSupplier partition = buildLookupSource();
+        if (spillEnabled) {
+            localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+        }
+        else {
+            localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+        }
+        lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
+
+        state = State.LOOKUP_SOURCE_BUILT;
+    }
+
+    private void disposeLookupSourceIfRequested()
+    {
+        checkState(state == State.LOOKUP_SOURCE_BUILT);
+        verify(lookupSourceNotNeeded.isPresent());
+        if (!lookupSourceNotNeeded.get().isDone()) {
+            return;
+        }
+
+        index.clear();
+        localRevocableMemoryContext.setBytes(0);
+        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+        lookupSourceSupplier = null;
+        close();
+    }
+
+    private void finishSpilledInput()
+    {
+        checkState(state == State.SPILLING_INPUT);
+        if (!spillInProgress.isDone()) {
+            // Not ready to handle finish() yet
+            return;
+        }
+        checkSuccess(spillInProgress, "spilling failed");
+        state = State.INPUT_SPILLED;
+    }
+
+    private void unspillLookupSourceIfRequested()
+    {
+        checkState(state == State.INPUT_SPILLED);
+        if (!spilledLookupSourceHandle.getUnspillingRequested().isDone()) {
+            // Nothing to do yet.
+            return;
+        }
+
+        verify(spiller.isPresent());
+        verify(!unspillInProgress.isPresent());
+
+        localUserMemoryContext.setBytes(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes());
+        unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());
+
+        state = State.INPUT_UNSPILLING;
+    }
+
+    private void finishLookupSourceUnspilling()
+    {
+        checkState(state == State.INPUT_UNSPILLING);
+        if (!unspillInProgress.get().isDone()) {
+            // Pages have not be unspilled yet.
+            return;
+        }
+
+        // Use Queue so that Pages already consumed by Index are not retained by us.
+        Queue<Page> pages = new ArrayDeque<>(getDone(unspillInProgress.get()));
+        long memoryRetainedByRemainingPages = pages.stream()
+                .mapToLong(Page::getRetainedSizeInBytes)
+                .sum();
+        localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
+
+        while (!pages.isEmpty()) {
+            Page next = pages.remove();
+            index.addPage(next);
+            // There is no attempt to compact index, since unspilled pages are unlikely to have blocks with retained size > logical size.
+            memoryRetainedByRemainingPages -= next.getRetainedSizeInBytes();
+            localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
+        }
+
+        LookupSourceSupplier partition = buildLookupSource();
+        lookupSourceChecksum.ifPresent(checksum ->
+                checkState(partition.checksum() == checksum, "Unspilled lookupSource checksum does not match original one"));
+        localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+
+        spilledLookupSourceHandle.setLookupSource(partition);
+
+        state = State.INPUT_UNSPILLED_AND_BUILT;
+    }
+
+    private void disposeUnspilledLookupSourceIfRequested()
+    {
+        checkState(state == State.INPUT_UNSPILLED_AND_BUILT);
+        if (!spilledLookupSourceHandle.getDisposeRequested().isDone()) {
+            return;
+        }
+
+        index.clear();
+        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+
+        close();
+    }
+
+    private LookupSourceSupplier buildLookupSource()
+    {
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
+        hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+        checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
+        this.lookupSourceSupplier = partition;
+        return partition;
+    }
+
+    @Override
+    public boolean isFinished()
+    {
+        if (lookupSourceFactoryDestroyed.isDone()) {
+            // Finish early when the probe side is empty
+            close();
+            return true;
+        }
+
+        return state == State.CLOSED;
+    }
+
+    private SingleStreamSpiller getSpiller()
+    {
+        return spiller.orElseThrow(() -> new IllegalStateException("Spiller not created"));
+    }
+
+    @Override
+    public void close()
+    {
+        if (state == State.CLOSED) {
+            return;
+        }
+        // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
+
+        lookupSourceSupplier = null;
+        state = State.CLOSED;
+        finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
+
+        try (Closer closer = Closer.create()) {
+            closer.register(index::clear);
+            spiller.ifPresent(closer::register);
+            closer.register(() -> localUserMemoryContext.setBytes(0));
+            closer.register(() -> localRevocableMemoryContext.setBytes(0));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -13,39 +13,39 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSnapshotBuilder
 {
+    private final Session session;
     private final int expectedPositions;
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
     private final List<Integer> keyOutputChannels;
-    private final Optional<Integer> keyOutputHashChannel;
+    private final OptionalInt keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
+    private final PagesIndex.Factory pagesIndexFactory;
 
     private final long maxMemoryInBytes;
-    private final OperatorContext bogusOperatorContext;
     private PagesIndex outputPagesIndex;
     private PagesIndex missingKeysIndex;
     private LookupSource missingKeys;
@@ -55,18 +55,22 @@ public class IndexSnapshotBuilder
 
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,
-            Optional<Integer> keyOutputHashChannel,
+            OptionalInt keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
-            int expectedPositions)
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory)
     {
-        checkNotNull(outputTypes, "outputTypes is null");
-        checkNotNull(keyOutputChannels, "keyOutputChannels is null");
-        checkNotNull(keyOutputHashChannel, "keyOutputHashChannel is null");
-        checkNotNull(driverContext, "driverContext is null");
-        checkNotNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(outputTypes, "outputTypes is null");
+        requireNonNull(keyOutputChannels, "keyOutputChannels is null");
+        requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
+        requireNonNull(driverContext, "driverContext is null");
+        requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
 
+        this.pagesIndexFactory = pagesIndexFactory;
+        this.session = driverContext.getSession();
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
@@ -83,16 +87,9 @@ public class IndexSnapshotBuilder
         this.missingKeysTypes = missingKeysTypes.build();
         this.missingKeysChannels = missingKeysChannels.build();
 
-        // create a bogus operator context with unlimited memory for the pages index
-        boolean cpuTimerEnabled = driverContext.getPipelineContext().getTaskContext().isCpuTimerEnabled();
-        this.bogusOperatorContext = new TaskContext(driverContext.getTaskId(), driverContext.getExecutor(), driverContext.getSession(), new DataSize(Long.MAX_VALUE, Unit.BYTE), cpuTimerEnabled)
-                .addPipelineContext(true, true)
-                .addDriverContext()
-                .addOperatorContext(0, "operator");
-
-        this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, bogusOperatorContext);
-        this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions, bogusOperatorContext);
-        this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
+        this.outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        this.missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes.build(), expectedPositions);
+        this.missingKeys = missingKeysIndex.createLookupSourceSupplier(session, this.missingKeysChannels).get();
     }
 
     public List<Type> getOutputTypes()
@@ -129,18 +126,18 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels, keyOutputHashChannel);
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
         UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
         while (indexKeysRecordCursor.advanceNextPosition()) {
-            Block[] blocks = indexKeysRecordCursor.getBlocks();
             Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
-            if (lookupSource.getJoinPosition(position, page) < 0) {
-                for (int i = 0; i < blocks.length; i++) {
-                    Block block = blocks[i];
+            if (lookupSource.getJoinPosition(position, page, page) < 0) {
+                missingKeysPageBuilder.declarePosition();
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    Block block = page.getBlock(i);
                     Type type = indexKeysRecordCursor.getType(i);
                     type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
                 }
@@ -156,7 +153,7 @@ public class IndexSnapshotBuilder
         // only update missing keys if we have new missing keys
         if (!missingKeysPageBuilder.isEmpty()) {
             missingKeysIndex.addPage(missingKeysPage);
-            missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels);
+            missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
         }
 
         return new IndexSnapshot(lookupSource, missingKeys);
@@ -166,7 +163,7 @@ public class IndexSnapshotBuilder
     {
         memoryInBytes = 0;
         pages.clear();
-        outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, bogusOperatorContext);
-        missingKeysIndex = new PagesIndex(missingKeysTypes, expectedPositions, bogusOperatorContext);
+        outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes, expectedPositions);
     }
 }

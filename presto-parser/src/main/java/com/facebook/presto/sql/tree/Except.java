@@ -13,26 +13,39 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Except
         extends SetOperation
 {
     private final Relation left;
     private final Relation right;
-    private final boolean distinct;
 
     public Except(Relation left, Relation right, boolean distinct)
     {
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        this(Optional.empty(), left, right, distinct);
+    }
+
+    public Except(NodeLocation location, Relation left, Relation right, boolean distinct)
+    {
+        this(Optional.of(location), left, right, distinct);
+    }
+
+    private Except(Optional<NodeLocation> location, Relation left, Relation right, boolean distinct)
+    {
+        super(location, distinct);
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.left = left;
         this.right = right;
-        this.distinct = distinct;
     }
 
     public Relation getLeft()
@@ -45,15 +58,22 @@ public class Except
         return right;
     }
 
-    public boolean isDistinct()
-    {
-        return distinct;
-    }
-
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitExcept(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(left, right);
+    }
+
+    @Override
+    public List<Relation> getRelations()
+    {
+        return ImmutableList.of(left, right);
     }
 
     @Override
@@ -62,7 +82,7 @@ public class Except
         return toStringHelper(this)
                 .add("left", left)
                 .add("right", right)
-                .add("distinct", distinct)
+                .add("distinct", isDistinct())
                 .toString();
     }
 
@@ -76,14 +96,14 @@ public class Except
             return false;
         }
         Except o = (Except) obj;
-        return Objects.equal(left, o.left) &&
-                Objects.equal(right, o.right) &&
-                Objects.equal(distinct, o.distinct);
+        return Objects.equals(left, o.left) &&
+                Objects.equals(right, o.right) &&
+                Objects.equals(isDistinct(), o.isDistinct());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(left, right, distinct);
+        return Objects.hash(left, right, isDistinct());
     }
 }

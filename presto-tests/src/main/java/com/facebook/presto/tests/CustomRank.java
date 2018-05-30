@@ -13,35 +13,28 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.function.RankingWindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
+@WindowFunctionSignature(name = "custom_rank", returnType = "bigint")
 public class CustomRank
-        implements WindowFunction
+        extends RankingWindowFunction
 {
     private long rank;
     private long count;
 
     @Override
-    public Type getType()
-    {
-        return BigintType.BIGINT;
-    }
-
-    @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void reset()
     {
         rank = 0;
         count = 1;
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (newPeerGroup) {
             rank += count;

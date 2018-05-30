@@ -13,45 +13,50 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
 import java.util.List;
 
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
-import static com.facebook.presto.tpch.Types.checkType;
+import static io.airlift.tpch.TpchColumnTypes.IDENTIFIER;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        TpchSplit tpchSplit = checkType(split, TpchSplit.class, "split");
+        TpchSplit tpchSplit = (TpchSplit) split;
 
         String tableName = tpchSplit.getTableHandle().getTableName();
 
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
 
-        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts());
+        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts(), tpchSplit.getPredicate());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
             TpchTable<E> table,
-            List<? extends ConnectorColumnHandle> columns,
+            List<? extends ColumnHandle> columns,
             double scaleFactor,
             int partNumber,
-            int totalParts)
+            int totalParts,
+            TupleDomain<ColumnHandle> predicate)
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
-        for (ConnectorColumnHandle column : columns) {
-            String columnName = checkType(column, TpchColumnHandle.class, "column").getColumnName();
+        for (ColumnHandle column : columns) {
+            String columnName = ((TpchColumnHandle) column).getColumnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
                 builder.add(new RowNumberTpchColumn<E>());
             }
@@ -60,7 +65,7 @@ public class TpchRecordSetProvider
             }
         }
 
-        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts);
+        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts, predicate);
     }
 
     private static class RowNumberTpchColumn<E extends TpchEntity>
@@ -69,13 +74,13 @@ public class TpchRecordSetProvider
         @Override
         public String getColumnName()
         {
-            throw new UnsupportedOperationException();
+            return TpchMetadata.ROW_NUMBER_COLUMN_NAME;
         }
 
         @Override
-        public Class<?> getType()
+        public TpchColumnType getType()
         {
-            return Long.class;
+            return IDENTIFIER;
         }
 
         @Override
@@ -85,13 +90,25 @@ public class TpchRecordSetProvider
         }
 
         @Override
-        public long getLong(E entity)
+        public long getIdentifier(E entity)
         {
             return entity.getRowNumber();
         }
 
         @Override
+        public int getInteger(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public String getString(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getDate(E entity)
         {
             throw new UnsupportedOperationException();
         }

@@ -19,6 +19,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class NamenodeStats
 {
@@ -41,7 +42,7 @@ public class NamenodeStats
 
     public static class CallStats
     {
-        private final TimeStat time = new TimeStat();
+        private final TimeStat time = new TimeStat(TimeUnit.MILLISECONDS);
         private final CounterStat totalFailures = new CounterStat();
         private final CounterStat ioExceptions = new CounterStat();
 

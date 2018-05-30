@@ -13,79 +13,91 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
-import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
         implements RecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(DateTimeZone.UTC);
+    private final JdbcColumnHandle[] columnHandles;
+    private final BooleanReadFunction[] booleanReadFunctions;
+    private final DoubleReadFunction[] doubleReadFunctions;
+    private final LongReadFunction[] longReadFunctions;
+    private final SliceReadFunction[] sliceReadFunctions;
 
-    private final List<JdbcColumnHandle> columnHandles;
-
+    private final JdbcClient jdbcClient;
     private final Connection connection;
-    private final Statement statement;
+    private final PreparedStatement statement;
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
-        this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
 
-        String sql = jdbcClient.buildSql(split, columnHandles);
+        this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
+
+        booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
+        doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
+        longReadFunctions = new LongReadFunction[columnHandles.size()];
+        sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
+
+        for (int i = 0; i < this.columnHandles.length; i++) {
+            ReadMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
+                    .orElseThrow(() -> new VerifyException("Unsupported column type"));
+            Class<?> javaType = readMapping.getType().getJavaType();
+            ReadFunction readFunction = readMapping.getReadFunction();
+
+            if (javaType == boolean.class) {
+                booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
+            }
+            else if (javaType == double.class) {
+                doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
+            }
+            else if (javaType == long.class) {
+                longReadFunctions[i] = (LongReadFunction) readFunction;
+            }
+            else if (javaType == Slice.class) {
+                sliceReadFunctions[i] = (SliceReadFunction) readFunction;
+            }
+            else {
+                throw new IllegalStateException(format("Unsupported java type %s", javaType));
+            }
+        }
+
         try {
             connection = jdbcClient.getConnection(split);
-
-            statement = connection.createStatement();
-            statement.setFetchSize(1000);
-
-            log.debug("Executing: %s", sql);
-            resultSet = statement.executeQuery(sql);
+            statement = jdbcClient.buildSql(connection, split, columnHandles);
+            log.debug("Executing: %s", statement.toString());
+            resultSet = statement.executeQuery();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
 
     @Override
     public long getReadTimeNanos()
-    {
-        return 0;
-    }
-
-    @Override
-    public long getTotalBytes()
     {
         return 0;
     }
@@ -99,7 +111,7 @@ public class JdbcRecordCursor
     @Override
     public Type getType(int field)
     {
-        return columnHandles.get(field).getColumnType();
+        return columnHandles[field].getColumnType();
     }
 
     @Override
@@ -110,13 +122,9 @@ public class JdbcRecordCursor
         }
 
         try {
-            boolean result = resultSet.next();
-            if (!result) {
-                close();
-            }
-            return result;
+            return resultSet.next();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -126,9 +134,9 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            return resultSet.getBoolean(field + 1);
+            return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -138,25 +146,9 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            Type type = getType(field);
-            if (type.equals(BigintType.BIGINT)) {
-                return resultSet.getLong(field + 1);
-            }
-            if (type.equals(DateType.DATE)) {
-                Date date = resultSet.getDate(field + 1);
-                return UTC_CHRONOLOGY.dayOfMonth().roundFloor(date.getTime());
-            }
-            if (type.equals(TimeType.TIME)) {
-                Time time = resultSet.getTime(field + 1);
-                return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
-            }
-            if (type.equals(TimestampType.TIMESTAMP)) {
-                Timestamp timestamp = resultSet.getTimestamp(field + 1);
-                return timestamp.getTime();
-            }
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
+            return longReadFunctions[field].readLong(resultSet, field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -166,9 +158,9 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            return resultSet.getDouble(field + 1);
+            return doubleReadFunctions[field].readDouble(resultSet, field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -178,25 +170,24 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            Type type = getType(field);
-            if (type.equals(VarcharType.VARCHAR)) {
-                return utf8Slice(resultSet.getString(field + 1));
-            }
-            if (type.equals(VarbinaryType.VARBINARY)) {
-                return wrappedBuffer(resultSet.getBytes(field + 1));
-            }
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
+            return sliceReadFunctions[field].readSlice(resultSet, field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
+    }
+
+    @Override
+    public Object getObject(int field)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public boolean isNull(int field)
     {
         checkState(!closed, "cursor is closed");
-        checkArgument(field < columnHandles.size(), "Invalid field index");
+        checkArgument(field < columnHandles.length, "Invalid field index");
 
         try {
             // JDBC is kind of dumb: we need to read the field and then ask
@@ -206,36 +197,42 @@ public class JdbcRecordCursor
 
             return resultSet.wasNull();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
 
-    @SuppressWarnings({"UnusedDeclaration", "EmptyTryBlock"})
+    @SuppressWarnings("UnusedDeclaration")
     @Override
     public void close()
     {
+        if (closed) {
+            return;
+        }
         closed = true;
 
         // use try with resources to close everything properly
-        try (ResultSet resultSet = this.resultSet;
+        try (Connection connection = this.connection;
                 Statement statement = this.statement;
-                Connection connection = this.connection) {
-            // do nothing
+                ResultSet resultSet = this.resultSet) {
+            jdbcClient.abortReadConnection(connection);
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            // ignore exception from close
         }
     }
 
-    private RuntimeException handleSqlException(SQLException e)
+    private RuntimeException handleSqlException(Exception e)
     {
         try {
             close();
         }
         catch (Exception closeException) {
-            e.addSuppressed(closeException);
+            // Self-suppression not permitted
+            if (e != closeException) {
+                e.addSuppressed(closeException);
+            }
         }
-        return Throwables.propagate(e);
+        return new PrestoException(JDBC_ERROR, e);
     }
 }

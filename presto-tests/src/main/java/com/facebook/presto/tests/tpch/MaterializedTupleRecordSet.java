@@ -23,7 +23,7 @@ import io.airlift.slice.Slices;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 // TODO merge this with MaterializedResult
 class MaterializedTupleRecordSet
@@ -34,8 +34,8 @@ class MaterializedTupleRecordSet
 
     public MaterializedTupleRecordSet(Iterable<MaterializedTuple> tuples, List<Type> types)
     {
-        this.tuples = checkNotNull(tuples, "tuples is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.tuples = requireNonNull(tuples, "tuples is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -59,14 +59,8 @@ class MaterializedTupleRecordSet
 
         private MaterializedTupleRecordCursor(Iterator<MaterializedTuple> iterator, List<Type> types)
         {
-            this.iterator = checkNotNull(iterator, "iterator is null");
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return 0;
+            this.iterator = requireNonNull(iterator, "iterator is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -119,6 +113,12 @@ class MaterializedTupleRecordSet
         public Slice getSlice(int field)
         {
             return Slices.utf8Slice((String) outputTuple.getValues().get(field));
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

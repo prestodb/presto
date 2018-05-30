@@ -15,97 +15,96 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.metadata.FunctionFactory;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
+import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.inject.Injector;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.TreeMap;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
+import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PluginManager
 {
-    private static final List<String> HIDDEN_CLASSES = ImmutableList.<String>builder()
-            .add("org.slf4j")
-            .build();
-
-    private static final ImmutableList<String> PARENT_FIRST_CLASSES = ImmutableList.<String>builder()
-            .add("com.facebook.presto")
-            .add("com.fasterxml.jackson")
-            .add("io.airlift.slice")
-            .add("javax.inject")
-            .add("javax.annotation")
+    private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
+            .add("com.facebook.presto.spi.")
+            .add("com.fasterxml.jackson.annotation.")
+            .add("io.airlift.slice.")
+            .add("io.airlift.units.")
+            .add("org.openjdk.jol.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
 
-    private final Injector injector;
     private final ConnectorManager connectorManager;
-    private final SystemTablesManager systemTablesManager;
     private final Metadata metadata;
+    private final ResourceGroupManager resourceGroupManager;
+    private final AccessControlManager accessControlManager;
+    private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
+    private final SessionSupplier sessionSupplier;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
-    private final Map<String, String> optionalConfig;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
-    public PluginManager(Injector injector,
+    public PluginManager(
             NodeInfo nodeInfo,
-            HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
-            ConfigurationFactory configurationFactory,
-            SystemTablesManager systemTablesManager,
             Metadata metadata,
+            ResourceGroupManager resourceGroupManager,
+            AccessControlManager accessControlManager,
+            PasswordAuthenticatorManager passwordAuthenticatorManager,
+            EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
+            SessionSupplier sessionSupplier,
             TypeRegistry typeRegistry)
     {
-        checkNotNull(injector, "injector is null");
-        checkNotNull(nodeInfo, "nodeInfo is null");
-        checkNotNull(httpServerInfo, "httpServerInfo is null");
-        checkNotNull(config, "config is null");
-        checkNotNull(configurationFactory, "configurationFactory is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        requireNonNull(config, "config is null");
 
-        this.injector = injector;
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
@@ -115,22 +114,15 @@ public class PluginManager
         }
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
-        Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
-        optionalConfig.put("node.id", nodeInfo.getNodeId());
-        // TODO: make this work with and without HTTP and HTTPS
-        optionalConfig.put("http-server.http.port", Integer.toString(httpServerInfo.getHttpUri().getPort()));
-        this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
-
-        this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
-        this.systemTablesManager = checkNotNull(systemTablesManager, "systemTablesManager is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
-        this.typeRegistry = checkNotNull(typeRegistry, "typeRegistry is null");
-    }
-
-    public boolean arePluginsLoaded()
-    {
-        return pluginsLoaded.get();
+        this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
+        this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
+        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
     public void loadPlugins()
@@ -150,6 +142,8 @@ public class PluginManager
             loadPlugin(plugin);
         }
 
+        metadata.verifyComparableOrderableContract();
+
         pluginsLoaded.set(true);
     }
 
@@ -165,7 +159,6 @@ public class PluginManager
     }
 
     private void loadPlugin(URLClassLoader pluginClassLoader)
-            throws Exception
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
@@ -182,33 +175,54 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
-        injector.injectMembers(plugin);
-
-        plugin.setOptionalConfig(optionalConfig);
-
-        for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getServices(BlockEncodingFactory.class)) {
-            log.info("Registering block encoding %s", blockEncodingFactory.getName());
-            blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
+        for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
+            log.info("Registering block encoding %s", blockEncoding.getName());
+            blockEncodingManager.addBlockEncoding(blockEncoding);
         }
 
-        for (Type type : plugin.getServices(Type.class)) {
+        for (Type type : plugin.getTypes()) {
             log.info("Registering type %s", type.getTypeSignature());
             typeRegistry.addType(type);
         }
 
-        for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
+        for (ParametricType parametricType : plugin.getParametricTypes()) {
+            log.info("Registering parametric type %s", parametricType.getName());
+            typeRegistry.addParametricType(parametricType);
+        }
+
+        for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
 
-        for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
-            log.info("Registering system table %s", systemTable.getTableMetadata().getTable());
-            systemTablesManager.addTable(systemTable);
+        for (Class<?> functionClass : plugin.getFunctions()) {
+            log.info("Registering functions from %s", functionClass.getName());
+            metadata.addFunctions(extractFunctions(functionClass));
         }
 
-        for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
-            log.info("Registering functions from %s", functionFactory.getClass().getName());
-            metadata.addFunctions(functionFactory.listFunctions());
+        for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
+            log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
+            sessionSupplier.addConfigurationManager(sessionConfigFactory);
+        }
+
+        for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {
+            log.info("Registering resource group configuration manager %s", configurationManagerFactory.getName());
+            resourceGroupManager.addConfigurationManagerFactory(configurationManagerFactory);
+        }
+
+        for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
+            log.info("Registering system access control %s", accessControlFactory.getName());
+            accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        }
+
+        for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
+            log.info("Registering password authenticator %s", authenticatorFactory.getName());
+            passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
+        }
+
+        for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
+            log.info("Registering event listener %s", eventListenerFactory.getName());
+            eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
     }
 
@@ -229,20 +243,15 @@ public class PluginManager
             throws Exception
     {
         List<Artifact> artifacts = resolver.resolvePom(pomFile);
+        URLClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
 
-        log.debug("Classpath for %s:", pomFile);
-        List<URL> urls = new ArrayList<>();
-        for (Artifact artifact : sortedArtifacts(artifacts)) {
-            if (artifact.getFile() != null) {
-                File file = artifact.getFile().getCanonicalFile();
-                log.debug("    %s", file);
-                urls.add(file.toURI().toURL());
-            }
-            else {
-                log.debug("  Could not resolve artifact %s", artifact);
-            }
+        Artifact artifact = artifacts.get(0);
+        Set<String> plugins = discoverPlugins(artifact, classLoader);
+        if (!plugins.isEmpty()) {
+            writePluginServices(plugins, artifact.getFile());
         }
-        return createClassLoader(urls);
+
+        return classLoader;
     }
 
     private URLClassLoader buildClassLoaderFromDirectory(File dir)
@@ -262,18 +271,21 @@ public class PluginManager
     {
         Artifact rootArtifact = new DefaultArtifact(coordinates);
         List<Artifact> artifacts = resolver.resolveArtifacts(rootArtifact);
+        return createClassLoader(artifacts, rootArtifact.toString());
+    }
 
-        log.debug("Classpath for %s:", rootArtifact);
+    private URLClassLoader createClassLoader(List<Artifact> artifacts, String name)
+            throws IOException
+    {
+        log.debug("Classpath for %s:", name);
         List<URL> urls = new ArrayList<>();
-        for (Artifact artifact : artifacts) {
-            if (artifact.getFile() != null) {
-                log.debug("    %s", artifact.getFile());
-                urls.add(artifact.getFile().toURI().toURL());
+        for (Artifact artifact : sortedArtifacts(artifacts)) {
+            if (artifact.getFile() == null) {
+                throw new RuntimeException("Could not resolve artifact: " + artifact);
             }
-            else {
-                // todo maybe exclude things like presto-spi
-                log.warn("  Could not resolve artifact %s", artifact);
-            }
+            File file = artifact.getFile().getCanonicalFile();
+            log.debug("    %s", file);
+            urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls);
     }
@@ -281,7 +293,7 @@ public class PluginManager
     private URLClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = getClass().getClassLoader();
-        return new PluginClassLoader(urls, parent, HIDDEN_CLASSES, PARENT_FIRST_CLASSES);
+        return new PluginClassLoader(urls, parent, SPI_PACKAGES);
     }
 
     private static List<File> listFiles(File installedPluginsDir)
@@ -298,21 +310,8 @@ public class PluginManager
 
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
-        List<Artifact> list = Lists.newArrayList(artifacts);
-        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(artifactFileGetter()));
+        List<Artifact> list = new ArrayList<>(artifacts);
+        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
-    }
-
-    private static Function<Artifact, Comparable<File>> artifactFileGetter()
-    {
-        return new Function<Artifact, Comparable<File>>()
-        {
-            @Nullable
-            @Override
-            public Comparable<File> apply(Artifact input)
-            {
-                return input.getFile();
-            }
-        };
     }
 }

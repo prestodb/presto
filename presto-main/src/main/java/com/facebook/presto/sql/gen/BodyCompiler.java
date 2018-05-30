@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.sql.relational.RowExpression;
+import io.airlift.bytecode.ClassDefinition;
 
 import java.util.List;
 
-public interface BodyCompiler<T>
+public interface BodyCompiler
 {
     void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections);
 }

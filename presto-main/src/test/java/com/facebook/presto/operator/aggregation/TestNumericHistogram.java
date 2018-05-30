@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
@@ -29,7 +28,6 @@ public class TestNumericHistogram
 {
     @Test
     public void testBasic()
-            throws Exception
     {
         double[] data = {
                 2.9, 3.1, 3.4, 3.5, 3.1, 2.9, 3, 3.8, 3.6, 3.1, 3.6, 2.5, 2.8, 2.3, 3, 3,
@@ -68,7 +66,6 @@ public class TestNumericHistogram
 
     @Test
     public void testSameValues()
-            throws Exception
     {
         NumericHistogram histogram = new NumericHistogram(4);
 
@@ -87,7 +84,6 @@ public class TestNumericHistogram
 
     @Test
     public void testRoundtrip()
-            throws Exception
     {
         NumericHistogram histogram = new NumericHistogram(100, 20);
         for (int i = 0; i < 1000; i++) {
@@ -102,21 +98,13 @@ public class TestNumericHistogram
 
     @Test
     public void testMergeSame()
-            throws Exception
     {
         NumericHistogram histogram = new NumericHistogram(10, 3);
         for (int i = 0; i < 1000; i++) {
             histogram.add(i);
         }
 
-        Map<Double, Double> expected = Maps.transformValues(histogram.getBuckets(), new Function<Double, Double>()
-        {
-            @Override
-            public Double apply(Double input)
-            {
-                return input * 2;
-            }
-        });
+        Map<Double, Double> expected = Maps.transformValues(histogram.getBuckets(), value -> value * 2);
 
         histogram.mergeWith(histogram);
 
@@ -125,7 +113,6 @@ public class TestNumericHistogram
 
     @Test
     public void testMergeDifferent()
-            throws Exception
     {
         NumericHistogram histogram1 = new NumericHistogram(10, 3);
         NumericHistogram histogram2 = new NumericHistogram(10, 3);

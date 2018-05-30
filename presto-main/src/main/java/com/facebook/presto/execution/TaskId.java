@@ -13,65 +13,70 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Objects;
 
 import java.util.List;
+import java.util.Objects;
 
-import static com.facebook.presto.execution.QueryId.validateId;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Integer.parseInt;
 
 public class TaskId
 {
     @JsonCreator
     public static TaskId valueOf(String taskId)
     {
-        List<String> ids = QueryId.parseDottedId(taskId, 3, "taskId");
-        return new TaskId(new StageId(new QueryId(ids.get(0)), ids.get(1)), ids.get(2));
+        return new TaskId(taskId);
     }
 
-    private final StageId stageId;
-    private final String id;
+    private final String fullId;
 
-    public TaskId(String queryId, String stageId, String id)
+    public TaskId(String queryId, int stageId, int id)
     {
-        this.stageId = new StageId(queryId, stageId);
-        this.id = validateId(id);
+        checkArgument(id >= 0, "id is negative");
+        this.fullId = queryId + "." + stageId + "." + id;
     }
 
-    public TaskId(StageId stageId, String id)
+    public TaskId(StageId stageId, int id)
     {
-        this.stageId = checkNotNull(stageId, "stageId is null");
-        this.id = validateId(id);
+        checkArgument(id >= 0, "id is negative");
+        this.fullId = stageId.getQueryId().getId() + "." + stageId.getId() + "." + id;
+    }
+
+    public TaskId(String fullId)
+    {
+        this.fullId = fullId;
     }
 
     public QueryId getQueryId()
     {
-        return stageId.getQueryId();
+        return new QueryId(QueryId.parseDottedId(fullId, 3, "taskId").get(0));
     }
 
     public StageId getStageId()
     {
-        return stageId;
+        List<String> ids = QueryId.parseDottedId(fullId, 3, "taskId");
+        return StageId.valueOf(ids.subList(0, 2));
     }
 
-    public String getId()
+    public int getId()
     {
-        return id;
+        return parseInt(QueryId.parseDottedId(fullId, 3, "taskId").get(2));
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        return stageId + "." + id;
+        return fullId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(stageId, id);
+        return Objects.hash(fullId);
     }
 
     @Override
@@ -83,8 +88,7 @@ public class TaskId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TaskId other = (TaskId) obj;
-        return Objects.equal(this.stageId, other.stageId) &&
-                Objects.equal(this.id, other.id);
+        TaskId other = (TaskId) obj;
+        return Objects.equals(this.fullId, other.fullId);
     }
 }

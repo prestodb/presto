@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.operator.scalar.RowFieldAccessor;
+import com.facebook.presto.spi.type.ParameterKind;
+import com.facebook.presto.spi.type.ParametricType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
 
-import static com.facebook.presto.type.RowType.RowField;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.stream.Collectors.toList;
 
 public final class RowParametricType
         implements ParametricType
@@ -41,24 +42,19 @@ public final class RowParametricType
     }
 
     @Override
-    public RowType createType(List<Type> types, List<Object> literals)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
-        checkArgument(!types.isEmpty(), "types is empty");
-        checkArgument(types.size() == literals.size(), "types and literals must be matched in size");
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (Object literal : literals) {
-            builder.add(checkType(literal, String.class, "literal"));
-        }
-        return new RowType(types, builder.build());
-    }
+        checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
+        checkArgument(
+                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
+                "Expected only named types as a parameters, got %s",
+                parameters);
 
-    public List<ParametricFunction> createFunctions(Type type)
-    {
-        RowType rowType = checkType(type, RowType.class, "type");
-        ImmutableList.Builder<ParametricFunction> builder = ImmutableList.builder();
-        for (RowField field : rowType.getFields()) {
-            builder.add(new RowFieldAccessor(rowType, field.getName()));
-        }
-        return builder.build();
+        List<RowType.Field> fields = parameters.stream()
+                .map(TypeParameter::getNamedType)
+                .map(parameter -> new RowType.Field(parameter.getName(), parameter.getType()))
+                .collect(toList());
+
+        return RowType.from(fields);
     }
 }

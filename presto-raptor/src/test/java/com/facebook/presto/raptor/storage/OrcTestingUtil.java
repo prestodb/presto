@@ -13,64 +13,71 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 
 final class OrcTestingUtil
 {
     private OrcTestingUtil() {}
 
-    public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds)
+    public static OrcDataSource fileOrcDataSource(File file)
+            throws FileNotFoundException
+    {
+        return new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    }
+
+    public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader());
+        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
 
-        Set<Integer> includedColumns = new HashSet<>();
+        Map<Integer, Type> includedColumns = new HashMap<>();
         int ordinal = 0;
         for (long columnId : columnIds) {
             assertEquals(columnNames.get(ordinal), String.valueOf(columnId));
-            includedColumns.add(ordinal);
+            includedColumns.put(ordinal, types.get(ordinal));
             ordinal++;
         }
 
-        return createRecordReader(dataSource, orcReader, includedColumns);
+        return createRecordReader(orcReader, includedColumns);
     }
 
     public static OrcRecordReader createReaderNoRows(OrcDataSource dataSource)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader());
+        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
         assertEquals(orcReader.getColumnNames().size(), 0);
 
-        return createRecordReader(dataSource, orcReader, ImmutableSet.<Integer>of());
+        return createRecordReader(orcReader, ImmutableMap.of());
     }
 
-    public static OrcRecordReader createRecordReader(OrcDataSource dataSource, OrcReader orcReader, Set<Integer> includedColumns)
-            throws IOException
+    public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
     {
-        return orcReader.createRecordReader(
-                includedColumns,
-                OrcPredicate.TRUE,
-                0,
-                dataSource.getSize(),
-                DateTimeZone.UTC);
+        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext());
     }
 
     public static byte[] octets(int... values)

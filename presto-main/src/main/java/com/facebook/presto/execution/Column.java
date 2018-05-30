@@ -15,27 +15,24 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Column
 {
     private final String name;
     private final String type;
-    private final Optional<SimpleDomain> domain;
 
     @JsonCreator
     public Column(
             @JsonProperty("name") String name,
-            @JsonProperty("type") String type,
-            @JsonProperty("domain") Optional<SimpleDomain> domain)
+            @JsonProperty("type") String type)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.type = checkNotNull(type, "type is null");
-        this.domain = checkNotNull(domain, "domain is null");
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
@@ -50,12 +47,6 @@ public final class Column
         return type;
     }
 
-    @JsonProperty
-    public Optional<SimpleDomain> getDomain()
-    {
-        return domain;
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -68,15 +59,14 @@ public final class Column
 
         Column that = (Column) o;
 
-        return Objects.equal(this.name, that.name) &&
-                Objects.equal(this.type, that.type) &&
-                Objects.equal(this.domain, that.domain);
+        return Objects.equals(this.name, that.name) &&
+                Objects.equals(this.type, that.type);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, type, domain);
+        return Objects.hash(name, type);
     }
 
     @Override
@@ -85,7 +75,6 @@ public final class Column
         return toStringHelper(this)
                 .addValue(name)
                 .addValue(type)
-                .addValue(domain)
                 .toString();
     }
 }

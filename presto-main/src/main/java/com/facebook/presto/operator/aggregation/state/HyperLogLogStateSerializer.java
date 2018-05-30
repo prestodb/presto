@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.stats.cardinality.HyperLogLog;
 
@@ -43,8 +44,6 @@ public class HyperLogLogStateSerializer
     @Override
     public void deserialize(Block block, int index, HyperLogLogState state)
     {
-        if (!block.isNull(index)) {
-            state.setHyperLogLog(HyperLogLog.newInstance(HYPER_LOG_LOG.getSlice(block, index)));
-        }
+        state.setHyperLogLog(HyperLogLog.newInstance(HYPER_LOG_LOG.getSlice(block, index)));
     }
 }

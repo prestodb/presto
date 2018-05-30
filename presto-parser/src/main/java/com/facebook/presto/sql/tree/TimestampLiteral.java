@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class TimestampLiteral
         extends Literal
@@ -22,7 +25,18 @@ public class TimestampLiteral
 
     public TimestampLiteral(String value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        this(Optional.empty(), value);
+    }
+
+    public TimestampLiteral(NodeLocation location, String value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private TimestampLiteral(Optional<NodeLocation> location, String value)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
 
         this.value = value;
     }
@@ -49,12 +63,7 @@ public class TimestampLiteral
         }
 
         TimestampLiteral that = (TimestampLiteral) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

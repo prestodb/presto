@@ -24,4 +24,9 @@ public class PageTransportErrorException
     {
         super(PAGE_TRANSPORT_ERROR, message);
     }
+
+    public PageTransportErrorException(String message, Throwable cause)
+    {
+        super(PAGE_TRANSPORT_ERROR, message, cause);
+    }
 }

@@ -13,23 +13,25 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 
 public class IsNullCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 1);
 
@@ -38,17 +40,18 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        ByteCodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument);
 
         // evaluate the expression, pop the produced value, and load the null flag
-        Block block = new Block(generatorContext.getContext())
+        Variable wasNull = generatorContext.wasNull();
+        BytecodeBlock block = new BytecodeBlock()
                 .comment("is null")
                 .append(value)
                 .pop(argument.getType().getJavaType())
-                .getVariable("wasNull");
+                .append(wasNull);
 
         // clear the null flag
-        block.putVariable("wasNull", false);
+        block.append(wasNull.set(constantFalse()));
 
         return block;
     }

@@ -13,123 +13,76 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.SystemTable.Distribution;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 
-import javax.inject.Inject;
+import java.util.Set;
 
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
+import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
-    private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
+    private final InternalNodeManager nodeManager;
+    private final SystemTablesProvider tables;
 
-    @Inject
-    public SystemSplitManager(NodeManager nodeManager)
+    public SystemSplitManager(InternalNodeManager nodeManager, SystemTablesProvider tables)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-    }
-
-    public void addTable(SystemTable systemTable)
-    {
-        checkNotNull(systemTable, "systemTable is null");
-        SchemaTableName tableName = systemTable.getTableMetadata().getTable();
-        checkArgument(tables.putIfAbsent(tableName, systemTable) == null, "Table %s is already registered", tableName);
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.tables = requireNonNull(tables, "tables is null");
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        checkNotNull(tupleDomain, "tupleDomain is null");
-        SystemTableHandle systemTableHandle = checkType(table, SystemTableHandle.class, "table");
+        SystemTableLayoutHandle layoutHandle = (SystemTableLayoutHandle) layout;
+        SystemTableHandle tableHandle = layoutHandle.getTable();
 
-        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new SystemPartition(systemTableHandle));
-        return new ConnectorPartitionResult(partitions, tupleDomain);
-    }
+        TupleDomain<ColumnHandle> constraint = layoutHandle.getConstraint();
+        SystemTable systemTable = tables.getSystemTable(session, tableHandle.getSchemaTableName())
+                // table might disappear in the meantime
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table %s not found", tableHandle.getSchemaTableName())));
 
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
-    {
-        checkNotNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.<ConnectorSplit>of());
+        Distribution tableDistributionMode = systemTable.getDistribution();
+        if (tableDistributionMode == SINGLE_COORDINATOR) {
+            HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+            ConnectorSplit split = new SystemSplit(tableHandle.getConnectorId(), tableHandle, address, constraint);
+            return new FixedSplitSource(ImmutableList.of(split));
         }
 
-        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        SystemPartition systemPartition = checkType(partition, SystemPartition.class, "partition");
-
-        SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
-        checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
-
-        if (systemTable.isDistributed()) {
-            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-            for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
-            }
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, splits.build());
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+        ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
+        if (tableDistributionMode == ALL_COORDINATORS) {
+            nodes.addAll(nodeManager.getCoordinators());
         }
-
-        HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
-        return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.of(split));
-    }
-
-    public static class SystemPartition
-            implements ConnectorPartition
-    {
-        private final SystemTableHandle tableHandle;
-
-        public SystemPartition(SystemTableHandle tableHandle)
-        {
-            this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
+        else if (tableDistributionMode == ALL_NODES) {
+            nodes.addAll(nodeManager.getNodes(ACTIVE));
         }
-
-        public SystemTableHandle getTableHandle()
-        {
-            return tableHandle;
+        Set<Node> nodeSet = nodes.build();
+        for (Node node : nodeSet) {
+            splits.add(new SystemSplit(tableHandle.getConnectorId(), tableHandle, node.getHostAndPort(), constraint));
         }
-
-        @Override
-        public String getPartitionId()
-        {
-            return tableHandle.getSchemaTableName().toString();
-        }
-
-        @Override
-        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
-        {
-            return TupleDomain.all();
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("tableHandle", tableHandle)
-                    .toString();
-        }
+        return new FixedSplitSource(splits.build());
     }
 }

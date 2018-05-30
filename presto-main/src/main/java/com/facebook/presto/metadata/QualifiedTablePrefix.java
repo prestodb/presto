@@ -14,10 +14,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
@@ -33,15 +35,15 @@ public class QualifiedTablePrefix
     public QualifiedTablePrefix(String catalogName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.absent();
-        this.tableName = Optional.absent();
+        this.schemaName = Optional.empty();
+        this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
         this.catalogName = checkCatalogName(catalogName);
         this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.absent();
+        this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
@@ -51,7 +53,10 @@ public class QualifiedTablePrefix
         this.tableName = Optional.of(checkTableName(tableName));
     }
 
-    public QualifiedTablePrefix(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public QualifiedTablePrefix(
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("schemaName") Optional<String> schemaName,
+            @JsonProperty("tableName") Optional<String> tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
@@ -59,16 +64,19 @@ public class QualifiedTablePrefix
         this.tableName = tableName;
     }
 
+    @JsonProperty
     public String getCatalogName()
     {
         return catalogName;
     }
 
+    @JsonProperty
     public Optional<String> getSchemaName()
     {
         return schemaName;
     }
 
+    @JsonProperty
     public Optional<String> getTableName()
     {
         return tableName;
@@ -97,6 +105,13 @@ public class QualifiedTablePrefix
         }
     }
 
+    public boolean matches(QualifiedObjectName objectName)
+    {
+        return Objects.equals(catalogName, objectName.getCatalogName())
+                && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
+                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -107,20 +122,20 @@ public class QualifiedTablePrefix
             return false;
         }
         QualifiedTablePrefix o = (QualifiedTablePrefix) obj;
-        return Objects.equal(catalogName, o.catalogName) &&
-                Objects.equal(schemaName, o.schemaName) &&
-                Objects.equal(tableName, o.tableName);
+        return Objects.equals(catalogName, o.catalogName) &&
+                Objects.equals(schemaName, o.schemaName) &&
+                Objects.equals(tableName, o.tableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, schemaName, tableName);
     }
 
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName.or("*") + '.' + tableName.or("*");
+        return catalogName + '.' + schemaName.orElse("*") + '.' + tableName.orElse("*");
     }
 }

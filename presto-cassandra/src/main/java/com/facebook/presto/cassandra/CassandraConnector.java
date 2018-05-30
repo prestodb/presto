@@ -13,45 +13,63 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(CassandraConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final CassandraMetadata metadata;
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
-    private final CassandraHandleResolver handleResolver;
-    private final CassandraConnectorRecordSinkProvider recordSinkProvider;
+    private final ConnectorPageSinkProvider pageSinkProvider;
 
     @Inject
     public CassandraConnector(
+            LifeCycleManager lifeCycleManager,
             CassandraMetadata metadata,
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
-            CassandraHandleResolver handleResolver,
-            CassandraConnectorRecordSinkProvider recordSinkProvider)
+            CassandraPageSinkProvider pageSinkProvider)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
-        this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    {
+        checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
+        return CassandraTransactionHandle.INSTANCE;
+    }
+
+    @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }
@@ -63,32 +81,25 @@ public class CassandraConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
+    public ConnectorPageSinkProvider getPageSinkProvider()
     {
-        return handleResolver;
+        return pageSinkProvider;
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public final void shutdown()
     {
-        return recordSinkProvider;
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

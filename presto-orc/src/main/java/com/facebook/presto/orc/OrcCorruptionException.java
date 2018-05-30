@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import org.jetbrains.annotations.Contract;
-
 import java.io.IOException;
 
 import static java.lang.String.format;
@@ -22,22 +20,23 @@ import static java.lang.String.format;
 public class OrcCorruptionException
         extends IOException
 {
-    @Contract("false, _, _ -> fail")
-    public static void verifyFormat(boolean test, String messageFormat, Object... args)
-            throws OrcCorruptionException
+    public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String message)
     {
-        if (!test) {
-            throw new OrcCorruptionException(messageFormat, args);
-        }
+        this(orcDataSourceId, "%s", message);
     }
 
-    public OrcCorruptionException(String messageFormat, Object... args)
+    public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
     {
-        super(format(messageFormat, args));
+        super(formatMessage(orcDataSourceId, messageFormat, args));
     }
 
-    public OrcCorruptionException(Throwable cause, String messageFormat, Object... args)
+    public OrcCorruptionException(Throwable cause, OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
     {
-        super(format(messageFormat, args), cause);
+        super(formatMessage(orcDataSourceId, messageFormat, args), cause);
+    }
+
+    private static String formatMessage(OrcDataSourceId orcDataSourceId, String messageFormat, Object[] args)
+    {
+        return "Malformed ORC file. " + format(messageFormat, args) + " [" + orcDataSourceId + "]";
     }
 }

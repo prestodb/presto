@@ -15,7 +15,22 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public interface HashGenerator
 {
-    int hashPosition(int position, Page page);
+    long hashPosition(int position, Page page);
+
+    default int getPartition(int partitionCount, int position, Page page)
+    {
+        long rawHash = hashPosition(position, page);
+
+        // clear the sign bit
+        rawHash &= 0x7fff_ffff_ffff_ffffL;
+
+        int partition = (int) (rawHash % partitionCount);
+
+        checkState(partition >= 0 && partition < partitionCount);
+        return partition;
+    }
 }

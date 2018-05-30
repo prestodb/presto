@@ -14,7 +14,6 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.ModelType;
-import com.google.common.base.Throwables;
 import libsvm.svm;
 import libsvm.svm_model;
 import libsvm.svm_parameter;
@@ -23,13 +22,14 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 
-import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
+import static java.util.Objects.requireNonNull;
 
 public class SvmClassifier
         extends AbstractSvmModel
-        implements Classifier
+        implements Classifier<Integer>
 {
     public SvmClassifier()
     {
@@ -54,21 +54,21 @@ public class SvmClassifier
             return new SvmClassifier(model);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
     @Override
-    public int classify(FeatureVector features)
+    public Integer classify(FeatureVector features)
     {
-        checkNotNull(model, "model is null");
+        requireNonNull(model, "model is null");
         return (int) svm.svm_predict(model, toSvmNodes(features));
     }
 
     @Override
     public ModelType getType()
     {
-        return CLASSIFIER;
+        return BIGINT_CLASSIFIER;
     }
 
     @Override

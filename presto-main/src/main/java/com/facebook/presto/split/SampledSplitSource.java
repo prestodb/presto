@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.Split;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.Nullable;
 
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class SampledSplitSource
         implements SplitSource
@@ -33,31 +35,32 @@ public class SampledSplitSource
 
     public SampledSplitSource(SplitSource splitSource, double sampleRatio)
     {
-        this.splitSource = checkNotNull(splitSource, "dataSource is null");
+        this.splitSource = requireNonNull(splitSource, "dataSource is null");
         this.sampleRatio = sampleRatio;
     }
 
     @Nullable
     @Override
-    public String getDataSourceName()
+    public ConnectorId getConnectorId()
     {
-        return splitSource.getDataSourceName();
+        return splitSource.getConnectorId();
     }
 
     @Override
-    public List<Split> getNextBatch(int maxSize)
-            throws InterruptedException
+    public ConnectorTransactionHandle getTransactionHandle()
     {
-        List<Split> nextBatch = splitSource.getNextBatch(maxSize);
-        Iterable<Split> sampleIterable = Iterables.filter(nextBatch, new Predicate<Split>()
-        {
-            @Override
-            public boolean apply(@Nullable Split input)
-            {
-                return ThreadLocalRandom.current().nextDouble() < sampleRatio;
-            }
-        });
-        return ImmutableList.copyOf(sampleIterable);
+        return splitSource.getTransactionHandle();
+    }
+
+    @Override
+    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    {
+        ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(partitionHandle, lifespan, maxSize);
+        return Futures.transform(batch, splitBatch -> new SplitBatch(
+                splitBatch.getSplits().stream()
+                        .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
+                        .collect(toImmutableList()),
+                splitBatch.isLastBatch()));
     }
 
     @Override

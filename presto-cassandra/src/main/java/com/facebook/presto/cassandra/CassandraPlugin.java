@@ -13,33 +13,16 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraPlugin
         implements Plugin
 {
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
     @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new CassandraConnectorFactory("cassandra", optionalConfig)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new CassandraConnectorFactory("cassandra"));
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.ml;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -29,7 +30,6 @@ public class TestFeatureTransformations
 {
     @Test
     public void testUnitNormalizer()
-            throws Exception
     {
         FeatureTransformation transformation = new FeatureUnitNormalizer();
         Dataset dataset = getDataset();
@@ -54,7 +54,6 @@ public class TestFeatureTransformations
 
     @Test
     public void testUnitNormalizerSimple()
-            throws Exception
     {
         FeatureTransformation transformation = new FeatureUnitNormalizer();
         List<Double> labels = new ArrayList<>();
@@ -64,7 +63,7 @@ public class TestFeatureTransformations
             features.add(new FeatureVector(0, (double) i));
         }
 
-        Dataset dataset = new Dataset(labels, features);
+        Dataset dataset = new Dataset(labels, features, ImmutableMap.of());
         transformation.train(dataset);
         Set<Double> featureValues = new HashSet<>();
         for (FeatureVector vector : transformation.transform(dataset).getDatapoints()) {

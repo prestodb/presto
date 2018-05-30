@@ -18,25 +18,24 @@ import com.facebook.presto.ml.type.ModelType;
 
 import java.util.List;
 
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ClassifierFeatureTransformer
-        implements Classifier
+        implements Classifier<Integer>
 {
-    private final Classifier classifier;
+    private final Classifier<Integer> classifier;
     private final FeatureTransformation transformation;
 
-    public ClassifierFeatureTransformer(Classifier classifier, FeatureTransformation transformation)
+    public ClassifierFeatureTransformer(Classifier<Integer> classifier, FeatureTransformation transformation)
     {
-        this.classifier = checkNotNull(classifier, "classifier is is null");
-        this.transformation = checkNotNull(transformation, "transformation is null");
+        this.classifier = requireNonNull(classifier, "classifier is is null");
+        this.transformation = requireNonNull(transformation, "transformation is null");
     }
 
     @Override
     public ModelType getType()
     {
-        return ClassifierType.CLASSIFIER;
+        return ClassifierType.BIGINT_CLASSIFIER;
     }
 
     @Override
@@ -49,11 +48,11 @@ public class ClassifierFeatureTransformer
     {
         List<Model> models = ModelUtils.deserializeModels(data);
 
-        return new ClassifierFeatureTransformer(checkType(models.get(0), Classifier.class, "model 0"), checkType(models.get(1), FeatureTransformation.class, "model 1"));
+        return new ClassifierFeatureTransformer((Classifier) models.get(0), (FeatureTransformation) models.get(1));
     }
 
     @Override
-    public int classify(FeatureVector features)
+    public Integer classify(FeatureVector features)
     {
         return classifier.classify(transformation.transform(features));
     }

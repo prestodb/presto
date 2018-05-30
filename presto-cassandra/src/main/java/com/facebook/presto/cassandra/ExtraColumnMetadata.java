@@ -15,8 +15,6 @@ package com.facebook.presto.cassandra;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -53,29 +51,5 @@ public class ExtraColumnMetadata
                 .add("name", name)
                 .add("hidden", hidden)
                 .toString();
-    }
-
-    public static Function<ExtraColumnMetadata, String> nameGetter()
-    {
-        return new Function<ExtraColumnMetadata, String>()
-        {
-            @Override
-            public String apply(ExtraColumnMetadata extraColumnMetadata)
-            {
-                return extraColumnMetadata.getName();
-            }
-        };
-    }
-
-    public static Predicate<ExtraColumnMetadata> hiddenPredicate()
-    {
-        return new Predicate<ExtraColumnMetadata>()
-        {
-            @Override
-            public boolean apply(ExtraColumnMetadata extraColumnMetadata)
-            {
-                return extraColumnMetadata.isHidden();
-            }
-        };
     }
 }

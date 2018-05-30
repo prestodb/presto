@@ -13,39 +13,41 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Preconditions;
+import io.airlift.bytecode.BytecodeNode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 
 public class FunctionCallCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
         FunctionRegistry registry = context.getRegistry();
 
-        FunctionInfo function = registry.getExactFunction(signature);
-        if (function == null) {
-            // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-            function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
+        ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
+
+        List<BytecodeNode> argumentsBytecode = new ArrayList<>();
+        for (int i = 0; i < arguments.size(); i++) {
+            RowExpression argument = arguments.get(i);
+            ScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
+            if (argumentProperty.getArgumentType() == VALUE_TYPE) {
+                argumentsBytecode.add(context.generate(argument));
+            }
+            else {
+                argumentsBytecode.add(context.generate(argument, Optional.of(argumentProperty.getLambdaInterface())));
+            }
         }
 
-        Preconditions.checkArgument(function != null, "Function %s not found", signature);
-
-        List<ByteCodeNode> argumentsByteCode = new ArrayList<>();
-        for (RowExpression argument : arguments) {
-            argumentsByteCode.add(context.generate(argument));
-        }
-
-        return context.generateCall(function, argumentsByteCode);
+        return context.generateCall(signature.getName(), function, argumentsBytecode);
     }
 }

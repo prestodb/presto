@@ -13,60 +13,24 @@
  */
 package com.facebook.presto.sql.parser;
 
-import org.antlr.runtime.CharStream;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.IntStream;
+import org.antlr.v4.runtime.misc.Interval;
 
 public class CaseInsensitiveStream
         implements CharStream
 {
-    private CharStream stream;
+    private final CharStream stream;
 
     public CaseInsensitiveStream(CharStream stream)
     {
         this.stream = stream;
     }
 
-    /**
-     * @return the LA value without case transformation
-     */
-    public int rawLA(int i)
-    {
-        return stream.LA(i);
-    }
-
     @Override
-    public String substring(int start, int stop)
+    public String getText(Interval interval)
     {
-        return stream.substring(start, stop);
-    }
-
-    @Override
-    public int LT(int i)
-    {
-        return LA(i);
-    }
-
-    @Override
-    public int getLine()
-    {
-        return stream.getLine();
-    }
-
-    @Override
-    public void setLine(int line)
-    {
-        stream.setLine(line);
-    }
-
-    @Override
-    public void setCharPositionInLine(int pos)
-    {
-        stream.setCharPositionInLine(pos);
-    }
-
-    @Override
-    public int getCharPositionInLine()
-    {
-        return stream.getCharPositionInLine();
+        return stream.getText(interval);
     }
 
     @Override
@@ -78,11 +42,11 @@ public class CaseInsensitiveStream
     @Override
     public int LA(int i)
     {
-        int result = stream.LT(i);
+        int result = stream.LA(i);
 
         switch (result) {
             case 0:
-            case CharStream.EOF:
+            case IntStream.EOF:
                 return result;
             default:
                 return Character.toUpperCase(result);
@@ -96,27 +60,15 @@ public class CaseInsensitiveStream
     }
 
     @Override
-    public int index()
-    {
-        return stream.index();
-    }
-
-    @Override
-    public void rewind(int marker)
-    {
-        stream.rewind(marker);
-    }
-
-    @Override
-    public void rewind()
-    {
-        stream.rewind();
-    }
-
-    @Override
     public void release(int marker)
     {
         stream.release(marker);
+    }
+
+    @Override
+    public int index()
+    {
+        return stream.index();
     }
 
     @Override

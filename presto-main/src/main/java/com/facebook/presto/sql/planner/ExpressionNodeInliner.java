@@ -22,6 +22,11 @@ import java.util.Map;
 public class ExpressionNodeInliner
         extends ExpressionRewriter<Void>
 {
+    public static Expression replaceExpression(Expression expression, Map<? extends Expression, ? extends Expression> mappings)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(mappings), expression);
+    }
+
     private final Map<? extends Expression, ? extends Expression> mappings;
 
     public ExpressionNodeInliner(Map<? extends Expression, ? extends Expression> mappings)
