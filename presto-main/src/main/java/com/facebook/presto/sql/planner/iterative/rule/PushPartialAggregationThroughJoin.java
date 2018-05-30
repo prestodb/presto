@@ -156,6 +156,7 @@ public class PushPartialAggregationThroughJoin
                 source,
                 aggregation.getAggregations(),
                 ImmutableList.of(groupingSet),
+                ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());

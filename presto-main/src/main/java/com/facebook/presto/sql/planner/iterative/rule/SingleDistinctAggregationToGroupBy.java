@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.emptyList;
 
 /**
  * Implements distinct aggregations with similar inputs by transforming plans of the following shape:
@@ -135,6 +136,7 @@ public class SingleDistinctAggregationToGroupBy
                                         .addAll(aggregation.getGroupingKeys())
                                         .addAll(symbols)
                                         .build()),
+                                ImmutableList.of(),
                                 SINGLE,
                                 Optional.empty(),
                                 Optional.empty()),
@@ -145,6 +147,7 @@ public class SingleDistinctAggregationToGroupBy
                                         Map.Entry::getKey,
                                         e -> removeDistinct(e.getValue()))),
                         aggregation.getGroupingSets(),
+                        emptyList(),
                         aggregation.getStep(),
                         aggregation.getHashSymbol(),
                         aggregation.getGroupIdSymbol()));

@@ -318,6 +318,7 @@ public class PlanBuilder
                     source,
                     assignments,
                     groupingSets,
+                    ImmutableList.of(),
                     step,
                     hashSymbol,
                     groupIdSymbol);

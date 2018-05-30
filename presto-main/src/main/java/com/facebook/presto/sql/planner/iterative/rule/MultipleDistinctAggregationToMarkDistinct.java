@@ -171,6 +171,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                         subPlan,
                         newAggregations,
                         parent.getGroupingSets(),
+                        ImmutableList.of(),
                         parent.getStep(),
                         parent.getHashSymbol(),
                         parent.getGroupIdSymbol()));

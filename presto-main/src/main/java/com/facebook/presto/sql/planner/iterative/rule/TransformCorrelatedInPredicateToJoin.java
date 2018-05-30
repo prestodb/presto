@@ -204,6 +204,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
                         .build(),
                 ImmutableList.of(probeSide.getOutputSymbols()),
+                ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());

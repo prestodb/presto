@@ -196,6 +196,7 @@ public class TestTypeValidator
                                 false),
                         Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
+                ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty());
@@ -253,6 +254,7 @@ public class TestTypeValidator
                                 false),
                         Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
+                ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty());
@@ -280,6 +282,7 @@ public class TestTypeValidator
                                 false),
                         Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
+                ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
                 Optional.empty());

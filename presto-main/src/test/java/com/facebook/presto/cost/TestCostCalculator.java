@@ -366,6 +366,7 @@ public class TestCostCalculator
                 source,
                 ImmutableMap.of(new Symbol("count"), aggregation),
                 ImmutableList.of(source.getOutputSymbols()),
+                ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty());

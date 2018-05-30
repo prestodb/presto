@@ -96,6 +96,10 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
+        if (!aggregationNode.getPreGroupedSymbols().isEmpty()) {
+            return NO_MATCH;
+        }
+
         return match();
     }
 

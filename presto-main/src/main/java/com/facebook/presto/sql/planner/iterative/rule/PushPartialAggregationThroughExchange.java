@@ -215,6 +215,7 @@ public class PushPartialAggregationThroughExchange
                 node.getSource(),
                 intermediateAggregation,
                 node.getGroupingSets(),
+                ImmutableList.of(),
                 PARTIAL,
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());
@@ -224,6 +225,7 @@ public class PushPartialAggregationThroughExchange
                 partial,
                 finalAggregation,
                 node.getGroupingSets(),
+                ImmutableList.of(),
                 FINAL,
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());

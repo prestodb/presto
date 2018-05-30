@@ -176,6 +176,7 @@ public class HashGenerationOptimizer
                             child.getNode(),
                             node.getAggregations(),
                             node.getGroupingSets(),
+                            node.getPreGroupedSymbols(),
                             node.getStep(),
                             hashSymbol,
                             node.getGroupIdSymbol()),
