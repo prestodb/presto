@@ -57,6 +57,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -357,6 +358,28 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testStreamingAggregationForCorrelatedSubquery()
+    {
+        // Don't use equi-clauses to trigger replicated join
+        assertPlanWithSession("SELECT name, (SELECT max(name) FROM region WHERE regionkey > nation.regionkey) FROM nation",
+                this.getQueryRunner().getDefaultSession(),
+                false,
+                anyTree(
+                        aggregation(
+                                ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),
+                                ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
+                                ImmutableList.of("n_name", "n_regionkey", "unique"),
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                SINGLE,
+                                node(JoinNode.class,
+                                        assignUniqueId("unique",
+                                                tableScan("nation", ImmutableMap.of("n_name", "name", "n_regionkey", "regionkey"))),
+                                        anyTree(
+                                                tableScan("region", ImmutableMap.of("r_name", "name")))))));
+    }
+
+    @Test
     public void testStreamingAggregationOverJoin()
     {
         // "orders" table is naturally grouped on orderkey
@@ -475,14 +498,12 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) > 0
                 anyTree(
                         filter("FINAL_COUNT > BIGINT '0'",
-                                any(
-                                        aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
                                                 any(
-                                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                                any(
-                                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                                project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                                        node(ValuesNode.class)))))))));
+                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
+                                                project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                        node(ValuesNode.class)))))));
     }
 
     @Test
@@ -536,7 +557,7 @@ public class TestLogicalPlanner
                 .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .build();
 
-        // make sure there is remote exchange in build side
+        // make sure there is a remote exchange on the build side
         PlanMatchPattern joinBuildSideWithRemoteExchange =
                 anyTree(
                         node(JoinNode.class,
@@ -554,13 +575,21 @@ public class TestLogicalPlanner
                         node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE),
                 1);
 
+        Consumer<Plan> validateSingleStreamingAggregation = plan -> assertEquals(
+                countOfMatchingNodes(
+                        plan,
+                        node -> node instanceof AggregationNode
+                                && ((AggregationNode) node).getGroupingKeys().contains(new Symbol("unique"))
+                                && ((AggregationNode) node).isStreamable()),
+                1);
+
         // region is unpartitioned, AssignUniqueId should provide satisfying partitioning for count(*) after LEFT JOIN
         assertPlanWithSession(
                 "SELECT (SELECT count(*) FROM region r2 WHERE r2.regionkey > r1.regionkey) FROM region r1",
                 broadcastJoin,
                 false,
                 joinBuildSideWithRemoteExchange,
-                validateSingleRemoteExchange);
+                validateSingleRemoteExchange.andThen(validateSingleStreamingAggregation));
 
         // orders is naturally partitioned, AssignUniqueId should not overwrite its natural partitioning
         assertPlanWithSession(
@@ -570,7 +599,7 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 false,
                 joinBuildSideWithRemoteExchange,
-                validateSingleRemoteExchange);
+                validateSingleRemoteExchange.andThen(validateSingleStreamingAggregation));
     }
 
     @Test

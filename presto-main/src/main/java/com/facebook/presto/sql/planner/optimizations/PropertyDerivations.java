@@ -183,13 +183,23 @@ public class PropertyDerivations
         public ActualProperties visitAssignUniqueId(AssignUniqueId node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            ImmutableList.Builder<LocalProperty<Symbol>> newLocalProperties = ImmutableList.builder();
+            newLocalProperties.addAll(properties.getLocalProperties());
+            newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdColumn())));
+            node.getSource().getOutputSymbols().stream()
+                    .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
+
             if (properties.getNodePartitioning().isPresent()) {
                 // preserve input (possibly preferred) partitioning
-                return properties;
+                return ActualProperties.builderFrom(properties)
+                        .local(newLocalProperties.build())
+                        .build();
             }
 
             return ActualProperties.builderFrom(properties)
                     .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn()), Optional.empty()))
+                    .local(newLocalProperties.build())
                     .build();
         }
 
