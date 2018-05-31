@@ -429,7 +429,15 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitAssignUniqueId(AssignUniqueId node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            if (properties.getPartitioningColumns().isPresent()) {
+                // preserve input (possibly preferred) partitioning
+                return properties;
+            }
+
+            return new StreamProperties(properties.getDistribution(),
+                    Optional.of(ImmutableList.of(node.getIdColumn())),
+                    properties.isOrdered());
         }
 
         //
