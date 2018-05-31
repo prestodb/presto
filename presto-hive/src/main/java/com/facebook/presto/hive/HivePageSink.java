@@ -58,6 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -317,7 +318,7 @@ public class HivePageSink
         Block bucketBlock = buildBucketBlock(page);
         int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
         if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
-            throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
+            throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Too many open partitions (%s), per writer limit is %s", pagePartitioner.getMaxIndex(), maxOpenWriters));
         }
 
         // expand writers list to new size
