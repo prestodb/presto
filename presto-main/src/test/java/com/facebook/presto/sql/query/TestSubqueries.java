@@ -119,7 +119,10 @@ public class TestSubqueries
         // t.a is not a "constant" column, group by does not guarantee single row per correlated subquery
         assertions.assertFails(
                 "select (select count(*) from (values 1, 2, 3, null) t(a) where t.a<t2.b GROUP BY t.a) from (values 1, 2, 3) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "Scalar sub-query has returned multiple rows");
+        assertions.assertQuery(
+                "select (select count(*) from (values 1, 1, 2, 3, null) t(a) where t.a<t2.b GROUP BY t.a HAVING count(*) > 1) from (values 1, 2) t2(b)",
+                "VALUES null, BIGINT '2'");
         assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b GROUP BY t.a) from (values 1, 2) t2(b)",
                 "VALUES true, false",
@@ -171,6 +174,14 @@ public class TestSubqueries
         assertions.assertFails(
                 "select * from (values 1, 2) t2(b), LATERAL (select t.a, t.b, count(*) from (values (1, 1), (1, 2), (2, 2), (3, 3)) t(a, b) where t.a=t2.b GROUP BY GROUPING SETS ((t.a, t.b), (t.a)))",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
+    public void testCorrelatedScalarSubquery()
+    {
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t2(b) WHERE (SELECT b) = 2",
+                "VALUES 2");
     }
 
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)

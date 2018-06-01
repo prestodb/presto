@@ -84,6 +84,7 @@ import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -192,6 +193,21 @@ public final class PlanMatchPattern
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
+    }
+
+    public static PlanMatchPattern aggregation(
+            List<String> groupBy,
+            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            PlanMatchPattern source)
+    {
+        return aggregation(
+                ImmutableList.of(groupBy),
+                aggregations.entrySet().stream()
+                        .collect(toImmutableMap(entry -> Optional.of(entry.getKey()), Map.Entry::getValue)),
+                emptyMap(),
+                Optional.empty(),
+                Step.SINGLE,
+                source);
     }
 
     public static PlanMatchPattern aggregation(
@@ -383,9 +399,13 @@ public final class PlanMatchPattern
         return new SymbolAlias(alias);
     }
 
-    public static PlanMatchPattern filter(String predicate, PlanMatchPattern source)
+    public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
     {
-        Expression expectedPredicate = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate));
+        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+    }
+
+    public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
+    {
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 

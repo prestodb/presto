@@ -65,7 +65,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -350,15 +349,10 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 LogicalPlanner.Stage.OPTIMIZED,
-                anyTree(
-                        filter("BIGINT '3' = X",
-                                lateral(
-                                        ImmutableList.of("X"),
-                                        tableScan("orders", ImmutableMap.of("X", "orderkey")),
-                                        node(EnforceSingleRowNode.class,
-                                                project(
-                                                        node(ValuesNode.class)))))),
-                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
+                any(
+                        filter(
+                                "X = BIGINT '3'",
+                                tableScan("orders", ImmutableMap.of("X", "orderkey")))));
     }
 
     /**
@@ -411,13 +405,10 @@ public class TestLogicalPlanner
                                                 tableScan("orders", ImmutableMap.of(
                                                         "O", "orderkey",
                                                         "C", "custkey"))),
-                                        anyTree(
-                                                lateral(
-                                                        ImmutableList.of("L"),
-                                                        tableScan("lineitem", ImmutableMap.of("L", "orderkey")),
-                                                        node(EnforceSingleRowNode.class,
-                                                                project(
-                                                                        node(ValuesNode.class)))))))),
+                                        project(
+                                                any(
+                                                        any(
+                                                                tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
                 MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
     }
 
