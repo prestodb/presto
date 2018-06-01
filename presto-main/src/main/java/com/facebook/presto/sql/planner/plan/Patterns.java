@@ -184,6 +184,11 @@ public class Patterns
         {
             return property("correlation", LateralJoinNode::getCorrelation);
         }
+
+        public static Property<LateralJoinNode, PlanNode> subquery()
+        {
+            return property("subquery", LateralJoinNode::getSubquery);
+        }
     }
 
     public static class Limit
