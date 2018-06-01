@@ -25,6 +25,7 @@ import java.util.Base64;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -247,6 +248,30 @@ public class TestVarbinaryFunctions
         assertFunction("from_ieee754_64(to_ieee754_64(4.9E-324))", DOUBLE, 4.9E-324);
         assertFunction("from_ieee754_64(to_ieee754_64(-4.9E-324))", DOUBLE, -4.9E-324);
         assertInvalidFunction("from_ieee754_64(from_hex('00000000'))", "Input floating-point value must be exactly 8 bytes long");
+    }
+
+    @Test
+    public void testLpad()
+    {
+        assertFunction("lpad(x'23',7,x'45')", VARBINARY, sqlVarbinaryHex("23454545454545"));
+        assertFunction("lpad(x'23',7,x'4524')", VARBINARY, sqlVarbinaryHex("23452445244524"));
+        assertFunction("lpad(x'23',2,x'4524')", VARBINARY, sqlVarbinaryHex("2345"));
+        assertFunction("lpad(x'23',0,x'4524')", VARBINARY, sqlVarbinaryHex(""));
+        assertFunction("lpad(x'2312',1,x'4524')", VARBINARY, sqlVarbinaryHex("23"));
+        assertInvalidFunction("lpad(x'2312',-1,x'4524')","Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+        assertInvalidFunction("lpad(x'2312',1,x'')","Padding bytes must not be empty");
+    }
+
+    @Test
+    public void testRpad()
+    {
+        assertFunction("rpad(x'23',7,x'45')", VARBINARY, sqlVarbinaryHex("45454545454523"));
+        assertFunction("rpad(x'23',7,x'4524')", VARBINARY, sqlVarbinaryHex("45244524452423"));
+        assertFunction("rpad(x'23',2,x'4524')", VARBINARY, sqlVarbinaryHex("4523"));
+        assertFunction("rpad(x'23',0,x'4524')", VARBINARY, sqlVarbinaryHex(""));
+        assertFunction("rpad(x'2312',1,x'4524')", VARBINARY, sqlVarbinaryHex("23"));
+        assertInvalidFunction("rpad(x'2312',-1,x'4524')","Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+        assertInvalidFunction("rpad(x'2312',1,x'')","Padding bytes must not be empty");
     }
 
     @Test
