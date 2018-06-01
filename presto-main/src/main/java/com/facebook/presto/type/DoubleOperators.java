@@ -221,7 +221,7 @@ public final class DoubleOperators
             return toIntExact((long) MathFunctions.round(value));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for big integer: " + value, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + value, e);
         }
     }
 
