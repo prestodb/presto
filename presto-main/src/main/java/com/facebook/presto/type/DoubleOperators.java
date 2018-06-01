@@ -217,7 +217,12 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return (long) MathFunctions.round(value);
+        try {
+            return toIntExact((long) MathFunctions.round(value));
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for big integer: " + value, e);
+        }
     }
 
     @ScalarOperator(CAST)
