@@ -272,6 +272,30 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testLpad()
+    {
+        assertFunction("lpad(x'1234',7,x'45')", VARBINARY, sqlVarbinaryHex("45454545451234"));
+        assertFunction("lpad(x'1234',7,x'4524')", VARBINARY, sqlVarbinaryHex("45244524451234"));
+        assertFunction("lpad(x'1234',3,x'4524')", VARBINARY, sqlVarbinaryHex("451234"));
+        assertFunction("lpad(x'1234',0,x'4524')", VARBINARY, sqlVarbinaryHex(""));
+        assertFunction("lpad(x'1234',1,x'4524')", VARBINARY, sqlVarbinaryHex("12"));
+        assertInvalidFunction("lpad(x'2312',-1,x'4524')","Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+        assertInvalidFunction("lpad(x'2312',1,x'')","Padding bytes must not be empty");
+    }
+
+    @Test
+    public void testRpad()
+    {
+        assertFunction("rpad(x'1234',7,x'45')", VARBINARY, sqlVarbinaryHex("12344545454545"));
+        assertFunction("rpad(x'1234',7,x'4524')", VARBINARY, sqlVarbinaryHex("12344524452445"));
+        assertFunction("rpad(x'1234',3,x'4524')", VARBINARY, sqlVarbinaryHex("123445"));
+        assertFunction("rpad(x'23',0,x'4524')", VARBINARY, sqlVarbinaryHex(""));
+        assertFunction("rpad(x'1234',1,x'4524')", VARBINARY, sqlVarbinaryHex("12"));
+        assertInvalidFunction("rpad(x'1234',-1,x'4524')","Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+        assertInvalidFunction("rpad(x'1234',1,x'')","Padding bytes must not be empty");
+    }
+
+    @Test
     public void testMd5()
     {
         assertFunction("md5(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D41D8CD98F00B204E9800998ECF8427E"));

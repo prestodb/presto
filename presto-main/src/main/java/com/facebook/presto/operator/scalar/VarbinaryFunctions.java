@@ -342,4 +342,62 @@ public final class VarbinaryFunctions
 
         return slice.slice(indexStart, indexEnd - indexStart);
     }
+
+    private static Slice pad(Slice inputSlice, long targetLength, Slice padSlice, int paddingOffset)
+    {
+        checkCondition(
+                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                INVALID_FUNCTION_ARGUMENT,
+                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+        checkCondition(padSlice.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding bytes must not be empty");
+
+        int inputLength = inputSlice.length();
+        int resultLength = (int) targetLength;
+
+        // if our target length is the same as our string then return our string
+        if (inputLength == resultLength) {
+            return inputSlice;
+        }
+
+        // if our string is bigger than requested then truncate
+        if (inputLength > resultLength) {
+            return inputSlice.slice(0, resultLength);
+        }
+
+        // preallocate the result
+        Slice buffer = Slices.allocate(resultLength);
+
+        // fill in the existing string
+        int fillLength = resultLength - inputLength;
+        int startPointOfExistingText = (paddingOffset + fillLength) % resultLength;
+        buffer.setBytes(startPointOfExistingText, inputSlice);
+
+        // assign the pad string while there's enough space for it
+        int byteIndex = paddingOffset;
+        for (int i = 0; i < fillLength / padSlice.length(); i++) {
+            buffer.setBytes(byteIndex, padSlice);
+            byteIndex += padSlice.length();
+        }
+
+        // handle the tail: at most we assign padStringLength - 1 code points
+        buffer.setBytes(byteIndex, padSlice.getBytes(0, paddingOffset + fillLength - byteIndex));
+
+        return buffer;
+    }
+
+    @Description("pads a varbinary on the left")
+    @ScalarFunction("lpad")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice leftPad(@SqlType("varbinary") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varbinary") Slice padBytes)
+    {
+        return pad(inputSlice, targetLength, padBytes, 0);
+    }
+
+    @Description("pads a varbinary on the right")
+    @ScalarFunction("rpad")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice rightPad(@SqlType("varbinary") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varbinary") Slice padBytes)
+    {
+        return pad(inputSlice, targetLength, padBytes, inputSlice.length());
+    }
 }

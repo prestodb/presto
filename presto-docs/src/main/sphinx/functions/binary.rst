@@ -78,6 +78,20 @@ Binary Functions
 
     Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
 
+.. function:: lpad(binary, size, padbinary) -> varbinary
+
+    Left pads ``binary`` to ``size`` bytes with ``padbinary``.
+    If ``size`` is less than the length of ``binary``, the result is
+    truncated to ``size`` characters. ``size`` must not be negative
+    and ``padbinary`` must be non-empty.
+
+.. function:: rpad(binary, size, padbinary) -> varbinary
+
+    Right pads ``binary`` to ``size`` bytes with ``padbinary``.
+    If ``size`` is less than the length of ``binary``, the result is
+    truncated to ``size`` characters. ``size`` must not be negative
+    and ``padbinary`` must be non-empty.
+
 .. function:: crc32(binary) -> bigint
 
     Computes the CRC-32 of ``binary``. For general purpose hashing, use
