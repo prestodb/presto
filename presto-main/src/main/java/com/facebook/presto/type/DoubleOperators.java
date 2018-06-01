@@ -27,6 +27,7 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
@@ -50,7 +51,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.math.RoundingMode.FLOOR;
+import static java.math.RoundingMode.HALF_UP;
 
 public final class DoubleOperators
 {
@@ -217,7 +220,12 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return (long) MathFunctions.round(value);
+        try {
+            return DoubleMath.roundToLong(value, HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+        }
     }
 
     @ScalarOperator(CAST)

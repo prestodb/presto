@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -176,7 +177,29 @@ public class TestDoubleOperators
     public void testCastToBigint()
     {
         assertFunction("cast(37.7E0 as bigint)", BIGINT, 38L);
+        assertFunction("cast(-37.7E0 as bigint)", BIGINT, -38L);
         assertFunction("cast(17.1E0 as bigint)", BIGINT, 17L);
+        assertFunction("cast(-17.1E0 as bigint)", BIGINT, -17L);
+        assertFunction("cast(9.2E18 as bigint)", BIGINT, 9200000000000000000L);
+        assertFunction("cast(-9.2E18 as bigint)", BIGINT, -9200000000000000000L);
+        assertFunction("cast(2.21E9 as bigint)", BIGINT, 2210000000L);
+        assertFunction("cast(-2.21E9 as bigint)", BIGINT, -2210000000L);
+        assertFunction("cast(17.5E0 as bigint)", BIGINT, 18L);
+        assertFunction("cast(-17.5E0 as bigint)", BIGINT, -18L);
+
+        assertFunction("cast(" + Math.nextDown(0x1.0p63) + " as bigint)", BIGINT, (long) Math.nextDown(0x1.0p63));
+        assertInvalidFunction("cast(" + 0x1.0p63 + " as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextUp(0x1.0p63) + " as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextDown(-0x1.0p63) + " as bigint)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(" + -0x1.0p63 + " as bigint)", BIGINT, (long) -0x1.0p63);
+        assertFunction("cast(" + Math.nextUp(-0x1.0p63) + " as bigint)", BIGINT, (long) Math.nextUp(-0x1.0p63));
+
+        assertInvalidFunction("cast(9.3E18 as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.3E18 as bigint)", INVALID_CAST_ARGUMENT);
+
+        assertInvalidFunction("cast(infinity() as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as bigint)", INVALID_CAST_ARGUMENT);
     }
 
     @Test

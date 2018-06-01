@@ -77,7 +77,7 @@ public class TestJsonOperators
         assertInvalidFunction("cast(JSON '12345678901234567890' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '128.9' as BIGINT)", BIGINT, 129L);
         assertFunction("cast(JSON '1234567890123456789.0' as BIGINT)", BIGINT, 1234567890123456768L); // loss of precision
-        assertFunction("cast(JSON '12345678901234567890.0' as BIGINT)", BIGINT, 9223372036854775807L); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertInvalidFunction("cast(JSON '12345678901234567890.0' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '1e-324' as BIGINT)", BIGINT, 0L);
         assertInvalidFunction("cast(JSON '1e309' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON 'true' as BIGINT)", BIGINT, 1L);
@@ -101,7 +101,7 @@ public class TestJsonOperators
         assertFunction("cast(JSON '128' as INTEGER)", INTEGER, 128);
         assertInvalidFunction("cast(JSON '12345678901' as INTEGER)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '128.9' as INTEGER)", INTEGER, 129);
-        assertInvalidFunction("cast(JSON '12345678901.0' as INTEGER)", INVALID_CAST_ARGUMENT); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertInvalidFunction("cast(JSON '12345678901.0' as INTEGER)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '1e-324' as INTEGER)", INTEGER, 0);
         assertInvalidFunction("cast(JSON '1e309' as INTEGER)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON 'true' as INTEGER)", INTEGER, 1);
@@ -125,7 +125,7 @@ public class TestJsonOperators
         assertFunction("cast(JSON '128' as SMALLINT)", SMALLINT, (short) 128);
         assertInvalidFunction("cast(JSON '123456' as SMALLINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '128.9' as SMALLINT)", SMALLINT, (short) 129);
-        assertInvalidFunction("cast(JSON '123456.0' as SMALLINT)", INVALID_CAST_ARGUMENT); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertInvalidFunction("cast(JSON '123456.0' as SMALLINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '1e-324' as SMALLINT)", SMALLINT, (short) 0);
         assertInvalidFunction("cast(JSON '1e309' as SMALLINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON 'true' as SMALLINT)", SMALLINT, (short) 1);
@@ -149,7 +149,7 @@ public class TestJsonOperators
         assertFunction("cast(JSON '12' as TINYINT)", TINYINT, (byte) 12);
         assertInvalidFunction("cast(JSON '1234' as TINYINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '12.9' as TINYINT)", TINYINT, (byte) 13);
-        assertInvalidFunction("cast(JSON '1234.0' as TINYINT)", INVALID_CAST_ARGUMENT); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertInvalidFunction("cast(JSON '1234.0' as TINYINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON '1e-324' as TINYINT)", TINYINT, (byte) 0);
         assertInvalidFunction("cast(JSON '1e309' as TINYINT)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(JSON 'true' as TINYINT)", TINYINT, (byte) 1);

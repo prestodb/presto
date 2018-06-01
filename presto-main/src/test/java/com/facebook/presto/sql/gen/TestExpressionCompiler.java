@@ -775,7 +775,9 @@ public class TestExpressionCompiler
 
         for (Double value : doubleLefts) {
             assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0.0 ? true : false));
-            assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value.longValue());
+            if (value == null || (value >= Long.MIN_VALUE && value < Long.MAX_VALUE)) {
+                assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value.longValue());
+            }
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value);
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
         }
