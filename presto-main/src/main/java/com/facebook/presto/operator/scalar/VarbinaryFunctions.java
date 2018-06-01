@@ -161,6 +161,27 @@ public final class VarbinaryFunctions
         return Long.reverseBytes(slice.getLong(0));
     }
 
+    @Description("encode value as a 32-bit 2's complement big endian varbinary")
+    @ScalarFunction("to_big_endian_32")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toBigEndian32(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        Slice slice = Slices.allocate(Integer.BYTES);
+        slice.setInt(0, Integer.reverseBytes((int) value));
+        return slice;
+    }
+
+    @Description("decode bigint value from a 32-bit 2's complement big endian varbinary")
+    @ScalarFunction("from_big_endian_32")
+    @SqlType(StandardTypes.INTEGER)
+    public static long fromBigEndian32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        if (slice.length() != Integer.BYTES) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 4-byte input, but got instead: " + slice.length());
+        }
+        return Integer.reverseBytes(slice.getInt(0));
+    }
+
     @Description("encode value as a big endian varbinary according to IEEE 754 single-precision floating-point format")
     @ScalarFunction("to_ieee754_32")
     @SqlType(StandardTypes.VARBINARY)
