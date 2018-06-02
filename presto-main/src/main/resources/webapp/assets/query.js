@@ -892,7 +892,7 @@ let QueryDetail = React.createClass({
                         </div>
                     </td>
                     <td>
-                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI"}) } className="btn btn-warning" target="_blank">
+                        <a onClick={ () => $.ajax({url: '/v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI"}) } className="btn btn-warning" target="_blank">
                             Kill
                         </a>
                     </td>
