@@ -146,6 +146,33 @@ public final class IpAddressOperators
         }
     }
 
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.IPADDRESS)
+    public static Slice castFromVarbinaryToIpAddress(@SqlType("varbinary") Slice slice)
+    {
+        if (slice.length() == 4) {
+            byte[] address = slice.getBytes();
+            byte[] bytes = new byte[16];
+            bytes[10] = (byte) 0xff;
+            bytes[11] = (byte) 0xff;
+            arraycopy(address, 0, bytes, 12, 4);
+            return wrappedBuffer(bytes);
+        }
+        else if (slice.length() == 16) {
+            return slice;
+        }
+        else {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice castFromIpAddressToVarbinary(@SqlType(StandardTypes.IPADDRESS) Slice slice)
+    {
+        return wrappedBuffer(slice.getBytes());
+    }
+
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(@SqlType(StandardTypes.IPADDRESS) Slice left,

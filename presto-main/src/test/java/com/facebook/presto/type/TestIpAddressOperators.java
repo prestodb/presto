@@ -14,11 +14,14 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
+import static com.google.common.io.BaseEncoding.base16;
 
 public class TestIpAddressOperators
         extends AbstractTestFunctions
@@ -55,6 +58,24 @@ public class TestIpAddressOperators
         assertFunction("CAST(CAST('1.2.3.4' AS IPADDRESS) AS VARCHAR)", VARCHAR, "1.2.3.4");
         assertFunction("CAST(CAST('2001:db8:0:0:1::1' AS IPADDRESS) AS VARCHAR)", VARCHAR, "2001:db8::1:0:0:1");
         assertFunction("CAST(CAST('64:ff9b::10.0.0.0' AS IPADDRESS) AS VARCHAR)", VARCHAR, "64:ff9b::a00:0");
+    }
+
+    @Test
+    public void testVarbinaryToIpAddressCast()
+    {
+        assertFunction("CAST(x'00000000000000000000ffff01020304' AS IPADDRESS)", IPADDRESS, "1.2.3.4");
+        assertFunction("CAST(x'01020304' AS IPADDRESS)", IPADDRESS, "1.2.3.4");
+        assertFunction("CAST(x'c0a80000' AS IPADDRESS)", IPADDRESS, "192.168.0.0");
+        assertFunction("CAST(x'20010db8000000000000ff0000428329' AS IPADDRESS)", IPADDRESS, "2001:db8::ff00:42:8329");
+        assertInvalidCast("CAST(x'f000001100' AS IPADDRESS)", "Invalid IP address binary length: 5");
+    }
+
+    @Test
+    public void testIpAddressToVarbinaryCast()
+    {
+        assertFunction("CAST(IPADDRESS '::ffff:1.2.3.4' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("00000000000000000000FFFF01020304")));
+        assertFunction("CAST(IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
+        assertFunction("CAST(IPADDRESS '2001:db8::ff00:42:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
     }
 
     @Test
