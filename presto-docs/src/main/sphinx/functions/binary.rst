@@ -79,6 +79,7 @@ Binary Functions
     Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
 
 .. function:: lpad(binary, size, padbinary) -> varbinary
+    :noindex:
 
     Left pads ``binary`` to ``size`` bytes with ``padbinary``.
     If ``size`` is less than the length of ``binary``, the result is
@@ -86,6 +87,7 @@ Binary Functions
     and ``padbinary`` must be non-empty.
 
 .. function:: rpad(binary, size, padbinary) -> varbinary
+    :noindex:
 
     Right pads ``binary`` to ``size`` bytes with ``padbinary``.
     If ``size`` is less than the length of ``binary``, the result is
