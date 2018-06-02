@@ -50,6 +50,11 @@ public class Patterns
         return typeOf(ExchangeNode.class);
     }
 
+    public static Pattern<EnforceSingleRowNode> enforceSingleRow()
+    {
+        return typeOf(EnforceSingleRowNode.class);
+    }
+
     public static Pattern<FilterNode> filter()
     {
         return typeOf(FilterNode.class);

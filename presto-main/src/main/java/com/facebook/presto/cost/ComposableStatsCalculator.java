@@ -37,9 +37,9 @@ import static com.google.common.collect.Multimaps.toMultimap;
 public class ComposableStatsCalculator
         implements StatsCalculator
 {
-    private final ListMultimap<Class<?>, Rule> rulesByRootType;
+    private final ListMultimap<Class<?>, Rule<?>> rulesByRootType;
 
-    public ComposableStatsCalculator(List<Rule> rules)
+    public ComposableStatsCalculator(List<Rule<?>> rules)
     {
         this.rulesByRootType = rules.stream()
                 .peek(rule -> {
@@ -53,7 +53,7 @@ public class ComposableStatsCalculator
                         ArrayListMultimap::create));
     }
 
-    private Stream<Rule> getCandidates(PlanNode node)
+    private Stream<Rule<?>> getCandidates(PlanNode node)
     {
         for (Class<?> superclass = node.getClass().getSuperclass(); superclass != null; superclass = superclass.getSuperclass()) {
             // This is important because rule ordering, given in the constructor, is significant.
@@ -66,10 +66,10 @@ public class ComposableStatsCalculator
     @Override
     public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        Iterator<Rule> ruleIterator = getCandidates(node).iterator();
+        Iterator<Rule<?>> ruleIterator = getCandidates(node).iterator();
         while (ruleIterator.hasNext()) {
-            Rule rule = ruleIterator.next();
-            Optional<PlanNodeStatsEstimate> calculatedStats = rule.calculate(node, sourceStats, lookup, session, types);
+            Rule<?> rule = ruleIterator.next();
+            Optional<PlanNodeStatsEstimate> calculatedStats = calculateStats(rule, node, sourceStats, lookup, session, types);
             if (calculatedStats.isPresent()) {
                 return calculatedStats.get();
             }
@@ -77,10 +77,15 @@ public class ComposableStatsCalculator
         return PlanNodeStatsEstimate.UNKNOWN_STATS;
     }
 
-    public interface Rule
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        Pattern<? extends PlanNode> getPattern();
+        return rule.calculate((T) node, sourceStats, lookup, session, types);
+    }
 
-        Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types);
+    public interface Rule<T extends PlanNode>
+    {
+        Pattern<T> getPattern();
+
+        Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types);
     }
 }

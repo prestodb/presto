@@ -26,13 +26,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
+import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 
 public class ExchangeStatsRule
-        extends SimpleStatsRule
+        extends SimpleStatsRule<ExchangeNode>
 {
-    private static final Pattern<ExchangeNode> PATTERN = Pattern.typeOf(ExchangeNode.class);
+    private static final Pattern<ExchangeNode> PATTERN = exchange();
 
     public ExchangeStatsRule(StatsNormalizer normalizer)
     {
@@ -46,16 +47,14 @@ public class ExchangeStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(ExchangeNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        ExchangeNode exchangeNode = (ExchangeNode) node;
-
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
             PlanNodeStatsEstimate sourceStats = statsProvider.getStats(source);
 
-            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, exchangeNode.getInputs().get(i), exchangeNode.getOutputSymbols());
+            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node.getInputs().get(i), node.getOutputSymbols());
 
             if (estimate.isPresent()) {
                 estimate = Optional.of(addStatsAndMaxDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));

@@ -14,20 +14,22 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
+
 public class SemiJoinStatsRule
-        implements ComposableStatsCalculator.Rule
+        implements Rule<SemiJoinNode>
 {
-    private static final Pattern<SemiJoinNode> PATTERN = Pattern.typeOf(SemiJoinNode.class);
+    private static final Pattern<SemiJoinNode> PATTERN = semiJoin();
 
     @Override
     public Pattern<SemiJoinNode> getPattern()
@@ -36,10 +38,9 @@ public class SemiJoinStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public Optional<PlanNodeStatsEstimate> calculate(SemiJoinNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(semiJoinNode.getSource());
+        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
 
         // For now we just propagate statistics for source symbols.
         // Handling semiJoinOutput symbols requires support for correlation for boolean columns.

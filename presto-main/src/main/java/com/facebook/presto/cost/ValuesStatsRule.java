@@ -14,12 +14,12 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
@@ -33,14 +33,15 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toList;
 
 public class ValuesStatsRule
-        implements ComposableStatsCalculator.Rule
+        implements Rule<ValuesNode>
 {
-    private static final Pattern<ValuesNode> PATTERN = Pattern.typeOf(ValuesNode.class);
+    private static final Pattern<ValuesNode> PATTERN = values();
 
     private final Metadata metadata;
 
@@ -56,16 +57,14 @@ public class ValuesStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        ValuesNode valuesNode = (ValuesNode) node;
-
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        statsBuilder.setOutputRowCount(valuesNode.getRows().size());
+        statsBuilder.setOutputRowCount(node.getRows().size());
 
-        for (int symbolId = 0; symbolId < valuesNode.getOutputSymbols().size(); ++symbolId) {
-            Symbol symbol = valuesNode.getOutputSymbols().get(symbolId);
-            List<Object> symbolValues = getSymbolValues(valuesNode, symbolId, session, types.get(symbol));
+        for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
+            Symbol symbol = node.getOutputSymbols().get(symbolId);
+            List<Object> symbolValues = getSymbolValues(node, symbolId, session, types.get(symbol));
             statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, session, types.get(symbol)));
         }
 
