@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.MoreMath;
@@ -35,6 +34,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -46,7 +46,7 @@ import static java.util.Comparator.comparingDouble;
 import static java.util.Objects.requireNonNull;
 
 public class JoinStatsRule
-        extends SimpleStatsRule
+        extends SimpleStatsRule<JoinNode>
 {
     private static final double DEFAULT_UNMATCHED_JOIN_COMPLEMENT_NDVS_COEFFICIENT = 0.5;
 
@@ -69,29 +69,27 @@ public class JoinStatsRule
     @Override
     public Pattern<JoinNode> getPattern()
     {
-        return Pattern.typeOf(JoinNode.class);
+        return join();
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        JoinNode joinNode = (JoinNode) node;
+        PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
+        PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());
+        PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
 
-        PlanNodeStatsEstimate leftStats = sourceStats.getStats(joinNode.getLeft());
-        PlanNodeStatsEstimate rightStats = sourceStats.getStats(joinNode.getRight());
-        PlanNodeStatsEstimate crossJoinStats = crossJoinStats(joinNode, leftStats, rightStats);
-
-        switch (joinNode.getType()) {
+        switch (node.getType()) {
             case INNER:
-                return Optional.of(computeInnerJoinStats(joinNode, crossJoinStats, session, types));
+                return Optional.of(computeInnerJoinStats(node, crossJoinStats, session, types));
             case LEFT:
-                return Optional.of(computeLeftJoinStats(joinNode, leftStats, rightStats, crossJoinStats, session, types));
+                return Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
             case RIGHT:
-                return Optional.of(computeRightJoinStats(joinNode, leftStats, rightStats, crossJoinStats, session, types));
+                return Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
             case FULL:
-                return Optional.of(computeFullJoinStats(joinNode, leftStats, rightStats, crossJoinStats, session, types));
+                return Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
             default:
-                throw new IllegalStateException("Unknown join type: " + joinNode.getType());
+                throw new IllegalStateException("Unknown join type: " + node.getType());
         }
     }
 

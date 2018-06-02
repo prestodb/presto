@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.AggregationStatsRule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
+import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
@@ -517,7 +518,7 @@ public class ServerMainModule
         ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
         FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, normalizer);
 
-        ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
+        ImmutableList.Builder<Rule<?>> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata, normalizer));
         rules.add(new SimpleFilterProjectSemiJoinStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule

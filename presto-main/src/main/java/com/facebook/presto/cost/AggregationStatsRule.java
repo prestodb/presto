@@ -20,20 +20,20 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationStatsRule
-        extends SimpleStatsRule
+        extends SimpleStatsRule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     public AggregationStatsRule(StatsNormalizer normalizer)
     {
@@ -47,18 +47,16 @@ public class AggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        AggregationNode aggregationNode = (AggregationNode) node;
-
-        if (aggregationNode.getGroupingSets().size() != 1) {
+        if (node.getGroupingSets().size() != 1) {
             return Optional.empty();
         }
 
         return Optional.of(groupBy(
-                statsProvider.getStats(aggregationNode.getSource()),
-                getOnlyElement(aggregationNode.getGroupingSets()),
-                aggregationNode.getAggregations()));
+                statsProvider.getStats(node.getSource()),
+                getOnlyElement(node.getGroupingSets()),
+                node.getAggregations()));
     }
 
     public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)

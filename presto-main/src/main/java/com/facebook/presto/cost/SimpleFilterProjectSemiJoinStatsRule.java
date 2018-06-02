@@ -35,6 +35,7 @@ import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -43,9 +44,9 @@ import static java.util.Objects.requireNonNull;
  * in the future or it will be dropped altogether.
  */
 public class SimpleFilterProjectSemiJoinStatsRule
-        extends SimpleStatsRule
+        extends SimpleStatsRule<FilterNode>
 {
-    private static final Pattern<FilterNode> PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Pattern<FilterNode> PATTERN = filter();
 
     private final FilterStatsCalculator filterStatsCalculator;
 
@@ -62,10 +63,9 @@ public class SimpleFilterProjectSemiJoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        FilterNode filterNode = (FilterNode) node;
-        PlanNode nodeSource = lookup.resolve(filterNode.getSource());
+        PlanNode nodeSource = lookup.resolve(node.getSource());
         SemiJoinNode semiJoinNode;
         if (nodeSource instanceof ProjectNode) {
             ProjectNode projectNode = (ProjectNode) nodeSource;
@@ -85,7 +85,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
             return Optional.empty();
         }
 
-        return calculate(filterNode, semiJoinNode, sourceStats, session, types);
+        return calculate(node, semiJoinNode, sourceStats, session, types);
     }
 
     private Optional<PlanNodeStatsEstimate> calculate(FilterNode filterNode, SemiJoinNode semiJoinNode, StatsProvider statsProvider, Session session, Map<Symbol, Type> types)

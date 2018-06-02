@@ -14,20 +14,22 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+
 public class FilterStatsRule
-        implements ComposableStatsCalculator.Rule
+        implements Rule<FilterNode>
 {
-    private static final Pattern<FilterNode> PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Pattern<FilterNode> PATTERN = filter();
 
     private final FilterStatsCalculator filterStatsCalculator;
 
@@ -43,10 +45,9 @@ public class FilterStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public Optional<PlanNodeStatsEstimate> calculate(FilterNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        FilterNode filterNode = (FilterNode) node;
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(filterNode.getSource());
-        return Optional.of(filterStatsCalculator.filterStats(sourceStats, filterNode.getPredicate(), session, types));
+        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        return Optional.of(filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session, types));
     }
 }
