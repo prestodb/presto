@@ -25,6 +25,7 @@ import java.util.Base64;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -184,6 +185,27 @@ public class TestVarbinaryFunctions
         assertInvalidFunction("from_big_endian_64(from_hex(''))", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("from_big_endian_64(from_hex('1111'))", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("from_big_endian_64(from_hex('000000000000000011'))", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testToBigEndian32()
+    {
+        assertFunction("to_big_endian_32(0)", VARBINARY, sqlVarbinaryHex("00000000"));
+        assertFunction("to_big_endian_32(1)", VARBINARY, sqlVarbinaryHex("00000001"));
+        assertFunction("to_big_endian_32(2147483647)", VARBINARY, sqlVarbinaryHex("7FFFFFFF"));
+        assertFunction("to_big_endian_32(-2147483647)", VARBINARY, sqlVarbinaryHex("80000001"));
+    }
+
+    @Test
+    public void testFromBigEndian32()
+    {
+        assertFunction("from_big_endian_32(from_hex('00000000'))", INTEGER, 0);
+        assertFunction("from_big_endian_32(from_hex('00000001'))", INTEGER, 1);
+        assertFunction("from_big_endian_32(from_hex('7FFFFFFF'))", INTEGER, 2147483647);
+        assertFunction("from_big_endian_32(from_hex('80000001'))", INTEGER, -2147483647);
+        assertInvalidFunction("from_big_endian_32(from_hex(''))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_big_endian_32(from_hex('1111'))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_big_endian_32(from_hex('000000000000000011'))", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
