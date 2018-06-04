@@ -48,6 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class JoinStatsRule
         extends SimpleStatsRule<JoinNode>
 {
+    private static final Pattern<JoinNode> PATTERN = join();
     private static final double DEFAULT_UNMATCHED_JOIN_COMPLEMENT_NDVS_COEFFICIENT = 0.5;
 
     private final FilterStatsCalculator filterStatsCalculator;
@@ -69,7 +70,7 @@ public class JoinStatsRule
     @Override
     public Pattern<JoinNode> getPattern()
     {
-        return join();
+        return PATTERN;
     }
 
     @Override
