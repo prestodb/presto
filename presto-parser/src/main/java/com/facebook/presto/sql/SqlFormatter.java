@@ -70,6 +70,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -1130,6 +1131,15 @@ public final class SqlFormatter
                 }
                 builder.append(node.getTableName().get());
             }
+
+            return null;
+        }
+
+        @Override
+        public Void visitSetPath(SetPath node, Integer indent)
+        {
+            builder.append("SET PATH ");
+            builder.append(Joiner.on(", ").join(node.getPathSpecification().getPath()));
 
             return null;
         }
