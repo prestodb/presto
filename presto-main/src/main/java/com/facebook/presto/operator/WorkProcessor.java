@@ -91,6 +91,15 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.iteratorFrom(this);
     }
 
+    /**
+     * Converts {@link WorkProcessor} into an yielding {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
+     * becomes blocked.
+     */
+    default Iterator<Optional<T>> yieldingIterator()
+    {
+        return WorkProcessorUtils.yieldingIteratorFrom(this);
+    }
+
     static <T> WorkProcessor<T> fromIterable(Iterable<T> iterable)
     {
         return WorkProcessorUtils.fromIterator(iterable.iterator());

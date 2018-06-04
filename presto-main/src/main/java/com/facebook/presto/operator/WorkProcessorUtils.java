@@ -41,21 +41,42 @@ public final class WorkProcessorUtils
     {
         return new AbstractIterator<T>()
         {
+            final Iterator<Optional<T>> yieldingIterator = yieldingIteratorFrom(processor);
+
             @Override
             protected T computeNext()
+            {
+                if (!yieldingIterator.hasNext()) {
+                    return endOfData();
+                }
+
+                return yieldingIterator.next()
+                        .orElseThrow(() -> new IllegalStateException("Cannot iterate over yielding WorkProcessor"));
+            }
+        };
+    }
+
+    static <T> Iterator<Optional<T>> yieldingIteratorFrom(WorkProcessor<T> processor)
+    {
+        requireNonNull(processor, "processor is null");
+        return new AbstractIterator<Optional<T>>()
+        {
+            @Override
+            protected Optional<T> computeNext()
             {
                 if (processor.process()) {
                     if (processor.isFinished()) {
                         return endOfData();
                     }
 
-                    return processor.getResult();
+                    return Optional.of(processor.getResult());
                 }
                 else if (processor.isBlocked()) {
                     throw new IllegalStateException("Cannot iterate over blocking WorkProcessor");
                 }
 
-                throw new IllegalStateException("Cannot iterate over yielding WorkProcessor");
+                // yielded
+                return Optional.empty();
             }
         };
     }
