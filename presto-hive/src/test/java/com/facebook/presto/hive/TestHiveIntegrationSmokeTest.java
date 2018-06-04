@@ -2339,6 +2339,35 @@ public class TestHiveIntegrationSmokeTest
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped);
+
+            //
+            // Outer JOIN
+            // ==========
+
+            // Chain on the probe side to test duplicating OperatorFactory
+            @Language("SQL") String chainedOuterJoin =
+                    "SELECT key1, value1, key2, value2, key3, value3\n" +
+                            "FROM\n" +
+                            "  (SELECT * FROM test_grouped_join1 where mod(key1, 2) = 0)\n" +
+                            "RIGHT JOIN\n" +
+                            "  (SELECT * FROM test_grouped_join2 where mod(key2, 3) = 0)\n" +
+                            "ON key1 = key2\n" +
+                            "FULL JOIN\n" +
+                            "  (SELECT * FROM test_grouped_join3 where mod(key3, 5) = 0)\n" +
+                            "ON key2 = key3";
+            @Language("SQL") String expectedChainedOuterJoinResult = "SELECT\n" +
+                    "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,\n" +
+                    "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,\n" +
+                    "  CASE WHEN mod(orderkey, 3) = 0 THEN orderkey END,\n" +
+                    "  CASE WHEN mod(orderkey, 3) = 0 THEN comment END,\n" +
+                    "  CASE WHEN mod(orderkey, 5) = 0 THEN orderkey END,\n" +
+                    "  CASE WHEN mod(orderkey, 5) = 0 THEN comment END\n" +
+                    "FROM ORDERS\n" +
+                    "WHERE mod(orderkey, 3) = 0 OR mod(orderkey, 5) = 0";
+
+            assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
