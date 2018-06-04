@@ -47,7 +47,7 @@ public class PrestoStatement
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
-    private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<PrestoResultSet> currentResult = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
@@ -232,7 +232,7 @@ public class PrestoStatement
         checkOpen();
 
         StatementClient client = null;
-        ResultSet resultSet = null;
+        PrestoResultSet resultSet = null;
         try {
             client = connection().startQuery(sql, getStatementSessionProperties());
             if (client.isFinished()) {
@@ -581,6 +581,23 @@ public class PrestoStatement
     {
         checkOpen();
         return currentUpdateType.get();
+    }
+
+    public void partialCancel()
+            throws SQLException
+    {
+        checkOpen();
+
+        StatementClient client = executingClient.get();
+        if (client != null) {
+            client.cancelLeafStage();
+        }
+        else {
+            PrestoResultSet resultSet = currentResult.get();
+            if (resultSet != null) {
+                resultSet.partialCancel();
+            }
+        }
     }
 
     private void checkOpen()

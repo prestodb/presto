@@ -1643,6 +1643,11 @@ public class PrestoResultSet
         return iface.isInstance(this);
     }
 
+    void partialCancel()
+    {
+        client.cancelLeafStage();
+    }
+
     private void checkOpen()
             throws SQLException
     {

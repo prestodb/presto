@@ -73,6 +73,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -1552,6 +1553,47 @@ public class TestPrestoDriver
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
             statement.executeUpdate("DROP TABLE test_query_timeout");
+        }
+    }
+
+    @Test(timeOut = 10000)
+    public void testQueryPartialCancel()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "default");
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT count(*) FROM slow_test_table")) {
+            statement.unwrap(PrestoStatement.class).partialCancel();
+            assertTrue(resultSet.next());
+            assertEquals(resultSet.getLong(1), 0);
+        }
+    }
+
+    @Test(timeOut = 10000)
+    public void testUpdatePartialCancel()
+            throws Exception
+    {
+        CountDownLatch queryRunning = new CountDownLatch(1);
+
+        try (Connection connection = createConnection("blackhole", "default");
+                Statement statement = connection.createStatement()) {
+            // execute the slow update on another thread
+            Future<Integer> future = executorService.submit(() ->
+                    statement.executeUpdate("INSERT INTO test_table SELECT count(*) x FROM slow_test_table"));
+
+            // wait for query to start running
+            statement.unwrap(PrestoStatement.class).setProgressMonitor(stats -> {
+                if (stats.getState().equals(RUNNING.toString())) {
+                    queryRunning.countDown();
+                }
+            });
+            queryRunning.await(10, SECONDS);
+
+            // perform partial cancel from this test thread
+            statement.unwrap(PrestoStatement.class).partialCancel();
+
+            // make sure query completes
+            assertEquals(future.get(10, SECONDS), (Integer) 1);
         }
     }
 
