@@ -195,6 +195,17 @@ public class OrcWriter
         stats.updateSizeInBytes(previouslyRecordedSizeInBytes);
     }
 
+    /**
+     * Number of bytes already flushed to the data sink.
+     */
+    public long getWrittenBytes()
+    {
+        return orcDataSink.size();
+    }
+
+    /**
+     * Number of pending bytes not yet flushed.
+     */
     public int getBufferedBytes()
     {
         return bufferedBytes;

@@ -50,7 +50,6 @@ public class OrcFileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
 
-    private final OrcDataSink orcDataSink;
     private final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
@@ -72,7 +71,7 @@ public class OrcFileWriter
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
+        requireNonNull(orcDataSink, "orcDataSink is null");
 
         orcWriter = new OrcWriter(
                 orcDataSink,
@@ -103,7 +102,7 @@ public class OrcFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return orcDataSink.size();
+        return orcWriter.getWrittenBytes() + orcWriter.getBufferedBytes();
     }
 
     @Override
