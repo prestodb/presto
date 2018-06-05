@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -46,6 +45,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -64,6 +64,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TestMapOperators
         extends AbstractTestFunctions
@@ -100,16 +101,22 @@ public class TestMapOperators
                 ImmutableMap.of(1.0, ImmutableList.of(1L, 2L), 2.0, ImmutableList.of(3L)));
         assertFunction("MAP(ARRAY['puppies'], ARRAY['kittens'])", mapType(createVarcharType(7), createVarcharType(7)), ImmutableMap.of("puppies", "kittens"));
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY[2,4])", mapType(BOOLEAN, INTEGER), ImmutableMap.of(true, 2, false, 4));
-        assertFunction("MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)])", mapType(createVarcharType(3), TIMESTAMP), ImmutableMap.of(
-                "1",
-                sqlTimestamp(1000),
-                "100",
-                sqlTimestamp(100_000)));
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])", mapType(TIMESTAMP, DOUBLE), ImmutableMap.of(
-                sqlTimestamp(1000),
-                1.0,
-                sqlTimestamp(100_000),
-                100.0));
+        assertFunction(
+                "MAP(ARRAY['1', '100'], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'])",
+                mapType(createVarcharType(3), TIMESTAMP),
+                ImmutableMap.of(
+                        "1",
+                        sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION),
+                        "100",
+                        sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION)));
+        assertFunction(
+                "MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], ARRAY[1.0E0, 100.0E0])",
+                mapType(TIMESTAMP, DOUBLE),
+                ImmutableMap.of(
+                        sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION),
+                        1.0,
+                        sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION),
+                        100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
         assertInvalidFunction("MAP(ARRAY [1, 2, 3, 2], ARRAY [4, 5, 6, 7])", "Duplicate map keys (2) are not allowed");
@@ -235,9 +242,9 @@ public class TestMapOperators
                 "{\"1\":123,\"13\":{\"a\":1,\"b\":\"str\",\"c\":null},\"2\":3.14,\"21\":null,\"3\":false,\"34\":null,\"5\":\"abc\",\"8\":[1,\"a\",null]}");
 
         assertFunction(
-                "CAST(MAP(ARRAY[1, 2], ARRAY[from_unixtime(1), null]) AS JSON)",
+                "CAST(MAP(ARRAY[1, 2], ARRAY[TIMESTAMP '1970-01-01 00:00:01', null]) AS JSON)",
                 JSON,
-                format("{\"1\":\"%s\",\"2\":null}", sqlTimestamp(1000).toString()));
+                format("{\"1\":\"%s\",\"2\":null}", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION).toString()));
         assertFunction(
                 "CAST(MAP(ARRAY[2, 5, 3], ARRAY[DATE '2001-08-22', DATE '2001-08-23', null]) AS JSON)",
                 JSON,
@@ -506,7 +513,10 @@ public class TestMapOperators
         assertFunction("element_at(MAP(ARRAY ['puppies'], ARRAY ['kittens']), 'puppies')", createVarcharType(7), "kittens");
         assertFunction("element_at(MAP(ARRAY [TRUE, FALSE], ARRAY [2, 4]), TRUE)", INTEGER, 2);
         assertFunction("element_at(MAP(ARRAY [ARRAY [1, 2], ARRAY [3]], ARRAY [1e0, 2e0]), ARRAY [1, 2])", DOUBLE, 1.0);
-        assertFunction("element_at(MAP(ARRAY ['1', '100'], ARRAY [from_unixtime(1), from_unixtime(100)]), '1')", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction(
+                "element_at(MAP(ARRAY ['1', '100'], ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '2005-09-10 13:00:00']), '1')",
+                TIMESTAMP,
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION));
         assertFunction("element_at(MAP(ARRAY [from_unixtime(1), from_unixtime(100)], ARRAY [1.0E0, 100.0E0]), from_unixtime(1))", DOUBLE, 1.0);
     }
 
@@ -528,7 +538,10 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]])[1.0E0]", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP(ARRAY['puppies'], ARRAY['kittens'])['puppies']", createVarcharType(7), "kittens");
         assertFunction("MAP(ARRAY[TRUE,FALSE],ARRAY[2,4])[TRUE]", INTEGER, 2);
-        assertFunction("MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)])['1']", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction(
+                "MAP(ARRAY['1', '100'], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'])['1']",
+                TIMESTAMP,
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION));
         assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])[from_unixtime(1)]", DOUBLE, 1.0);
         assertInvalidFunction("MAP(ARRAY [BIGINT '1'], ARRAY [BIGINT '2'])[3]", "Key not present in map: 3");
         assertInvalidFunction("MAP(ARRAY ['hi'], ARRAY [2])['missing']", "Key not present in map: missing");
@@ -545,7 +558,10 @@ public class TestMapOperators
         assertFunction("MAP_KEYS(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0));
         assertFunction("MAP_KEYS(MAP(ARRAY['puppies'], ARRAY['kittens']))", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies"));
         assertFunction("MAP_KEYS(MAP(ARRAY[TRUE], ARRAY[2]))", new ArrayType(BOOLEAN), ImmutableList.of(true));
-        assertFunction("MAP_KEYS(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0E0]))", new ArrayType(TIMESTAMP), ImmutableList.of(sqlTimestamp(1000)));
+        assertFunction(
+                "MAP_KEYS(MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01'], ARRAY[1.0E0]))",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION)));
         assertFunction("MAP_KEYS(MAP(ARRAY[CAST('puppies' as varbinary)], ARRAY['kittens']))", new ArrayType(VARBINARY), ImmutableList.of(new SqlVarbinary("puppies".getBytes(UTF_8))));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,2],  ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))", new ArrayType(INTEGER), ImmutableList.of(1, 4));
@@ -975,11 +991,6 @@ public class TestMapOperators
         long hashResult = mapType.hash(mapArrayBuilder.build(), 0);
 
         assertOperator(HASH_CODE, inputString, BIGINT, hashResult);
-    }
-
-    private SqlTimestamp sqlTimestamp(long millis)
-    {
-        return sqlTimestampOf(millis, TEST_SESSION);
     }
 
     private static Type entryType(Type keyType, Type valueType)
