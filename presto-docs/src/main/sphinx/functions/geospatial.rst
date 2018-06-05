@@ -109,6 +109,10 @@ Operations
 
     Returns the bounding rectangular polygon of a geometry.
 
+.. function:: ST_EnvelopeAsPts(Geometry) -> Geometry
+
+    Returns the lower left and upper right corners of bounding rectangular polygon of a geometry.
+
 .. function:: ST_ExteriorRing(Geometry) -> Geometry
 
     Returns a line string representing the exterior ring of the input polygon.

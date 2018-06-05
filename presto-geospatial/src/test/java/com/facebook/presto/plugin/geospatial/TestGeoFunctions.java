@@ -479,6 +479,19 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTEnvelopeAsPts()
+    {
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "MULTIPOINT ((1 2), (4 8))");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "MULTIPOINT EMPTY");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)')))", VARCHAR, "MULTIPOINT ((1 1), (2 3))");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('LINESTRING (8 4, 5 7)')))", VARCHAR, "MULTIPOINT ((5 4), (8 7))");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')))", VARCHAR, "MULTIPOINT ((1 1), (5 4))");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))')))", VARCHAR, "MULTIPOINT ((1 1), (4 4))");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')))", VARCHAR, "MULTIPOINT ((0 0), (3 3))");
+        assertFunction("ST_AsText(ST_EnvelopeAsPts(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))')))", VARCHAR, "MULTIPOINT ((3 1), (5 4))");
+    }
+
+    @Test
     public void testSTDifference()
     {
         assertFunction("ST_AsText(ST_Difference(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)')))", VARCHAR, "POINT (50 100)");
