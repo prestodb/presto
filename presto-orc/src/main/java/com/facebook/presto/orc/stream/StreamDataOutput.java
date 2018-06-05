@@ -49,11 +49,11 @@ public final class StreamDataOutput
     @Override
     public int compareTo(@Nonnull StreamDataOutput otherStream)
     {
-        return Long.compare(getSizeInBytes(), otherStream.getSizeInBytes());
+        return Long.compare(size(), otherStream.size());
     }
 
     @Override
-    public long getSizeInBytes()
+    public long size()
     {
         return stream.getLength();
     }

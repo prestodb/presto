@@ -109,7 +109,7 @@ public class PresentOutputStream
         }
         StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column);
         // rewrite the DATA stream created by the boolean output stream to a PRESENT stream
-        Stream stream = new Stream(column, PRESENT, toIntExact(streamDataOutput.getSizeInBytes()), streamDataOutput.getStream().isUseVInts());
+        Stream stream = new Stream(column, PRESENT, toIntExact(streamDataOutput.size()), streamDataOutput.getStream().isUseVInts());
         return Optional.of(new StreamDataOutput(
                 sliceOutput -> {
                     streamDataOutput.writeData(sliceOutput);

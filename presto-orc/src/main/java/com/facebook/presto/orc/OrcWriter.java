@@ -351,7 +351,7 @@ public class OrcWriter
                 // The ordering is critical because the stream only contain a length with no offset.
                 outputData.add(indexStream);
                 allStreams.add(indexStream.getStream());
-                indexLength += indexStream.getSizeInBytes();
+                indexLength += indexStream.size();
             }
         }
 
@@ -362,7 +362,7 @@ public class OrcWriter
             List<StreamDataOutput> streams = columnWriter.getDataStreams();
             dataStreams.addAll(streams);
             dataLength += streams.stream()
-                    .mapToLong(StreamDataOutput::getSizeInBytes)
+                    .mapToLong(StreamDataOutput::size)
                     .sum();
         }
         Collections.sort(dataStreams);

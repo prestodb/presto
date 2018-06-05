@@ -26,7 +26,7 @@ public interface OrcDataOutput
         return new OrcDataOutput()
         {
             @Override
-            public long getSizeInBytes()
+            public long size()
             {
                 return slice.length();
             }
@@ -42,11 +42,11 @@ public interface OrcDataOutput
     /**
      * Number of bytes that will be written.
      */
-    long getSizeInBytes();
+    long size();
 
     /**
      * Writes data to the output. The output must be exactly
-     * {@link #getSizeInBytes()} bytes.
+     * {@link #size()} bytes.
      */
     void writeData(SliceOutput sliceOutput);
 }
