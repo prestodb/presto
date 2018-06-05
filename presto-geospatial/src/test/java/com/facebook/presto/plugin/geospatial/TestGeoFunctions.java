@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.esri.core.geometry.Point;
+import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -476,6 +480,25 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))')))", VARCHAR, "POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')))", VARCHAR, "POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))')))", VARCHAR, "POLYGON ((3 1, 5 1, 5 4, 3 4, 3 1))");
+    }
+
+    @Test
+    public void testSTEnvelopeAsPts()
+    {
+        assertEnvelopeAsPts("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", new Point(1, 2), new Point(4, 8));
+        assertFunction("ST_EnvelopeAsPts(ST_GeometryFromText('LINESTRING EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertEnvelopeAsPts("LINESTRING (1 1, 2 2, 1 3)", new Point(1, 1), new Point(2, 3));
+        assertEnvelopeAsPts("LINESTRING (8 4, 5 7)", new Point(5, 4), new Point(8, 7));
+        assertEnvelopeAsPts("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Point(1, 1), new Point(5, 4));
+        assertEnvelopeAsPts("POLYGON ((1 1, 4 1, 1 4))", new Point(1, 1), new Point(4, 4));
+        assertEnvelopeAsPts("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))", new Point(0, 0), new Point(3, 3));
+        assertEnvelopeAsPts("GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))", new Point(3, 1), new Point(5, 4));
+        assertEnvelopeAsPts("POINT (1 2)", new Point(1, 2), new Point(1, 2));
+    }
+
+    private void assertEnvelopeAsPts(String wkt, Point lowerLeftCorner, Point upperRightCorner)
+    {
+        assertFunction(format("transform(ST_EnvelopeAsPts(ST_GeometryFromText('%s')), x -> ST_AsText(x))", wkt), new ArrayType(VARCHAR), ImmutableList.of(new OGCPoint(lowerLeftCorner, null).asText(), new OGCPoint(upperRightCorner, null).asText()));
     }
 
     @Test
