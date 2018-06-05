@@ -70,11 +70,6 @@ public final class DateTimeTestingUtils
         return sqlTimestampOf(dateTime.getMillis(), session);
     }
 
-    public static SqlTimestamp sqlTimestampOf(long millis, Session session)
-    {
-        return sqlTimestampOf(millis, session.toConnectorSession());
-    }
-
     public static SqlTimestamp sqlTimestampOf(long millis, ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
