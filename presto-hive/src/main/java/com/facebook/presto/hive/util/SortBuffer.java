@@ -85,7 +85,7 @@ public class SortBuffer
     {
         checkState(canAdd(page), "page buffer is full");
         pages.add(page);
-        usedMemoryBytes += page.getSizeInBytes();
+        usedMemoryBytes += page.getRetainedSizeInBytes();
         rowCount = addExact(rowCount, page.getPositionCount());
     }
 
