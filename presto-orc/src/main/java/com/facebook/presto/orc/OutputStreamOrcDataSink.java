@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.stream.DataOutput;
+import com.facebook.presto.orc.stream.OrcDataOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 
 import java.io.IOException;
@@ -39,7 +39,7 @@ public class OutputStreamOrcDataSink
     }
 
     @Override
-    public void write(List<DataOutput> outputData)
+    public void write(List<OrcDataOutput> outputData)
     {
         outputData.forEach(data -> data.writeData(output));
     }

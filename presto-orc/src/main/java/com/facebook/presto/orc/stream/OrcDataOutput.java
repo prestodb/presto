@@ -18,12 +18,12 @@ import io.airlift.slice.SliceOutput;
 
 import static java.util.Objects.requireNonNull;
 
-public interface DataOutput
+public interface OrcDataOutput
 {
-    static DataOutput createDataOutput(Slice slice)
+    static OrcDataOutput createDataOutput(Slice slice)
     {
         requireNonNull(slice, "slice is null");
-        return new DataOutput()
+        return new OrcDataOutput()
         {
             @Override
             public long getSizeInBytes()
@@ -39,7 +39,14 @@ public interface DataOutput
         };
     }
 
+    /**
+     * Number of bytes that will be written.
+     */
     long getSizeInBytes();
 
+    /**
+     * Writes data to the output. The output must be exactly
+     * {@link #getSizeInBytes()} bytes.
+     */
     void writeData(SliceOutput sliceOutput);
 }

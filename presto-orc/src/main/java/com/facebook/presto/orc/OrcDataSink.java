@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.stream.DataOutput;
+import com.facebook.presto.orc.stream.OrcDataOutput;
 
 import java.io.IOException;
 import java.util.List;
@@ -21,14 +21,14 @@ import java.util.List;
 public interface OrcDataSink
 {
     /**
-     * Current size of output data
+     * Number of bytes written to this sink so far.
      */
     long size();
 
     /**
      * Write a stripe and optionally header and footer data
      */
-    void write(List<DataOutput> outputData)
+    void write(List<OrcDataOutput> outputData)
             throws IOException;
 
     /**
