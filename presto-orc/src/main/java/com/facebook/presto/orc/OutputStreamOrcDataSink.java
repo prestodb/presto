@@ -39,6 +39,12 @@ public class OutputStreamOrcDataSink
     }
 
     @Override
+    public long getRetainedSizeInBytes()
+    {
+        return 0;
+    }
+
+    @Override
     public void write(List<OrcDataOutput> outputData)
     {
         outputData.forEach(data -> data.writeData(output));

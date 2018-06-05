@@ -26,6 +26,11 @@ public interface OrcDataSink
     long size();
 
     /**
+     * Gets the size of the memory buffers.
+     */
+    long getRetainedSizeInBytes();
+
+    /**
      * Write a stripe and optionally header and footer data
      */
     void write(List<OrcDataOutput> outputData)

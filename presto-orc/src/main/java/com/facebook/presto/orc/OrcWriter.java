@@ -202,7 +202,11 @@ public class OrcWriter
 
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE + columnWritersRetainedBytes + closedStripesRetainedBytes + (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
+        return INSTANCE_SIZE +
+                columnWritersRetainedBytes +
+                closedStripesRetainedBytes +
+                orcDataSink.getRetainedSizeInBytes() +
+                (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
     }
 
     public void write(Page page)
