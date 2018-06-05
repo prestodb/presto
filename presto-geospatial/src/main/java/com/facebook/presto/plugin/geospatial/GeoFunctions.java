@@ -629,6 +629,21 @@ public final class GeoFunctions
         return serialize(envelope);
     }
 
+    @Description("Returns the lower left and upper right corners of bounding rectangular polygon of a Geometry")
+    @ScalarFunction("ST_EnvelopeAsPts")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stEnvelopeAsPts(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope == null) {
+            return EMPTY_MULTIPOINT;
+        }
+        MultiPoint envelopeAsPts = new MultiPoint();
+        envelopeAsPts.add(envelope.getXMin(), envelope.getYMin());
+        envelopeAsPts.add(envelope.getXMax(), envelope.getYMax());
+        return serialize(createFromEsriGeometry(envelopeAsPts, null, true));
+    }
+
     @Description("Returns the Geometry value that represents the point set difference of two geometries")
     @ScalarFunction("ST_Difference")
     @SqlType(GEOMETRY_TYPE_NAME)
