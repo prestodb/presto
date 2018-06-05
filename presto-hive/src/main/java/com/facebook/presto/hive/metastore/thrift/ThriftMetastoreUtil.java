@@ -237,6 +237,8 @@ public final class ThriftMetastoreUtil
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
+            OptionalLong nullsCount = longStatsData.isSetNumNulls() ? OptionalLong.of(longStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty();
             return new HiveColumnStatistics(
                     longStatsData.isSetLowValue() ? Optional.of(longStatsData.getLowValue()) : Optional.empty(),
                     longStatsData.isSetHighValue() ? Optional.of(longStatsData.getHighValue()) : Optional.empty(),
@@ -244,11 +246,13 @@ public final class ThriftMetastoreUtil
                     OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
-                    longStatsData.isSetNumNulls() ? OptionalLong.of(longStatsData.getNumNulls()) : OptionalLong.empty(),
-                    longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty());
+                    nullsCount,
+                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
         else if (columnStatistics.getStatsData().isSetDoubleStats()) {
             DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
+            OptionalLong nullsCount = doubleStatsData.isSetNumNulls() ? OptionalLong.of(doubleStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = doubleStatsData.isSetNumDVs() ? OptionalLong.of(doubleStatsData.getNumDVs()) : OptionalLong.empty();
             return new HiveColumnStatistics(
                     doubleStatsData.isSetLowValue() ? Optional.of(doubleStatsData.getLowValue()) : Optional.empty(),
                     doubleStatsData.isSetHighValue() ? Optional.of(doubleStatsData.getHighValue()) : Optional.empty(),
@@ -256,11 +260,13 @@ public final class ThriftMetastoreUtil
                     OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
-                    doubleStatsData.isSetNumNulls() ? OptionalLong.of(doubleStatsData.getNumNulls()) : OptionalLong.empty(),
-                    doubleStatsData.isSetNumDVs() ? OptionalLong.of(doubleStatsData.getNumDVs()) : OptionalLong.empty());
+                    nullsCount,
+                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
         else if (columnStatistics.getStatsData().isSetDecimalStats()) {
             DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
+            OptionalLong nullsCount = decimalStatsData.isSetNumNulls() ? OptionalLong.of(decimalStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = decimalStatsData.isSetNumDVs() ? OptionalLong.of(decimalStatsData.getNumDVs()) : OptionalLong.empty();
             return new HiveColumnStatistics(
                     decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty(),
                     decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty(),
@@ -268,8 +274,8 @@ public final class ThriftMetastoreUtil
                     OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
-                    decimalStatsData.isSetNumNulls() ? OptionalLong.of(decimalStatsData.getNumNulls()) : OptionalLong.empty(),
-                    decimalStatsData.isSetNumDVs() ? OptionalLong.of(decimalStatsData.getNumDVs()) : OptionalLong.empty());
+                    nullsCount,
+                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
         else if (columnStatistics.getStatsData().isSetBooleanStats()) {
             BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
@@ -285,6 +291,8 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetDateStats()) {
             DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
+            OptionalLong nullsCount = dateStatsData.isSetNumNulls() ? OptionalLong.of(dateStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = dateStatsData.isSetNumDVs() ? OptionalLong.of(dateStatsData.getNumDVs()) : OptionalLong.empty();
             return new HiveColumnStatistics(
                     dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty(),
                     dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty(),
@@ -292,11 +300,13 @@ public final class ThriftMetastoreUtil
                     OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
-                    dateStatsData.isSetNumNulls() ? OptionalLong.of(dateStatsData.getNumNulls()) : OptionalLong.empty(),
-                    dateStatsData.isSetNumDVs() ? OptionalLong.of(dateStatsData.getNumDVs()) : OptionalLong.empty());
+                    nullsCount,
+                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
         else if (columnStatistics.getStatsData().isSetStringStats()) {
             StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
+            OptionalLong nullsCount = stringStatsData.isSetNumNulls() ? OptionalLong.of(stringStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = stringStatsData.isSetNumDVs() ? OptionalLong.of(stringStatsData.getNumDVs()) : OptionalLong.empty();
             return new HiveColumnStatistics(
                     Optional.empty(),
                     Optional.empty(),
@@ -304,8 +314,8 @@ public final class ThriftMetastoreUtil
                     stringStatsData.isSetAvgColLen() ? OptionalDouble.of(stringStatsData.getAvgColLen()) : OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
-                    stringStatsData.isSetNumNulls() ? OptionalLong.of(stringStatsData.getNumNulls()) : OptionalLong.empty(),
-                    stringStatsData.isSetNumDVs() ? OptionalLong.of(stringStatsData.getNumDVs()) : OptionalLong.empty());
+                    nullsCount,
+                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
         else if (columnStatistics.getStatsData().isSetBinaryStats()) {
             BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
@@ -338,6 +348,17 @@ public final class ThriftMetastoreUtil
             return Optional.empty();
         }
         return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
+    }
+
+    /**
+     * Hive calculates NDV considering null as a distinct value
+     */
+    private static OptionalLong fromMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
+    {
+        if (distinctValuesCount.isPresent() && nullsCount.isPresent() && distinctValuesCount.getAsLong() > 0 && nullsCount.getAsLong() > 0) {
+            return OptionalLong.of(distinctValuesCount.getAsLong() - 1);
+        }
+        return distinctValuesCount;
     }
 
     public static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
