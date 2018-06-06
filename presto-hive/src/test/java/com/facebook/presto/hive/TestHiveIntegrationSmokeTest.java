@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
@@ -21,6 +23,7 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
@@ -58,6 +61,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -90,6 +94,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -611,13 +616,10 @@ public class TestHiveIntegrationSmokeTest
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
-        try {
-            assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c')", 1);
-            fail("expected failure");
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Cannot insert into existing partition of bucketed Hive table: partition_key=c");
-        }
+        assertThatThrownBy(() -> assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c')", 1))
+                .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
+                        getInsertExistingPartitionsBehavior(getConnectorSession(session)),
+                        "partition_key=c"));
 
         assertUpdate(session, "DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(session, tableName));
@@ -716,13 +718,10 @@ public class TestHiveIntegrationSmokeTest
                     format("SELECT custkey, custkey, comment, orderstatus FROM orders where custkey = %d", i));
         }
 
-        try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 'comment', 'O')", 1);
-            fail("expected failure");
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Cannot insert into existing partition of bucketed Hive table: orderstatus=O");
-        }
+        assertThatThrownBy(() -> assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 'comment', 'O')", 1))
+                .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
+                        getInsertExistingPartitionsBehavior(getConnectorSession(getSession())),
+                        "orderstatus=O"));
     }
 
     @Test
@@ -810,13 +809,10 @@ public class TestHiveIntegrationSmokeTest
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
-        try {
-            assertUpdate(session, "INSERT INTO test_insert_partitioned_bucketed_table_few_rows VALUES ('a0', 'b0', 'c')", 1);
-            fail("expected failure");
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Cannot insert into existing partition of bucketed Hive table: partition_key=c");
-        }
+        assertThatThrownBy(() -> assertUpdate(session, "INSERT INTO test_insert_partitioned_bucketed_table_few_rows VALUES ('a0', 'b0', 'c')", 1))
+                .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
+                        getInsertExistingPartitionsBehavior(getConnectorSession(session)),
+                        "partition_key=c"));
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
         assertFalse(getQueryRunner().tableExists(session, tableName));
@@ -2557,6 +2553,22 @@ public class TestHiveIntegrationSmokeTest
     private static class RollbackException
             extends RuntimeException
     {
+    }
+
+    private static String getExpectedErrorMessageForInsertExistingBucketedTable(InsertExistingPartitionsBehavior behavior, String partitionName)
+    {
+        if (behavior == InsertExistingPartitionsBehavior.APPEND) {
+            return "Cannot insert into existing partition of bucketed Hive table: " + partitionName;
+        }
+        if (behavior == InsertExistingPartitionsBehavior.ERROR) {
+            return "Cannot insert into an existing partition of Hive table: " + partitionName;
+        }
+        throw new IllegalArgumentException("Unexpected insertExistingPartitionsBehavior: " + behavior);
+    }
+
+    private static ConnectorSession getConnectorSession(Session session)
+    {
+        return session.toConnectorSession(new ConnectorId(session.getCatalog().get()));
     }
 
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
