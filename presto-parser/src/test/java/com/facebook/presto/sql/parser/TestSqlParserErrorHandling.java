@@ -30,9 +30,8 @@ public class TestSqlParserErrorHandling
     public Object[][] getExpressions()
     {
         return new Object[][] {
-                {"", "line 1:1: no viable alternative at input '<EOF>'"},
-                {"1 + 1 x", "line 1:7: extraneous input 'x' expecting {<EOF>, '.', '[', 'AND', 'AT', 'BETWEEN', 'IN', 'IS', 'LIKE', 'NOT', 'OR', '=', NEQ, '<', '<=', '>', '>=', '+', '-', '*', '/', '%', '||'}"},
-                };
+                {"", "line 1:1: mismatched input '<EOF>'. Expecting: <expression>"},
+                {"1 + 1 x", "line 1:7: mismatched input 'x'. Expecting: '%', '*', '+', '-', '.', '/', 'AT', '[', '||', <expression>"}};
     }
 
     @DataProvider(name = "statements")
@@ -40,51 +39,24 @@ public class TestSqlParserErrorHandling
     {
         return new Object[][] {
                 {"",
-                 "line 1:1: no viable alternative at input '<EOF>'"},
+                 "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
+                         "'INSERT', 'PREPARE', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>"},
                 {"@select",
-                 "line 1:1: extraneous input '@' expecting {'(', 'ALTER', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', " +
-                         "'GRANT', 'INSERT', 'PREPARE', 'RESET', 'REVOKE', 'ROLLBACK', 'SELECT', 'SET', 'SHOW', 'START', 'TABLE', 'USE', 'VALUES', 'WITH'}"},
+                 "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
+                         "'INSERT', 'PREPARE', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>"},
                 {"select * from foo where @what",
-                 "line 1:25: extraneous input '@' expecting {'(', '?', 'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CASE', 'CAST', " +
-                         "'CATALOGS', 'COALESCE', 'COLUMN', 'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', " +
-                         "'DATA', 'DATE', 'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXISTS', 'EXPLAIN', 'EXTRACT', 'FALSE', 'FILTER', 'FIRST', 'FOLLOWING', 'FORMAT', 'FUNCTIONS', " +
-                         "'GRANT', 'GRANTS', 'GRAPHVIZ', 'GROUPING', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', 'LEVEL', 'LIMIT', " +
-                         "'LOCALTIME', 'LOCALTIMESTAMP', 'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NORMALIZE', 'NOT', 'NULL', 'NULLIF', 'NULLS', " +
-                         "'ONLY', 'OPTION', 'ORDINALITY', 'OUTPUT', 'OVER', 'PARTITION', 'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', " +
-                         "'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', 'RESTRICT', 'REVOKE', 'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', " +
-                         "'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', 'STATS', 'SUBSTRING', 'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', " +
-                         "'TRUE', 'TRY_CAST', 'TYPE', 'UNBOUNDED', 'UNCOMMITTED', 'USE', 'VALIDATE', 'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', '+', '-', STRING, UNICODE_STRING, " +
-                         "BINARY_LITERAL, INTEGER_VALUE, DECIMAL_VALUE, DOUBLE_VALUE, IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER, DOUBLE_PRECISION}"},
+                 "line 1:25: mismatched input '@'. Expecting: <expression>"},
                 {"select * from 'oops",
-                 "line 1:15: extraneous input ''' expecting {'(', 'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CATALOGS', 'COALESCE', " +
-                         "'COLUMN', 'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'DATA', 'DATE', 'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXPLAIN', 'FILTER', 'FIRST', " +
-                         "'FOLLOWING', 'FORMAT', 'FUNCTIONS', 'GRANT', 'GRANTS', 'GRAPHVIZ', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', " +
-                         "'LEVEL', 'LIMIT', 'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', 'ORDINALITY', 'OUTPUT', 'OVER', " +
-                         "'PARTITION', 'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', 'RESTRICT', " +
-                         "'REVOKE', 'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', 'STATS', " +
-                         "'SUBSTRING', 'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRY_CAST', 'TYPE', 'UNBOUNDED', 'UNCOMMITTED', " +
-                         "'UNNEST', 'USE', 'VALIDATE', 'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER}"},
+                 "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select *\nfrom x\nfrom",
-                 "line 3:1: extraneous input 'from' expecting {<EOF>, '.', ',', 'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'AS', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CATALOGS', " +
-                         "'COALESCE', 'COLUMN', 'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CROSS', 'CURRENT', 'DATA', 'DATE', 'DAY', 'DESC', 'DISTRIBUTED', 'EXCEPT', 'EXCLUDING', " +
-                         "'EXPLAIN', 'FILTER', 'FIRST', 'FOLLOWING', 'FORMAT', 'FULL', 'FUNCTIONS', 'GRANT', 'GRANTS', 'GRAPHVIZ', 'GROUP', 'HAVING', 'HOUR', 'IF', 'INCLUDING', 'INNER', " +
-                         "'INPUT', 'INTEGER', 'INTERSECT', 'INTERVAL', 'ISOLATION', 'JOIN', 'LAST', 'LATERAL', 'LEFT', 'LEVEL', 'LIMIT', 'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NATURAL', " +
-                         "'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', 'ORDER', 'ORDINALITY', 'OUTPUT', 'OVER', 'PARTITION', 'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', 'RESTRICT', 'REVOKE', 'RIGHT', 'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', 'STATS', 'SUBSTRING', 'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRY_CAST', 'TYPE', 'UNBOUNDED', 'UNCOMMITTED', 'UNION', 'USE', 'VALIDATE', 'VERBOSE', 'VIEW', 'WHERE', 'WORK', 'WRITE', 'YEAR', 'ZONE', IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER}"},
+                 "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', " +
+                         "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>, <identifier>"},
                 {"select *\nfrom x\nwhere from",
-                 "line 3:7: mismatched input 'from' expecting {'(', '?', 'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CASE', 'CAST', 'CATALOGS', " +
-                         "'COALESCE', 'COLUMN', 'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'DATA', " +
-                         "'DATE', 'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXISTS', 'EXPLAIN', 'EXTRACT', 'FALSE', 'FILTER', 'FIRST', 'FOLLOWING', 'FORMAT', 'FUNCTIONS', 'GRANT', " +
-                         "'GRANTS', 'GRAPHVIZ', 'GROUPING', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', 'LEVEL', 'LIMIT', 'LOCALTIME', " +
-                         "'LOCALTIMESTAMP', 'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NORMALIZE', 'NOT', 'NULL', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', " +
-                         "'ORDINALITY', 'OUTPUT', 'OVER', 'PARTITION', 'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', " +
-                         "'REPLACE', 'RESET', 'RESTRICT', 'REVOKE', 'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', " +
-                         "'SOME', 'START', 'STATS', 'SUBSTRING', 'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRUE', 'TRY_CAST', 'TYPE', " +
-                         "'UNBOUNDED', 'UNCOMMITTED', 'USE', 'VALIDATE', 'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', '+', '-', STRING, UNICODE_STRING, BINARY_LITERAL, INTEGER_VALUE, " +
-                         "DECIMAL_VALUE, DOUBLE_VALUE, IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER, DOUBLE_PRECISION}"},
+                 "line 3:7: mismatched input 'from'. Expecting: <expression>"},
                 {"select * from",
-                 "line 1:14: no viable alternative at input '<EOF>'"},
+                 "line 1:14: mismatched input '<EOF>'. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select * from  ",
-                 "line 1:16: no viable alternative at input '<EOF>'"},
+                 "line 1:16: mismatched input '<EOF>'. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select * from `foo`",
                  "line 1:15: backquoted identifiers are not supported; use double quotes to quote identifiers"},
                 {"select * from foo `bar`",
@@ -96,90 +68,54 @@ public class TestSqlParserErrorHandling
                 {"select * from foo:bar",
                  "line 1:15: identifiers must not contain ':'"},
                 {"select fuu from dual order by fuu order by fuu",
-                 "line 1:35: mismatched input 'order' expecting {<EOF>, '.', ',', '[', 'AND', 'ASC', 'AT', 'BETWEEN', 'DESC', 'IN', 'IS', 'LIKE', 'LIMIT', 'NOT', 'NULLS', 'OR', '=', " +
-                         "NEQ, '<', '<=', '>', '>=', '+', '-', '*', '/', '%', '||'}"},
+                 "line 1:35: mismatched input 'order'. Expecting: '%', '*', '+', '-', '.', '/', 'AT', '[', '||', <expression>"},
                 {"select fuu from dual limit 10 order by fuu",
-                 "line 1:31: mismatched input 'order' expecting <EOF>"},
+                 "line 1:31: mismatched input 'order'. Expecting: <EOF>"},
                 {"select CAST(12223222232535343423232435343 AS BIGINT)",
                  "line 1:1: Invalid numeric literal: 12223222232535343423232435343"},
                 {"select CAST(-12223222232535343423232435343 AS BIGINT)",
                  "line 1:1: Invalid numeric literal: 12223222232535343423232435343"},
                 {"select foo(,1)",
-                 "line 1:12: no viable alternative at input 'foo(,'"},
+                 "line 1:12: mismatched input ','. Expecting: <expression>"},
                 {"select foo(DISTINCT)",
-                 "line 1:20: mismatched input ')' expecting {'(', '?', 'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CASE', 'CAST', 'CATALOGS', " +
-                         "'COALESCE', 'COLUMN', 'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'DATA', 'DATE', " +
-                         "'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXISTS', 'EXPLAIN', 'EXTRACT', 'FALSE', 'FILTER', 'FIRST', 'FOLLOWING', 'FORMAT', 'FUNCTIONS', 'GRANT', 'GRANTS', " +
-                         "'GRAPHVIZ', 'GROUPING', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', 'LEVEL', 'LIMIT', 'LOCALTIME', 'LOCALTIMESTAMP', " +
-                         "'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NORMALIZE', 'NOT', 'NULL', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', 'ORDINALITY', 'OUTPUT', " +
-                         "'OVER', 'PARTITION', 'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', " +
-                         "'RESTRICT', 'REVOKE', 'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', " +
-                         "'STATS', 'SUBSTRING', 'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRUE', 'TRY_CAST', 'TYPE', 'UNBOUNDED', " +
-                         "'UNCOMMITTED', 'USE', 'VALIDATE', 'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', '+', '-', STRING, UNICODE_STRING, BINARY_LITERAL, INTEGER_VALUE, DECIMAL_VALUE, " +
-                         "DOUBLE_VALUE, IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER, DOUBLE_PRECISION}"},
+                 "line 1:20: mismatched input ')'. Expecting: <expression>"},
                 {"select foo(DISTINCT ,1)",
-                 "line 1:21: extraneous input ',' expecting {'(', '?', 'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CASE', 'CAST', 'CATALOGS', " +
-                         "'COALESCE', 'COLUMN', 'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'DATA', 'DATE', " +
-                         "'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXISTS', 'EXPLAIN', 'EXTRACT', 'FALSE', 'FILTER', 'FIRST', 'FOLLOWING', 'FORMAT', 'FUNCTIONS', 'GRANT', 'GRANTS', " +
-                         "'GRAPHVIZ', 'GROUPING', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', 'LEVEL', 'LIMIT', 'LOCALTIME', 'LOCALTIMESTAMP', " +
-                         "'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NORMALIZE', 'NOT', 'NULL', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', 'ORDINALITY', 'OUTPUT', " +
-                         "'OVER', 'PARTITION', 'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', " +
-                         "'RESTRICT', 'REVOKE', 'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', " +
-                         "'STATS', 'SUBSTRING', 'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRUE', 'TRY_CAST', 'TYPE', 'UNBOUNDED', " +
-                         "'UNCOMMITTED', 'USE', 'VALIDATE', 'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', '+', '-', STRING, UNICODE_STRING, BINARY_LITERAL, INTEGER_VALUE, DECIMAL_VALUE, " +
-                         "DOUBLE_VALUE, IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER, DOUBLE_PRECISION}"},
+                 "line 1:21: mismatched input ','. Expecting: <expression>"},
                 {"CREATE TABLE foo () AS (VALUES 1)",
-                 "line 1:19: no viable alternative at input 'CREATE TABLE foo ()'"},
+                 "line 1:19: mismatched input ')'. Expecting: 'OR', 'SCHEMA', 'TABLE', 'VIEW'"},
                 {"CREATE TABLE foo (*) AS (VALUES 1)",
-                 "line 1:19: no viable alternative at input 'CREATE TABLE foo (*'"},
+                 "line 1:19: mismatched input '*'. Expecting: 'OR', 'SCHEMA', 'TABLE', 'VIEW'"},
                 {"SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2",
-                 "line 1:18: mismatched input '+' expecting {'.', ')', ','}"},
+                 "line 1:18: mismatched input '+'. Expecting: ')', ',', '.'"},
                 {"SELECT x() over (ROWS select) FROM t",
-                 "line 1:23: no viable alternative at input 'ROWS select'"},
+                 "line 1:23: mismatched input 'select'. Expecting: 'BETWEEN', 'CURRENT', 'UNBOUNDED', <expression>"},
                 {"SELECT X() OVER (ROWS UNBOUNDED) FROM T",
-                 "line 1:32: no viable alternative at input 'UNBOUNDED)'"},
+                 "line 1:32: mismatched input ')'. Expecting: 'FOLLOWING', 'PRECEDING'"},
                 {"SELECT a FROM x ORDER BY (SELECT b FROM t WHERE ",
-                 "line 1:49: no viable alternative at input '<EOF>'"},
+                 "line 1:49: mismatched input '<EOF>'. Expecting: <expression>"},
                 {"SELECT a FROM a AS x TABLESAMPLE x ",
-                 "line 1:34: mismatched input 'x' expecting {'BERNOULLI', 'SYSTEM'}"},
+                 "line 1:34: mismatched input 'x'. Expecting: 'BERNOULLI', 'SYSTEM'"},
                 {"SELECT a AS z FROM t GROUP BY CUBE (a), ",
-                 "line 1:41: no viable alternative at input '<EOF>'"},
+                 "line 1:41: mismatched input '<EOF>'. Expecting: '(', 'CUBE', 'GROUPING', 'ROLLUP', <expression>"},
                 {"SELECT a AS z FROM t WHERE x = 1 + ",
-                 "line 1:36: no viable alternative at input '<EOF>'"},
+                 "line 1:36: mismatched input '<EOF>'. Expecting: <expression>"},
                 {"SELECT a AS z FROM t WHERE a. ",
-                 "line 1:31: no viable alternative at input '<EOF>'"},
+                 "line 1:31: mismatched input '<EOF>'. Expecting: <identifier>"},
                 {"CREATE TABLE t (x bigint) COMMENT ",
-                 "line 1:35: no viable alternative at input '<EOF>'"},
+                 "line 1:35: mismatched input '<EOF>'. Expecting: <string>"},
                 {"SELECT * FROM ( ",
-                 "line 1:17: no viable alternative at input '( '"},
+                 "line 1:17: mismatched input '<EOF>'. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>, <query>"},
                 {"SELECT CAST(a AS )",
-                 "line 1:18: mismatched input ')' expecting {'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CATALOGS', 'COALESCE', 'COLUMN', " +
-                         "'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'DATA', 'DATE', 'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXPLAIN', 'FILTER', 'FIRST', 'FOLLOWING', " +
-                         "'FORMAT', 'FUNCTIONS', 'GRANT', 'GRANTS', 'GRAPHVIZ', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', 'LEVEL', 'LIMIT', " +
-                         "'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', 'ORDINALITY', 'OUTPUT', 'OVER', 'PARTITION', " +
-                         "'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', 'RESTRICT', 'REVOKE', " +
-                         "'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', 'STATS', 'SUBSTRING', " +
-                         "'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRY_CAST', 'TYPE', 'UNBOUNDED', 'UNCOMMITTED', 'USE', 'VALIDATE', " +
-                         "'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER, TIME_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, " +
-                         "DOUBLE_PRECISION}"},
+                 "line 1:18: mismatched input ')'. Expecting: <type>"},
                 {"SELECT CAST(a AS decimal()",
-                 "line 1:26: mismatched input ')' expecting {'ADD', 'ALL', 'ANALYZE', 'ANY', 'ARRAY', 'ASC', 'AT', 'BERNOULLI', 'CALL', 'CASCADE', 'CATALOGS', 'COALESCE', 'COLUMN', " +
-                         "'COLUMNS', 'COMMENT', 'COMMIT', 'COMMITTED', 'CURRENT', 'DATA', 'DATE', 'DAY', 'DESC', 'DISTRIBUTED', 'EXCLUDING', 'EXPLAIN', 'FILTER', 'FIRST', 'FOLLOWING', " +
-                         "'FORMAT', 'FUNCTIONS', 'GRANT', 'GRANTS', 'GRAPHVIZ', 'HOUR', 'IF', 'INCLUDING', 'INPUT', 'INTEGER', 'INTERVAL', 'ISOLATION', 'LAST', 'LATERAL', 'LEVEL', 'LIMIT', " +
-                         "'LOGICAL', 'MAP', 'MINUTE', 'MONTH', 'NFC', 'NFD', 'NFKC', 'NFKD', 'NO', 'NULLIF', 'NULLS', 'ONLY', 'OPTION', 'ORDINALITY', 'OUTPUT', 'OVER', 'PARTITION', " +
-                         "'PARTITIONS', 'POSITION', 'PRECEDING', 'PRIVILEGES', 'PROPERTIES', 'PUBLIC', 'RANGE', 'READ', 'RENAME', 'REPEATABLE', 'REPLACE', 'RESET', 'RESTRICT', 'REVOKE', " +
-                         "'ROLLBACK', 'ROW', 'ROWS', 'SCHEMA', 'SCHEMAS', 'SECOND', 'SERIALIZABLE', 'SESSION', 'SET', 'SETS', 'SHOW', 'SMALLINT', 'SOME', 'START', 'STATS', 'SUBSTRING', " +
-                         "'SYSTEM', 'TABLES', 'TABLESAMPLE', 'TEXT', 'TIME', 'TIMESTAMP', 'TINYINT', 'TO', 'TRANSACTION', 'TRY_CAST', 'TYPE', 'UNBOUNDED', 'UNCOMMITTED', 'USE', 'VALIDATE', " +
-                         "'VERBOSE', 'VIEW', 'WORK', 'WRITE', 'YEAR', 'ZONE', INTEGER_VALUE, IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER, TIME_WITH_TIME_ZONE, " +
-                         "TIMESTAMP_WITH_TIME_ZONE, DOUBLE_PRECISION}"},
+                 "line 1:26: mismatched input ')'. Expecting: <integer>, <type>"},
                 {"SELECT foo(*) filter (",
-                 "line 1:23: mismatched input '<EOF>' expecting 'WHERE'"},
+                 "line 1:23: mismatched input '<EOF>'. Expecting: 'WHERE'"},
                 {"SELECT * FROM t t x",
-                 "line 1:19: extraneous input 'x' expecting {<EOF>, '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', " +
-                         "'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE'}"},
+                 "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', 'RIGHT', " +
+                         "'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
-                 "line 1:31: no viable alternative at input '<EOF>'"},
-                };
+                 "line 1:31: mismatched input '<EOF>'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'"}};
     }
 
     @Test(dataProvider = "statements")
