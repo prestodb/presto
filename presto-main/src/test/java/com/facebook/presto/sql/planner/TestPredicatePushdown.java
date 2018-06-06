@@ -24,6 +24,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -35,6 +36,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 
 public class TestPredicatePushdown
         extends BasePlanTest
@@ -250,5 +252,19 @@ public class TestPredicatePushdown
                 output(
                         values("orderstatus")),
                 allOptimizers);
+    }
+
+    @Test
+    public void testPredicatePushDownThroughMarkDistinct()
+    {
+        assertPlan(
+                "SELECT (SELECT a FROM (VALUES 1, 2, 3) t(a) WHERE a = b) FROM (VALUES 0, 1) p(b) WHERE b = 1",
+                // TODO this could be optimized to VALUES with values from partitions
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("A", "B")),
+                                project(assignUniqueId("unique", filter("A = 1", values("A")))),
+                                project(filter("1 = B", values("B"))))));
     }
 }
