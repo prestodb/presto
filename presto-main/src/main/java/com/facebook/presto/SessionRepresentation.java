@@ -51,7 +51,7 @@ public final class SessionRepresentation
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
     private final long startTime;
-    private final ResourceEstimates resourceEstimate;
+    private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> catalogProperties;
     private final Map<String, String> preparedStatements;
@@ -73,7 +73,7 @@ public final class SessionRepresentation
             @JsonProperty("userAgent") Optional<String> userAgent,
             @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("clientTags") Set<String> clientTags,
-            @JsonProperty("resourceEstimate") ResourceEstimates resourceEstimate,
+            @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
@@ -94,7 +94,7 @@ public final class SessionRepresentation
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
-        this.resourceEstimate = requireNonNull(resourceEstimate, "resourceEstimate is null");
+        this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
@@ -203,9 +203,9 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public ResourceEstimates getResourceEstimate()
+    public ResourceEstimates getResourceEstimates()
     {
-        return resourceEstimate;
+        return resourceEstimates;
     }
 
     @JsonProperty
@@ -243,7 +243,7 @@ public final class SessionRepresentation
                 userAgent,
                 clientInfo,
                 clientTags,
-                resourceEstimate,
+                resourceEstimates,
                 startTime,
                 systemProperties,
                 catalogProperties,
