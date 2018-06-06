@@ -866,6 +866,27 @@ let QueryDetail = React.createClass({
 
         return properties;
     },
+    renderResourceEstimates: function() {
+        const query = this.state.query;
+        const estimates = query.session.resourceEstimates;
+        const renderedEstimates = [];
+
+        for (let resource in estimates) {
+            if (estimates.hasOwnProperty(resource)) {
+                const upperChars = resource.match(/([A-Z])/g) || [];
+                let snakeCased = resource;
+                for (let i = 0, n = upperChars.length; i < n; i++) {
+                    snakeCased = snakeCased.replace(new RegExp(upperChars[i]), '_' + upperChars[i].toLowerCase());
+                }
+
+                renderedEstimates.push(
+                    <span>- {snakeCased + "=" + query.session.resourceEstimates[resource]} <br/></span>
+                )
+            }
+        }
+
+        return renderedEstimates;
+    },
     renderProgressBar: function() {
         const query = this.state.query;
         const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
@@ -1038,6 +1059,22 @@ let QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
+                                        Catalog
+                                    </td>
+                                    <td className="info-text">
+                                        { query.session.catalog }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Schema
+                                    </td>
+                                    <td className="info-text">
+                                        { query.session.schema }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
                                         Client Address
                                     </td>
                                     <td className="info-text">
@@ -1050,6 +1087,38 @@ let QueryDetail = React.createClass({
                                     </td>
                                     <td className="info-text">
                                         { query.session.clientTags.join(", ") }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Session Properties
+                                    </td>
+                                    <td className="info-text wrap-text">
+                                        { this.renderSessionProperties() }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Resource Estimates
+                                    </td>
+                                    <td className="info-text wrap-text">
+                                        { this.renderResourceEstimates() }
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="col-xs-6">
+                        <h3>Execution</h3>
+                        <hr className="h3-hr" />
+                        <table className="table">
+                            <tbody>
+                                <tr>
+                                    <td className="info-title">
+                                        Resource Group
+                                    </td>
+                                    <td className="info-text wrap-text">
+                                        { query.resourceGroupName }
                                     </td>
                                 </tr>
                                 <tr>
@@ -1070,46 +1139,6 @@ let QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
-                                        Session Properties
-                                    </td>
-                                    <td className="info-text wrap-text">
-                                        { this.renderSessionProperties() }
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="col-xs-6">
-                        <h3>Data Source</h3>
-                        <hr className="h3-hr" />
-                        <table className="table">
-                            <tbody>
-                                <tr>
-                                    <td className="info-title">
-                                        Catalog
-                                    </td>
-                                    <td className="info-text">
-                                        { query.session.catalog }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Schema
-                                    </td>
-                                    <td className="info-text">
-                                        { query.session.schema }
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="col-xs-6">
-                        <h3>Execution</h3>
-                        <hr className="h3-hr" />
-                        <table className="table">
-                            <tbody>
-                                <tr>
-                                    <td className="info-title">
                                         Elapsed Time
                                     </td>
                                     <td className="info-text">
@@ -1126,10 +1155,10 @@ let QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
-                                        Resource Group
+                                        Execution Time
                                     </td>
-                                    <td className="info-text wrap-text">
-                                        { query.resourceGroupName }
+                                    <td className="info-text">
+                                        { query.queryStats.executionTime }
                                     </td>
                                 </tr>
                             </tbody>
