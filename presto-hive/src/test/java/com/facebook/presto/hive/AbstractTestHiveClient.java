@@ -936,7 +936,7 @@ public abstract class AbstractTestHiveClient
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new HadoopDirectoryLister(),
+                new CachingDirectoryLister(new HiveClientConfig()),
                 directExecutor(),
                 new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
