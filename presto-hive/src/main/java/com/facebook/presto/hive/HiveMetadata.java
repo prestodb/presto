@@ -122,6 +122,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionKeyValues;
+import static com.facebook.presto.hive.HiveSessionProperties.getCollectColumnStatisticsOnWrite;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
@@ -129,6 +130,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnab
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED;
 import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -202,6 +204,8 @@ public class HiveMetadata
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
+
+    private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED_KEY = "presto.collect.column.statistics.on.write.key";
 
     private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
 
@@ -437,6 +441,11 @@ public class HiveMetadata
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
 
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
+
+        String collectColumnStatisticsOnWrite = table.get().getParameters().get(COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED_KEY);
+        if (collectColumnStatisticsOnWrite != null && Boolean.valueOf(collectColumnStatisticsOnWrite)) {
+            properties.put(COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED, true);
+        }
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
@@ -685,6 +694,8 @@ public class HiveMetadata
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
+
+        tableProperties.put(COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED_KEY, Boolean.toString(HiveTableProperties.isCollectColumnStatisticsOnWriteEnabled(tableMetadata.getProperties())));
 
         return tableProperties.build();
     }
@@ -1571,6 +1582,9 @@ public class HiveMetadata
         }
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
+        if (!isCollectColumnStatisticsOnWriteEnabled(session, tableMetadata)) {
+            return TableStatisticsMetadata.empty();
+        }
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         return getTableStatisticsMetadata(tableMetadata.getColumns(), partitionedBy);
     }
@@ -1582,8 +1596,26 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        if (!isCollectColumnStatisticsOnWriteEnabled(session, tableMetadata)) {
+            return TableStatisticsMetadata.empty();
+        }
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         return getTableStatisticsMetadata(tableMetadata.getColumns(), partitionedBy == null ? ImmutableList.of() : partitionedBy);
+    }
+
+    private static boolean isCollectColumnStatisticsOnWriteEnabled(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        HiveClientConfig.CollectColumnStatisticsOnWriteOption value = getCollectColumnStatisticsOnWrite(session);
+        switch (value) {
+            case ENABLED:
+                return true;
+            case ENABLED_FOR_MARKED_TABLES:
+                return HiveTableProperties.isCollectColumnStatisticsOnWriteEnabled(tableMetadata.getProperties());
+            case DISABLED:
+                return false;
+            default:
+                throw new IllegalArgumentException("Unexpected collect_column_statistics_on_write option: " + value);
+        }
     }
 
     private TableStatisticsMetadata getTableStatisticsMetadata(List<ColumnMetadata> columns, List<String> partitionedBy)

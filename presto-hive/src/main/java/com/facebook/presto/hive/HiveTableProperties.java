@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
@@ -49,6 +50,7 @@ public class HiveTableProperties
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
+    public static final String COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED = "collect_column_statistics_on_write_enabled";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -124,7 +126,12 @@ public class HiveTableProperties
                         "ORC Bloom filter false positive probability",
                         config.getOrcDefaultBloomFilterFpp(),
                         false),
-                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
+                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
+                booleanSessionProperty(
+                        COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED,
+                        "Experimental: Enables automatic column level statistics collection on write",
+                        false,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -190,6 +197,12 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    public static boolean isCollectColumnStatisticsOnWriteEnabled(Map<String, Object> tableProperties)
+    {
+        Boolean enabled = (Boolean) tableProperties.get(COLLECT_COLUMN_STATISTICS_ON_WRITE_ENABLED);
+        return enabled != null && enabled;
     }
 
     private static SortingColumn sortingColumnFromString(String name)

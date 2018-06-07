@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption.DISABLED;
+import static com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption.ENABLED_FOR_MARKED_TABLES;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveClientConfig
@@ -104,7 +106,8 @@ public class TestHiveClientConfig
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
                 .setWritesToNonManagedTablesEnabled(false)
-                .setCreatesOfNonManagedTablesEnabled(true));
+                .setCreatesOfNonManagedTablesEnabled(true)
+                .setCollectColumnStatisticsOnWrite(ENABLED_FOR_MARKED_TABLES));
     }
 
     @Test
@@ -178,6 +181,7 @@ public class TestHiveClientConfig
                 .put("hive.table-statistics-enabled", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
                 .put("hive.non-managed-table-creates-enabled", "false")
+                .put("hive.collect-column-statistics-on-write", "DISABLED")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -247,7 +251,8 @@ public class TestHiveClientConfig
                 .setFileSystemMaxCacheSize(1010)
                 .setTableStatisticsEnabled(false)
                 .setWritesToNonManagedTablesEnabled(true)
-                .setCreatesOfNonManagedTablesEnabled(false);
+                .setCreatesOfNonManagedTablesEnabled(false)
+                .setCollectColumnStatisticsOnWrite(DISABLED);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

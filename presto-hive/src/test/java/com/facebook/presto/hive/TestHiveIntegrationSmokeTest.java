@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -54,6 +55,9 @@ import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption.DISABLED;
+import static com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption.ENABLED;
+import static com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption.ENABLED_FOR_MARKED_TABLES;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -2554,6 +2558,47 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(user2, "SELECT account_name FROM test_accounts_view", "VALUES 'account2'");
         assertUpdate("DROP VIEW test_accounts_view");
         assertUpdate("DROP TABLE test_accounts");
+    }
+
+    @Test
+    public void testCollectColumnStatisticsOnWriteSwitches()
+    {
+        assertCollectColumnStatisticsOnWrite(ENABLED, false, true);
+        assertCollectColumnStatisticsOnWrite(DISABLED, true, false);
+        assertCollectColumnStatisticsOnWrite(ENABLED_FOR_MARKED_TABLES, true, true);
+        assertCollectColumnStatisticsOnWrite(ENABLED_FOR_MARKED_TABLES, false, false);
+    }
+
+    public void assertCollectColumnStatisticsOnWrite(
+            CollectColumnStatisticsOnWriteOption sessionProperty,
+            boolean tableProperty,
+            boolean expectStatisticsToBeCollected)
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setCatalogSessionProperty(getSession().getCatalog().get(), "collect_column_statistics_on_write", sessionProperty.name())
+                .build();
+        String tableName = "test_collect_column_statistics_on_write";
+        assertUpdate(session, format("" +
+                "CREATE TABLE %s " +
+                "WITH (collect_column_statistics_on_write_enabled = %s) " +
+                "AS " +
+                "SELECT CAST(null AS BIGINT) as col1", tableName, tableProperty), 1);
+        assertUpdate(session, format("" +
+                "INSERT INTO %s " +
+                "SELECT CAST(null AS BIGINT)", tableName), 1);
+
+        String expectedStatististics = expectStatisticsToBeCollected ?
+                "SELECT * FROM VALUES ('col1', null, 0.0E0, 1.0E0, null, null, null), (null, null, null, null, 2.0E0, null, null)" :
+                "SELECT * FROM VALUES ('col1', null, null, null, null, null, null), (null, null, null, null, 2.0E0, null, null)";
+
+        assertQuery(
+                session,
+                format("SHOW STATS FOR (SELECT * FROM %s)", tableName),
+                expectedStatististics);
+
+        assertUpdate(session, format("DROP TABLE %s", tableName));
     }
 
     private Session getParallelWriteSession()
