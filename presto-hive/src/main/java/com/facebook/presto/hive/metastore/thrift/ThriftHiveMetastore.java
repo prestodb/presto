@@ -38,6 +38,7 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.InvalidInputException;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -71,8 +72,11 @@ import static com.facebook.presto.hive.metastore.HivePrincipal.toHivePrincipal;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toGrants;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticParameters;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -80,6 +84,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -232,6 +237,12 @@ public class ThriftHiveMetastore
         }
     }
 
+    @Override
+    public boolean supportsColumnStatistics()
+    {
+        return true;
+    }
+
     private static boolean isPrestoView(Table table)
     {
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
@@ -331,6 +342,157 @@ public class ThriftHiveMetastore
     {
         return statistics.stream()
                 .collect(toImmutableMap(ColumnStatisticsObj::getColName, ThriftMetastoreUtil::fromMetastoreApiColumnStatistics));
+    }
+
+    @Override
+    public synchronized void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
+        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+
+        Table originalTable = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Table modifiedTable = originalTable.deepCopy();
+        modifiedTable.setParameters(updateStatisticParameters(modifiedTable.getParameters(), updatedStatistics.getBasicStatistics()));
+        alterTable(databaseName, tableName, modifiedTable);
+
+        com.facebook.presto.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
+        List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue()))
+                .collect(toImmutableList());
+        if (!metastoreColumnStatistics.isEmpty()) {
+            setTableColumnStatistics(databaseName, tableName, metastoreColumnStatistics);
+        }
+        Set<String> removedColumnStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
+        removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(databaseName, tableName, column));
+    }
+
+    private void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOnIllegalExceptions()
+                    .run("setTableColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.setTableColumnStatistics(databaseName, tableName, statistics);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOnIllegalExceptions()
+                    .run("deleteTableColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.deleteTableColumnStatistics(databaseName, tableName, columnName);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public synchronized void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        PartitionStatistics currentStatistics = requireNonNull(
+                getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName), "getPartitionStatistics() returned null");
+        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+
+        List<Partition> partitions = getPartitionsByNames(databaseName, tableName, ImmutableList.of(partitionName));
+        if (partitions.size() != 1) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "exactly one partition is expected to be returned: " + partitions.size());
+        }
+
+        Partition originalPartition = getOnlyElement(partitions);
+        Partition modifiedPartition = originalPartition.deepCopy();
+        modifiedPartition.setParameters(updateStatisticParameters(modifiedPartition.getParameters(), updatedStatistics.getBasicStatistics()));
+        alterPartition(databaseName, tableName, modifiedPartition);
+
+        com.facebook.presto.hive.metastore.Table table = getTable(databaseName, tableName)
+                .map(ThriftMetastoreUtil::fromMetastoreApiTable)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet()
+                .stream()
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue()))
+                .collect(toImmutableList());
+        if (!metastoreColumnStatistics.isEmpty()) {
+            setPartitionColumnStatistics(databaseName, tableName, partitionName, metastoreColumnStatistics);
+        }
+        Set<String> removedStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
+        removedStatistics.forEach(column -> deletePartitionColumnStatistics(databaseName, tableName, partitionName, column));
+    }
+
+    private void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOnIllegalExceptions()
+                    .run("setPartitionColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.setPartitionColumnStatistics(databaseName, tableName, partitionName, statistics);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOnIllegalExceptions()
+                    .run("deletePartitionColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.deletePartitionColumnStatistics(databaseName, tableName, partitionName, columnName);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
     }
 
     @Override

@@ -256,6 +256,12 @@ public class CachingHiveMetastore
         return get(tableCache, HiveTableName.table(databaseName, tableName));
     }
 
+    @Override
+    public boolean supportsColumnStatistics()
+    {
+        return delegate.supportsColumnStatistics();
+    }
+
     private Optional<Table> loadTable(HiveTableName hiveTableName)
     {
         return delegate.getTable(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
@@ -314,6 +320,28 @@ public class CachingHiveMetastore
             }
         });
         return result.build();
+    }
+
+    @Override
+    public void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        try {
+            delegate.updateTableStatistics(databaseName, tableName, update);
+        }
+        finally {
+            tableStatisticsCache.invalidate(HiveTableName.table(databaseName, tableName));
+        }
+    }
+
+    @Override
+    public void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        try {
+            delegate.updatePartitionStatistics(databaseName, tableName, partitionName, update);
+        }
+        finally {
+            partitionStatisticsCache.invalidate(HivePartitionName.partition(databaseName, tableName, partitionName));
+        }
     }
 
     @Override

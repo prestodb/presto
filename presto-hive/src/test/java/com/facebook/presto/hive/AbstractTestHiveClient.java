@@ -21,6 +21,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
@@ -115,6 +116,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -122,7 +124,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -188,8 +192,10 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -202,6 +208,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
@@ -238,6 +245,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.joda.time.DateTimeZone.UTC;
@@ -418,6 +426,110 @@ public abstract class AbstractTestHiveClient
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     private static final Set<String> STATISTICS_PARAMETERS = ImmutableSet.copyOf(toStatisticParameters(createZeroStatistics()).keySet());
+
+    private static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
+            .add(new ColumnMetadata("t_boolean", BOOLEAN))
+            .add(new ColumnMetadata("t_bigint", BIGINT))
+            .add(new ColumnMetadata("t_integer", INTEGER))
+            .add(new ColumnMetadata("t_smallint", SMALLINT))
+            .add(new ColumnMetadata("t_tinyint", TINYINT))
+            .add(new ColumnMetadata("t_double", DOUBLE))
+            .add(new ColumnMetadata("t_float", REAL))
+            .add(new ColumnMetadata("t_string", createUnboundedVarcharType()))
+            .add(new ColumnMetadata("t_varchar", createVarcharType(100)))
+            .add(new ColumnMetadata("t_char", createCharType(5)))
+            .add(new ColumnMetadata("t_varbinary", VARBINARY))
+            .add(new ColumnMetadata("t_date", DATE))
+            .add(new ColumnMetadata("t_timestamp", TIMESTAMP))
+            .add(new ColumnMetadata("t_short_decimal", createDecimalType(5, 2)))
+            .add(new ColumnMetadata("t_long_decimal", createDecimalType(20, 4)))
+            .build();
+
+    private static final List<ColumnMetadata> STATISTICS_PARTITIONED_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
+            .addAll(STATISTICS_TABLE_COLUMNS)
+            .add(new ColumnMetadata("ds", VARCHAR))
+            .build();
+
+    private static final PartitionStatistics STATISTICS_EMPTY_TABLE = new PartitionStatistics(createZeroStatistics(), ImmutableMap.of());
+
+    private static final PartitionStatistics STATISTICS_1 =
+            new PartitionStatistics(
+                    new HiveBasicStatistics(0, 2, 3, 0),
+                    ImmutableMap.<String, HiveColumnStatistics>builder()
+                            .put("t_boolean", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.of(5), OptionalLong.of(6), OptionalLong.of(3), OptionalLong.empty()))
+                            .put("t_bigint", new HiveColumnStatistics(Optional.of(1234L), Optional.of(5678L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(5)))
+                            .put("t_integer", new HiveColumnStatistics(Optional.of(123L), Optional.of(567L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(4)))
+                            .put("t_smallint", new HiveColumnStatistics(Optional.of(12L), Optional.of(56L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_tinyint", new HiveColumnStatistics(Optional.of(1L), Optional.of(2L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(1), OptionalLong.of(3)))
+                            .put("t_double", new HiveColumnStatistics(Optional.of(1234.25), Optional.of(5678.58), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(8)))
+                            .put("t_float", new HiveColumnStatistics(Optional.of(123.25), Optional.of(567.58), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(10)))
+                            .put("t_string", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(10), OptionalDouble.of(5.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(7)))
+                            .put("t_varchar", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(100), OptionalDouble.of(23.3), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(5), OptionalLong.of(3)))
+                            .put("t_char", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(5), OptionalDouble.of(5.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(1), OptionalLong.of(4)))
+                            .put("t_varbinary", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(4), OptionalDouble.of(3.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(1), OptionalLong.empty()))
+                            .put("t_date", new HiveColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(1)), Optional.of(java.time.LocalDate.ofEpochDay(2)), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(6)))
+                            .put("t_timestamp", new HiveColumnStatistics(Optional.of(1234567L), Optional.of(71234567L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(5)))
+                            .put("t_short_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal(10)), Optional.of(new BigDecimal(12)), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(5)))
+                            .put("t_long_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal("12345678901234567.123")), Optional.of(new BigDecimal("812345678901234567.123")), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(1)))
+                            .build());
+
+    private static final PartitionStatistics STATISTICS_1_1 =
+            new PartitionStatistics(
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(2), OptionalLong.empty(), OptionalLong.of(0)),
+                    STATISTICS_1.getColumnStatistics().entrySet()
+                            .stream()
+                            .filter(entry -> entry.getKey().hashCode() % 2 == 0)
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+    private static final PartitionStatistics STATISTICS_1_2 =
+            new PartitionStatistics(
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(0)),
+                    STATISTICS_1.getColumnStatistics().entrySet()
+                            .stream()
+                            .filter(entry -> entry.getKey().hashCode() % 2 == 1)
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+    private static final PartitionStatistics STATISTICS_2 =
+            new PartitionStatistics(
+                    new HiveBasicStatistics(0, 3, 2, 0),
+                    ImmutableMap.<String, HiveColumnStatistics>builder()
+                            .put("t_boolean", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.of(4), OptionalLong.of(3), OptionalLong.of(2), OptionalLong.empty()))
+                            .put("t_bigint", new HiveColumnStatistics(Optional.of(2345L), Optional.of(6789L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(4), OptionalLong.of(7)))
+                            .put("t_integer", new HiveColumnStatistics(Optional.of(234L), Optional.of(678L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(5), OptionalLong.of(6)))
+                            .put("t_smallint", new HiveColumnStatistics(Optional.of(23L), Optional.of(65L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(5)))
+                            .put("t_tinyint", new HiveColumnStatistics(Optional.of(2L), Optional.of(3L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(4)))
+                            .put("t_double", new HiveColumnStatistics(Optional.of(2345.25), Optional.of(6785.58), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(6), OptionalLong.of(3)))
+                            .put("t_float", new HiveColumnStatistics(Optional.of(235.25), Optional.of(676.58), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(11)))
+                            .put("t_string", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(11), OptionalDouble.of(6.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_varchar", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(99), OptionalDouble.of(22.3), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(1)))
+                            .put("t_char", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(6), OptionalDouble.of(6.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(0), OptionalLong.of(3)))
+                            .put("t_varbinary", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(2), OptionalDouble.of(1.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.empty()))
+                            .put("t_date", new HiveColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(2)), Optional.of(java.time.LocalDate.ofEpochDay(3)), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(8), OptionalLong.of(7)))
+                            .put("t_timestamp", new HiveColumnStatistics(Optional.of(2345671L), Optional.of(12345677L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(1)))
+                            .put("t_short_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal(11)), Optional.of(new BigDecimal(14)), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(2)))
+                            .put("t_long_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("781234567890123456.123")), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(5), OptionalLong.of(7)))
+                            .build());
+
+    private static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
+            new PartitionStatistics(
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(0)),
+                    ImmutableMap.<String, HiveColumnStatistics>builder()
+                            .put("t_boolean", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.of(4), OptionalLong.of(3), OptionalLong.of(2), OptionalLong.empty()))
+                            .put("t_bigint", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(4), OptionalLong.of(7)))
+                            .put("t_integer", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(5), OptionalLong.of(6)))
+                            .put("t_smallint", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(5)))
+                            .put("t_tinyint", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(4)))
+                            .put("t_double", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(6), OptionalLong.of(3)))
+                            .put("t_float", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(11)))
+                            .put("t_string", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(0), OptionalDouble.of(0.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_varchar", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(0), OptionalDouble.of(0.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(1)))
+                            .put("t_char", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(0), OptionalDouble.of(0.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(0), OptionalLong.of(3)))
+                            .put("t_varbinary", new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(0), OptionalDouble.of(0.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.empty()))
+                            .put("t_date", new HiveColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(2)), Optional.of(java.time.LocalDate.ofEpochDay(3)), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(8), OptionalLong.of(7)))
+                            .put("t_timestamp", new HiveColumnStatistics(Optional.of(2345671L), Optional.of(12345677L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(1)))
+                            .put("t_short_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal(11)), Optional.of(new BigDecimal(14)), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(2)))
+                            .put("t_long_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("781234567890123456.123")), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(5), OptionalLong.of(7)))
+                            .build());
 
     protected String clientId;
     protected String database;
@@ -2440,6 +2552,226 @@ public abstract class AbstractTestHiveClient
             Partition partition = metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues)
                     .orElseThrow(() -> new PartitionNotFoundException(tableName, partitionValues));
             assertThat(partition.getParameters()).contains(entry("test_key", "test_value"));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testUpdateTableColumnStatistics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("update_table_column_statistics");
+
+        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+        if (!metastoreClient.supportsColumnStatistics()) {
+            return;
+        }
+
+        try {
+            doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(STATISTICS_EMPTY_TABLE);
+
+            metastoreClient.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_EMPTY_TABLE);
+                return STATISTICS_1_1;
+            });
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(STATISTICS_1_1);
+
+            metastoreClient.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_1_1);
+                return STATISTICS_1_2;
+            });
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(STATISTICS_1_2);
+
+            metastoreClient.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_1_2);
+                return STATISTICS_2;
+            });
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(STATISTICS_2);
+
+            metastoreClient.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_2);
+                return STATISTICS_EMPTY_TABLE;
+            });
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(STATISTICS_EMPTY_TABLE);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testUpdateTableColumnStatisticsEmptyOptionalFields()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("update_table_column_statistics_empty_optional_fields");
+
+        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+        if (!metastoreClient.supportsColumnStatistics()) {
+            return;
+        }
+
+        try {
+            doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
+
+            metastoreClient.updateTableStatistics(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    currentStatistics -> STATISTICS_EMPTY_OPTIONAL_FIELDS);
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(STATISTICS_EMPTY_OPTIONAL_FIELDS);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testUpdatePartitionColumnStatistics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("update_partition_column_statistics");
+
+        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+        if (!metastoreClient.supportsColumnStatistics()) {
+            return;
+        }
+
+        try {
+            doCreateEmptyTable(tableName, ORC, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+
+            List<String> firstPartitionValues = ImmutableList.of("2016-01-01");
+            List<String> secondPartitionValues = ImmutableList.of("2016-01-02");
+
+            String firstPartitionName = makePartName(ImmutableList.of("ds"), firstPartitionValues);
+            String secondPartitionName = makePartName(ImmutableList.of("ds"), secondPartitionValues);
+
+            List<Partition> partitions = ImmutableList.of(firstPartitionValues, secondPartitionValues)
+                    .stream()
+                    .map(values -> Partition.builder()
+                            .setDatabaseName(tableName.getSchemaName())
+                            .setTableName(tableName.getTableName())
+                            .setColumns(table.getPartitionColumns())
+                            .setParameters(toStatisticParameters(createZeroStatistics()))
+                            .setValues(values)
+                            .withStorage(storage -> storage
+                                    .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
+                                    .setLocation(table.getStorage().getLocation() + "/" + makePartName(ImmutableList.of("ds"), values)))
+                            .build())
+                    .collect(toImmutableList());
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+                    .isEqualTo(ImmutableMap.of(firstPartitionName, STATISTICS_EMPTY_TABLE, secondPartitionName, STATISTICS_EMPTY_TABLE));
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_EMPTY_TABLE);
+                return STATISTICS_1_1;
+            });
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_EMPTY_TABLE);
+                return STATISTICS_1_2;
+            });
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+                    .isEqualTo(ImmutableMap.of(firstPartitionName, STATISTICS_1_1, secondPartitionName, STATISTICS_1_2));
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_1_1);
+                return STATISTICS_1_2;
+            });
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_1_2);
+                return STATISTICS_1_1;
+            });
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+                    .isEqualTo(ImmutableMap.of(firstPartitionName, STATISTICS_1_2, secondPartitionName, STATISTICS_1_1));
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_1_2);
+                return STATISTICS_2;
+            });
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_1_1);
+                return STATISTICS_2;
+            });
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+                    .isEqualTo(ImmutableMap.of(firstPartitionName, STATISTICS_2, secondPartitionName, STATISTICS_2));
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_2);
+                return STATISTICS_EMPTY_TABLE;
+            });
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> {
+                assertThat(currentStatistics).isEqualTo(STATISTICS_2);
+                return STATISTICS_EMPTY_TABLE;
+            });
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+                    .isEqualTo(ImmutableMap.of(firstPartitionName, STATISTICS_EMPTY_TABLE, secondPartitionName, STATISTICS_EMPTY_TABLE));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("update_partition_column_statistics");
+
+        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+        if (!metastoreClient.supportsColumnStatistics()) {
+            return;
+        }
+
+        try {
+            doCreateEmptyTable(tableName, ORC, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(Partition.builder()
+                    .setDatabaseName(tableName.getSchemaName())
+                    .setTableName(tableName.getTableName())
+                    .setColumns(table.getPartitionColumns())
+                    .setValues(ImmutableList.of("2016-01-01"))
+                    .withStorage(storage -> storage
+                            .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
+                            .setLocation(table.getStorage().getLocation() + "/ds=2016-01-01"))
+                    .build()));
+
+            metastoreClient.updatePartitionStatistics(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    "ds=2016-01-01",
+                    currentStatistics -> STATISTICS_EMPTY_OPTIONAL_FIELDS);
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of("ds=2016-01-01")))
+                    .isEqualTo(ImmutableMap.of("ds=2016-01-01", STATISTICS_EMPTY_OPTIONAL_FIELDS));
         }
         finally {
             dropTable(tableName);

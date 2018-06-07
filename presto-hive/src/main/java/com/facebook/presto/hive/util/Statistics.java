@@ -16,54 +16,43 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
 import java.util.OptionalLong;
-import java.util.Set;
 
-import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticParameters;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticParameters;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
-import static java.util.Collections.unmodifiableMap;
-import static java.util.stream.Collectors.toMap;
 
 public final class Statistics
 {
     private Statistics() {}
 
-    private static final Set<String> STATISTICS_PARAMETERS = ImmutableSet.copyOf(toStatisticParameters(createZeroStatistics()).keySet());
-
-    public static Table updateStatistics(Table table, HiveBasicStatistics statistics, ReduceOperator operator)
+    public static Table updateStatistics(Table table, HiveBasicStatistics update, ReduceOperator operator)
     {
-        Map<String, String> parameters = table.getParameters();
-        Map<String, String> updatedParameters = updateStatistics(parameters, statistics, operator);
-        return Table.builder(table)
-                .setParameters(updatedParameters)
-                .build();
-    }
-
-    public static Partition updateStatistics(Partition partition, HiveBasicStatistics statistics, ReduceOperator operator)
-    {
-        Map<String, String> parameters = partition.getParameters();
-        Map<String, String> updatedParameters = updateStatistics(parameters, statistics, operator);
-        return Partition.builder(partition)
-                .setParameters(updatedParameters)
-                .build();
-    }
-
-    public static Map<String, String> updateStatistics(Map<String, String> parameters, HiveBasicStatistics update, ReduceOperator operator)
-    {
-        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(parameters);
+        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(table.getParameters());
         HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
-        Map<String, String> updatedParameters = parameters.entrySet()
-                .stream()
-                .filter(entry -> !STATISTICS_PARAMETERS.contains(entry.getKey()))
-                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
-        updatedParameters.putAll(toStatisticParameters(updatedStatistics));
-        return unmodifiableMap(updatedParameters);
+        return Table.builder(table)
+                .setParameters(updateStatisticParameters(table.getParameters(), updatedStatistics))
+                .build();
+    }
+
+    public static Partition updateStatistics(Partition partition, HiveBasicStatistics update, ReduceOperator operator)
+    {
+        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(partition.getParameters());
+        HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
+        return Partition.builder(partition)
+                .setParameters(updateStatisticParameters(partition.getParameters(), updatedStatistics))
+                .build();
+    }
+
+    public static Map<String, String> updateStatistics(Map<String, String> parameters, HiveBasicStatistics statistics, ReduceOperator operator)
+    {
+        HiveBasicStatistics originalStatistics = getHiveBasicStatistics(parameters);
+        HiveBasicStatistics updatedStatistics = reduce(originalStatistics, statistics, operator);
+        return toStatisticParameters(updatedStatistics);
     }
 
     public static HiveBasicStatistics add(HiveBasicStatistics first, HiveBasicStatistics second)

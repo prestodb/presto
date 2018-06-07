@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
@@ -72,9 +73,15 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
+    boolean supportsColumnStatistics();
+
     PartitionStatistics getTableStatistics(String databaseName, String tableName);
 
     Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames);
+
+    void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
+
+    void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     Set<String> getRoles(String user);
 

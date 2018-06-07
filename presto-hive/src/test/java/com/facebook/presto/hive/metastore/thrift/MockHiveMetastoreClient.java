@@ -137,7 +137,31 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
     {
         throw new UnsupportedOperationException();
     }
