@@ -29,8 +29,8 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveColumnStatistics
 {
-    private final Optional<?> lowValue;
-    private final Optional<?> highValue;
+    private final Optional<? extends Comparable<?>> lowValue;
+    private final Optional<? extends Comparable<?>> highValue;
     private final OptionalLong maxColumnLength;
     private final OptionalDouble averageColumnLength;
     private final OptionalLong trueCount;
@@ -40,8 +40,8 @@ public class HiveColumnStatistics
 
     @JsonCreator
     public HiveColumnStatistics(
-            @JsonProperty("lowValue") Optional<?> lowValue,
-            @JsonProperty("highValue") Optional<?> highValue,
+            @JsonProperty("lowValue") Optional<? extends Comparable<?>> lowValue,
+            @JsonProperty("highValue") Optional<? extends Comparable<?>> highValue,
             @JsonProperty("maxColumnLength") OptionalLong maxColumnLength,
             @JsonProperty("averageColumnLength") OptionalDouble averageColumnLength,
             @JsonProperty("trueCount") OptionalLong trueCount,
@@ -61,14 +61,14 @@ public class HiveColumnStatistics
 
     @JsonProperty
     @JsonTypeInfo(use = NAME, property = "@lowValueClass")
-    public Optional<?> getLowValue()
+    public Optional<? extends Comparable<?>> getLowValue()
     {
         return lowValue;
     }
 
     @JsonProperty
     @JsonTypeInfo(use = NAME, property = "@highValueClass")
-    public Optional<?> getHighValue()
+    public Optional<? extends Comparable<?>> getHighValue()
     {
         return highValue;
     }

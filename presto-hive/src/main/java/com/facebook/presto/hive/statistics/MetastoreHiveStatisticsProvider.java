@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.hive.CollectibleStatisticsProvider;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
@@ -43,13 +45,15 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.PrimitiveIterator;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.DoubleStream;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.util.Statistics.getMinMaxAsPrestoTypeValue;
-import static com.facebook.presto.hive.util.Statistics.isMinMaxSupportedForType;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -61,12 +65,18 @@ public class MetastoreHiveStatisticsProvider
     private final TypeManager typeManager;
     private final SemiTransactionalHiveMetastore metastore;
     private final DateTimeZone timeZone;
+    private final CollectibleStatisticsProvider collectibleStatisticsProvider;
 
-    public MetastoreHiveStatisticsProvider(TypeManager typeManager, SemiTransactionalHiveMetastore metastore, DateTimeZone timeZone)
+    public MetastoreHiveStatisticsProvider(
+            TypeManager typeManager,
+            SemiTransactionalHiveMetastore metastore,
+            DateTimeZone timeZone,
+            CollectibleStatisticsProvider collectibleStatisticsProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.timeZone = timeZone;
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.collectibleStatisticsProvider = requireNonNull(collectibleStatisticsProvider, "collectibleStatisticsProvider is null");
     }
 
     @Override
@@ -309,5 +319,11 @@ public class MetastoreHiveStatisticsProvider
                             .map(HivePartition::getPartitionId)
                             .collect(toImmutableSet()));
         }
+    }
+
+    private boolean isMinMaxSupportedForType(Type type)
+    {
+        Set<ColumnStatisticType> statisticTypes = collectibleStatisticsProvider.get(type);
+        return statisticTypes.contains(MIN) && statisticTypes.contains(MAX);
     }
 }

@@ -537,7 +537,7 @@ public final class ThriftMetastoreUtil
         statistics.getLowValue().ifPresent(value -> data.setLowValue((Long) value));
         statistics.getHighValue().ifPresent(value -> data.setHighValue((Long) value));
         statistics.getNullsCount().ifPresent(data::setNumNulls);
-        statistics.getDistinctValuesCount().ifPresent(data::setNumDVs);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
         return new ColumnStatisticsObj(columnName, columnType.toString(), longStats(data));
     }
 
@@ -547,7 +547,7 @@ public final class ThriftMetastoreUtil
         statistics.getLowValue().ifPresent(value -> data.setLowValue((Double) value));
         statistics.getHighValue().ifPresent(value -> data.setHighValue((Double) value));
         statistics.getNullsCount().ifPresent(data::setNumNulls);
-        statistics.getDistinctValuesCount().ifPresent(data::setNumDVs);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
         return new ColumnStatisticsObj(columnName, columnType.toString(), doubleStats(data));
     }
 
@@ -555,7 +555,7 @@ public final class ThriftMetastoreUtil
     {
         StringColumnStatsData data = new StringColumnStatsData();
         statistics.getNullsCount().ifPresent(data::setNumNulls);
-        statistics.getDistinctValuesCount().ifPresent(data::setNumDVs);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
         data.setMaxColLen(statistics.getMaxColumnLength().orElse(0));
         data.setAvgColLen(statistics.getAverageColumnLength().orElse(0));
         return new ColumnStatisticsObj(columnName, columnType.toString(), stringStats(data));
@@ -567,7 +567,7 @@ public final class ThriftMetastoreUtil
         statistics.getLowValue().ifPresent(value -> data.setLowValue(toMetastoreDate((LocalDate) value)));
         statistics.getHighValue().ifPresent(value -> data.setHighValue(toMetastoreDate((LocalDate) value)));
         statistics.getNullsCount().ifPresent(data::setNumNulls);
-        statistics.getDistinctValuesCount().ifPresent(data::setNumDVs);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
         return new ColumnStatisticsObj(columnName, columnType.toString(), dateStats(data));
     }
 
@@ -586,7 +586,7 @@ public final class ThriftMetastoreUtil
         statistics.getLowValue().ifPresent(value -> data.setLowValue(toMetastoreDecimal((BigDecimal) value)));
         statistics.getHighValue().ifPresent(value -> data.setHighValue(toMetastoreDecimal((BigDecimal) value)));
         statistics.getNullsCount().ifPresent(data::setNumNulls);
-        statistics.getDistinctValuesCount().ifPresent(data::setNumDVs);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
         return new ColumnStatisticsObj(columnName, columnType.toString(), decimalStats(data));
     }
 
@@ -598,5 +598,19 @@ public final class ThriftMetastoreUtil
     public static Decimal toMetastoreDecimal(BigDecimal decimal)
     {
         return new Decimal(ByteBuffer.wrap(decimal.unscaledValue().toByteArray()), (short) decimal.scale());
+    }
+
+    /**
+     * Metastore stores NDV considering null as a distinct value
+     */
+    private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
+    {
+        if (distinctValuesCount.isPresent() && nullsCount.isPresent()) {
+            if (nullsCount.getAsLong() > 0) {
+                return OptionalLong.of(distinctValuesCount.getAsLong() + 1);
+            }
+            return distinctValuesCount;
+        }
+        return OptionalLong.empty();
     }
 }

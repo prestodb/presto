@@ -151,6 +151,11 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public synchronized boolean supportsColumnStatistics()
+    {
+        return delegate.supportsColumnStatistics();
+    }
+
     public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         checkReadable();

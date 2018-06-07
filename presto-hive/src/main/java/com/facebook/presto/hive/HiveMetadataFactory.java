@@ -50,6 +50,7 @@ public class HiveMetadataFactory
     private final BoundedExecutor renameExecution;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
+    private final CollectibleStatisticsProvider collectibleStatisticsProvider;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -64,7 +65,8 @@ public class HiveMetadataFactory
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            CollectibleStatisticsProvider collectibleStatisticsProvider)
     {
         this(
                 metastore,
@@ -84,7 +86,8 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 executorService,
                 typeTranslator,
-                nodeVersion.toString());
+                nodeVersion.toString(),
+                collectibleStatisticsProvider);
     }
 
     public HiveMetadataFactory(
@@ -105,7 +108,8 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
             TypeTranslator typeTranslator,
-            String prestoVersion)
+            String prestoVersion,
+            CollectibleStatisticsProvider collectibleStatisticsProvider)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -133,6 +137,7 @@ public class HiveMetadataFactory
         }
 
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
+        this.collectibleStatisticsProvider = requireNonNull(collectibleStatisticsProvider, "collectibleStatisticsProvider is null");
     }
 
     public HiveMetadata create()
@@ -157,7 +162,8 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(typeManager, metastore, timeZone),
-                maxPartitions);
+                new MetastoreHiveStatisticsProvider(typeManager, metastore, timeZone, collectibleStatisticsProvider),
+                maxPartitions,
+                collectibleStatisticsProvider);
     }
 }
