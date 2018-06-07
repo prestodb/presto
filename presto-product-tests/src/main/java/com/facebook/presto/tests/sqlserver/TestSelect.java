@@ -51,7 +51,7 @@ import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
 
-public class Select
+public class TestSelect
         extends ProductTest
         implements RequirementsProvider
 {

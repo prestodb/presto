@@ -30,7 +30,7 @@ import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static java.lang.String.format;
 
-public class SelectMultiColumnKey
+public class TestSelectMultiColumnKey
         extends ProductTest
         implements RequirementsProvider
 {

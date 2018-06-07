@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.cassandra;
+package com.facebook.presto.tests.sqlserver;
 
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
@@ -19,45 +19,46 @@ import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.CASSANDRA;
-import static com.facebook.presto.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
-import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
+import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static com.facebook.presto.tests.TestGroups.SQL_SERVER;
+import static com.facebook.presto.tests.sqlserver.SqlServerTpchTableDefinitions.NATION;
+import static com.facebook.presto.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static com.facebook.presto.tests.sqlserver.TestConstants.KEY_SPACE;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
-public class NegativeTests
+public class TestInvalidSelect
         extends ProductTest
         implements RequirementsProvider
 {
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return immutableTable(CASSANDRA_NATION);
+        return immutableTable(NATION);
     }
 
-    @Test(groups = CASSANDRA)
-    public void testInvalidTable()
+    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    public void testNonExistentTable()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
                 .failsWithMessage(format("Table %s does not exist", tableName));
     }
 
-    @Test(groups = CASSANDRA)
-    public void testInvalidSchema()
+    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    public void testNonExistentSchema()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
                 .failsWithMessage("Schema does_not_exist does not exist");
     }
 
-    @Test(groups = CASSANDRA)
-    public void testInvalidColumn()
+    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    public void testNonExistentColumn()
     {
-        String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
+        String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, NATION.getName());
         assertThat(() -> query(format("SELECT bogus FROM %s", tableName)))
                 .failsWithMessage("Column 'bogus' cannot be resolved");
     }

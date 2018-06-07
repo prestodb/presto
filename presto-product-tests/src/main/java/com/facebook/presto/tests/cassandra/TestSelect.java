@@ -52,7 +52,7 @@ import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class Select
+public class TestSelect
         extends ProductTest
         implements RequirementsProvider
 {
