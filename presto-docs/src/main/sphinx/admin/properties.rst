@@ -492,6 +492,17 @@ Optimizer Properties
     for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used. This can
     also be specified on a per-query basis using the ``join_reordering_strategy`` session property.
 
+``optimizer.max-reordered-joins``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``9``
+
+    When optimizer.join-reordering-strategy is set to cost-based, this property determines the maximum
+    number of joins that can be reordered at once.
+
+    .. warning:: The number of possible join orders scales factorially with the number of relations,
+                 so increasing this value can cause serious performance issues.
 
 Regular Expression Function Properties
 --------------------------------------
