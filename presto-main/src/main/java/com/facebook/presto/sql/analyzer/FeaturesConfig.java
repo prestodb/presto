@@ -70,6 +70,7 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
+    private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
@@ -376,6 +377,20 @@ public class FeaturesConfig
     public FeaturesConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
         this.joinReorderingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    @Min(2)
+    public int getMaxReorderedJoins()
+    {
+        return maxReorderedJoins;
+    }
+
+    @Config("optimizer.max-reordered-joins")
+    @ConfigDescription("The maximum number of tables to reorder in cost-based join reordering")
+    public FeaturesConfig setMaxReorderedJoins(int maxReorderedJoins)
+    {
+        this.maxReorderedJoins = maxReorderedJoins;
         return this;
     }
 
