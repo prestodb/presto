@@ -248,6 +248,9 @@ public class RuleAssert
             {
                 return costProvider;
             }
+
+            @Override
+            public void checkTimeoutNotExhausted() {}
         };
     }
 

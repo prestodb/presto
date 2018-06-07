@@ -53,6 +53,8 @@ public interface Rule<T>
         StatsProvider getStatsProvider();
 
         CostProvider getCostProvider();
+
+        void checkTimeoutNotExhausted();
     }
 
     final class Result

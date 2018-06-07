@@ -14,12 +14,17 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -112,7 +117,48 @@ public class TestJoinEnumerator
                 new CostComparator(1, 1, 1),
                 idAllocator,
                 multiJoinNode.getFilter(),
-                noLookup());
+                noLookup(),
+                new Rule.Context()
+                {
+                    @Override
+                    public Lookup getLookup()
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public PlanNodeIdAllocator getIdAllocator()
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public SymbolAllocator getSymbolAllocator()
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public Session getSession()
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public StatsProvider getStatsProvider()
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public CostProvider getCostProvider()
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public void checkTimeoutNotExhausted() {}
+                });
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
     }
