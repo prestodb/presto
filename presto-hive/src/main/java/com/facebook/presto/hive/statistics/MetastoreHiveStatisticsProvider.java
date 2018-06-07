@@ -19,13 +19,10 @@ import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
@@ -38,7 +35,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
@@ -56,7 +52,6 @@ import java.util.function.Function;
 import java.util.stream.DoubleStream;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -68,8 +63,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MetastoreHiveStatisticsProvider
@@ -93,7 +88,7 @@ public class MetastoreHiveStatisticsProvider
             return TableStatistics.EMPTY_STATISTICS;
         }
 
-        Map<String, PartitionStatistics> partitionStatistics = getPartitionsStatistics((HiveTableHandle) tableHandle, hivePartitions, tableColumns);
+        Map<String, PartitionStatistics> partitionStatistics = getPartitionsStatistics((HiveTableHandle) tableHandle, hivePartitions);
 
         TableStatistics.Builder tableStatistics = TableStatistics.builder();
         Estimate rowCount = calculateRowsCount(partitionStatistics);
@@ -366,7 +361,7 @@ public class MetastoreHiveStatisticsProvider
         }
     }
 
-    private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions, Map<String, ColumnHandle> tableColumns)
+    private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -377,50 +372,15 @@ public class MetastoreHiveStatisticsProvider
         }
 
         if (unpartitioned) {
-            return ImmutableMap.of(HivePartition.UNPARTITIONED_ID, getTableStatistics(tableHandle.getSchemaTableName()));
+            return ImmutableMap.of(HivePartition.UNPARTITIONED_ID, metastore.getTableStatistics(tableHandle.getSchemaName(), tableHandle.getTableName()));
         }
         else {
-            return getPartitionsStatistics(tableHandle.getSchemaTableName(), hivePartitions);
+            return metastore.getPartitionStatistics(
+                    tableHandle.getSchemaName(),
+                    tableHandle.getTableName(),
+                    hivePartitions.stream()
+                            .map(HivePartition::getPartitionId)
+                            .collect(toImmutableSet()));
         }
-    }
-
-    private Map<String, PartitionStatistics> getPartitionsStatistics(SchemaTableName schemaTableName, List<HivePartition> hivePartitions)
-    {
-        String databaseName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        ImmutableMap.Builder<String, PartitionStatistics> resultMap = ImmutableMap.builder();
-
-        List<String> partitionNames = hivePartitions.stream().map(HivePartition::getPartitionId).collect(toImmutableList());
-        Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatisticsMap =
-                metastore.getPartitionColumnStatistics(databaseName, tableName, ImmutableSet.copyOf(partitionNames));
-
-        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(databaseName, tableName, partitionNames);
-        for (String partitionName : partitionNames) {
-            Map<String, String> partitionParameters = partitionsByNames.get(partitionName)
-                    .map(Partition::getParameters)
-                    .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for partition %s.%s.%s", databaseName, tableName, partitionName)));
-            Map<String, HiveColumnStatistics> partitionColumnStatistics = partitionColumnStatisticsMap.getOrDefault(partitionName, ImmutableMap.of());
-            resultMap.put(partitionName, readStatisticsFromParameters(partitionParameters, partitionColumnStatistics));
-        }
-
-        return resultMap.build();
-    }
-
-    private PartitionStatistics getTableStatistics(SchemaTableName schemaTableName)
-    {
-        String databaseName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-        Table table = metastore.getTable(databaseName, tableName)
-                .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for table %s.%s", databaseName, tableName)));
-
-        Map<String, HiveColumnStatistics> tableColumnStatistics = metastore.getTableColumnStatistics(databaseName, tableName);
-
-        return readStatisticsFromParameters(table.getParameters(), tableColumnStatistics);
-    }
-
-    private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters, Map<String, HiveColumnStatistics> columnStatistics)
-    {
-        return new PartitionStatistics(getHiveBasicStatistics(parameters), columnStatistics);
     }
 }

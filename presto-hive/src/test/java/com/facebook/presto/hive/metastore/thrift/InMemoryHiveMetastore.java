@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -84,9 +84,9 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
     @GuardedBy("this")
-    private final Map<SchemaTableName, Map<String, HiveColumnStatistics>> columnStatistics = new HashMap<>();
+    private final Map<SchemaTableName, PartitionStatistics> columnStatistics = new HashMap<>();
     @GuardedBy("this")
-    private final Map<PartitionName, Map<String, HiveColumnStatistics>> partitionColumnStatistics = new HashMap<>();
+    private final Map<PartitionName, PartitionStatistics> partitionColumnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<String, Set<String>> roleGrants = new HashMap<>();
     @GuardedBy("this")
@@ -441,41 +441,34 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
+    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        if (!columnStatistics.containsKey(schemaTableName)) {
-            return ImmutableMap.of();
-        }
-        return columnStatistics.get(schemaTableName);
+        return columnStatistics.getOrDefault(schemaTableName, PartitionStatistics.empty());
     }
 
-    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, HiveColumnStatistics statistics)
+    public synchronized void setTableStatistics(String databaseName, String tableName, PartitionStatistics statistics)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, statistics);
+        columnStatistics.put(schemaTableName, statistics);
     }
 
     @Override
-    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
+        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-            Map<String, HiveColumnStatistics> statistics = partitionColumnStatistics.get(partitionKey);
-            if (statistics != null && !statistics.isEmpty()) {
-                result.put(partitionName, statistics);
-            }
+            PartitionStatistics statistics = partitionColumnStatistics.getOrDefault(partitionKey, PartitionStatistics.empty());
+            result.put(partitionName, statistics);
         }
         return result.build();
     }
 
-    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, HiveColumnStatistics statistics)
+    public synchronized void setPartitionStatistics(String databaseName, String tableName, String partitionName, PartitionStatistics statistics)
     {
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-        partitionColumnStatistics
-                .computeIfAbsent(partitionKey, key -> new HashMap<>())
-                .put(columnName, statistics);
+        partitionColumnStatistics.put(partitionKey, statistics);
     }
 
     @Override

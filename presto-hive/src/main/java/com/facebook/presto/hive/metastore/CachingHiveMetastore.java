@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -44,6 +45,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,8 +74,8 @@ public class CachingHiveMetastore
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, Optional<List<String>>> tableNamesCache;
-    private final LoadingCache<HiveTableName, Map<String, HiveColumnStatistics>> tableColumnStatisticsCache;
-    private final LoadingCache<HivePartitionName, Map<String, HiveColumnStatistics>> partitionColumnStatisticsCache;
+    private final LoadingCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
+    private final LoadingCache<HivePartitionName, PartitionStatistics> partitionStatisticsCache;
     private final LoadingCache<String, Optional<List<String>>> viewNamesCache;
     private final LoadingCache<HivePartitionName, Optional<Partition>> partitionCache;
     private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
@@ -126,27 +128,27 @@ public class CachingHiveMetastore
         tableNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadAllTables), executor));
 
-        tableColumnStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<HiveTableName, Map<String, HiveColumnStatistics>>()
+        tableStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(new CacheLoader<HiveTableName, PartitionStatistics>()
                 {
                     @Override
-                    public Map<String, HiveColumnStatistics> load(HiveTableName key)
+                    public PartitionStatistics load(HiveTableName key)
                     {
                         return loadTableColumnStatistics(key);
                     }
                 }, executor));
 
-        partitionColumnStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<HivePartitionName, Map<String, HiveColumnStatistics>>()
+        partitionStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(new CacheLoader<HivePartitionName, PartitionStatistics>()
                 {
                     @Override
-                    public Map<String, HiveColumnStatistics> load(HivePartitionName key)
+                    public PartitionStatistics load(HivePartitionName key)
                     {
                         return loadPartitionColumnStatistics(key);
                     }
 
                     @Override
-                    public Map<HivePartitionName, Map<String, HiveColumnStatistics>> loadAll(Iterable<? extends HivePartitionName> keys)
+                    public Map<HivePartitionName, PartitionStatistics> loadAll(Iterable<? extends HivePartitionName> keys)
                     {
                         return loadPartitionColumnStatistics(keys);
                     }
@@ -199,6 +201,8 @@ public class CachingHiveMetastore
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
         userTablePrivileges.invalidateAll();
+        tableStatisticsCache.invalidateAll();
+        partitionStatisticsCache.invalidateAll();
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
@@ -258,55 +262,55 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        return get(tableColumnStatisticsCache, new HiveTableName(databaseName, tableName));
+        return get(tableStatisticsCache, new HiveTableName(databaseName, tableName));
     }
 
-    private Map<String, HiveColumnStatistics> loadTableColumnStatistics(HiveTableName hiveTableName)
+    private PartitionStatistics loadTableColumnStatistics(HiveTableName hiveTableName)
     {
-        return delegate.getTableColumnStatistics(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
+        return delegate.getTableStatistics(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         List<HivePartitionName> partitions = partitionNames.stream()
                 .map(partitionName -> HivePartitionName.partition(databaseName, tableName, partitionName))
                 .collect(toImmutableList());
-        Map<HivePartitionName, Map<String, HiveColumnStatistics>> statistics = getAll(partitionColumnStatisticsCache, partitions);
+        Map<HivePartitionName, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitions);
         return statistics.entrySet()
                 .stream()
-                .filter(entry -> !entry.getValue().isEmpty())
                 .collect(toImmutableMap(entry -> entry.getKey().getPartitionName(), Entry::getValue));
     }
 
-    private Map<String, HiveColumnStatistics> loadPartitionColumnStatistics(HivePartitionName partition)
+    private PartitionStatistics loadPartitionColumnStatistics(HivePartitionName partition)
     {
-        Map<String, Map<String, HiveColumnStatistics>> columnStatistics = delegate.getPartitionColumnStatistics(
+        Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(
                 partition.getHiveTableName().getDatabaseName(),
                 partition.getHiveTableName().getTableName(),
                 ImmutableSet.of(partition.getPartitionName()));
-        return columnStatistics.getOrDefault(partition.getPartitionName(), ImmutableMap.of());
+        if (!partitionStatistics.containsKey(partition.getPartitionName())) {
+            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partition.getPartitionName());
+        }
+        return partitionStatistics.get(partition.getPartitionName());
     }
 
-    private Map<HivePartitionName, Map<String, HiveColumnStatistics>> loadPartitionColumnStatistics(Iterable<? extends HivePartitionName> keys)
+    private Map<HivePartitionName, PartitionStatistics> loadPartitionColumnStatistics(Iterable<? extends HivePartitionName> keys)
     {
         SetMultimap<HiveTableName, HivePartitionName> tablePartitions = stream(keys)
                 .collect(toImmutableSetMultimap(HivePartitionName::getHiveTableName, key -> key));
-        ImmutableMap.Builder<HivePartitionName, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
+        ImmutableMap.Builder<HivePartitionName, PartitionStatistics> result = ImmutableMap.builder();
         tablePartitions.keySet().forEach(table -> {
             Set<String> partitionNames = tablePartitions.get(table).stream()
                     .map(HivePartitionName::getPartitionName)
                     .collect(toImmutableSet());
-            Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = delegate.getPartitionColumnStatistics(table.getDatabaseName(), table.getTableName(), partitionNames);
+            Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(table.getDatabaseName(), table.getTableName(), partitionNames);
             for (String partitionName : partitionNames) {
-                if (partitionStatistics.containsKey(partitionName)) {
-                    result.put(HivePartitionName.partition(table, partitionName), partitionStatistics.get(partitionName));
+                if (!partitionStatistics.containsKey(partitionName)) {
+                    throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
                 }
-                else {
-                    result.put(HivePartitionName.partition(table, partitionName), ImmutableMap.of());
-                }
+                result.put(HivePartitionName.partition(table, partitionName), partitionStatistics.get(partitionName));
             }
         });
         return result.build();
@@ -473,6 +477,7 @@ public class CachingHiveMetastore
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(userTablePrivileges::invalidate);
         invalidatePartitionCache(databaseName, tableName);
+        tableStatisticsCache.invalidate(new HiveTableName(databaseName, tableName));
     }
 
     @Override
@@ -608,6 +613,9 @@ public class CachingHiveMetastore
         partitionFilterCache.asMap().keySet().stream()
                 .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
                 .forEach(partitionFilterCache::invalidate);
+        partitionStatisticsCache.asMap().keySet().stream()
+                .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionStatisticsCache::invalidate);
     }
 
     @Override
