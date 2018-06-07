@@ -84,6 +84,8 @@ import static com.facebook.presto.hive.metastore.PrincipalType.ROLE;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticParameters;
+import static com.facebook.presto.hive.util.Statistics.migrateStatistics;
+import static com.facebook.presto.hive.util.Statistics.removeStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -523,8 +525,12 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable
+                    .withDataColumns(newDataColumns.build())
+                    .withColumnStatistics(migrateStatistics(oldTable.getColumnStatistics(), oldColumnName, newColumnName));
         });
+
+        alterTablePartitions(databaseName, tableName, partition -> partition.withColumnStatistics(migrateStatistics(partition.getColumnStatistics(), oldColumnName, newColumnName)));
     }
 
     @Override
@@ -544,8 +550,12 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable
+                    .withDataColumns(newDataColumns.build())
+                    .withColumnStatistics(removeStatistics(oldTable.getColumnStatistics(), columnName));
         });
+
+        alterTablePartitions(databaseName, tableName, partition -> partition.withColumnStatistics(removeStatistics(partition.getColumnStatistics(), columnName)));
     }
 
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
@@ -563,6 +573,23 @@ public class FileHiveMetastore
         }
 
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, newTableSchema, true);
+    }
+
+    private void alterTablePartitions(String databaseName, String tableName, Function<PartitionMetadata, PartitionMetadata> alterFunction)
+    {
+        Table table = getRequiredTable(databaseName, tableName);
+
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        List<String> partitionNames = getPartitionNames(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+
+        for (String partitionName : partitionNames) {
+            List<String> partitionValues = toPartitionValues(partitionName);
+            Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partitionValues);
+            PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionMetadataDirectory, partitionCodec)
+                    .orElseThrow(() -> new PartitionNotFoundException(schemaTableName, partitionValues));
+            writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, alterFunction.apply(partitionMetadata), true);
+        }
     }
 
     @Override

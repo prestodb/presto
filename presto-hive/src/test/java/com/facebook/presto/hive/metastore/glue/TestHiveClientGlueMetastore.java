@@ -73,4 +73,16 @@ public class TestHiveClientGlueMetastore
     {
         // column level statistics are not supported by the Glue Metastore
     }
+
+    @Override
+    public void testMigrateTableColumnStatistics()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
+
+    @Override
+    public void testMigratePartitionColumnStatistics()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
 }

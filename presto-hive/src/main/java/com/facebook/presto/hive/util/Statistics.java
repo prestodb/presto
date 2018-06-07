@@ -196,6 +196,29 @@ public final class Statistics
         throw new IllegalArgumentException("Unsupported presto type " + prestoType);
     }
 
+    public static PartitionStatistics migrateStatistics(PartitionStatistics statistics, String oldColumnName, String newColumnName)
+    {
+        return new PartitionStatistics(statistics.getBasicStatistics(), migrateStatistics(statistics.getColumnStatistics(), oldColumnName, newColumnName));
+    }
+
+    public static Map<String, HiveColumnStatistics> migrateStatistics(Map<String, HiveColumnStatistics> statistics, String oldColumnName, String newColumnName)
+    {
+        return statistics.entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().equals(oldColumnName) ? newColumnName : entry.getKey(), Entry::getValue));
+    }
+
+    public static PartitionStatistics removeStatistics(PartitionStatistics statistics, String column)
+    {
+        return new PartitionStatistics(statistics.getBasicStatistics(), removeStatistics(statistics.getColumnStatistics(), column));
+    }
+
+    public static Map<String, HiveColumnStatistics> removeStatistics(Map<String, HiveColumnStatistics> statistics, String column)
+    {
+        return statistics.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(column))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
     public static Map<List<String>, ComputedStatistics> groupComputedStatisticsByPartition(
             List<ComputedStatistics> computedStatistics, List<String> partitionColumns, Map<String, Type> columnTypes)
     {

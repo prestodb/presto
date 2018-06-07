@@ -529,6 +529,8 @@ public abstract class AbstractTestHiveClient
                             .put("t_long_decimal", new HiveColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("781234567890123456.123")), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(5), OptionalLong.of(7)))
                             .build());
 
+    private static final HiveColumnStatistics DUMMY_COLUMN_STATISTICS = new HiveColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(0), OptionalDouble.of(0.0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(1));
+
     protected String clientId;
     protected String database;
     protected SchemaTableName tablePartitionFormat;
@@ -2757,6 +2759,101 @@ public abstract class AbstractTestHiveClient
 
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of("ds=2016-01-01")))
                     .isEqualTo(ImmutableMap.of("ds=2016-01-01", STATISTICS_EMPTY_OPTIONAL_FIELDS));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMigrateTableColumnStatistics()
+    {
+        SchemaTableName tableName = temporaryTable("rename_column");
+        try {
+            createDummyTable(tableName);
+
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+            assertThat(metastoreClient.supportsColumnStatistics()).isTrue();
+            metastoreClient.addColumn(tableName.getSchemaName(), tableName.getTableName(), "dummy_1", HiveType.valueOf("string"), "comment");
+
+            PartitionStatistics dummyStatistics = new PartitionStatistics(
+                    new HiveBasicStatistics(0, 0, 0, 0),
+                    ImmutableMap.of("dummy_1", DUMMY_COLUMN_STATISTICS));
+
+            metastoreClient.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), statistics -> dummyStatistics);
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(dummyStatistics);
+
+            metastoreClient.renameColumn(tableName.getSchemaName(), tableName.getTableName(), "dummy_1", "dummy_2");
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(new PartitionStatistics(
+                            new HiveBasicStatistics(0, 0, 0, 0),
+                            ImmutableMap.of("dummy_2", DUMMY_COLUMN_STATISTICS)));
+
+            metastoreClient.dropColumn(tableName.getSchemaName(), tableName.getTableName(), "dummy_2");
+
+            assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(new PartitionStatistics(
+                            new HiveBasicStatistics(0, 0, 0, 0),
+                            ImmutableMap.of()));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMigratePartitionColumnStatistics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("migrate_table_column_statistics");
+        try {
+            doCreateEmptyTable(tableName, ORC, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+            assertThat(metastoreClient.supportsColumnStatistics()).isTrue();
+            metastoreClient.addColumn(tableName.getSchemaName(), tableName.getTableName(), "dummy_1", HiveType.valueOf("string"), "comment");
+
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(Partition.builder()
+                    .setDatabaseName(tableName.getSchemaName())
+                    .setTableName(tableName.getTableName())
+                    .setColumns(table.getPartitionColumns())
+                    .setValues(ImmutableList.of("2016-01-01"))
+                    .withStorage(storage -> storage
+                            .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
+                            .setLocation(table.getStorage().getLocation() + "/ds=2016-01-01"))
+                    .build()));
+
+            PartitionStatistics dummyStatistics = new PartitionStatistics(
+                    new HiveBasicStatistics(0, 0, 0, 0),
+                    ImmutableMap.of("dummy_1", DUMMY_COLUMN_STATISTICS));
+
+            metastoreClient.updatePartitionStatistics(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    "ds=2016-01-01",
+                    currentStatistics -> dummyStatistics);
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of("ds=2016-01-01")))
+                    .isEqualTo(ImmutableMap.of("ds=2016-01-01", dummyStatistics));
+
+            metastoreClient.renameColumn(tableName.getSchemaName(), tableName.getTableName(), "dummy_1", "dummy_2");
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of("ds=2016-01-01")))
+                    .isEqualTo(ImmutableMap.of("ds=2016-01-01", new PartitionStatistics(
+                            new HiveBasicStatistics(0, 0, 0, 0),
+                            ImmutableMap.of("dummy_2", DUMMY_COLUMN_STATISTICS))));
+
+            metastoreClient.dropColumn(tableName.getSchemaName(), tableName.getTableName(), "dummy_2");
+
+            assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of("ds=2016-01-01")))
+                    .isEqualTo(ImmutableMap.of("ds=2016-01-01", new PartitionStatistics(
+                            new HiveBasicStatistics(0, 0, 0, 0),
+                            ImmutableMap.of())));
         }
         finally {
             dropTable(tableName);
