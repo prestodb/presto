@@ -23,8 +23,6 @@ import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
@@ -233,7 +231,6 @@ public class TestSelect
 
     @Test(groups = CASSANDRA)
     public void testSelectAllTypeParitioningMateliarizedView()
-            throws SQLException
     {
         String materializedViewName = format("%s_partitioned_mv", CASSANDRA_ALL_TYPES.getName());
         onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
@@ -272,7 +269,6 @@ public class TestSelect
 
     @Test(groups = CASSANDRA)
     public void testSelectClusteringMateliarizedView()
-            throws SQLException
     {
         String mvName = "clustering_mv";
         onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
