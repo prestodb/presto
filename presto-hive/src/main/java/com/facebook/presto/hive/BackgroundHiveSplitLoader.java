@@ -420,7 +420,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
-        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -445,7 +445,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, FAIL));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -513,7 +513,7 @@ public class BackgroundHiveSplitLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);

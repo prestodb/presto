@@ -123,7 +123,10 @@ public class TestHiveClientConfig
                 .setPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
                 .setRangeFiltersOnSubscriptsEnabled(false)
-                .setAdaptiveFilterReorderingEnabled(true));
+                .setAdaptiveFilterReorderingEnabled(true)
+                .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
+                .setFileStatusCacheMaxSize(1000 * 1000)
+                .setFileStatusCacheTables(""));
     }
 
     @Test
@@ -212,6 +215,9 @@ public class TestHiveClientConfig
                 .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
                 .put("hive.zstd-jni-decompression-enabled", "true")
+                .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
+                .put("hive.file-status-cache-size", "1000")
+                .put("hive.file-status-cache-expire-time", "30m")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -297,7 +303,10 @@ public class TestHiveClientConfig
                 .setPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
                 .setRangeFiltersOnSubscriptsEnabled(true)
-                .setAdaptiveFilterReorderingEnabled(false);
+                .setAdaptiveFilterReorderingEnabled(false)
+                .setFileStatusCacheTables("foo.bar1,foo.bar2")
+                .setFileStatusCacheMaxSize(1000)
+                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
