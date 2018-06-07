@@ -310,8 +310,8 @@ public class TestSelect
 
     private void onCassandra(String query)
     {
-        CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration);
-        queryExecutor.executeQuery(query);
-        queryExecutor.close();
+        try (CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration)) {
+            queryExecutor.executeQuery(query);
+        }
     }
 }
