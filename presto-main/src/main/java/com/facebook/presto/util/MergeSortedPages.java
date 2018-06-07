@@ -66,7 +66,7 @@ public final class MergeSortedPages
             DriverYieldSignal yieldSignal)
     {
         List<WorkProcessor<PageWithPosition>> pageWithPositionProducers = pageProducers.stream()
-                .map(pageProducer -> pageWithPositions(pageProducer, aggregatedMemoryContext.newLocalMemoryContext()))
+                .map(pageProducer -> pageWithPositions(pageProducer, aggregatedMemoryContext))
                 .collect(toImmutableList());
 
         Comparator<PageWithPosition> pageWithPositionComparator = (firstPageWithPosition, secondPageWithPosition) -> comparator.compareTo(
@@ -79,7 +79,7 @@ public final class MergeSortedPages
                 outputTypes,
                 pageBreakPredicate,
                 updateMemoryAfterEveryPosition,
-                aggregatedMemoryContext.newLocalMemoryContext(),
+                aggregatedMemoryContext,
                 yieldSignal);
     }
 
@@ -89,9 +89,10 @@ public final class MergeSortedPages
             List<Type> outputTypes,
             BiPredicate<PageBuilder, PageWithPosition> pageBreakPredicate,
             boolean updateMemoryAfterEveryPosition,
-            LocalMemoryContext memoryContext,
+            AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
     {
+        LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext();
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
         return pageWithPositions.transform(pageWithPositionOptional -> {
             if (yieldSignal.isSet()) {
@@ -100,6 +101,7 @@ public final class MergeSortedPages
 
             boolean finished = !pageWithPositionOptional.isPresent();
             if (finished && pageBuilder.isEmpty()) {
+                memoryContext.close();
                 return ProcessorState.finished();
             }
 
@@ -132,10 +134,12 @@ public final class MergeSortedPages
         });
     }
 
-    private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, LocalMemoryContext memoryContext)
+    private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, AggregatedMemoryContext aggregatedMemoryContext)
     {
         return pages.flatMap(page -> {
+            LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext();
             memoryContext.setBytes(page.getRetainedSizeInBytes());
+
             return WorkProcessor.create(new WorkProcessor.Process<PageWithPosition>()
             {
                 int position;
@@ -144,7 +148,7 @@ public final class MergeSortedPages
                 public ProcessorState<PageWithPosition> process()
                 {
                     if (position >= page.getPositionCount()) {
-                        memoryContext.setBytes(0);
+                        memoryContext.close();
                         return ProcessorState.finished();
                     }
 
