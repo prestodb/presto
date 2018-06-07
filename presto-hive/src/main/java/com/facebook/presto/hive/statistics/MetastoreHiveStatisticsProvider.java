@@ -14,7 +14,6 @@
 
 package com.facebook.presto.hive.statistics;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -57,6 +56,7 @@ import java.util.function.Function;
 import java.util.stream.DoubleStream;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -421,6 +421,6 @@ public class MetastoreHiveStatisticsProvider
 
     private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters, Map<String, HiveColumnStatistics> columnStatistics)
     {
-        return new PartitionStatistics(HiveBasicStatistics.createFromPartitionParameters(parameters), columnStatistics);
+        return new PartitionStatistics(getHiveBasicStatistics(parameters), columnStatistics);
     }
 }

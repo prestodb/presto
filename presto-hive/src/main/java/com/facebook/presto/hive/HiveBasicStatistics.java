@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.collect.ImmutableMap;
-
-import javax.annotation.Nullable;
-
-import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 
@@ -27,11 +22,6 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveBasicStatistics
 {
-    private static final String NUM_FILES = "numFiles";
-    private static final String NUM_ROWS = "numRows";
-    private static final String RAW_DATA_SIZE = "rawDataSize";
-    private static final String TOTAL_SIZE = "totalSize";
-
     private final OptionalLong fileCount;
     private final OptionalLong rowCount;
     private final OptionalLong inMemoryDataSizeInBytes;
@@ -119,41 +109,5 @@ public class HiveBasicStatistics
                 .add("inMemoryDataSizeInBytes", inMemoryDataSizeInBytes)
                 .add("onDiskDataSizeInBytes", onDiskDataSizeInBytes)
                 .toString();
-    }
-
-    public Map<String, String> toPartitionParameters()
-    {
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
-        fileCount.ifPresent(count -> properties.put(NUM_FILES, Long.toString(count)));
-        rowCount.ifPresent(count -> properties.put(NUM_ROWS, Long.toString(count)));
-        inMemoryDataSizeInBytes.ifPresent(size -> properties.put(RAW_DATA_SIZE, Long.toString(size)));
-        onDiskDataSizeInBytes.ifPresent(size -> properties.put(TOTAL_SIZE, Long.toString(size)));
-        return properties.build();
-    }
-
-    public static HiveBasicStatistics createFromPartitionParameters(Map<String, String> parameters)
-    {
-        OptionalLong numFiles = parse(parameters.get(NUM_FILES));
-        OptionalLong numRows = parse(parameters.get(NUM_ROWS));
-        OptionalLong inMemoryDataSizeInBytes = parse(parameters.get(RAW_DATA_SIZE));
-        OptionalLong onDiskDataSizeInBytes = parse(parameters.get(TOTAL_SIZE));
-        return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
-    }
-
-    private static OptionalLong parse(@Nullable String parameterValue)
-    {
-        if (parameterValue == null) {
-            return OptionalLong.empty();
-        }
-        try {
-            long longValue = Long.parseLong(parameterValue);
-            if (longValue < 0) {
-                return OptionalLong.empty();
-            }
-            return OptionalLong.of(longValue);
-        }
-        catch (NumberFormatException e) {
-            return OptionalLong.empty();
-        }
     }
 }

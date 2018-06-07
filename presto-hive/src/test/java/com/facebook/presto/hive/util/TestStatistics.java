@@ -21,10 +21,11 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
-import static com.facebook.presto.hive.HiveBasicStatistics.createFromPartitionParameters;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticParameters;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static com.facebook.presto.hive.util.Statistics.reduce;
@@ -98,7 +99,7 @@ public class TestStatistics
     {
         Table initialTable = table(initial);
         Table updatedTable = updateStatistics(initialTable, update, operator);
-        HiveBasicStatistics updatedStatistics = createFromPartitionParameters(updatedTable.getParameters());
+        HiveBasicStatistics updatedStatistics = getHiveBasicStatistics(updatedTable.getParameters());
         assertThat(updatedStatistics).isEqualTo(expected);
     }
 
@@ -106,21 +107,21 @@ public class TestStatistics
     {
         Partition initialPartition = partition(initial);
         Partition updatedPartition = updateStatistics(initialPartition, update, operator);
-        HiveBasicStatistics updatedStatistics = createFromPartitionParameters(updatedPartition.getParameters());
+        HiveBasicStatistics updatedStatistics = getHiveBasicStatistics(updatedPartition.getParameters());
         assertThat(updatedStatistics).isEqualTo(expected);
     }
 
     private static Table table(HiveBasicStatistics statistics)
     {
         return Table.builder(getPrestoTestTable("test_database"))
-                .setParameters(statistics.toPartitionParameters())
+                .setParameters(toStatisticParameters(statistics))
                 .build();
     }
 
     private static Partition partition(HiveBasicStatistics statistics)
     {
         return Partition.builder(getPrestoTestPartition("test_database", "test_table", ImmutableList.of("test_partition")))
-                .setParameters(statistics.toPartitionParameters())
+                .setParameters(toStatisticParameters(statistics))
                 .build();
     }
 }

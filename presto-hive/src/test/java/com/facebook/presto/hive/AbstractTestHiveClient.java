@@ -180,6 +180,8 @@ import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticParameters;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -415,7 +417,7 @@ public abstract class AbstractTestHiveClient
 
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
-    private static final Set<String> STATISTICS_PARAMETERS = ImmutableSet.copyOf(createZeroStatistics().toPartitionParameters().keySet());
+    private static final Set<String> STATISTICS_PARAMETERS = ImmutableSet.copyOf(toStatisticParameters(createZeroStatistics()).keySet());
 
     protected String clientId;
     protected String database;
@@ -2573,7 +2575,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
 
             // verify basic statistics
-            HiveBasicStatistics statistics = HiveBasicStatistics.createFromPartitionParameters(table.getParameters());
+            HiveBasicStatistics statistics = getHiveBasicStatistics(table.getParameters());
             assertEquals(statistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount());
             assertEquals(statistics.getFileCount().getAsLong(), 1L);
             assertGreaterThan(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -2635,7 +2637,7 @@ public abstract class AbstractTestHiveClient
 
             // verify basic statistics
             if (partitionedBy.isEmpty()) {
-                HiveBasicStatistics statistics = HiveBasicStatistics.createFromPartitionParameters(table.getParameters());
+                HiveBasicStatistics statistics = getHiveBasicStatistics(table.getParameters());
                 assertEquals(statistics.getRowCount().getAsLong(), 0L);
                 assertEquals(statistics.getFileCount().getAsLong(), 0L);
                 assertEquals(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -2672,7 +2674,7 @@ public abstract class AbstractTestHiveClient
 
                 // statistics
                 Table table = transaction.getMetastore(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-                HiveBasicStatistics tableStatistics = HiveBasicStatistics.createFromPartitionParameters(table.getParameters());
+                HiveBasicStatistics tableStatistics = getHiveBasicStatistics(table.getParameters());
                 assertEquals(tableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * (i + 1));
                 assertEquals(tableStatistics.getFileCount().getAsLong(), i + 1L);
                 assertGreaterThan(tableStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -2704,13 +2706,13 @@ public abstract class AbstractTestHiveClient
 
             // statistics, visible from within transaction
             Table table = transaction.getMetastore(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-            HiveBasicStatistics tableStatistics = HiveBasicStatistics.createFromPartitionParameters(table.getParameters());
+            HiveBasicStatistics tableStatistics = getHiveBasicStatistics(table.getParameters());
             assertEquals(tableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 5L);
 
             try (Transaction otherTransaction = newTransaction()) {
                 // statistics, not visible from outside transaction
                 Table otherTable = otherTransaction.getMetastore(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-                HiveBasicStatistics otherTableStatistics = HiveBasicStatistics.createFromPartitionParameters(otherTable.getParameters());
+                HiveBasicStatistics otherTableStatistics = getHiveBasicStatistics(otherTable.getParameters());
                 assertEquals(otherTableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 3L);
             }
 
@@ -2751,7 +2753,7 @@ public abstract class AbstractTestHiveClient
         // verify statistics unchanged
         try (Transaction transaction = newTransaction()) {
             Table table = transaction.getMetastore(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-            HiveBasicStatistics statistics = HiveBasicStatistics.createFromPartitionParameters(table.getParameters());
+            HiveBasicStatistics statistics = getHiveBasicStatistics(table.getParameters());
             assertEquals(statistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 3L);
             assertEquals(statistics.getFileCount().getAsLong(), 3L);
         }
@@ -3107,7 +3109,7 @@ public abstract class AbstractTestHiveClient
 
     private static HiveBasicStatistics getBasicStatisticsForPartition(Transaction transaction, SchemaTableName table, ColumnHandle handle, String partitionName)
     {
-        return HiveBasicStatistics.createFromPartitionParameters(getPartition(transaction, table, handle, partitionName).getParameters());
+        return getHiveBasicStatistics(getPartition(transaction, table, handle, partitionName).getParameters());
     }
 
     private static Partition getPartition(Transaction transaction, SchemaTableName table, ColumnHandle handle, String partitionName)
