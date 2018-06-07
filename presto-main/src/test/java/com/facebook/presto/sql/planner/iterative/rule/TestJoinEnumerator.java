@@ -14,12 +14,17 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
@@ -91,6 +96,18 @@ public class TestJoinEnumerator
                 new LinkedHashSet<>(ImmutableList.of(p.values(a1), p.values(b1))),
                 TRUE_LITERAL,
                 ImmutableList.of(a1, b1));
+        JoinEnumerator joinEnumerator = new JoinEnumerator(
+                new CostComparator(1, 1, 1),
+                multiJoinNode.getFilter(),
+                createContext());
+        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
+        assertFalse(actual.getPlanNode().isPresent());
+        assertEquals(actual.getCost(), INFINITE_COST);
+    }
+
+    private Rule.Context createContext()
+    {
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
                 queryRunner.getStatsCalculator(),
@@ -105,15 +122,47 @@ public class TestJoinEnumerator
                 noLookup(),
                 queryRunner.getDefaultSession(),
                 symbolAllocator.getTypes());
-        JoinEnumerator joinEnumerator = new JoinEnumerator(
-                queryRunner.getDefaultSession(),
-                costProvider,
-                new CostComparator(1, 1, 1),
-                idAllocator,
-                multiJoinNode.getFilter(),
-                noLookup());
-        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
-        assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), INFINITE_COST);
+
+        return new Rule.Context()
+        {
+            @Override
+            public Lookup getLookup()
+            {
+                return noLookup();
+            }
+
+            @Override
+            public PlanNodeIdAllocator getIdAllocator()
+            {
+                return planNodeIdAllocator;
+            }
+
+            @Override
+            public SymbolAllocator getSymbolAllocator()
+            {
+                return symbolAllocator;
+            }
+
+            @Override
+            public Session getSession()
+            {
+                return queryRunner.getDefaultSession();
+            }
+
+            @Override
+            public StatsProvider getStatsProvider()
+            {
+                return statsProvider;
+            }
+
+            @Override
+            public CostProvider getCostProvider()
+            {
+                return costProvider;
+            }
+
+            @Override
+            public void checkTimeoutNotExhausted() {}
+        };
     }
 }
