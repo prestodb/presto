@@ -79,11 +79,15 @@ public class ThriftHiveMetastoreStats
         return getTable;
     }
 
+    @Managed
+    @Nested
     public HiveMetastoreApiStats getGetTableColumnStatistics()
     {
         return getTableColumnStatistics;
     }
 
+    @Managed
+    @Nested
     public HiveMetastoreApiStats getGetPartitionColumnStatistics()
     {
         return getPartitionColumnStatistics;
