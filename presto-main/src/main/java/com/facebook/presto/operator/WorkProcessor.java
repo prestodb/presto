@@ -83,7 +83,8 @@ public interface WorkProcessor<T>
     }
 
     /**
-     * Converts {@link WorkProcessor} into an {@link Iterator}. The iterator will block when underlying {@link WorkProcessor} blocks.
+     * Converts {@link WorkProcessor} into an {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
+     * yields or becomes blocked.
      */
     default Iterator<T> iterator()
     {

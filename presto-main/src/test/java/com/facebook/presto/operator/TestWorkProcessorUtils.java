@@ -35,6 +35,40 @@ import static org.testng.Assert.assertTrue;
 
 public class TestWorkProcessorUtils
 {
+    @Test
+    public void testIterator()
+    {
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(
+                ProcessorState.ofResult(1),
+                ProcessorState.ofResult(2),
+                ProcessorState.finished()));
+
+        Iterator<Integer> iterator = processor.iterator();
+        assertTrue(iterator.hasNext());
+        assertEquals(iterator.next(), (Integer) 1);
+        assertTrue(iterator.hasNext());
+        assertEquals(iterator.next(), (Integer) 2);
+        assertFalse(iterator.hasNext());
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Cannot iterate over yielding WorkProcessor")
+    public void testIteratorFailsWhenWorkProcessorHasYielded()
+    {
+        // iterator should fail if underlying work has yielded
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessorState.yield()));
+        Iterator<Integer> iterator = processor.iterator();
+        iterator.hasNext();
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Cannot iterate over blocking WorkProcessor")
+    public void testIteratorFailsWhenWorkProcessorIsBlocked()
+    {
+        // iterator should fail if underlying work is blocked
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessorState.blocked(SettableFuture.create())));
+        Iterator<Integer> iterator = processor.iterator();
+        iterator.hasNext();
+    }
+
     @Test(timeOut = 5000)
     public void testMergeSorted()
     {

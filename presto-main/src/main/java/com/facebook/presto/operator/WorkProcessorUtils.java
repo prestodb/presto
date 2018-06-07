@@ -22,7 +22,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.PriorityQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.BLOCKED;
@@ -45,27 +44,18 @@ public final class WorkProcessorUtils
             @Override
             protected T computeNext()
             {
-                while (true) {
-                    if (processor.process()) {
-                        if (processor.isFinished()) {
-                            return endOfData();
-                        }
+                if (processor.process()) {
+                    if (processor.isFinished()) {
+                        return endOfData();
+                    }
 
-                        return processor.getResult();
-                    }
-                    else if (processor.isBlocked()) {
-                        try {
-                            processor.getBlockedFuture().get();
-                        }
-                        catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            throw new RuntimeException(e);
-                        }
-                        catch (ExecutionException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
+                    return processor.getResult();
                 }
+                else if (processor.isBlocked()) {
+                    throw new IllegalStateException("Cannot iterate over blocking WorkProcessor");
+                }
+
+                throw new IllegalStateException("Cannot iterate over yielding WorkProcessor");
             }
         };
     }
