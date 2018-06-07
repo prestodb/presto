@@ -121,12 +121,9 @@ public class ReorderJoins
     {
         MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), JOIN_LIMIT);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
-                context.getSession(),
-                context.getCostProvider(),
                 costComparator,
-                context.getIdAllocator(),
                 multiJoinNode.getFilter(),
-                context.getLookup());
+                context);
         JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
@@ -145,23 +142,27 @@ public class ReorderJoins
         private final Expression allFilter;
         private final EqualityInference allFilterInference;
         private final Lookup lookup;
+        private final Context context;
 
         private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
 
         @VisibleForTesting
-        JoinEnumerator(Session session, CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Expression filter, Lookup lookup)
+        JoinEnumerator(CostComparator costComparator, Expression filter, Context context)
         {
-            this.session = requireNonNull(session, "session is null");
-            this.costProvider = requireNonNull(costProvider, "costProvider is null");
+            this.context = requireNonNull(context);
+            this.session = requireNonNull(context.getSession(), "session is null");
+            this.costProvider = requireNonNull(context.getCostProvider(), "costProvider is null");
             this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
-            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.idAllocator = requireNonNull(context.getIdAllocator(), "idAllocator is null");
             this.allFilter = requireNonNull(filter, "filter is null");
             this.allFilterInference = createEqualityInference(filter);
-            this.lookup = requireNonNull(lookup, "lookup is null");
+            this.lookup = requireNonNull(context.getLookup(), "lookup is null");
         }
 
         private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
         {
+            context.checkTimeoutNotExhausted();
+
             Set<PlanNode> multiJoinKey = ImmutableSet.copyOf(sources);
             JoinEnumerationResult bestResult = memo.get(multiJoinKey);
             if (bestResult == null) {
