@@ -83,10 +83,12 @@ public class SliceDictionaryColumnWriter
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
 
     private IntBigArray values;
-    private int valueCount;
+    private int rowGroupValueCount;
     private StringStatisticsBuilder statisticsBuilder;
 
     private long rawBytes;
+    private int totalValueCount;
+    private int totalNonNullValueCount;
 
     private boolean closed;
     private boolean inRowGroup;
@@ -136,18 +138,21 @@ public class SliceDictionaryColumnWriter
     @Override
     public int getValueCount()
     {
-        return valueCount;
+        checkState(!directEncoded);
+        return totalValueCount;
     }
 
     @Override
     public int getNonNullValueCount()
     {
-        return toIntExact(statisticsBuilder.getNonNullValueCount());
+        checkState(!directEncoded);
+        return totalNonNullValueCount;
     }
 
     @Override
     public int getDictionaryEntries()
     {
+        checkState(!directEncoded);
         return dictionary.getEntryCount();
     }
 
@@ -169,15 +174,19 @@ public class SliceDictionaryColumnWriter
         }
         if (inRowGroup) {
             directColumnWriter.beginRowGroup();
-            writeDictionaryRowGroup(dictionaryValues, valueCount, values);
+            writeDictionaryRowGroup(dictionaryValues, rowGroupValueCount, values);
         }
         else {
-            checkState(valueCount == 0);
+            checkState(rowGroupValueCount == 0);
         }
 
         rowGroups.clear();
+
         rawBytes = 0;
-        valueCount = 0;
+        totalValueCount = 0;
+        totalNonNullValueCount = 0;
+
+        rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
 
         directEncoded = true;
@@ -231,17 +240,19 @@ public class SliceDictionaryColumnWriter
         }
 
         // record values
-        values.ensureCapacity(valueCount + block.getPositionCount());
+        values.ensureCapacity(rowGroupValueCount + block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             int index = dictionary.putIfAbsent(block, position);
-            values.set(valueCount, index);
-            valueCount++;
+            values.set(rowGroupValueCount, index);
+            rowGroupValueCount++;
+            totalValueCount++;
 
             if (!block.isNull(position)) {
                 // todo min/max statistics only need to be updated if value was not already in the dictionary, but non-null count does
                 statisticsBuilder.addValue(type.getSlice(block, position));
 
                 rawBytes += block.getSliceLength(position);
+                totalNonNullValueCount++;
             }
         }
     }
@@ -258,8 +269,8 @@ public class SliceDictionaryColumnWriter
         }
 
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
-        rowGroups.add(new DictionaryRowGroup(values, valueCount, statistics));
-        valueCount = 0;
+        rowGroups.add(new DictionaryRowGroup(values, rowGroupValueCount, statistics));
+        rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
         values = new IntBigArray();
         return ImmutableMap.of(column, statistics);
@@ -481,11 +492,15 @@ public class SliceDictionaryColumnWriter
         dictionaryDataStream.reset();
         dictionaryLengthStream.reset();
         rowGroups.clear();
-        valueCount = 0;
+        rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
         columnEncoding = null;
+
         dictionary.clear();
         rawBytes = 0;
+        totalValueCount = 0;
+        totalNonNullValueCount = 0;
+
         if (directEncoded) {
             directEncoded = false;
             directColumnWriter.reset();
