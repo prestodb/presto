@@ -111,9 +111,9 @@ security options in the Hive connector.
 Hive Configuration Properties
 -----------------------------
 
-================================================== ============================================================ ==========
+================================================== ============================================================ =============================
 Property Name                                      Description                                                  Default
-================================================== ============================================================ ==========
+================================================== ============================================================ =============================
 ``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
                                                    Thrift protocol. If multiple URIs are provided, the first
                                                    URI is used by default and the rest of the URIs are
@@ -175,7 +175,11 @@ Property Name                                      Description                  
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 
 ``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
-================================================== ============================================================ ==========
+
+``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``ENABLED_FOR_MARKED_TABLES``
+                                                   on write. Possible values are ``ENABLED``,
+                                                   ``ENABLED_FOR_MARKED_TABLES`` or ``DISABLED``
+================================================== ============================================================ =============================
 
 Amazon S3 Configuration
 -----------------------
@@ -333,6 +337,59 @@ classpath and must be able to communicate with your custom key management system
 the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, then the Hadoop configuration
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
+
+Table Statistics
+----------------
+
+The Hive connector collects ``numRows``, ``rawDataSize``, ``totalSize``, ``numFiles`` statistics
+automatically on ``INSERT INTO`` and ``CREATE TABLE AS SELECT`` operations.
+
+The Hive connector can also collect the column level statistics:
+
+============= ================================================================================================================
+Column Type                                            Collectible Statistics
+============= ================================================================================================================
+``TINYINT``   ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``SMALLINT``  ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``INTEGER``   ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``BIGINT``    ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``DOUBLE``    ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``REAL``      ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``BOOLEAN``   ``NUMBER_OF_NULLS``, ``NUMBER_OF_FALSE``, ``NUMBER_OF_TRUE``
+
+``VARCHAR``   ``NUMBER_OF_NULLS``, ``NUMBER_OF_DISTINCT_VALUES``, ``MAX_VALUE_SIZE_IN_BYTES``, ``AVERAGE_VALUE_SIZE_IN_BYTES``
+
+``CHAR``      ``NUMBER_OF_NULLS``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``VARBINARY`` ``NUMBER_OF_NULLS``, ``MAX_VALUE_SIZE_IN_BYTES``, ``AVERAGE_VALUE_SIZE_IN_BYTES``
+
+``DATE``      ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``TIMESTAMP`` ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+
+``DECIMAL``   ``NUMBER_OF_NULLS``, ``MIN``, ``MAX``, ``NUMBER_OF_DISTINCT_VALUES``
+============= ================================================================================================================
+
+Automatic column level statistics collection on write can be enabled by tuning the ``hive.collect-column-statistics-on-write``
+property:
+
+* ``ENABLED``- Presto will collect the column level statistics for all the tables.
+* ``ENABLED_FOR_MARKED_TABLES`` - Presto will collect the column level statistics for the tables
+  created with the ``collect_column_statistics_on_write_enabled`` set to ``true``:
+  ::
+
+        CREATE TABLE automatically_collect_column_statistics (
+            a BIGINT
+        )
+        WITH (collect_column_statistics_on_write_enabled = true)
+        
+* ``DISABLED`` - Presto will not collect the column level statistics for any table.
 
 Schema Evolution
 ----------------
