@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.SimplePageWithPositionComparator;
@@ -366,11 +367,12 @@ public class TestMergeSortedPages
                 .collect(toImmutableList());
         PageWithPositionComparator comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrder);
 
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newAggregatedMemoryContext();
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
                 pageProducers,
                 comparator,
                 types,
-                newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
+                memoryContext,
                 new DriverYieldSignal());
 
         assertTrue(mergedPages.process());
@@ -382,6 +384,7 @@ public class TestMergeSortedPages
         Page page = mergedPages.getResult();
         assertTrue(mergedPages.process());
         assertTrue(mergedPages.isFinished());
+        assertEquals(memoryContext.getBytes(), 0L);
 
         return toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page));
     }
