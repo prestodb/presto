@@ -86,9 +86,27 @@ public class TestGeoFunctions
     @Test
     public void testSTArea()
     {
-        assertFunction("ST_Area(ST_GeometryFromText('POLYGON ((2 2, 2 6, 6 6, 6 2))'))", DOUBLE, 16.0);
-        assertFunction("ST_Area(ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, 0.0);
-        assertInvalidFunction("ST_Area(ST_GeometryFromText('POINT (1 4)'))", "ST_Area only applies to POLYGON or MULTI_POLYGON. Input type is: POINT");
+        assertArea("POLYGON ((2 2, 2 6, 6 6, 6 2))", 16.0);
+        assertArea("POLYGON EMPTY", 0.0);
+        assertArea("LINESTRING (1 4, 2 5)", 0.0);
+        assertArea("LINESTRING EMPTY", 0.0);
+        assertArea("POINT (1 4)", 0.0);
+        assertArea("POINT EMPTY", 0.0);
+        assertArea("GEOMETRYCOLLECTION EMPTY", 0.0);
+
+        // Test basic geometry collection. Area is the area of the polygon.
+        assertArea("GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1)))", 6.0);
+
+        // Test overlapping geometries. Area is the sum of the individual elements
+        assertArea("GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))", 8.0);
+
+        // Test nested geometry collection
+        assertArea("GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1))))", 14.0);
+    }
+
+    private void assertArea(String wkt, double expectedArea)
+    {
+        assertFunction(format("ST_Area(ST_GeometryFromText('%s'))", wkt), DOUBLE, expectedArea);
     }
 
     @Test
