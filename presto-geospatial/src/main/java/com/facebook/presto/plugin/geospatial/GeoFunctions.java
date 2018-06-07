@@ -135,13 +135,28 @@ public final class GeoFunctions
         return serialize(geometry);
     }
 
-    @Description("Returns the area of a polygon using Euclidean measurement on a 2D plane (based on spatial ref) in projected units")
+    @Description("Returns the 2D Euclidean area of a geometry")
     @ScalarFunction("ST_Area")
     @SqlType(DOUBLE)
     public static double stArea(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-        validateType("ST_Area", geometry, EnumSet.of(POLYGON, MULTI_POLYGON));
+
+        // The Esri geometry library does not support area for geometry collections. We compute the area
+        // of collections by summing the area of the individual components.
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (type == GeometryType.GEOMETRY_COLLECTION) {
+            double area = 0.0;
+            GeometryCursor cursor = geometry.getEsriGeometryCursor();
+            while (true) {
+                com.esri.core.geometry.Geometry esriGeometry = cursor.next();
+                if (esriGeometry == null) {
+                    return area;
+                }
+
+                area += esriGeometry.calculateArea2D();
+            }
+        }
         return geometry.getEsriGeometry().calculateArea2D();
     }
 
