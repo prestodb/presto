@@ -63,6 +63,7 @@ public class SqlParser
             .build();
 
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
+    private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
     {
@@ -74,6 +75,7 @@ public class SqlParser
     {
         requireNonNull(options, "options is null");
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
+        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
     /**
@@ -117,7 +119,13 @@ public class SqlParser
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(PARSER_ERROR_HANDLER);
+
+            if (enhancedErrorHandlerEnabled) {
+                parser.addErrorListener(PARSER_ERROR_HANDLER);
+            }
+            else {
+                parser.addErrorListener(LEXER_ERROR_LISTENER);
+            }
 
             ParserRuleContext tree;
             try {

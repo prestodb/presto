@@ -211,7 +211,8 @@ public class ServerMainModule
 
     public ServerMainModule(SqlParserOptions sqlParserOptions)
     {
-        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
+        requireNonNull(sqlParserOptions, "sqlParserOptions is null");
+        this.sqlParserOptions = SqlParserOptions.copyOf(sqlParserOptions);
     }
 
     @Override
@@ -252,6 +253,7 @@ public class ServerMainModule
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
+        sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
 
         bindFailureDetector(binder, serverConfig.isCoordinator());
 
