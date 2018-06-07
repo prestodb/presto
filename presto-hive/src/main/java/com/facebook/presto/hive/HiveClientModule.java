@@ -64,14 +64,16 @@ public class HiveClientModule
         binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
-        binder.bind(DirectoryLister.class).to(CachedDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveClientConfig.class);
+        binder.bind(DirectoryLister.class).to(CachedDirectoryLister.class).in(Scopes.SINGLETON);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class, connectorId));
+
+        binder.bind(CachedDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachedDirectoryLister.class).as(generatedNameOf(CachedDirectoryLister.class, connectorId));
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = newSetBinder(binder, HiveRecordCursorProvider.class);

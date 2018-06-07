@@ -46,7 +46,7 @@ public class CachedDirectoryLister
     @Inject
     public CachedDirectoryLister(HiveClientConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxSize(), hiveClientConfig.getCachedTables());
+        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxSize(), hiveClientConfig.getFileStatusCacheTables());
     }
 
     private CachedDirectoryLister(Duration expireAfterWrite, long maxSize, List<String> tables)

@@ -310,7 +310,7 @@ public class TestBackgroundHiveSplitLoader
                 connectorSession,
                 new TestingHdfsEnvironment(files),
                 new NamenodeStats(),
-                new HadoopDirectoryLister(),
+                new CachedDirectoryLister(new HiveClientConfig()),
                 EXECUTOR,
                 2,
                 false);
