@@ -165,7 +165,7 @@ public class TestSelect
     }
 
     @Test(groups = CASSANDRA)
-    public void testAllDatatypes()
+    public void testAllDataTypes()
     {
         // NOTE: DECIMAL is treated like DOUBLE
         QueryResult query = query(format(
@@ -230,11 +230,11 @@ public class TestSelect
     }
 
     @Test(groups = CASSANDRA)
-    public void testSelectAllTypeParitioningMateliarizedView()
+    public void testSelectAllTypePartitioningMaterializedView()
     {
         String materializedViewName = format("%s_partitioned_mv", CASSANDRA_ALL_TYPES.getName());
-        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
-        onCasssandra(format("CREATE MATERIALIZED VIEW %s.%s AS SELECT * FROM %s.%s WHERE b IS NOT NULL PRIMARY KEY (a, b)",
+        onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
+        onCassandra(format("CREATE MATERIALIZED VIEW %s.%s AS SELECT * FROM %s.%s WHERE b IS NOT NULL PRIMARY KEY (a, b)",
                 KEY_SPACE,
                 materializedViewName,
                 KEY_SPACE,
@@ -264,15 +264,15 @@ public class TestSelect
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)));
 
-        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
+        onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
     }
 
     @Test(groups = CASSANDRA)
-    public void testSelectClusteringMateliarizedView()
+    public void testSelectClusteringMaterializedView()
     {
         String mvName = "clustering_mv";
-        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
-        onCasssandra(format("CREATE MATERIALIZED VIEW %s.%s AS " +
+        onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
+        onCassandra(format("CREATE MATERIALIZED VIEW %s.%s AS " +
                         "SELECT * FROM %s.%s " +
                         "WHERE s_nationkey IS NOT NULL " +
                         "PRIMARY KEY (s_nationkey, s_suppkey) " +
@@ -305,10 +305,10 @@ public class TestSelect
         assertThat(orderedResult).containsOnly(
                 row(1, 3, 4192.4));
 
-        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
+        onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
     }
 
-    private void onCasssandra(String query)
+    private void onCassandra(String query)
     {
         CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration);
         queryExecutor.executeQuery(query);
