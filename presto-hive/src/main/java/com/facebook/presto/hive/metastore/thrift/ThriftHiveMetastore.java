@@ -18,6 +18,7 @@ import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrincipal;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -32,6 +33,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
@@ -55,7 +57,6 @@ import javax.inject.Inject;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -72,6 +73,7 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newHashSet;
@@ -231,20 +233,25 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        List<String> dataColumns = table.getSd().getCols().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableList());
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return ImmutableSet.copyOf(client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames)));
+                            return groupStatisticsByColumn(client.getTableColumnStatistics(databaseName, tableName, dataColumns));
                         }
                     }));
         }
         catch (NoSuchObjectException e) {
-            return ImmutableSet.of();
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -255,23 +262,30 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Map<String, Set<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        List<String> dataColumns = table.getSd().getCols().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableList());
+
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
                     .stopOnIllegalExceptions()
                     .run("getPartitionColumnStatistics", stats.getGetPartitionColumnStatistics().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            Map<String, List<ColumnStatisticsObj>> partitionColumnStatistics = client.getPartitionColumnStatistics(databaseName, tableName, ImmutableList.copyOf(partitionNames), ImmutableList.copyOf(columnNames));
+                            Map<String, List<ColumnStatisticsObj>> partitionColumnStatistics = client.getPartitionColumnStatistics(databaseName, tableName, ImmutableList.copyOf(partitionNames), dataColumns);
                             return partitionColumnStatistics.entrySet()
                                     .stream()
-                                    .collect(toImmutableMap(Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
+                                    .filter(entry -> !entry.getValue().isEmpty())
+                                    .collect(toImmutableMap(Map.Entry::getKey, entry -> groupStatisticsByColumn(entry.getValue())));
                         }
                     }));
         }
         catch (NoSuchObjectException e) {
-            return ImmutableMap.of();
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -279,6 +293,12 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics)
+    {
+        return statistics.stream()
+                .collect(toImmutableMap(ColumnStatisticsObj::getColName, ThriftMetastoreUtil::fromMetastoreApiColumnStatistics));
     }
 
     @Override

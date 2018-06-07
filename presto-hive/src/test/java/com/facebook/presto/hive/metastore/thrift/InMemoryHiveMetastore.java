@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -84,9 +84,9 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
     @GuardedBy("this")
-    private final Map<SchemaTableName, Map<String, ColumnStatisticsObj>> columnStatistics = new HashMap<>();
+    private final Map<SchemaTableName, Map<String, HiveColumnStatistics>> columnStatistics = new HashMap<>();
     @GuardedBy("this")
-    private final Map<PartitionName, Map<String, ColumnStatisticsObj>> partitionColumnStatistics = new HashMap<>();
+    private final Map<PartitionName, Map<String, HiveColumnStatistics>> partitionColumnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<String, Set<String>> roleGrants = new HashMap<>();
     @GuardedBy("this")
@@ -441,55 +441,41 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Set<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         if (!columnStatistics.containsKey(schemaTableName)) {
-            return ImmutableSet.of();
+            return ImmutableMap.of();
         }
-
-        Map<String, ColumnStatisticsObj> columnStatisticsMap = columnStatistics.get(schemaTableName);
-        return columnNames.stream()
-                .filter(columnStatisticsMap::containsKey)
-                .map(columnStatisticsMap::get)
-                .collect(toImmutableSet());
+        return columnStatistics.get(schemaTableName);
     }
 
-    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, HiveColumnStatistics statistics)
     {
-        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, columnStatisticsObj);
+        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, statistics);
     }
 
     @Override
-    public synchronized Map<String, Set<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        ImmutableMap.Builder<String, Set<ColumnStatisticsObj>> result = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-            if (!partitionColumnStatistics.containsKey(partitionKey)) {
-                continue;
+            Map<String, HiveColumnStatistics> statistics = partitionColumnStatistics.get(partitionKey);
+            if (statistics != null && !statistics.isEmpty()) {
+                result.put(partitionName, statistics);
             }
-
-            Map<String, ColumnStatisticsObj> columnStatistics = partitionColumnStatistics.get(partitionKey);
-            result.put(
-                    partitionName,
-                    columnNames.stream()
-                            .filter(columnStatistics::containsKey)
-                            .map(columnStatistics::get)
-                            .collect(toImmutableSet()));
         }
         return result.build();
     }
 
-    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, HiveColumnStatistics statistics)
     {
-        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
         partitionColumnStatistics
                 .computeIfAbsent(partitionKey, key -> new HashMap<>())
-                .put(columnName, columnStatisticsObj);
+                .put(columnName, statistics);
     }
 
     @Override
