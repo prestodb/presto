@@ -30,6 +30,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -192,6 +193,16 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+
+    /**
+     * Describes statistics that must be collected for a new table
+     */
+    TableStatisticsMetadata getNewTableStatisticsMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Describes statistics that must be collected for an existing table during the INSERT operation
+     */
+    TableStatisticsMetadata getInsertStatisticsMetadata(Session session, TableHandle tableHandle);
 
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query

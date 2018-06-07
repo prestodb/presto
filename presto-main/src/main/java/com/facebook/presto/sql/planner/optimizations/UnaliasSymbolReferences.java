@@ -364,7 +364,9 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
-            return context.defaultRewrite(node);
+            PlanNode source = context.rewrite(node.getSource());
+            SymbolMapper mapper = new SymbolMapper(mapping);
+            return mapper.map(node, source);
         }
 
         @Override
@@ -548,20 +550,8 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-
-            // Intentionally does not use canonicalizeAndDistinct as that would remove columns
-            ImmutableList<Symbol> columns = node.getColumns().stream()
-                    .map(this::canonicalize)
-                    .collect(toImmutableList());
-
-            return new TableWriterNode(
-                    node.getId(),
-                    source,
-                    node.getTarget(),
-                    columns,
-                    node.getColumnNames(),
-                    node.getOutputSymbols(),
-                    node.getPartitioningScheme().map(partitioningScheme -> canonicalizePartitionFunctionBinding(partitioningScheme, source)));
+            SymbolMapper mapper = new SymbolMapper(mapping);
+            return mapper.map(node, source);
         }
 
         @Override
@@ -715,25 +705,6 @@ public class UnaliasSymbolReferences
                 }
             }
             return builder.build();
-        }
-
-        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme scheme, PlanNode source)
-        {
-            Set<Symbol> addedOutputs = new HashSet<>();
-            ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-            for (Symbol symbol : source.getOutputSymbols()) {
-                Symbol canonicalOutput = canonicalize(symbol);
-                if (addedOutputs.add(canonicalOutput)) {
-                    outputs.add(canonicalOutput);
-                }
-            }
-
-            return new PartitioningScheme(
-                    scheme.getPartitioning().translate(this::canonicalize),
-                    outputs.build(),
-                    canonicalize(scheme.getHashColumn()),
-                    scheme.isReplicateNullsAndAny(),
-                    scheme.getBucketToPartition());
         }
     }
 }
