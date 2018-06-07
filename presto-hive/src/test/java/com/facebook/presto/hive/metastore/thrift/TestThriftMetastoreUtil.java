@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -36,7 +37,7 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticParameters;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticParameters;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
@@ -275,7 +276,7 @@ public class TestThriftMetastoreUtil
 
     private static void testBasicStatisticsRoundTrip(HiveBasicStatistics expected)
     {
-        assertEquals(getHiveBasicStatistics(toStatisticParameters(expected)), expected);
+        assertEquals(getHiveBasicStatistics(updateStatisticParameters(ImmutableMap.of(), expected)), expected);
     }
 
     private static void assertEmptyColumnStats(HiveColumnStatistics actual)

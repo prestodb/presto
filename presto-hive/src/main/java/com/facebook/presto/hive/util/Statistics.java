@@ -14,55 +14,22 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.PartitionStatistics;
+import com.google.common.collect.ImmutableMap;
 
-import java.util.Map;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticParameters;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticParameters;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 
 public final class Statistics
 {
     private Statistics() {}
 
-    public static Table updateStatistics(Table table, HiveBasicStatistics update, ReduceOperator operator)
+    public static PartitionStatistics merge(PartitionStatistics first, PartitionStatistics second)
     {
-        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(table.getParameters());
-        HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
-        return Table.builder(table)
-                .setParameters(updateStatisticParameters(table.getParameters(), updatedStatistics))
-                .build();
-    }
-
-    public static Partition updateStatistics(Partition partition, HiveBasicStatistics update, ReduceOperator operator)
-    {
-        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(partition.getParameters());
-        HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
-        return Partition.builder(partition)
-                .setParameters(updateStatisticParameters(partition.getParameters(), updatedStatistics))
-                .build();
-    }
-
-    public static Map<String, String> updateStatistics(Map<String, String> parameters, HiveBasicStatistics statistics, ReduceOperator operator)
-    {
-        HiveBasicStatistics originalStatistics = getHiveBasicStatistics(parameters);
-        HiveBasicStatistics updatedStatistics = reduce(originalStatistics, statistics, operator);
-        return toStatisticParameters(updatedStatistics);
-    }
-
-    public static HiveBasicStatistics add(HiveBasicStatistics first, HiveBasicStatistics second)
-    {
-        return reduce(first, second, ADD);
-    }
-
-    public static HiveBasicStatistics subtract(HiveBasicStatistics first, HiveBasicStatistics second)
-    {
-        return reduce(first, second, SUBTRACT);
+        return new PartitionStatistics(
+                reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
+                ImmutableMap.of());
     }
 
     public static HiveBasicStatistics reduce(HiveBasicStatistics first, HiveBasicStatistics second, ReduceOperator operator)
@@ -90,18 +57,6 @@ public final class Statistics
     public enum ReduceOperator
     {
         ADD,
-        SUBTRACT;
-
-        public ReduceOperator flip()
-        {
-            switch (this) {
-                case SUBTRACT:
-                    return ADD;
-                case ADD:
-                    return SUBTRACT;
-                default:
-                    throw new UnsupportedOperationException("flip is not implemented for operation type: " + this);
-            }
-        }
+        SUBTRACT,
     }
 }
