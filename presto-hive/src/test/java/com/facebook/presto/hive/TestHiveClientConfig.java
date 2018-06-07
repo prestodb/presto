@@ -94,7 +94,7 @@ public class TestHiveClientConfig
                 .setRcfileOptimizedWriterEnabled(true)
                 .setRcfileWriterValidate(false)
                 .setOrcOptimizedWriterEnabled(false)
-                .setOrcWriterValidationPercentage(1.0)
+                .setOrcWriterValidationPercentage(100.0)
                 .setOrcWriterValidationMode(OrcWriteValidationMode.BOTH)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)

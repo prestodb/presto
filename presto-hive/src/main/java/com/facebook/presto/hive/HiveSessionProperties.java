@@ -309,7 +309,7 @@ public final class HiveSessionProperties
 
         // session property can not force validation when sampling is enabled
         // todo change this if session properties support null
-        return ThreadLocalRandom.current().nextDouble() < orcWriterValidationPercentage;
+        return ThreadLocalRandom.current().nextDouble(100) < orcWriterValidationPercentage;
     }
 
     public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
