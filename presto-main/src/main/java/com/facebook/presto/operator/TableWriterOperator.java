@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -51,7 +52,8 @@ import static java.util.Objects.requireNonNull;
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
+    private static final int ROW_COUNT_CHANNEL = 0;
+    private static final int FRAGMENT_CHANNEL = 1;
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
@@ -60,24 +62,30 @@ public class TableWriterOperator
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
-        private final List<Integer> inputChannels;
+        private final List<Integer> columnChannels;
         private final Session session;
+        private final OperatorFactory statisticsAggregation;
+        private final List<Type> types;
         private boolean closed;
 
         public TableWriterOperatorFactory(int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
-                List<Integer> inputChannels,
-                Session session)
+                List<Integer> columnChannels,
+                Session session,
+                OperatorFactory statisticsAggregation,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
+            this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
+            this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -85,7 +93,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, createPageSink(), inputChannels);
+            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregation.createOperator(driverContext), types);
         }
 
         private ConnectorPageSink createPageSink()
@@ -108,7 +116,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, session);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregation, types);
         }
     }
 
@@ -120,8 +128,10 @@ public class TableWriterOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
-    private final List<Integer> inputChannels;
+    private final List<Integer> columnChannels;
     private final AtomicLong pageSinkPeakMemoryUsage = new AtomicLong();
+    private final Operator statisticAggregation;
+    private final List<Type> types;
 
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private CompletableFuture<Collection<Slice>> finishFuture;
@@ -131,15 +141,20 @@ public class TableWriterOperator
     private boolean closed;
     private long writtenBytes;
 
-    public TableWriterOperator(OperatorContext operatorContext,
+    public TableWriterOperator(
+            OperatorContext operatorContext,
             ConnectorPageSink pageSink,
-            List<Integer> inputChannels)
+            List<Integer> columnChannels,
+            Operator statisticAggregation,
+            List<Type> types)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
-        this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
+        this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.operatorContext.setInfoSupplier(this::getInfo);
+        this.statisticAggregation = requireNonNull(statisticAggregation, "statisticAggregation is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -156,6 +171,7 @@ public class TableWriterOperator
             finishFuture = pageSink.finish();
             blocked = toListenableFuture(finishFuture);
             updateWrittenBytes();
+            statisticAggregation.finish();
         }
     }
 
@@ -177,13 +193,13 @@ public class TableWriterOperator
     public boolean needsInput()
     {
         updateBlockedIfNecessary();
-        return state == State.RUNNING && blocked == NOT_BLOCKED;
+        return state == State.RUNNING && blocked == NOT_BLOCKED && statisticAggregation.needsInput();
     }
 
     private void updateBlockedIfNecessary()
     {
         if (blocked != NOT_BLOCKED && blocked.isDone()) {
-            blocked = NOT_BLOCKED;
+            blocked = statisticAggregation.isBlocked();
         }
     }
 
@@ -193,11 +209,12 @@ public class TableWriterOperator
         requireNonNull(page, "page is null");
         checkState(needsInput(), "Operator does not need input");
 
-        Block[] blocks = new Block[inputChannels.size()];
-        for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
-            blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
+        Block[] blocks = new Block[columnChannels.size()];
+        for (int outputChannel = 0; outputChannel < columnChannels.size(); outputChannel++) {
+            blocks[outputChannel] = page.getBlock(columnChannels.get(outputChannel));
         }
 
+        statisticAggregation.addInput(page);
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
         updateMemoryUsage();
         if (!future.isDone()) {
@@ -210,18 +227,57 @@ public class TableWriterOperator
     @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING || !blocked.isDone()) {
+        if (!blocked.isDone()) {
             return null;
         }
+
+        if (!statisticAggregation.isFinished()) {
+            Page aggregationOutput = statisticAggregation.getOutput();
+            if (aggregationOutput == null) {
+                return null;
+            }
+            int positionCount = aggregationOutput.getPositionCount();
+            Block[] outputBlocks = new Block[types.size()];
+            for (int channel = 0; channel < types.size(); channel++) {
+                if (channel == ROW_COUNT_CHANNEL || channel == FRAGMENT_CHANNEL) {
+                    outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
+                }
+                else {
+                    outputBlocks[channel] = aggregationOutput.getBlock(channel - 2);
+                }
+            }
+            return new Page(positionCount, outputBlocks);
+        }
+
+        if (state != State.FINISHING) {
+            return null;
+        }
+
         state = State.FINISHED;
 
+        Page fragmentsPage = createFragmentsPage();
+        int positionCount = fragmentsPage.getPositionCount();
+        Block[] outputBlocks = new Block[types.size()];
+        for (int channel = 0; channel < types.size(); channel++) {
+            if (channel == ROW_COUNT_CHANNEL || channel == FRAGMENT_CHANNEL) {
+                outputBlocks[channel] = fragmentsPage.getBlock(channel);
+            }
+            else {
+                outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
+            }
+        }
+        return new Page(positionCount, outputBlocks);
+    }
+
+    private Page createFragmentsPage()
+    {
         Collection<Slice> fragments = getFutureValue(finishFuture);
         committed = true;
         updateWrittenBytes();
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
-        PageBuilder page = new PageBuilder(fragments.size() + 1, TYPES);
+        PageBuilder page = new PageBuilder(fragments.size() + 1, ImmutableList.of(types.get(ROW_COUNT_CHANNEL), types.get(FRAGMENT_CHANNEL)));
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
 
@@ -242,12 +298,14 @@ public class TableWriterOperator
 
     @Override
     public void close()
+            throws Exception
     {
         if (!closed) {
             closed = true;
             if (!committed) {
                 pageSink.abort();
             }
+            statisticAggregation.close();
         }
     }
 
