@@ -380,7 +380,8 @@ public class LogicalPlanner
                     columnNames,
                     writerOutputSymbols.build(),
                     partitioningScheme,
-                    Optional.of(partialAggregation));
+                    Optional.of(partialAggregation),
+                    Optional.of(result.getDescriptor().map(aggregations.getMappings()::get)));
 
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),
@@ -403,6 +404,7 @@ public class LogicalPlanner
                         columnNames,
                         writerOutputs,
                         partitioningScheme,
+                        Optional.empty(),
                         Optional.empty()),
                 target,
                 commitOutputs,

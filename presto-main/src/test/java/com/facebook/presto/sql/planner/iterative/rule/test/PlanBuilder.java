@@ -669,6 +669,7 @@ public class PlanBuilder
                 columnNames,
                 ImmutableList.of(symbol("partialrows", BIGINT), symbol("fragment", VARBINARY)),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

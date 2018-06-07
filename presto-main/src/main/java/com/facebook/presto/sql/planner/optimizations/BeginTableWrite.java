@@ -98,7 +98,8 @@ public class BeginTableWrite
                     node.getColumnNames(),
                     node.getOutputSymbols(),
                     node.getPartitioningScheme(),
-                    node.getStatisticsAggregation());
+                    node.getStatisticsAggregation(),
+                    node.getStatisticsAggregationDescriptor());
         }
 
         @Override
