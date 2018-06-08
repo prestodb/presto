@@ -35,6 +35,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
 
+@Description("creates a map using entryDelimiter and keyValueDelimiter")
+@ScalarFunction("split_to_map")
 public class SplitToMapFunction
 {
     private final PageBuilder pageBuilder;
@@ -44,8 +46,6 @@ public class SplitToMapFunction
         pageBuilder = new PageBuilder(ImmutableList.of(mapType));
     }
 
-    @Description("creates a map using entryDelimiter and keyValueDelimiter")
-    @ScalarFunction
     @SqlType("map<varchar,varchar>")
     public Block splitToMap(@TypeParameter("map<varchar,varchar>") Type mapType, @SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
     {

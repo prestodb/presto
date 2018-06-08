@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Constructor;
@@ -52,7 +53,8 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructors(clazz)));
+            // Non-static function only makes sense in classes annotated @ScalarFunction.
+            builder.add(parseParametricScalar(methods, ImmutableMap.of()));
         }
         return builder.build();
     }
