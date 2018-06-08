@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodGenerationContext;
@@ -63,7 +64,7 @@ public class InvokeFunctionBytecodeExpression
             Optional<BytecodeNode> instance,
             List<BytecodeExpression> parameters)
     {
-        super(type(function.getMethodHandle().type().returnType()));
+        super(type(Primitives.unwrap(function.getMethodHandle().type().returnType())));
 
         this.invocation = generateInvocation(scope, name, function, instance, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binding);
         this.oneLineDescription = name + "(" + Joiner.on(", ").join(parameters) + ")";

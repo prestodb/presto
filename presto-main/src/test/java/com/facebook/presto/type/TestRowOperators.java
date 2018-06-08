@@ -450,6 +450,16 @@ public class TestRowOperators
             fields[i] = new String(chars);
         }
         assertFunction(format(longFieldNameCast, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[1], fields[2]), VARCHAR, "233");
+
+        assertFunction(
+                "cast(row(json '2', json '1.5', json 'true', json '\"abc\"', json '[1, 2]') as row(a BIGINT, b DOUBLE, c BOOLEAN, d VARCHAR, e ARRAY(BIGINT)))",
+                RowType.from(ImmutableList.of(
+                        RowType.field("a", BIGINT),
+                        RowType.field("b", DOUBLE),
+                        RowType.field("c", BOOLEAN),
+                        RowType.field("d", VARCHAR),
+                        RowType.field("e", new ArrayType(BIGINT)))),
+                asList(2L, 1.5, true, "abc", ImmutableList.of(1L, 2L)));
     }
 
     @Test
