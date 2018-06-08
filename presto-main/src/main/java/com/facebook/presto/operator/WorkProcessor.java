@@ -77,6 +77,10 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.flatTransform(this, transformation);
     }
 
+    /**
+     * Transforms {@link WorkProcessor} using {@link Transformation}. {@link Transformation} instance will be dereferenced immediately after
+     * {@link WorkProcessor} is exhausted.
+     */
     default <R> WorkProcessor<R> transform(Transformation<T, R> transformation)
     {
         return WorkProcessorUtils.transform(this, transformation);
@@ -84,7 +88,7 @@ public interface WorkProcessor<T>
 
     /**
      * Converts {@link WorkProcessor} into an {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
-     * yields or becomes blocked.
+     * yields or becomes blocked. {@link WorkProcessor} instance will be dereferenced immediately after iterator is finished.
      */
     default Iterator<T> iterator()
     {
@@ -93,7 +97,7 @@ public interface WorkProcessor<T>
 
     /**
      * Converts {@link WorkProcessor} into an yielding {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
-     * becomes blocked.
+     * becomes blocked. {@link WorkProcessor} instance will be dereferenced immediately after iterator is exhausted.
      */
     default Iterator<Optional<T>> yieldingIterator()
     {
@@ -115,6 +119,9 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.fromIterator(iterator);
     }
 
+    /**
+     * Creates {@link WorkProcessor} from {@link Process}. {@link Process} instance will be dereferenced immediately after {@link WorkProcessor} is finished.
+     */
     static <T> WorkProcessor<T> create(Process<T> process)
     {
         return WorkProcessorUtils.create(process);
