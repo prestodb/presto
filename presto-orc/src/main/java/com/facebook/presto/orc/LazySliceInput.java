@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -30,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 final class LazySliceInput
         extends FixedLengthSliceInput
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazySliceInput.class).instanceSize();
+
     private final int globalLength;
     private final Supplier<FixedLengthSliceInput> loader;
     private int initialPosition;
@@ -200,6 +203,12 @@ final class LazySliceInput
     public int skipBytes(int length)
     {
         return getDelegate().skipBytes(length);
+    }
+
+    @Override
+    public long getRetainedSize()
+    {
+        return INSTANCE_SIZE + getDelegate().getRetainedSize();
     }
 
     @Override
