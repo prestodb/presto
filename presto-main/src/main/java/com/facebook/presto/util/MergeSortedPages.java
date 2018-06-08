@@ -65,6 +65,14 @@ public final class MergeSortedPages
             AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
     {
+        requireNonNull(pageProducers, "pageProducers is null");
+        requireNonNull(comparator, "comparator is null");
+        requireNonNull(outputChannels, "outputChannels is null");
+        requireNonNull(outputTypes, "outputTypes is null");
+        requireNonNull(pageBreakPredicate, "pageBreakPredicate is null");
+        requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
+        requireNonNull(yieldSignal, "yieldSignal is null");
+
         List<WorkProcessor<PageWithPosition>> pageWithPositionProducers = pageProducers.stream()
                 .map(pageProducer -> pageWithPositions(pageProducer, aggregatedMemoryContext))
                 .collect(toImmutableList());
