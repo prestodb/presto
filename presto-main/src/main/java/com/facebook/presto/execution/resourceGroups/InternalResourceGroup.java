@@ -86,7 +86,7 @@ public class InternalResourceGroup
     // Configuration
     // =============
     @GuardedBy("root")
-    private long softMemoryLimitBytes;
+    private long softMemoryLimitBytes = Long.MAX_VALUE;
     @GuardedBy("root")
     private int softConcurrencyLimit;
     @GuardedBy("root")
