@@ -4446,6 +4446,29 @@ public class TestHiveIntegrationSmokeTest
                 assertTableWriterMergeNodeIsPresent());
     }
 
+    @Test
+    public void testPropertiesTable()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_show_properties" +
+                " WITH (" +
+                "format = 'orc', " +
+                "partitioned_by = ARRAY['ship_priority', 'order_status']," +
+                "orc_bloom_filter_columns = ARRAY['ship_priority', 'order_status']," +
+                "orc_bloom_filter_fpp = 0.5" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        String queryId = (String) computeScalar("SELECT query_id FROM system.runtime.queries WHERE query LIKE 'CREATE TABLE test_show_properties%'");
+        String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
+        assertQuery("SELECT * FROM \"test_show_properties$properties\"",
+                "SELECT '" + "ship_priority,order_status" + "','" + "0.5" + "','" + queryId + "','" + nodeVersion + "'");
+        assertUpdate("DROP TABLE test_show_properties");
+    }
+
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
     {
         return plan -> assertTrue(searchFrom(plan.getRoot())

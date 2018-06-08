@@ -26,17 +26,16 @@ import com.facebook.presto.spi.security.Privilege;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
-import static com.facebook.presto.hive.HiveMetadata.isPartitionsSystemTable;
+import static com.facebook.presto.hive.HiveMetadata.getSourceTableNameFromSystemTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static java.util.Objects.requireNonNull;
 
-public class PartitionsAwareAccessControl
+public class SystemTableAwareAccessControl
         extends ForwardingConnectorAccessControl
 {
     private final ConnectorAccessControl delegate;
 
-    public PartitionsAwareAccessControl(ConnectorAccessControl delegate)
+    public SystemTableAwareAccessControl(ConnectorAccessControl delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -127,9 +126,10 @@ public class PartitionsAwareAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        if (isPartitionsSystemTable(tableName)) {
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        if (sourceTableName.isPresent()) {
             try {
-                checkCanSelectFromColumns(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName), columnNames);
+                checkCanSelectFromColumns(transactionHandle, identity, sourceTableName.get(), columnNames);
                 return;
             }
             catch (AccessDeniedException e) {
