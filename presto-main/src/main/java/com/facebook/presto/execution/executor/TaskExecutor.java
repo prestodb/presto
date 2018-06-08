@@ -149,14 +149,12 @@ public class TaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
-    private final boolean legacySchedulingBehavior;
-
     private volatile boolean closed;
 
     @Inject
     public TaskExecutor(TaskManagerConfig config, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), splitQueue, config.isLegacySchedulingBehavior(), Ticker.systemTicker());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), splitQueue, Ticker.systemTicker());
     }
 
     @VisibleForTesting
@@ -168,11 +166,11 @@ public class TaskExecutor
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, new MultilevelSplitQueue(false, 2), false, ticker);
+        this(runnerThreads, minDrivers, new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, MultilevelSplitQueue splitQueue, boolean legacySchedulingBehavior, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
@@ -186,7 +184,6 @@ public class TaskExecutor
         this.minimumNumberOfDrivers = minDrivers;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
-        this.legacySchedulingBehavior = legacySchedulingBehavior;
     }
 
     @PostConstruct
@@ -236,14 +233,7 @@ public class TaskExecutor
 
         log.debug("Task scheduled " + taskId);
 
-        TaskHandle taskHandle;
-
-        if (legacySchedulingBehavior) {
-            taskHandle = new LegacyTaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
-        }
-        else {
-            taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
-        }
+        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
 
         tasks.add(taskHandle);
         return taskHandle;
@@ -291,27 +281,14 @@ public class TaskExecutor
         List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
-                PrioritizedSplitRunner prioritizedSplitRunner;
-                if (legacySchedulingBehavior) {
-                    prioritizedSplitRunner = new LegacyPrioritizedSplitRunner(
-                            taskHandle,
-                            taskSplit,
-                            ticker,
-                            globalCpuTimeMicros,
-                            globalScheduledTimeMicros,
-                            blockedQuantaWallTime,
-                            unblockedQuantaWallTime);
-                }
-                else {
-                    prioritizedSplitRunner = new PrioritizedSplitRunner(
-                            taskHandle,
-                            taskSplit,
-                            ticker,
-                            globalCpuTimeMicros,
-                            globalScheduledTimeMicros,
-                            blockedQuantaWallTime,
-                            unblockedQuantaWallTime);
-                }
+                PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
+                        taskHandle,
+                        taskSplit,
+                        ticker,
+                        globalCpuTimeMicros,
+                        globalScheduledTimeMicros,
+                        blockedQuantaWallTime,
+                        unblockedQuantaWallTime);
 
                 if (taskHandle.isDestroyed()) {
                     // If the handle is destroyed, we destroy the task splits to complete the future

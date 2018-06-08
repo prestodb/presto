@@ -36,7 +36,9 @@ import java.util.concurrent.TimeUnit;
         "task.http-notification-threads",
         "task.info-refresh-max-wait",
         "task.operator-pre-allocated-memory",
-        "sink.new-implementation"})
+        "sink.new-implementation",
+        "task.legacy-scheduling-behavior",
+        "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
@@ -67,10 +69,7 @@ public class TaskManagerConfig
     private int taskNotificationThreads = 5;
     private int taskYieldThreads = 3;
 
-    private boolean levelAbsolutePriority;
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
-
-    private boolean legacySchedulingBehavior;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -176,21 +175,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setShareIndexLoading(boolean shareIndexLoading)
     {
         this.shareIndexLoading = shareIndexLoading;
-        return this;
-    }
-
-    @Deprecated
-    @NotNull
-    public boolean isLevelAbsolutePriority()
-    {
-        return levelAbsolutePriority;
-    }
-
-    @Deprecated
-    @Config("task.level-absolute-priority")
-    public TaskManagerConfig setLevelAbsolutePriority(boolean levelAbsolutePriority)
-    {
-        this.levelAbsolutePriority = levelAbsolutePriority;
         return this;
     }
 
@@ -401,20 +385,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
     {
         this.taskYieldThreads = taskYieldThreads;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isLegacySchedulingBehavior()
-    {
-        return legacySchedulingBehavior;
-    }
-
-    @Deprecated
-    @Config("task.legacy-scheduling-behavior")
-    public TaskManagerConfig setLegacySchedulingBehavior(boolean legacySchedulingBehavior)
-    {
-        this.legacySchedulingBehavior = legacySchedulingBehavior;
         return this;
     }
 }
