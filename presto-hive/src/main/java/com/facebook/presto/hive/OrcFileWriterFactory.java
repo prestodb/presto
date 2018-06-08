@@ -160,7 +160,7 @@ public class OrcFileWriterFactory
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, path);
+            OrcDataSink orcDataSink = createOrcDataSink(session, fileSystem, path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
             if (HiveSessionProperties.isOrcOptimizedWriterValidate(session, orcWriterValidationPercentage)) {
@@ -215,7 +215,7 @@ public class OrcFileWriterFactory
     /**
      * Allow subclass to replace data sink implementation.
      */
-    protected OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
+    protected OrcDataSink createOrcDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
             throws IOException
     {
         return new OutputStreamOrcDataSink(fileSystem.create(path));
