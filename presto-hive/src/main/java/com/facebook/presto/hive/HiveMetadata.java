@@ -67,6 +67,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -93,6 +94,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -105,6 +107,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
@@ -208,7 +211,6 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
 
     private final boolean allowCorruptWritesForTesting;
@@ -283,8 +285,8 @@ public class HiveMetadata
             return null;
         }
 
-        if (isPartitionsSystemTable(tableName)) {
-            // We must not allow $partitions table due to how permissions are checked in PartitionsAwareAccessControl.checkCanSelectFromTable()
+        if (getSourceTableNameFromSystemTable(tableName).isPresent()) {
+            // We must not allow system table due to how permissions are checked in SystemTableAwareAccessControl.checkCanSelectFromTable()
             throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unexpected table %s present in Hive metastore", tableName));
         }
 
@@ -295,15 +297,51 @@ public class HiveMetadata
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (isPartitionsSystemTable(tableName)) {
-            return getPartitionsSystemTable(session, tableName);
+        if (PARTITIONS_TABLE_HANDLER.matches(tableName)) {
+            return getPartitionsSystemTable(session, tableName, PARTITIONS_TABLE_HANDLER.getSourceTableName(tableName));
+        }
+        if (PROPERTIES_TABLE_HANDLER.matches(tableName)) {
+            return getPropertiesSystemTable(session, tableName, PROPERTIES_TABLE_HANDLER.getSourceTableName(tableName));
         }
         return Optional.empty();
     }
 
-    private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName)
+    private Optional<SystemTable> getPropertiesSystemTable(ConnectorSession connectorSession, SchemaTableName tableName, SchemaTableName sourceTableName)
     {
-        SchemaTableName sourceTableName = getSourceTableNameForPartitionsTable(tableName);
+        Optional<Table> table = metastore.getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName());
+        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+            throw new TableNotFoundException(tableName);
+        }
+        List<Map.Entry<String, String>> sortedEntries = table.get().getParameters().entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(toImmutableList());
+        List<ColumnMetadata> columns = sortedEntries.stream().map(Map.Entry::getKey).map(key -> new ColumnMetadata(key, VarcharType.VARCHAR)).collect(toImmutableList());
+        List<Type> types = columns.stream().map(ColumnMetadata::getType).collect(toImmutableList());
+        Iterable<List<Object>> propertyValues = ImmutableList.of(ImmutableList.copyOf(sortedEntries.stream().map(Map.Entry::getValue).collect(toImmutableList())));
+
+        SystemTable propertiesSystemTable = new SystemTable()
+        {
+            @Override
+            public Distribution getDistribution()
+            {
+                return Distribution.SINGLE_COORDINATOR;
+            }
+
+            @Override
+            public ConnectorTableMetadata getTableMetadata()
+            {
+                return new ConnectorTableMetadata(sourceTableName, columns);
+            }
+
+            @Override
+            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+            {
+                return new InMemoryRecordSet(types, propertyValues).cursor();
+            }
+        };
+        return Optional.of(propertiesSystemTable);
+    }
+
+    private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName, SchemaTableName sourceTableName)
+    {
         HiveTableHandle sourceTableHandle = getTableHandle(session, sourceTableName);
 
         if (sourceTableHandle == null) {
@@ -1862,16 +1900,32 @@ public class HiveMetadata
         metastore.commit();
     }
 
-    public static boolean isPartitionsSystemTable(SchemaTableName tableName)
+    public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
     {
-        return tableName.getTableName().endsWith(PARTITIONS_TABLE_SUFFIX) && tableName.getTableName().length() > PARTITIONS_TABLE_SUFFIX.length();
+        return Stream.of(PARTITIONS_TABLE_HANDLER, PROPERTIES_TABLE_HANDLER)
+                .filter(handler -> handler.matches(tableName))
+                .map(handler -> handler.getSourceTableName(tableName))
+                .findAny();
     }
 
-    public static SchemaTableName getSourceTableNameForPartitionsTable(SchemaTableName tableName)
+    private interface SystemTableHandler
     {
-        checkArgument(isPartitionsSystemTable(tableName), "not a partitions table name");
-        return new SchemaTableName(
-                tableName.getSchemaName(),
-                tableName.getTableName().substring(0, tableName.getTableName().length() - PARTITIONS_TABLE_SUFFIX.length()));
+        String getSuffix();
+
+        default boolean matches(SchemaTableName table)
+        {
+            return table.getTableName().endsWith(getSuffix()) &&
+                    (table.getTableName().length() > getSuffix().length());
+        }
+
+        default SchemaTableName getSourceTableName(SchemaTableName table)
+        {
+            return new SchemaTableName(
+                    table.getSchemaName(),
+                    table.getTableName().substring(0, table.getTableName().length() - getSuffix().length()));
+        }
     }
+
+    private static final SystemTableHandler PARTITIONS_TABLE_HANDLER = () -> "$partitions";
+    private static final SystemTableHandler PROPERTIES_TABLE_HANDLER = () -> "$properties";
 }

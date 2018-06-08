@@ -22,10 +22,12 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -524,10 +526,32 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreatePartitionedTableAs()
     {
-        testWithAllStorageFormats(this::testCreatePartitionedTableAs);
+        testWithAllStorageFormats(this::createPartitionedTableAs);
     }
 
-    private void testCreatePartitionedTableAs(Session session, HiveStorageFormat storageFormat)
+    @Test
+    public void testPropertiesTable()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_show_properties" +
+                " WITH (" +
+                "format = 'orc', " +
+                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]," +
+                "orc_bloom_filter_columns = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]," +
+                "orc_bloom_filter_fpp = 0.5" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        BasicQueryInfo createTableQuery = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager().getQueries().stream().filter(basicQueryInfo -> basicQueryInfo.getQuery().equals(createTable)).findFirst().get();
+        String nodeVersion = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().refreshNodes().getActiveNodes().stream().map(Node::getVersion).findAny().get();
+        assertQuery("SELECT * FROM \"test_show_properties$properties\"", "SELECT '" + "ship_priority,order_status" + "','" + "0.5" + "','" + createTableQuery.getQueryId().getId() + "','" + nodeVersion + "'");
+        assertUpdate("DROP TABLE test_show_properties");
+    }
+
+    private void createPartitionedTableAs(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as " +

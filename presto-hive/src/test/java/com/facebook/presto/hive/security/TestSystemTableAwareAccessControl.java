@@ -18,11 +18,18 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
-public class TestPartitionsAwareAccessControl
+public class TestSystemTableAwareAccessControl
 {
     @Test
     public void testEverythingDelegated()
+            throws Exception
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, PartitionsAwareAccessControl.class);
+        checkEverythingImplemented(ConnectorAccessControl.class, SystemTableAwareAccessControl.class);
+    }
+
+    private static <I> void checkEverythingImplemented(Class<I> interfaceClass, Class<? extends I> implementationClass)
+            throws ReflectiveOperationException
+    {
+        assertAllMethodsOverridden(ConnectorAccessControl.class, SystemTableAwareAccessControl.class);
     }
 }
