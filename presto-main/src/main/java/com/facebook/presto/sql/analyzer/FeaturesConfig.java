@@ -74,7 +74,6 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
     private boolean legacyLogFunction;
-    private boolean legacyOrderBy;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
