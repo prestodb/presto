@@ -913,7 +913,7 @@ public class HiveClientConfig
     @Config("hive.file-status-cache-tables")
     public HiveClientConfig setFileStatusCacheTables(String fileStatusCacheTables)
     {
-        this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        this.fileStatusCacheTables = fileStatusCacheTables == null ? null : SPLITTER.splitToList(fileStatusCacheTables);
         return this;
     }
 
