@@ -78,7 +78,6 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
-    private final double orcWriterValidationPercentage;
 
     @Inject
     public OrcFileWriterFactory(
@@ -95,8 +94,7 @@ public class OrcFileWriterFactory
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions(),
-                hiveClientConfig.getOrcWriterValidationPercentage());
+                requireNonNull(config, "config is null").toOrcWriterOptions());
     }
 
     public OrcFileWriterFactory(
@@ -105,8 +103,7 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
             FileFormatDataSourceStats readStats,
-            OrcWriterOptions orcWriterOptions,
-            double orcWriterValidationPercentage)
+            OrcWriterOptions orcWriterOptions)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -114,7 +111,6 @@ public class OrcFileWriterFactory
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
-        this.orcWriterValidationPercentage = orcWriterValidationPercentage;
     }
 
     @Managed
@@ -166,7 +162,7 @@ public class OrcFileWriterFactory
             OrcDataSink orcDataSink = createOrcDataSink(session, fileSystem, path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session, orcWriterValidationPercentage)) {
+            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
                         return new HdfsOrcDataSource(

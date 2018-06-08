@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -50,6 +51,7 @@ public final class HiveSessionProperties
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
+    private static final String ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE = "orc_optimized_writer_validate_percentage";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
     private static final String ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE = "orc_optimized_writer_min_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
@@ -159,6 +161,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
+                        false),
+                doubleSessionProperty(
+                        ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
+                        "Experimental: ORC: sample percentage for validation for files",
+                        hiveClientConfig.getOrcWriterValidationPercentage(),
                         false),
                 stringSessionProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
@@ -312,12 +319,13 @@ public final class HiveSessionProperties
         return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
-    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session, double orcWriterValidationPercentage)
+    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
     {
         boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
+        double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
 
         // if validation sampling is disabled, just use the session property value
-        if (orcWriterValidationPercentage <= 0.0) {
+        if (percentage <= 0.0) {
             return validate;
         }
 
@@ -328,7 +336,7 @@ public final class HiveSessionProperties
 
         // session property can not force validation when sampling is enabled
         // todo change this if session properties support null
-        return ThreadLocalRandom.current().nextDouble(100) < orcWriterValidationPercentage;
+        return ThreadLocalRandom.current().nextDouble(100) < percentage;
     }
 
     public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
