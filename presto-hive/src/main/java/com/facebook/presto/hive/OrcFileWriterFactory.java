@@ -52,7 +52,10 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
@@ -195,7 +198,10 @@ public class OrcFileWriterFactory
                     fileColumnTypes,
                     compression,
                     orcWriterOptions
+                            .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                            .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                            .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()

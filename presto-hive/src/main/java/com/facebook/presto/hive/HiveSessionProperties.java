@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -50,7 +51,10 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
+    private static final String ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE = "orc_optimized_writer_min_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
+    private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
+    private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
@@ -162,9 +166,24 @@ public final class HiveSessionProperties
                         hiveClientConfig.getOrcWriterValidationMode().toString(),
                         false),
                 dataSizeSessionProperty(
+                        ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
+                        "Experimental: ORC: Min stripe size",
+                        orcFileWriterConfig.getStripeMinSize(),
+                        false),
+                dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
                         "Experimental: ORC: Max stripe size",
                         orcFileWriterConfig.getStripeMaxSize(),
+                        false),
+                integerSessionProperty(
+                        ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS,
+                        "Experimental: ORC: Max stripe row count",
+                        orcFileWriterConfig.getStripeMaxRowCount(),
+                        false),
+                dataSizeSessionProperty(
+                        ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
+                        "Experimental: ORC: Max dictionary memory",
+                        orcFileWriterConfig.getDictionaryMaxMemory(),
                         false),
                 stringSessionProperty(
                         HIVE_STORAGE_FORMAT,
@@ -317,9 +336,24 @@ public final class HiveSessionProperties
         return OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
     }
 
+    public static DataSize getOrcOptimizedWriterMinStripeSize(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE, DataSize.class);
+    }
+
     public static DataSize getOrcOptimizedWriterMaxStripeSize(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE, DataSize.class);
+    }
+
+    public static int getOrcOptimizedWriterMaxStripeRows(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS, Integer.class);
+    }
+
+    public static DataSize getOrcOptimizedWriterMaxDictionaryMemory(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
