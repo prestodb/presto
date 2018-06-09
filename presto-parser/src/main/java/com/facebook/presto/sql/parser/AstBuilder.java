@@ -1829,19 +1829,19 @@ class AstBuilder
                 .map(Token::getText);
     }
 
-    private static ArithmeticBinaryExpression.Type getArithmeticBinaryOperator(Token operator)
+    private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)
     {
         switch (operator.getType()) {
             case SqlBaseLexer.PLUS:
-                return ArithmeticBinaryExpression.Type.ADD;
+                return ArithmeticBinaryExpression.Operator.ADD;
             case SqlBaseLexer.MINUS:
-                return ArithmeticBinaryExpression.Type.SUBTRACT;
+                return ArithmeticBinaryExpression.Operator.SUBTRACT;
             case SqlBaseLexer.ASTERISK:
-                return ArithmeticBinaryExpression.Type.MULTIPLY;
+                return ArithmeticBinaryExpression.Operator.MULTIPLY;
             case SqlBaseLexer.SLASH:
-                return ArithmeticBinaryExpression.Type.DIVIDE;
+                return ArithmeticBinaryExpression.Operator.DIVIDE;
             case SqlBaseLexer.PERCENT:
-                return ArithmeticBinaryExpression.Type.MODULUS;
+                return ArithmeticBinaryExpression.Operator.MODULUS;
         }
 
         throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());

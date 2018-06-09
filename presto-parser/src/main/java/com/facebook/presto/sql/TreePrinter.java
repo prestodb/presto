@@ -235,7 +235,7 @@ public class TreePrinter
             @Override
             protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitArithmeticBinary(node, indentLevel + 1);
 

@@ -99,7 +99,7 @@ public class TestInterpretedPageProjectionFunction
     @Test
     public void testArithmeticExpressionWithNulls()
     {
-        for (ArithmeticBinaryExpression.Type type : ArithmeticBinaryExpression.Type.values()) {
+        for (ArithmeticBinaryExpression.Operator type : ArithmeticBinaryExpression.Operator.values()) {
             assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " CAST(NULL AS INTEGER)", null);
 
             assertProjection("42 " + type.getValue() + " NULL", null);

@@ -519,25 +519,25 @@ public class TestSqlParser
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
+        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
                 negative(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
+        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
+        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
                 new LongLiteral("1"),
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
     }
