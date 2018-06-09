@@ -254,7 +254,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new LogicalBinaryExpression(node.getType(), left, right);
+                return new LogicalBinaryExpression(node.getOperator(), left, right);
             }
 
             return node;

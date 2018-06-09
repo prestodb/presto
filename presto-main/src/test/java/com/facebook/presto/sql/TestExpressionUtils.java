@@ -85,6 +85,6 @@ public class TestExpressionUtils
 
     private LogicalBinaryExpression and(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, left, right);
+        return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
     }
 }

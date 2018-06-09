@@ -1965,13 +1965,13 @@ class AstBuilder
         throw new IllegalArgumentException("Unsupported sampling method: " + token.getText());
     }
 
-    private static LogicalBinaryExpression.Type getLogicalBinaryOperator(Token token)
+    private static LogicalBinaryExpression.Operator getLogicalBinaryOperator(Token token)
     {
         switch (token.getType()) {
             case SqlBaseLexer.AND:
-                return LogicalBinaryExpression.Type.AND;
+                return LogicalBinaryExpression.Operator.AND;
             case SqlBaseLexer.OR:
-                return LogicalBinaryExpression.Type.OR;
+                return LogicalBinaryExpression.Operator.OR;
         }
 
         throw new IllegalArgumentException("Unsupported operator: " + token.getText());

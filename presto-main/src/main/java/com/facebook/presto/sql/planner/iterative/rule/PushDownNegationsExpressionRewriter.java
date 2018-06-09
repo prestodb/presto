@@ -46,7 +46,7 @@ public class PushDownNegationsExpressionRewriter
                 LogicalBinaryExpression child = (LogicalBinaryExpression) node.getValue();
                 List<Expression> predicates = extractPredicates(child);
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
-                return combinePredicates(child.getType().flip(), negatedPredicates);
+                return combinePredicates(child.getOperator().flip(), negatedPredicates);
             }
             else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression child = (ComparisonExpression) node.getValue();

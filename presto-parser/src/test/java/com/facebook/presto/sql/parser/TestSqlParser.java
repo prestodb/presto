@@ -499,23 +499,23 @@ public class TestSqlParser
     @Test
     public void testPrecedenceAndAssociativity()
     {
-        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
-                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
                 new LongLiteral("1"),
-                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
 
-        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
@@ -1825,7 +1825,7 @@ public class TestSqlParser
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                                    new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
                                             new ComparisonExpression(GREATER_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0")),

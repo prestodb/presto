@@ -142,13 +142,13 @@ public class FilterStatsCalculator
         @Override
         protected Optional<PlanNodeStatsEstimate> visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            switch (node.getType()) {
+            switch (node.getOperator()) {
                 case AND:
                     return visitLogicalBinaryAnd(node.getLeft(), node.getRight());
                 case OR:
                     return visitLogicalBinaryOr(node.getLeft(), node.getRight());
                 default:
-                    throw new IllegalStateException("Unimplemented logical binary operator expression " + node.getType());
+                    throw new IllegalStateException("Unimplemented logical binary operator expression " + node.getOperator());
             }
         }
 

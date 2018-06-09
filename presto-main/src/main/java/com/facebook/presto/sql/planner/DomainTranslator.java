@@ -336,7 +336,7 @@ public final class DomainTranslator
             TupleDomain<Symbol> leftTupleDomain = leftResult.getTupleDomain();
             TupleDomain<Symbol> rightTupleDomain = rightResult.getTupleDomain();
 
-            LogicalBinaryExpression.Type type = complement ? flipLogicalBinaryType(node.getType()) : node.getType();
+            LogicalBinaryExpression.Operator type = complement ? flipLogicalBinaryType(node.getOperator()) : node.getOperator();
             switch (type) {
                 case AND:
                     return new ExtractionResult(
@@ -374,17 +374,17 @@ public final class DomainTranslator
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
 
                 default:
-                    throw new AssertionError("Unknown type: " + node.getType());
+                    throw new AssertionError("Unknown type: " + node.getOperator());
             }
         }
 
-        private static LogicalBinaryExpression.Type flipLogicalBinaryType(LogicalBinaryExpression.Type type)
+        private static LogicalBinaryExpression.Operator flipLogicalBinaryType(LogicalBinaryExpression.Operator type)
         {
             switch (type) {
                 case AND:
-                    return LogicalBinaryExpression.Type.OR;
+                    return LogicalBinaryExpression.Operator.OR;
                 case OR:
-                    return LogicalBinaryExpression.Type.AND;
+                    return LogicalBinaryExpression.Operator.AND;
                 default:
                     throw new AssertionError("Unknown type: " + type);
             }

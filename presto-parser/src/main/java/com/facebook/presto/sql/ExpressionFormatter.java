@@ -411,7 +411,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            return formatBinaryExpression(node.getType().toString(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getOperator().toString(), node.getLeft(), node.getRight());
         }
 
         @Override

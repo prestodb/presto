@@ -245,7 +245,7 @@ public class TreePrinter
             @Override
             protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitLogicalBinaryExpression(node, indentLevel + 1);
 

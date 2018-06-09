@@ -414,7 +414,7 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
             return call(
-                    logicalExpressionSignature(node.getType()),
+                    logicalExpressionSignature(node.getOperator()),
                     BOOLEAN,
                     process(node.getLeft(), context),
                     process(node.getRight(), context));

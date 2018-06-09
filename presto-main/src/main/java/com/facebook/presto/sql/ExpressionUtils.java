@@ -53,22 +53,22 @@ public final class ExpressionUtils
 
     public static List<Expression> extractConjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Type.AND, expression);
+        return extractPredicates(LogicalBinaryExpression.Operator.AND, expression);
     }
 
     public static List<Expression> extractDisjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Type.OR, expression);
+        return extractPredicates(LogicalBinaryExpression.Operator.OR, expression);
     }
 
     public static List<Expression> extractPredicates(LogicalBinaryExpression expression)
     {
-        return extractPredicates(expression.getType(), expression);
+        return extractPredicates(expression.getOperator(), expression);
     }
 
-    public static List<Expression> extractPredicates(LogicalBinaryExpression.Type type, Expression expression)
+    public static List<Expression> extractPredicates(LogicalBinaryExpression.Operator type, Expression expression)
     {
-        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == type) {
+        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getOperator() == type) {
             LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
             return ImmutableList.<Expression>builder()
                     .addAll(extractPredicates(type, logicalBinaryExpression.getLeft()))
@@ -86,7 +86,7 @@ public final class ExpressionUtils
 
     public static Expression and(Collection<Expression> expressions)
     {
-        return binaryExpression(LogicalBinaryExpression.Type.AND, expressions);
+        return binaryExpression(LogicalBinaryExpression.Operator.AND, expressions);
     }
 
     public static Expression or(Expression... expressions)
@@ -96,10 +96,10 @@ public final class ExpressionUtils
 
     public static Expression or(Collection<Expression> expressions)
     {
-        return binaryExpression(LogicalBinaryExpression.Type.OR, expressions);
+        return binaryExpression(LogicalBinaryExpression.Operator.OR, expressions);
     }
 
-    public static Expression binaryExpression(LogicalBinaryExpression.Type type, Collection<Expression> expressions)
+    public static Expression binaryExpression(LogicalBinaryExpression.Operator type, Collection<Expression> expressions)
     {
         requireNonNull(type, "type is null");
         requireNonNull(expressions, "expressions is null");
@@ -166,14 +166,14 @@ public final class ExpressionUtils
         return queue.remove();
     }
 
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Expression... expressions)
+    public static Expression combinePredicates(LogicalBinaryExpression.Operator type, Expression... expressions)
     {
         return combinePredicates(type, Arrays.asList(expressions));
     }
 
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Collection<Expression> expressions)
+    public static Expression combinePredicates(LogicalBinaryExpression.Operator type, Collection<Expression> expressions)
     {
-        if (type == LogicalBinaryExpression.Type.AND) {
+        if (type == LogicalBinaryExpression.Operator.AND) {
             return combineConjuncts(expressions);
         }
 

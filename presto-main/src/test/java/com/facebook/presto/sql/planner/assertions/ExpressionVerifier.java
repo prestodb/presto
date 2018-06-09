@@ -280,7 +280,7 @@ final class ExpressionVerifier
     {
         if (expectedExpression instanceof LogicalBinaryExpression) {
             LogicalBinaryExpression expected = (LogicalBinaryExpression) expectedExpression;
-            if (actual.getType() == expected.getType()) {
+            if (actual.getOperator() == expected.getOperator()) {
                 return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
             }
         }
