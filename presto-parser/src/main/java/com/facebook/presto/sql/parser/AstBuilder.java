@@ -1213,13 +1213,13 @@ class AstBuilder
     @Override
     public Node visitSpecialDateTimeFunction(SqlBaseParser.SpecialDateTimeFunctionContext context)
     {
-        CurrentTime.Type type = getDateTimeFunctionType(context.name);
+        CurrentTime.Operation operation = getDateTimeFunctionType(context.name);
 
         if (context.precision != null) {
-            return new CurrentTime(getLocation(context), type, Integer.parseInt(context.precision.getText()));
+            return new CurrentTime(getLocation(context), operation, Integer.parseInt(context.precision.getText()));
         }
 
-        return new CurrentTime(getLocation(context), type);
+        return new CurrentTime(getLocation(context), operation);
     }
 
     @Override
@@ -1867,19 +1867,19 @@ class AstBuilder
         throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
     }
 
-    private static CurrentTime.Type getDateTimeFunctionType(Token token)
+    private static CurrentTime.Operation getDateTimeFunctionType(Token token)
     {
         switch (token.getType()) {
             case SqlBaseLexer.CURRENT_DATE:
-                return CurrentTime.Type.DATE;
+                return CurrentTime.Operation.DATE;
             case SqlBaseLexer.CURRENT_TIME:
-                return CurrentTime.Type.TIME;
+                return CurrentTime.Operation.TIME;
             case SqlBaseLexer.CURRENT_TIMESTAMP:
-                return CurrentTime.Type.TIMESTAMP;
+                return CurrentTime.Operation.TIMESTAMP;
             case SqlBaseLexer.LOCALTIME:
-                return CurrentTime.Type.LOCALTIME;
+                return CurrentTime.Operation.LOCALTIME;
             case SqlBaseLexer.LOCALTIMESTAMP:
-                return CurrentTime.Type.LOCALTIMESTAMP;
+                return CurrentTime.Operation.LOCALTIMESTAMP;
         }
 
         throw new IllegalArgumentException("Unsupported special function: " + token.getText());

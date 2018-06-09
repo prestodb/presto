@@ -24,10 +24,10 @@ import static java.util.Objects.requireNonNull;
 public class CurrentTime
         extends Expression
 {
-    private final Type type;
+    private final Operation operation;
     private final Integer precision;
 
-    public enum Type
+    public enum Operation
     {
         TIME("current_time"),
         DATE("current_date"),
@@ -37,7 +37,7 @@ public class CurrentTime
 
         private final String name;
 
-        Type(String name)
+        Operation(String name)
         {
             this.name = name;
         }
@@ -48,37 +48,37 @@ public class CurrentTime
         }
     }
 
-    public CurrentTime(Type type)
+    public CurrentTime(Operation operation)
     {
-        this(Optional.empty(), type, null);
+        this(Optional.empty(), operation, null);
     }
 
-    public CurrentTime(NodeLocation location, Type type)
+    public CurrentTime(NodeLocation location, Operation operation)
     {
-        this(Optional.of(location), type, null);
+        this(Optional.of(location), operation, null);
     }
 
-    public CurrentTime(Type type, Integer precision)
+    public CurrentTime(Operation operation, Integer precision)
     {
-        this(Optional.empty(), type, precision);
+        this(Optional.empty(), operation, precision);
     }
 
-    public CurrentTime(NodeLocation location, Type type, Integer precision)
+    public CurrentTime(NodeLocation location, Operation operation, Integer precision)
     {
-        this(Optional.of(location), type, precision);
+        this(Optional.of(location), operation, precision);
     }
 
-    private CurrentTime(Optional<NodeLocation> location, Type type, Integer precision)
+    private CurrentTime(Optional<NodeLocation> location, Operation operation, Integer precision)
     {
         super(location);
-        requireNonNull(type, "type is null");
-        this.type = type;
+        requireNonNull(operation, "type is null");
+        this.operation = operation;
         this.precision = precision;
     }
 
-    public Type getType()
+    public Operation getOperation()
     {
-        return type;
+        return operation;
     }
 
     public Integer getPrecision()
@@ -108,13 +108,13 @@ public class CurrentTime
             return false;
         }
         CurrentTime that = (CurrentTime) o;
-        return (type == that.type) &&
+        return (operation == that.operation) &&
                 Objects.equals(precision, that.precision);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, precision);
+        return Objects.hash(operation, precision);
     }
 }
