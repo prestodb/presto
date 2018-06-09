@@ -448,7 +448,19 @@ public class TestAnnotationEngineForScalars
 
         @SqlType(StandardTypes.BIGINT)
         @TypeParameter("T")
-        public long fun(@SqlType("array(T)") Slice val)
+        public long fun(@SqlType("array(T)") Block val)
+        {
+            return 17L;
+        }
+
+        @SqlType(StandardTypes.BIGINT)
+        public long funBigint(@SqlType("array(bigint)") Block val)
+        {
+            return 17L;
+        }
+
+        @SqlType(StandardTypes.BIGINT)
+        public long funDouble(@SqlType("array(double)") Block val)
         {
             return 17L;
         }
@@ -469,7 +481,7 @@ public class TestAnnotationEngineForScalars
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorInjectionScalarFunction.class);
         assertEquals(functions.size(), 1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
-        assertImplementationCount(scalar, 0, 0, 1);
+        assertImplementationCount(scalar, 2, 0, 1);
         List<ImplementationDependency> dependencies = scalar.getImplementations().getGenericImplementations().get(0).getDependencies();
         assertEquals(dependencies.size(), 0);
         List<ImplementationDependency> constructorDependencies = scalar.getImplementations().getGenericImplementations().get(0).getConstructorDependencies();

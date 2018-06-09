@@ -47,8 +47,6 @@ public final class ArraysOverlapFunction
     @TypeParameter("E")
     public ArraysOverlapFunction(@TypeParameter("E") Type elementType) {}
 
-    public ArraysOverlapFunction() {}
-
     private static IntComparator intBlockCompare(Type type, Block block)
     {
         return new AbstractIntComparator()
