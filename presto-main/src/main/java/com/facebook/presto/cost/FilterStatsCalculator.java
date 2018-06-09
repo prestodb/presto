@@ -298,7 +298,7 @@ public class FilterStatsCalculator
         @Override
         protected Optional<PlanNodeStatsEstimate> visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            ComparisonExpressionType type = node.getType();
+            ComparisonExpressionType type = node.getOperator();
             Expression left = node.getLeft();
             Expression right = node.getRight();
 

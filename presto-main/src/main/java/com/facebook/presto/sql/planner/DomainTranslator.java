@@ -479,12 +479,12 @@ public final class DomainTranslator
 
             if (left instanceof Expression) {
                 symbolExpression = comparison.getLeft();
-                comparisonType = comparison.getType();
+                comparisonType = comparison.getOperator();
                 value = new NullableValue(rightType, right);
             }
             else {
                 symbolExpression = comparison.getRight();
-                comparisonType = comparison.getType().flip();
+                comparisonType = comparison.getOperator().flip();
                 value = new NullableValue(leftType, left);
             }
 

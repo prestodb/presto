@@ -799,7 +799,7 @@ public class PredicatePushDown
                 // At this point in time, our join predicates need to be deterministic
                 if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpressionType.EQUAL) {
+                    if (comparison.getOperator() == ComparisonExpressionType.EQUAL) {
                         Set<Symbol> symbols1 = SymbolsExtractor.extractUnique(comparison.getLeft());
                         Set<Symbol> symbols2 = SymbolsExtractor.extractUnique(comparison.getRight());
                         if (symbols1.isEmpty() || symbols2.isEmpty()) {

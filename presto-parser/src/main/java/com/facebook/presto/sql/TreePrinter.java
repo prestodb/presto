@@ -225,7 +225,7 @@ public class TreePrinter
             @Override
             protected Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitComparisonExpression(node, indentLevel + 1);
 

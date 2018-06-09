@@ -758,7 +758,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            ComparisonExpressionType type = node.getType();
+            ComparisonExpressionType type = node.getOperator();
 
             Object left = process(node.getLeft(), context);
             if (left == null && type != ComparisonExpressionType.IS_DISTINCT_FROM) {

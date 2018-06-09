@@ -315,7 +315,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
-                    comparisonExpressionSignature(node.getType(), left.getType(), right.getType()),
+                    comparisonExpressionSignature(node.getOperator(), left.getType(), right.getType()),
                     BOOLEAN,
                     left,
                     right);
