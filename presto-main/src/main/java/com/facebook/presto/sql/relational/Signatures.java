@@ -107,9 +107,9 @@ public final class Signatures
         return internalOperator("NEGATION", returnType.getTypeSignature(), valueType.getTypeSignature());
     }
 
-    public static Signature arithmeticExpressionSignature(ArithmeticBinaryExpression.Type expressionType, Type returnType, Type leftType, Type rightType)
+    public static Signature arithmeticExpressionSignature(ArithmeticBinaryExpression.Operator operator, Type returnType, Type leftType, Type rightType)
     {
-        return internalOperator(expressionType.name(), returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
+        return internalOperator(operator.name(), returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
     }
 
     public static Signature subscriptSignature(Type returnType, Type leftType, Type rightType)

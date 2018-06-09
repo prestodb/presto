@@ -408,7 +408,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
-                    arithmeticExpressionSignature(node.getType(), getType(node), left.getType(), right.getType()),
+                    arithmeticExpressionSignature(node.getOperator(), getType(node), left.getType(), right.getType()),
                     getType(node),
                     left,
                     right);

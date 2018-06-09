@@ -99,14 +99,14 @@ public class TestInterpretedPageProjectionFunction
     @Test
     public void testArithmeticExpressionWithNulls()
     {
-        for (ArithmeticBinaryExpression.Type type : ArithmeticBinaryExpression.Type.values()) {
-            assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " CAST(NULL AS INTEGER)", null);
+        for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
+            assertProjection("CAST(NULL AS INTEGER) " + operator.getValue() + " CAST(NULL AS INTEGER)", null);
 
-            assertProjection("42 " + type.getValue() + " NULL", null);
-            assertProjection("NULL " + type.getValue() + " 42", null);
+            assertProjection("42 " + operator.getValue() + " NULL", null);
+            assertProjection("NULL " + operator.getValue() + " 42", null);
 
-            assertProjection("11.1 " + type.getValue() + " CAST(NULL AS INTEGER)", null);
-            assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " 11.1", null);
+            assertProjection("11.1 " + operator.getValue() + " CAST(NULL AS INTEGER)", null);
+            assertProjection("CAST(NULL AS INTEGER) " + operator.getValue() + " 11.1", null);
         }
     }
 
