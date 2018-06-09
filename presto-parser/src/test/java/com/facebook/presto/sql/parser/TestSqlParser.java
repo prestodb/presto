@@ -631,7 +631,7 @@ public class TestSqlParser
     @Test
     public void testCurrentTimestamp()
     {
-        assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
+        assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Function.TIMESTAMP));
     }
 
     @Test

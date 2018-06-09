@@ -344,7 +344,7 @@ public class ExpressionAnalyzer
             }
 
             Type type;
-            switch (node.getType()) {
+            switch (node.getFunction()) {
                 case DATE:
                     type = DATE;
                     break;
@@ -361,7 +361,7 @@ public class ExpressionAnalyzer
                     type = TIMESTAMP;
                     break;
                 default:
-                    throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
+                    throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
             }
 
             return setExpressionType(node, type);

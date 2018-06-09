@@ -182,7 +182,7 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(node.getType().getName());
+            builder.append(node.getFunction().getName());
 
             if (node.getPrecision() != null) {
                 builder.append('(')
