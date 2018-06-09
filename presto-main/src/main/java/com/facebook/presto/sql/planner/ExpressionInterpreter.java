@@ -833,7 +833,7 @@ public class ExpressionInterpreter
             Object left = process(node.getLeft(), context);
             Object right;
 
-            switch (node.getType()) {
+            switch (node.getOperator()) {
                 case AND: {
                     if (Boolean.FALSE.equals(left)) {
                         return false;
@@ -874,7 +874,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            return new LogicalBinaryExpression(node.getType(),
+            return new LogicalBinaryExpression(node.getOperator(),
                     toExpression(left, type(node.getLeft())),
                     toExpression(right, type(node.getRight())));
         }

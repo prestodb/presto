@@ -141,11 +141,11 @@ public class TestSimplifyExpressions
         @Override
         public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            List<Expression> predicates = extractPredicates(node.getType(), node).stream()
+            List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
-            return binaryExpression(node.getType(), predicates);
+            return binaryExpression(node.getOperator(), predicates);
         }
     }
 }

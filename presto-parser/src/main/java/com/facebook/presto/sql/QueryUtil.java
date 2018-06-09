@@ -114,7 +114,7 @@ public final class QueryUtil
 
     public static Expression logicalAnd(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, left, right);
+        return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
     }
 
     public static Expression equal(Expression left, Expression right)
