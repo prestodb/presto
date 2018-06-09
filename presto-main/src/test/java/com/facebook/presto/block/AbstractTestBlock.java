@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -96,6 +97,9 @@ public abstract class AbstractTestBlock
         Field[] fields = block.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
+                if (Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
                 Class<?> type = field.getType();
                 if (type.isPrimitive()) {
                     continue;
