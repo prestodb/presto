@@ -430,7 +430,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getOperator().getValue(), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -669,7 +669,7 @@ public final class ExpressionFormatter
                     .append("(")
                     .append(process(node.getValue(), context))
                     .append(' ')
-                    .append(node.getComparisonType().getValue())
+                    .append(node.getOperator().getValue())
                     .append(' ')
                     .append(node.getQuantifier().toString())
                     .append(' ')

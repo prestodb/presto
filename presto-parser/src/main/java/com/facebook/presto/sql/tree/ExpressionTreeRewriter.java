@@ -213,7 +213,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new ComparisonExpression(node.getType(), left, right);
+                return new ComparisonExpression(node.getOperator(), left, right);
             }
 
             return node;
@@ -852,7 +852,7 @@ public final class ExpressionTreeRewriter<C>
             Expression subquery = rewrite(node.getSubquery(), context.get());
 
             if (node.getValue() != value || node.getSubquery() != subquery) {
-                return new QuantifiedComparisonExpression(node.getComparisonType(), node.getQuantifier(), value, subquery);
+                return new QuantifiedComparisonExpression(node.getOperator(), node.getQuantifier(), value, subquery);
             }
 
             return node;

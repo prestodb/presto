@@ -22,7 +22,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.type.LikePatternType;
 import com.google.common.collect.ImmutableList;
@@ -127,14 +127,14 @@ public final class Signatures
         return internalScalarFunction(ARRAY_CONSTRUCTOR, returnType, argumentTypes);
     }
 
-    public static Signature comparisonExpressionSignature(ComparisonExpressionType expressionType, Type leftType, Type rightType)
+    public static Signature comparisonExpressionSignature(ComparisonExpression.Operator operator, Type leftType, Type rightType)
     {
         for (OperatorType operatorType : OperatorType.values()) {
-            if (operatorType.name().equals(expressionType.name())) {
-                return internalOperator(expressionType.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
+            if (operatorType.name().equals(operator.name())) {
+                return internalOperator(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
             }
         }
-        return internalScalarFunction(expressionType.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
+        return internalScalarFunction(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
     }
 
     // **************** special forms (lazy evaluation, etc) ****************

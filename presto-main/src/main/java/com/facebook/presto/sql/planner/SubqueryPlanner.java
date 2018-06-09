@@ -57,7 +57,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -314,7 +314,7 @@ class SubqueryPlanner
             // given subquery is already appended
             return subPlan;
         }
-        switch (quantifiedComparison.getComparisonType()) {
+        switch (quantifiedComparison.getOperator()) {
             case EQUAL:
                 switch (quantifiedComparison.getQuantifier()) {
                     case ALL:
@@ -367,7 +367,7 @@ class SubqueryPlanner
         }
         // all cases are checked, so this exception should never be thrown
         throw new IllegalArgumentException(
-                format("Unexpected quantified comparison: '%s %s'", quantifiedComparison.getComparisonType().getValue(), quantifiedComparison.getQuantifier()));
+                format("Unexpected quantified comparison: '%s %s'", quantifiedComparison.getOperator().getValue(), quantifiedComparison.getQuantifier()));
     }
 
     private PlanBuilder planQuantifiedApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
@@ -382,7 +382,7 @@ class SubqueryPlanner
         subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(quantifiedSubquery), symbolAllocator, idAllocator);
 
         QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
-                quantifiedComparison.getComparisonType(),
+                quantifiedComparison.getOperator(),
                 quantifiedComparison.getQuantifier(),
                 subPlan.translate(quantifiedComparison.getValue()).toSymbolReference(),
                 subqueryPlan.translate(quantifiedSubquery).toSymbolReference());

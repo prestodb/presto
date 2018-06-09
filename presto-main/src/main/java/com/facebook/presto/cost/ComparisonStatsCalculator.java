@@ -14,7 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -38,9 +38,9 @@ public final class ComparisonStatsCalculator
             Optional<Symbol> symbol,
             SymbolStatsEstimate expressionStats,
             OptionalDouble doubleLiteral,
-            ComparisonExpressionType type)
+            ComparisonExpression.Operator operator)
     {
-        switch (type) {
+        switch (operator) {
             case EQUAL:
                 return expressionToLiteralEquality(inputStatistics, symbol, expressionStats, doubleLiteral);
             case NOT_EQUAL:
@@ -151,9 +151,9 @@ public final class ComparisonStatsCalculator
             SymbolStatsEstimate leftStats,
             Optional<Symbol> right,
             SymbolStatsEstimate rightStats,
-            ComparisonExpressionType type)
+            ComparisonExpression.Operator operator)
     {
-        switch (type) {
+        switch (operator) {
             case EQUAL:
                 return expressionToExpressionEquality(inputStatistics, left, leftStats, right, rightStats);
             case NOT_EQUAL:

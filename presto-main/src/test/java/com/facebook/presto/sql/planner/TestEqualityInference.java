@@ -49,8 +49,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.assertEquals;
@@ -462,7 +462,7 @@ public class TestEqualityInference
     {
         Preconditions.checkArgument(expression instanceof ComparisonExpression);
         ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-        Preconditions.checkArgument(comparisonExpression.getType() == EQUAL);
+        Preconditions.checkArgument(comparisonExpression.getOperator() == EQUAL);
         return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
     }
 

@@ -479,7 +479,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
-            OperatorType operatorType = OperatorType.valueOf(node.getType().name());
+            OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
@@ -1094,7 +1094,7 @@ public class ExpressionAnalyzer
 
             Type comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
 
-            switch (node.getComparisonType()) {
+            switch (node.getOperator()) {
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
@@ -1110,7 +1110,7 @@ public class ExpressionAnalyzer
                     }
                     break;
                 default:
-                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getComparisonType()));
+                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
             }
 
             return setExpressionType(node, BOOLEAN);

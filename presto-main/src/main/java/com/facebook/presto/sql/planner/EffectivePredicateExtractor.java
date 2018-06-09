@@ -31,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
@@ -75,7 +74,7 @@ public class EffectivePredicateExtractor
                 Expression expression = entry.getValue();
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-                return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
+                return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, reference, expression);
             };
 
     private final DomainTranslator domainTranslator;

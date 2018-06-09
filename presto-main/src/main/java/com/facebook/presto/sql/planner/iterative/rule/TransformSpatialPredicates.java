@@ -52,8 +52,8 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.google.common.base.Verify.verify;
@@ -237,13 +237,13 @@ public class TransformSpatialPredicates
         Expression radius;
         Optional<Symbol> newRadiusSymbol;
         ComparisonExpression newComparison;
-        if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+        if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
             Set<Symbol> radiusSymbols = extractUnique(radius);
             if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getType(), spatialComparison.getLeft(), toExpression(newRadiusSymbol, radius));
+                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusSymbol, radius));
             }
             else {
                 return Result.empty();
@@ -255,7 +255,7 @@ public class TransformSpatialPredicates
             Set<Symbol> radiusSymbols = extractUnique(radius);
             if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getType().flip(), spatialComparison.getRight(), toExpression(newRadiusSymbol, radius));
+                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusSymbol, radius));
             }
             else {
                 return Result.empty();

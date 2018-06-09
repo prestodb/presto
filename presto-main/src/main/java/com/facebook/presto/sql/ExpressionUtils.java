@@ -41,7 +41,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -310,9 +310,9 @@ public final class ExpressionUtils
     {
         if (expression instanceof NotExpression) {
             NotExpression not = (NotExpression) expression;
-            if (not.getValue() instanceof ComparisonExpression && ((ComparisonExpression) not.getValue()).getType() != IS_DISTINCT_FROM) {
+            if (not.getValue() instanceof ComparisonExpression && ((ComparisonExpression) not.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression comparison = (ComparisonExpression) not.getValue();
-                return new ComparisonExpression(comparison.getType().negate(), comparison.getLeft(), comparison.getRight());
+                return new ComparisonExpression(comparison.getOperator().negate(), comparison.getLeft(), comparison.getRight());
             }
             if (not.getValue() instanceof NotExpression) {
                 return normalize(((NotExpression) not.getValue()).getValue());

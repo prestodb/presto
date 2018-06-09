@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -79,13 +78,13 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -1393,9 +1392,9 @@ public class TestDomainTranslator
         return new NotExpression(expression);
     }
 
-    private static ComparisonExpression comparison(ComparisonExpressionType type, Expression expression1, Expression expression2)
+    private static ComparisonExpression comparison(ComparisonExpression.Operator operator, Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(type, expression1, expression2);
+        return new ComparisonExpression(operator, expression1, expression2);
     }
 
     private static Literal bigintLiteral(long value)

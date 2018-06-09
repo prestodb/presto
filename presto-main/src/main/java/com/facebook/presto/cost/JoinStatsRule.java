@@ -36,7 +36,7 @@ import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEF
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;

@@ -31,33 +31,33 @@ public class QuantifiedComparisonExpression
         SOME,
     }
 
-    private final ComparisonExpressionType comparisonType;
+    private final ComparisonExpression.Operator operator;
     private final Quantifier quantifier;
     private final Expression value;
     private final Expression subquery;
 
-    public QuantifiedComparisonExpression(ComparisonExpressionType comparisonType, Quantifier quantifier, Expression value, Expression subquery)
+    public QuantifiedComparisonExpression(ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
-        this(Optional.empty(), comparisonType, quantifier, value, subquery);
+        this(Optional.empty(), operator, quantifier, value, subquery);
     }
 
-    public QuantifiedComparisonExpression(NodeLocation location, ComparisonExpressionType comparisonType, Quantifier quantifier, Expression value, Expression subquery)
+    public QuantifiedComparisonExpression(NodeLocation location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
-        this(Optional.of(location), comparisonType, quantifier, value, subquery);
+        this(Optional.of(location), operator, quantifier, value, subquery);
     }
 
-    private QuantifiedComparisonExpression(Optional<NodeLocation> location, ComparisonExpressionType comparisonType, Quantifier quantifier, Expression value, Expression subquery)
+    private QuantifiedComparisonExpression(Optional<NodeLocation> location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
         super(location);
-        this.comparisonType = requireNonNull(comparisonType, "comparisonType is null");
+        this.operator = requireNonNull(operator, "comparisonType is null");
         this.quantifier = requireNonNull(quantifier, "quantifier is null");
         this.value = requireNonNull(value, "value is null");
         this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
-    public ComparisonExpressionType getComparisonType()
+    public ComparisonExpression.Operator getOperator()
     {
-        return comparisonType;
+        return operator;
     }
 
     public Quantifier getQuantifier()
@@ -98,7 +98,7 @@ public class QuantifiedComparisonExpression
         }
 
         QuantifiedComparisonExpression that = (QuantifiedComparisonExpression) o;
-        return comparisonType == that.comparisonType &&
+        return operator == that.operator &&
                 quantifier == that.quantifier &&
                 Objects.equals(value, that.value) &&
                 Objects.equals(subquery, that.subquery);
@@ -107,6 +107,6 @@ public class QuantifiedComparisonExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(comparisonType, quantifier, value, subquery);
+        return Objects.hash(operator, quantifier, value, subquery);
     }
 }

@@ -158,7 +158,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -238,8 +237,8 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_DISTANCE;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_INTERSECTS;
@@ -1593,12 +1592,12 @@ public class LocalExecutionPlanner
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+                if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     Expression radius = spatialComparison.getRight();
                     if (radius instanceof SymbolReference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
                         FunctionCall spatialFunction = (FunctionCall) spatialComparison.getLeft();
-                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getType()));
+                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getOperator()));
                         if (operation.isPresent()) {
                             return operation.get();
                         }
@@ -1615,7 +1614,7 @@ public class LocalExecutionPlanner
                 Optional<Expression> filterExpression,
                 FunctionCall spatialFunction,
                 Optional<Expression> radius,
-                Optional<ComparisonExpressionType> comparisonType)
+                Optional<ComparisonExpression.Operator> comparisonOperator)
         {
             List<Expression> arguments = spatialFunction.getArguments();
             verify(arguments.size() == 2);
@@ -1641,7 +1640,7 @@ public class LocalExecutionPlanner
                         buildNode,
                         Symbol.from(secondSymbol),
                         radius.map(Symbol::from),
-                        spatialTest(spatialFunction, true, comparisonType),
+                        spatialTest(spatialFunction, true, comparisonOperator),
                         filterExpression,
                         context));
             }
@@ -1653,7 +1652,7 @@ public class LocalExecutionPlanner
                         buildNode,
                         Symbol.from(firstSymbol),
                         radius.map(Symbol::from),
-                        spatialTest(spatialFunction, false, comparisonType),
+                        spatialTest(spatialFunction, false, comparisonOperator),
                         filterExpression,
                         context));
             }
@@ -1666,7 +1665,7 @@ public class LocalExecutionPlanner
             return updatedJoinFilter == TRUE_LITERAL ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
-        private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpressionType> comparisonType)
+        private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
             switch (functionCall.getName().toString().toLowerCase(Locale.ENGLISH)) {
                 case ST_CONTAINS:
@@ -1679,14 +1678,14 @@ public class LocalExecutionPlanner
                 case ST_INTERSECTS:
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
                 case ST_DISTANCE:
-                    if (comparisonType.get() == LESS_THAN) {
+                    if (comparisonOperator.get() == LESS_THAN) {
                         return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
                     }
-                    else if (comparisonType.get() == LESS_THAN_OR_EQUAL) {
+                    else if (comparisonOperator.get() == LESS_THAN_OR_EQUAL) {
                         return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
                     }
                     else {
-                        throw new UnsupportedOperationException("Unsupported comparison type: " + comparisonType.get());
+                        throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
                     }
                 default:
                     throw new UnsupportedOperationException("Unsupported spatial function: " + functionCall.getName());

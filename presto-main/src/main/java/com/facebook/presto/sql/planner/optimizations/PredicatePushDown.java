@@ -47,7 +47,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -360,7 +359,7 @@ public class PredicatePushDown
             newJoinPredicate = simplifyExpression(newJoinPredicate);
             // TODO: find a better way to directly optimize FALSE LITERAL in join predicate
             if (newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL)) {
-                newJoinPredicate = new ComparisonExpression(ComparisonExpressionType.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+                newJoinPredicate = new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
             }
 
             PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
@@ -800,7 +799,7 @@ public class PredicatePushDown
                 // At this point in time, our join predicates need to be deterministic
                 if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpressionType.EQUAL) {
+                    if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
                         Set<Symbol> symbols1 = SymbolsExtractor.extractUnique(comparison.getLeft());
                         Set<Symbol> symbols2 = SymbolsExtractor.extractUnique(comparison.getRight());
                         if (symbols1.isEmpty() || symbols2.isEmpty()) {
@@ -873,7 +872,7 @@ public class PredicatePushDown
             Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getSource()));
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getFilteringSource()));
             Expression joinExpression = new ComparisonExpression(
-                    ComparisonExpressionType.EQUAL,
+                    ComparisonExpression.Operator.EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),
                     node.getFilteringSourceJoinSymbol().toSymbolReference());
 

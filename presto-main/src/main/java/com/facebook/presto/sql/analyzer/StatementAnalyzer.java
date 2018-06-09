@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -1155,7 +1154,7 @@ class StatementAnalyzer
                     analysis.addCoercion(rightExpression, superType.get(), metadata.getTypeManager().isTypeOnlyCoercion(rightType, leftType));
                 }
 
-                expressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, leftExpression, rightExpression));
+                expressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, leftExpression, rightExpression));
             }
 
             analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));

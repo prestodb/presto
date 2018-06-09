@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -178,7 +177,7 @@ public class TransformCorrelatedInPredicateToJoin
         Expression joinExpression = and(
                 or(
                         new IsNullPredicate(probeSideSymbol.toSymbolReference()),
-                        new ComparisonExpression(ComparisonExpressionType.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
                         new IsNullPredicate(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
@@ -260,7 +259,7 @@ public class TransformCorrelatedInPredicateToJoin
     private static Expression isGreaterThan(Symbol symbol, long value)
     {
         return new ComparisonExpression(
-                ComparisonExpressionType.GREATER_THAN,
+                ComparisonExpression.Operator.GREATER_THAN,
                 symbol.toSymbolReference(),
                 bigint(value));
     }

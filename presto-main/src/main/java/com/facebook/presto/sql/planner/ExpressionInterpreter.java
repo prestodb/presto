@@ -52,7 +52,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -720,15 +719,15 @@ public class ExpressionInterpreter
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            ComparisonExpressionType type = node.getType();
+            ComparisonExpression.Operator operator = node.getOperator();
 
             Object left = process(node.getLeft(), context);
-            if (left == null && type != ComparisonExpressionType.IS_DISTINCT_FROM) {
+            if (left == null && operator != ComparisonExpression.Operator.IS_DISTINCT_FROM) {
                 return null;
             }
 
             Object right = process(node.getRight(), context);
-            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
+            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
                 if (left == null && right == null) {
                     return false;
                 }
@@ -741,10 +740,10 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ComparisonExpression(type, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 
-            return invokeOperator(OperatorType.valueOf(type.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
+            return invokeOperator(OperatorType.valueOf(operator.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 
         @Override
@@ -1024,7 +1023,7 @@ public class ExpressionInterpreter
                 if (!patternType.equals(superType)) {
                     patternExpression = new Cast(patternExpression, superType.getTypeSignature().toString(), false, typeManager.isTypeOnlyCoercion(patternType, superType));
                 }
-                return new ComparisonExpression(ComparisonExpressionType.EQUAL, valueExpression, patternExpression);
+                return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
 
             Optional<Expression> optimizedEscape = Optional.empty();

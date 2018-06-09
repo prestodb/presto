@@ -58,12 +58,12 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSig
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -205,20 +205,20 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
         private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
         {
-            if (quantifiedComparison.getComparisonType() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
+            if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
                         new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
                         new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
             }
 
-            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getComparisonType())) {
+            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
                 // A < ALL B <=> A < min B
                 // A > ALL B <=> A > max B
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
+                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
@@ -227,7 +227,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         {
             switch (quantifiedComparison.getQuantifier()) {
                 case ALL:
-                    switch (quantifiedComparison.getComparisonType()) {
+                    switch (quantifiedComparison.getOperator()) {
                         case LESS_THAN:
                         case LESS_THAN_OR_EQUAL:
                             return true;
@@ -238,7 +238,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     break;
                 case ANY:
                 case SOME:
-                    switch (quantifiedComparison.getComparisonType()) {
+                    switch (quantifiedComparison.getOperator()) {
                         case LESS_THAN:
                         case LESS_THAN_OR_EQUAL:
                             return false;

@@ -32,7 +32,6 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -1033,7 +1032,7 @@ class AstBuilder
     {
         Expression expression = new ComparisonExpression(
                 getLocation(context),
-                ComparisonExpressionType.IS_DISTINCT_FROM,
+                ComparisonExpression.Operator.IS_DISTINCT_FROM,
                 (Expression) visit(context.value),
                 (Expression) visit(context.right));
 
@@ -1886,21 +1885,21 @@ class AstBuilder
         throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
     }
 
-    private static ComparisonExpressionType getComparisonOperator(Token symbol)
+    private static ComparisonExpression.Operator getComparisonOperator(Token symbol)
     {
         switch (symbol.getType()) {
             case SqlBaseLexer.EQ:
-                return ComparisonExpressionType.EQUAL;
+                return ComparisonExpression.Operator.EQUAL;
             case SqlBaseLexer.NEQ:
-                return ComparisonExpressionType.NOT_EQUAL;
+                return ComparisonExpression.Operator.NOT_EQUAL;
             case SqlBaseLexer.LT:
-                return ComparisonExpressionType.LESS_THAN;
+                return ComparisonExpression.Operator.LESS_THAN;
             case SqlBaseLexer.LTE:
-                return ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+                return ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
             case SqlBaseLexer.GT:
-                return ComparisonExpressionType.GREATER_THAN;
+                return ComparisonExpression.Operator.GREATER_THAN;
             case SqlBaseLexer.GTE:
-                return ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
+                return ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
         }
 
         throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
