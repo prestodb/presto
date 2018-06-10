@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -156,6 +157,8 @@ public class SqlQueryManager
 
     private final AtomicBoolean acceptQueries = new AtomicBoolean();
 
+    private final WarningCollectorFactory warningCollectorFactory;
+
     @Inject
     public SqlQueryManager(
             SqlParser sqlParser,
@@ -171,7 +174,8 @@ public class SqlQueryManager
             SessionSupplier sessionSupplier,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            Metadata metadata)
+            Metadata metadata,
+            WarningCollectorFactory warningCollectorFactory)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
 
@@ -207,6 +211,8 @@ public class SqlQueryManager
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
         this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
         this.initialNanos = System.nanoTime();
+
+        this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
 
         queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
@@ -446,7 +452,7 @@ public class SqlQueryManager
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
                 }
             }
-            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters);
+            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters, warningCollectorFactory.create());
         }
         catch (ParsingException | PrestoException | SemanticException e) {
             // This is intentionally not a method, since after the state change listener is registered

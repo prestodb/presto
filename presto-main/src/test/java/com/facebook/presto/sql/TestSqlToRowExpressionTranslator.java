@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
@@ -113,6 +114,7 @@ public class TestSqlToRowExpressionTranslator
                 TypeProvider.empty(),
                 emptyList(),
                 node -> new IllegalStateException("Expected node: %s" + node),
+                WarningCollector.NOOP,
                 false);
         expressionAnalyzer.analyze(expression, Scope.create());
         return expressionAnalyzer.getExpressionTypes();

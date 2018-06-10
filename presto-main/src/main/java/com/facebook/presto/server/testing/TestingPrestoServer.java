@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
+import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -208,6 +209,7 @@ public class TestingPrestoServer
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
                 .add(new ServerMainModule(parserOptions))
+                .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);

@@ -25,6 +25,7 @@ import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -150,7 +151,8 @@ public class SqlQueryExecution
             List<Expression> parameters,
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
+            CostCalculator costCalculator,
+            WarningCollector warningCollector)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -177,10 +179,10 @@ public class SqlQueryExecution
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata);
+            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata, warningCollector);
 
             // analyze query
-            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
+            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters, warningCollector);
             this.analysis = analyzer.analyze(statement);
 
             stateMachine.setUpdateType(analysis.getUpdateType());
@@ -366,7 +368,7 @@ public class SqlQueryExecution
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector());
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -708,7 +710,7 @@ public class SqlQueryExecution
         }
 
         @Override
-        public QueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters)
+        public QueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -741,7 +743,8 @@ public class SqlQueryExecution
                     parameters,
                     schedulerStats,
                     statsCalculator,
-                    costCalculator);
+                    costCalculator,
+                    warningCollector);
 
             if (preAllocateMemoryThreshold.toBytes() > 0 && session.getResourceEstimates().getPeakMemory().isPresent() &&
                     session.getResourceEstimates().getPeakMemory().get().compareTo(preAllocateMemoryThreshold) >= 0) {

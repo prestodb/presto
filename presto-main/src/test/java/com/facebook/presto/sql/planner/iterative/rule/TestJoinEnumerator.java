@@ -21,6 +21,7 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -162,6 +163,12 @@ public class TestJoinEnumerator
 
             @Override
             public void checkTimeoutNotExhausted() {}
+
+            @Override
+            public WarningCollector getWarningCollector()
+            {
+                return WarningCollector.NOOP;
+            }
         };
     }
 }

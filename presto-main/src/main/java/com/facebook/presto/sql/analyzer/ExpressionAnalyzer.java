@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -191,6 +192,7 @@ public class ExpressionAnalyzer
 
     private final Session session;
     private final List<Expression> parameters;
+    private final WarningCollector warningCollector;
 
     public ExpressionAnalyzer(
             FunctionRegistry functionRegistry,
@@ -199,6 +201,7 @@ public class ExpressionAnalyzer
             Session session,
             TypeProvider symbolTypes,
             List<Expression> parameters,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
@@ -209,6 +212,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public Map<NodeRef<FunctionCall>, Signature> getResolvedFunctions()
@@ -267,13 +271,13 @@ public class ExpressionAnalyzer
 
     public Type analyze(Expression expression, Scope scope)
     {
-        Visitor visitor = new Visitor(scope);
+        Visitor visitor = new Visitor(scope, warningCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
     }
 
     private Type analyze(Expression expression, Scope baseScope, Context context)
     {
-        Visitor visitor = new Visitor(baseScope);
+        Visitor visitor = new Visitor(baseScope, warningCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
@@ -307,10 +311,12 @@ public class ExpressionAnalyzer
     {
         // Used to resolve FieldReferences (e.g. during local execution planning)
         private final Scope baseScope;
+        private final WarningCollector warningCollector;
 
-        public Visitor(Scope baseScope)
+        public Visitor(Scope baseScope, WarningCollector warningCollector)
         {
             this.baseScope = requireNonNull(baseScope, "baseScope is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
@@ -843,6 +849,7 @@ public class ExpressionAnalyzer
                                         session,
                                         symbolTypes,
                                         parameters,
+                                        warningCollector,
                                         isDescribe);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
@@ -1433,9 +1440,10 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Expression expression,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
-        return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, false);
+        return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false);
     }
 
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(
@@ -1445,9 +1453,10 @@ public class ExpressionAnalyzer
             TypeProvider types,
             Expression expression,
             List<Expression> parameters,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
-        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, isDescribe);
+        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector, isDescribe);
     }
 
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(
@@ -1457,9 +1466,10 @@ public class ExpressionAnalyzer
             TypeProvider types,
             Iterable<Expression> expressions,
             List<Expression> parameters,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
-        return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions, parameters, isDescribe).getExpressionTypes();
+        return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions, parameters, warningCollector, isDescribe).getExpressionTypes();
     }
 
     public static Map<NodeRef<Expression>, Type> getExpressionTypesFromInput(
@@ -1468,9 +1478,10 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Map<Integer, Type> types,
             Expression expression,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
-        return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters);
+        return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector);
     }
 
     public static Map<NodeRef<Expression>, Type> getExpressionTypesFromInput(
@@ -1479,9 +1490,10 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Map<Integer, Type> types,
             Iterable<Expression> expressions,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
-        return analyzeExpressionsWithInputs(session, metadata, sqlParser, types, expressions, parameters).getExpressionTypes();
+        return analyzeExpressionsWithInputs(session, metadata, sqlParser, types, expressions, parameters, warningCollector).getExpressionTypes();
     }
 
     public static ExpressionAnalysis analyzeExpressionsWithSymbols(
@@ -1491,9 +1503,10 @@ public class ExpressionAnalyzer
             TypeProvider types,
             Iterable<Expression> expressions,
             List<Expression> parameters,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
-        return analyzeExpressions(session, metadata, sqlParser, new RelationType(), types, expressions, parameters, isDescribe);
+        return analyzeExpressions(session, metadata, sqlParser, new RelationType(), types, expressions, parameters, warningCollector, isDescribe);
     }
 
     private static ExpressionAnalysis analyzeExpressionsWithInputs(
@@ -1502,7 +1515,8 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Map<Integer, Type> types,
             Iterable<Expression> expressions,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         Field[] fields = new Field[types.size()];
         for (Entry<Integer, Type> entry : types.entrySet()) {
@@ -1510,7 +1524,7 @@ public class ExpressionAnalyzer
         }
         RelationType tupleDescriptor = new RelationType(fields);
 
-        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, TypeProvider.empty(), expressions, parameters);
+        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, TypeProvider.empty(), expressions, parameters, warningCollector);
     }
 
     public static ExpressionAnalysis analyzeExpressions(
@@ -1520,9 +1534,10 @@ public class ExpressionAnalyzer
             RelationType tupleDescriptor,
             TypeProvider types,
             Iterable<? extends Expression> expressions,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
-        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, types, expressions, parameters, false);
+        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, types, expressions, parameters, warningCollector, false);
     }
 
     private static ExpressionAnalysis analyzeExpressions(
@@ -1533,12 +1548,13 @@ public class ExpressionAnalyzer
             TypeProvider types,
             Iterable<? extends Expression> expressions,
             List<Expression> parameters,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
         Analysis analysis = new Analysis(null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), tupleDescriptor).build());
         }
@@ -1563,9 +1579,10 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
-            Expression expression)
+            Expression expression,
+            WarningCollector warningCollector)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty());
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1593,6 +1610,7 @@ public class ExpressionAnalyzer
                 analyzer.getWindowFunctions());
     }
 
+    // TODO: this function is not used anywhere, can it be removed?
     public static ExpressionAnalyzer create(
             Analysis analysis,
             Session session,
@@ -1600,7 +1618,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             AccessControl accessControl)
     {
-        return create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty());
+        return create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), WarningCollector.NOOP);
     }
 
     public static ExpressionAnalyzer create(
@@ -1609,19 +1627,21 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
-            TypeProvider types)
+            TypeProvider types,
+            WarningCollector warningCollector)
     {
         return new ExpressionAnalyzer(
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
                 session,
                 types,
                 analysis.getParameters(),
+                warningCollector,
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
                 metadata.getFunctionRegistry(),
@@ -1630,10 +1650,11 @@ public class ExpressionAnalyzer
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
                 "Constant expression cannot contain a subquery",
+                warningCollector,
                 false);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, boolean isDescribe)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
                 metadata.getFunctionRegistry(),
@@ -1642,6 +1663,7 @@ public class ExpressionAnalyzer
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
                 "Constant expression cannot contain a subquery",
+                warningCollector,
                 isDescribe);
     }
 
@@ -1652,6 +1674,7 @@ public class ExpressionAnalyzer
             List<Expression> parameters,
             SemanticErrorCode errorCode,
             String message,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
         return createWithoutSubqueries(
@@ -1661,6 +1684,7 @@ public class ExpressionAnalyzer
                 TypeProvider.empty(),
                 parameters,
                 node -> new SemanticException(errorCode, node, message),
+                warningCollector,
                 isDescribe);
     }
 
@@ -1671,6 +1695,7 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             List<Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
+            WarningCollector warningCollector,
             boolean isDescribe)
     {
         return new ExpressionAnalyzer(
@@ -1682,6 +1707,7 @@ public class ExpressionAnalyzer
                 session,
                 symbolTypes,
                 parameters,
+                warningCollector,
                 isDescribe);
     }
 }
