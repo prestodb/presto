@@ -158,6 +158,8 @@ public class TestTypeValidator
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
@@ -306,6 +308,8 @@ public class TestTypeValidator
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
@@ -343,6 +347,8 @@ public class TestTypeValidator
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);

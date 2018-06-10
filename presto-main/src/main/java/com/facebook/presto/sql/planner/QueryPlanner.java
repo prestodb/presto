@@ -689,9 +689,14 @@ class QueryPlanner
                 frameEndSymbol = Optional.of(subPlan.translate(frameEnd));
             }
 
-            WindowNode.Frame frame = new WindowNode.Frame(frameType,
-                    frameStartType, frameStartSymbol,
-                    frameEndType, frameEndSymbol);
+            WindowNode.Frame frame = new WindowNode.Frame(
+                    frameType,
+                    frameStartType,
+                    frameStartSymbol,
+                    frameEndType,
+                    frameEndSymbol,
+                    Optional.ofNullable(frameStart),
+                    Optional.ofNullable(frameEnd));
 
             TranslationMap outputTranslations = subPlan.copyTranslations();
 

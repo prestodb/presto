@@ -103,6 +103,8 @@ public class TestWindowNode
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         PlanNodeId id = newId();

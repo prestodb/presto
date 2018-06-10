@@ -89,11 +89,8 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -829,10 +826,7 @@ public class PlanPrinter
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 FunctionCall call = entry.getValue().getFunctionCall();
-                String frameInfo = call.getWindow()
-                        .flatMap(Window::getFrame)
-                        .map(PlanPrinter::formatFrame)
-                        .orElse("");
+                String frameInfo = PlanPrinter.formatFrame(entry.getValue().getFrame());
 
                 print(indent + 2, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
             }
@@ -1406,21 +1400,22 @@ public class PlanPrinter
         return "[" + Joiner.on(", ").join(symbols) + "]";
     }
 
-    private static String formatFrame(WindowFrame frame)
+    private static String formatFrame(WindowNode.Frame frame)
     {
         StringBuilder builder = new StringBuilder(frame.getType().toString());
-        FrameBound start = frame.getStart();
-        if (start.getValue().isPresent()) {
-            builder.append(" ").append(start.getOriginalValue().get());
-        }
-        builder.append(" ").append(start.getType());
 
-        Optional<FrameBound> end = frame.getEnd();
-        if (end.isPresent()) {
-            if (end.get().getOriginalValue().isPresent()) {
-                builder.append(" ").append(end.get().getOriginalValue().get());
+        Optional<Symbol> startValue = frame.getStartValue();
+        if (startValue.isPresent()) {
+            builder.append(" ").append(frame.getOriginalStartValue().get());
+        }
+        builder.append(" ").append(frame.getStartType());
+
+        Optional<Symbol> endValue = frame.getEndValue();
+        if (endValue.isPresent()) {
+            if (frame.getOriginalEndValue().isPresent()) {
+                builder.append(" ").append(frame.getOriginalEndValue().get());
             }
-            builder.append(" ").append(end.get().getType());
+            builder.append(" ").append(frame.getEndType());
         }
         return builder.toString();
     }
