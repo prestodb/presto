@@ -13,30 +13,34 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 
-import static java.util.Objects.requireNonNull;
+import java.util.Map;
 
-public class Plan
+import static com.google.common.base.Preconditions.checkArgument;
+
+public class TypeProvider
 {
-    private final PlanNode root;
-    private final TypeProvider types;
+    private final Map<Symbol, Type> types;
 
-    public Plan(PlanNode root, TypeProvider types)
+    public TypeProvider(Map<Symbol, Type> types)
     {
-        requireNonNull(root, "root is null");
-        requireNonNull(types, "types is null");
-
-        this.root = root;
-        this.types = types;
+        this.types = ImmutableMap.copyOf(types);
     }
 
-    public PlanNode getRoot()
+    public static TypeProvider empty()
     {
-        return root;
+        return new TypeProvider(ImmutableMap.of());
     }
 
-    public TypeProvider getTypes()
+    public Type get(Symbol symbol)
+    {
+        checkArgument(types.containsKey(symbol), "no type found found for symbol '" + symbol + "'");
+        return types.get(symbol);
+    }
+
+    public Map<Symbol, Type> allTypes()
     {
         return types;
     }

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -39,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -83,7 +83,7 @@ public class FilterStatsCalculator
             PlanNodeStatsEstimate statsEstimate,
             Expression predicate,
             Session session,
-            Map<Symbol, Type> types)
+            TypeProvider types)
     {
         return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types).process(predicate)
                 .orElseGet(() -> normalizer.normalize(filterStatsForUnknownExpression(statsEstimate), types));
@@ -99,9 +99,9 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, Map<Symbol, Type> types)
+        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;

@@ -275,7 +275,7 @@ public final class DomainTranslator
             Metadata metadata,
             Session session,
             Expression predicate,
-            Map<Symbol, Type> types)
+            TypeProvider types)
     {
         return new Visitor(metadata, session, types).process(predicate, false);
     }
@@ -286,15 +286,15 @@ public final class DomainTranslator
         private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final FunctionInvoker functionInvoker;
 
-        private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
+        private Visitor(Metadata metadata, Session session, TypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
-            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.types = types;
             this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
         }
 
@@ -769,7 +769,7 @@ public final class DomainTranslator
         }
     }
 
-    private static Type typeOf(Expression expression, Session session, Metadata metadata, Map<Symbol, Type> types)
+    private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
         return expressionTypes.get(NodeRef.of(expression));

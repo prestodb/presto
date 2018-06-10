@@ -341,7 +341,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlan plan(
             TaskContext taskContext,
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             PartitioningScheme partitioningScheme,
             boolean planGrouped,
             List<PlanNodeId> partitionedSourceOrder,
@@ -421,7 +421,7 @@ public class LocalExecutionPlanner
             boolean planGrouped,
             PlanNode plan,
             List<Symbol> outputLayout,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory)
     {
@@ -497,7 +497,7 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
@@ -508,14 +508,14 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, Map<Symbol, Type> types)
+        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
         {
             this(taskContext, types, new ArrayList<>(), Optional.empty(), new AtomicInteger(0));
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                Map<Symbol, Type> types,
+                TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId)
@@ -556,7 +556,7 @@ public class LocalExecutionPlanner
             return taskContext.getTaskId().getStageId();
         }
 
-        public Map<Symbol, Type> getTypes()
+        public TypeProvider getTypes()
         {
             return types;
         }
@@ -1234,7 +1234,7 @@ public class LocalExecutionPlanner
                         context.getSession(),
                         metadata,
                         sqlParser,
-                        ImmutableMap.of(),
+                        TypeProvider.empty(),
                         ImmutableList.copyOf(row),
                         emptyList(),
                         false);
@@ -1938,7 +1938,7 @@ public class LocalExecutionPlanner
                 Expression filterExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout,
-                Map<Symbol, Type> types,
+                TypeProvider types,
                 Session session)
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
@@ -2247,12 +2247,12 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<Type> getSourceOperatorTypes(PlanNode node, Map<Symbol, Type> types)
+        private List<Type> getSourceOperatorTypes(PlanNode node, TypeProvider types)
         {
             return getSymbolTypes(node.getOutputSymbols(), types);
         }
 
-        private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, Type> types)
+        private List<Type> getSymbolTypes(List<Symbol> symbols, TypeProvider types)
         {
             return symbols.stream()
                     .map(types::get)
