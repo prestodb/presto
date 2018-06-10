@@ -126,9 +126,9 @@ public class SymbolAllocator
         return newSymbol(nameHint, field.getType());
     }
 
-    public Map<Symbol, Type> getTypes()
+    public TypeProvider getTypes()
     {
-        return symbols;
+        return TypeProvider.viewOf(symbols);
     }
 
     private int nextId()

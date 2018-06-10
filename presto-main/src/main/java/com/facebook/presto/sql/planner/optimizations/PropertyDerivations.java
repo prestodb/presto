@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -106,7 +107,7 @@ public class PropertyDerivations
 {
     private PropertyDerivations() {}
 
-    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
                 .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
@@ -114,7 +115,7 @@ public class PropertyDerivations
         return deriveProperties(node, inputProperties, metadata, session, types, parser);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
 
@@ -131,7 +132,7 @@ public class PropertyDerivations
         return output;
     }
 
-    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         return node.accept(new Visitor(metadata, session, types, parser), inputProperties);
     }
@@ -141,10 +142,10 @@ public class PropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final SqlParser parser;
 
-        public Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+        public Visitor(Metadata metadata, Session session, TypeProvider types, SqlParser parser)
         {
             this.metadata = metadata;
             this.session = session;

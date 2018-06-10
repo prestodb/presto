@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -61,7 +62,7 @@ public class PlanNodeStatsEstimate
      * Returns estimated data size.
      * Unknown value is represented by {@link Double#NaN}
      */
-    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols, Map<Symbol, Type> types)
+    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols, TypeProvider types)
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 

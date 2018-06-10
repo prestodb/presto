@@ -23,11 +23,10 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
@@ -37,7 +36,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -60,7 +58,7 @@ public class RuleAssert
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-    private Map<Symbol, Type> symbols;
+    private TypeProvider types;
     private PlanNode plan;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
@@ -95,7 +93,7 @@ public class RuleAssert
 
         PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
         plan = planProvider.apply(builder);
-        symbols = builder.getSymbols();
+        types = builder.getTypes();
         return this;
     }
 
@@ -114,7 +112,7 @@ public class RuleAssert
     public void matches(PlanMatchPattern pattern)
     {
         RuleApplication ruleApplication = applyRule();
-        Map<Symbol, Type> types = ruleApplication.types;
+        TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
             fail(String.format(
@@ -150,7 +148,7 @@ public class RuleAssert
 
     private RuleApplication applyRule()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        SymbolAllocator symbolAllocator = new SymbolAllocator(types.allTypes());
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
@@ -175,7 +173,7 @@ public class RuleAssert
         return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
     }
 
-    private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
+    private String formatPlan(PlanNode plan, TypeProvider types)
     {
         return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionRegistry(), statsCalculator, costCalculator, session, 2));
     }
@@ -193,8 +191,8 @@ public class RuleAssert
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
 
         return new Rule.Context()
         {
@@ -240,10 +238,10 @@ public class RuleAssert
     {
         private final Lookup lookup;
         private final StatsProvider statsProvider;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, StatsProvider statsProvider, Map<Symbol, Type> types, Rule.Result result)
+        public RuleApplication(Lookup lookup, StatsProvider statsProvider, TypeProvider types, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");

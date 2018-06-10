@@ -52,7 +52,6 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -122,7 +121,7 @@ public class TestDomainTranslator
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
     private static final Symbol C_REAL = new Symbol("c_real");
 
-    private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
+    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(C_BIGINT, BIGINT)
             .put(C_DOUBLE, DOUBLE)
             .put(C_VARCHAR, VARCHAR)
@@ -147,7 +146,7 @@ public class TestDomainTranslator
             .put(C_SMALLINT, SMALLINT)
             .put(C_TINYINT, TINYINT)
             .put(C_REAL, REAL)
-            .build();
+            .build());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());

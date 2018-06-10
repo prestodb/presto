@@ -15,21 +15,23 @@ package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class StatsContext
 {
     private final Map<String, Symbol> columnSymbols;
-    private final Map<Symbol, Type> symbolTypes;
+    private final TypeProvider types;
 
-    public StatsContext(Map<String, Symbol> columnSymbols, Map<Symbol, Type> symbolTypes)
+    public StatsContext(Map<String, Symbol> columnSymbols, TypeProvider types)
     {
         this.columnSymbols = ImmutableMap.copyOf(columnSymbols);
-        this.symbolTypes = ImmutableMap.copyOf(symbolTypes);
+        this.types = requireNonNull(types, "symbolTypes is null");
     }
 
     public Symbol getSymbolForColumn(String columnName)
@@ -40,7 +42,6 @@ public class StatsContext
 
     public Type getTypeForSymbol(Symbol symbol)
     {
-        checkArgument(symbolTypes.containsKey(symbol), "no type found found for symbol '" + symbol + "'");
-        return symbolTypes.get(symbol);
+        return types.get(symbol);
     }
 }

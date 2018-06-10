@@ -59,6 +59,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.tree.Cast;
@@ -191,7 +192,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_integer"), 9)
             .build();
 
-    private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
+    private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
             .put(new Symbol("bound_string"), VARCHAR)
             .put(new Symbol("bound_double"), DOUBLE)
@@ -202,7 +203,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_WITH_TIME_ZONE)
             .put(new Symbol("bound_binary_literal"), VARBINARY)
             .put(new Symbol("bound_integer"), INTEGER)
-            .build();
+            .build());
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
@@ -730,12 +731,12 @@ public final class FunctionAssertions
         return results;
     }
 
-    public static Expression createExpression(String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
+    public static Expression createExpression(String expression, Metadata metadata, TypeProvider symbolTypes)
     {
         return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
     }
 
-    public static Expression createExpression(Session session, String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
+    public static Expression createExpression(Session session, String expression, Metadata metadata, TypeProvider symbolTypes)
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
 

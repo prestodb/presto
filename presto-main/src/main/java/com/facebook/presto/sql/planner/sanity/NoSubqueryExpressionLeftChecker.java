@@ -15,16 +15,13 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
-
-import java.util.Map;
 
 import static java.lang.String.format;
 
@@ -32,7 +29,7 @@ public final class NoSubqueryExpressionLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types)
     {
         for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
             new DefaultTraversalVisitor<Void, Void>()

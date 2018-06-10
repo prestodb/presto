@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.concurrent.SetThreadName;
 
@@ -85,7 +86,7 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan = planner.plan(
                         taskContext,
                         fragment.getRoot(),
-                        fragment.getSymbols(),
+                        TypeProvider.copyOf(fragment.getSymbols()),
                         fragment.getPartitioningScheme(),
                         fragment.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
                         fragment.getPartitionedSources(),

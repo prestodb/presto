@@ -15,8 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.inject.BindingAnnotation;
@@ -25,7 +24,6 @@ import javax.inject.Inject;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import java.util.Map;
 
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -46,7 +44,7 @@ public class SelectingStatsCalculator
     }
 
     @Override
-    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         if (SystemSessionProperties.isEnableNewStatsCalculator(session)) {
             return newStatsCalculator.calculateStats(node, sourceStats, lookup, session, types);
