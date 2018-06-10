@@ -34,18 +34,22 @@ public class TestTeradataFunctions
     @Test
     public void testIndex()
     {
-        assertFunction("INDEX('high', 'ig')", BIGINT, 2L);
-        assertFunction("INDEX('high', 'igx')", BIGINT, 0L);
-        assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3L);
-        assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1L);
-        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0L);
-        assertFunction("INDEX('foobar', 'obar')", BIGINT, 3L);
-        assertFunction("INDEX('zoo!', '!')", BIGINT, 4L);
-        assertFunction("INDEX('x', '')", BIGINT, 1L);
-        assertFunction("INDEX('', '')", BIGINT, 1L);
-        assertFunction("INDEX(NULL, '')", BIGINT, null);
-        assertFunction("INDEX('', NULL)", BIGINT, null);
-        assertFunction("INDEX(NULL, NULL)", BIGINT, null);
+        assertFunction("INDEX('high', 'ig', 1)", BIGINT, 2L);
+        assertFunction("INDEX('high', 'igx', 1)", BIGINT, 0L);
+        assertFunction("INDEX('Quadratically', 'a', 1)", BIGINT, 3L);
+        assertFunction("INDEX('Quadratically', 'a', -1)", BIGINT, 10L);
+        assertFunction("INDEX('Quadratically', 'a', 2)", BIGINT, 6L);
+        assertFunction("INDEX('Quadratically', 'a', -2)", BIGINT, 6L);
+        assertInvalidFunction("INDEX('Quadratically', 'a', 0)", "Invalid instance argument");
+        assertFunction("INDEX('foobar', 'foobar', 1)", BIGINT, 1L);
+        assertFunction("INDEX('foobar', 'foobar_baz', 1)", BIGINT, 0L);
+        assertFunction("INDEX('foobar', 'obar', 1)", BIGINT, 3L);
+        assertFunction("INDEX('zoo!', '!', 1)", BIGINT, 4L);
+        assertFunction("INDEX('x', '', 1)", BIGINT, 1L);
+        assertFunction("INDEX('', '', 1)", BIGINT, 1L);
+        assertFunction("INDEX(NULL, '', 1)", BIGINT, null);
+        assertFunction("INDEX('', NULL, 1)", BIGINT, null);
+        assertFunction("INDEX(NULL, NULL, 1)", BIGINT, null);
     }
 
     @Test
