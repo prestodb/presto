@@ -206,6 +206,48 @@ public final class StringFunctions
         return countCodePoints(string, 0, index) + 1;
     }
 
+    @Description("returns index of n-th occurrence (from backwards if n is negative) of a substring (or 0 if not found)")
+    @ScalarFunction("strpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
+    {
+        if (instance == 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid instance argument");
+        }
+        if (substring.length() == 0) {
+            return 1;
+        }
+
+        boolean countBackward = false;
+        if (instance < 0) {
+            countBackward = true;
+            instance *= -1;
+        }
+
+        int foundInstances = 0;
+        // set the initial index beyond the either ends of the string
+        // this is to allow for the initial index decrement/increment
+        int index = countBackward ? string.length() : -1;
+        do {
+            if (countBackward) {
+                // step backwards through string
+                index = string.toStringUtf8().lastIndexOf(substring.toStringUtf8(), index - 1);
+            }
+            else {
+                // step forwards through string
+                index = string.indexOf(substring, index + 1);
+            }
+            if (index < 0) {
+                return 0;
+            }
+            foundInstances++;
+        }
+        while (foundInstances < instance);
+
+        return countCodePoints(string, 0, index) + 1;
+    }
+
     @Description("suffix starting at given index")
     @ScalarFunction
     @LiteralParameters("x")
