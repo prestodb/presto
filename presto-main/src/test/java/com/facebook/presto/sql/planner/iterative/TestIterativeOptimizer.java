@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
@@ -78,7 +79,7 @@ public class TestIterativeOptimizer
 
         try {
             queryRunner.inTransaction(transactionSession -> {
-                queryRunner.createPlan(transactionSession, "SELECT * FROM nation", ImmutableList.of(optimizer));
+                queryRunner.createPlan(transactionSession, "SELECT * FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP);
                 fail("The optimizer should not converge");
                 return null;
             });

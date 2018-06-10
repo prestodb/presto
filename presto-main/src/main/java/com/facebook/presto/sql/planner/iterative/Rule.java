@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -55,6 +56,8 @@ public interface Rule<T>
         CostProvider getCostProvider();
 
         void checkTimeoutNotExhausted();
+
+        WarningCollector getWarningCollector();
     }
 
     final class Result

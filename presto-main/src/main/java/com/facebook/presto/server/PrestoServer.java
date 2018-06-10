@@ -17,6 +17,7 @@ import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
@@ -105,7 +106,8 @@ public class PrestoServer
                 new AccessControlModule(),
                 new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
-                new GracefulShutdownModule());
+                new GracefulShutdownModule(),
+                new WarningCollectorModule());
 
         modules.addAll(getAdditionalModules());
 

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -631,7 +632,8 @@ public final class FunctionAssertions
                 SQL_PARSER,
                 INPUT_TYPES,
                 ImmutableList.of(translatedProjection),
-                ImmutableList.of());
+                ImmutableList.of(),
+                WarningCollector.NOOP);
         return toRowExpression(translatedProjection, expressionTypes);
     }
 
@@ -749,6 +751,7 @@ public final class FunctionAssertions
                 symbolTypes,
                 ImmutableList.of(parsedExpression),
                 ImmutableList.of(),
+                WarningCollector.NOOP,
                 false);
 
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()

@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.BlockedReason;
@@ -160,7 +161,9 @@ public class QueryStateMachine
 
     private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata)
+    private final WarningCollector warningCollector;
+
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata, WarningCollector warningCollector)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -175,6 +178,7 @@ public class QueryStateMachine
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     /**
@@ -189,9 +193,10 @@ public class QueryStateMachine
             TransactionManager transactionManager,
             AccessControl accessControl,
             Executor executor,
-            Metadata metadata)
+            Metadata metadata,
+            WarningCollector warningCollector)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata);
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata, warningCollector);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -204,7 +209,8 @@ public class QueryStateMachine
             AccessControl accessControl,
             Executor executor,
             Ticker ticker,
-            Metadata metadata)
+            Metadata metadata,
+            WarningCollector warningCollector)
     {
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
@@ -219,7 +225,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata, warningCollector);
         queryStateMachine.addStateChangeListener(newState -> {
             log.debug("Query %s is %s", queryId, newState);
             if (newState.isDone()) {
@@ -249,7 +255,7 @@ public class QueryStateMachine
             Metadata metadata,
             Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata, WarningCollector.NOOP);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -282,6 +288,11 @@ public class QueryStateMachine
     public long getPeakTaskTotalMemory()
     {
         return peakTaskTotalMemory.get();
+    }
+
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
     }
 
     public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long taskTotalMemoryInBytes)
@@ -562,6 +573,7 @@ public class QueryStateMachine
                 rootStage,
                 failureCause,
                 errorCode,
+                warningCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
                 completeInfo,
@@ -964,6 +976,7 @@ public class QueryStateMachine
                 Optional.of(prunedOutputStage),
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
+                queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),
