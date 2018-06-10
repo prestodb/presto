@@ -754,12 +754,6 @@ let QueryDetail = React.createClass({
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
             $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory,  $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
-            if (this.state.lastRender === null) {
-                $('#query').each((i, block) => {
-                  hljs.highlightBlock(block);
-                });
-            }
-
             this.setState({
                 lastRender: renderTimestamp,
             });
