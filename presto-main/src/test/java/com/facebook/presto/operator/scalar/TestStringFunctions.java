@@ -269,45 +269,47 @@ public class TestStringFunctions
     @Test
     public void testStringPosition()
     {
-        testStrPosAndPosition("high", "ig", 1, 2L);
-        testStrPosAndPosition("high", "igx", 1, 0L);
-        testStrPosAndPosition("Quadratically", "a", 1, 3L);
-        testStrPosAndPosition("Quadratically", "a", -2, 6L);
-        testStrPosAndPosition("foobar", "foobar", 1, 1L);
-        testStrPosAndPosition("foobar", "oobar", -1, 2L);
-        testStrPosAndPosition("zoo!", "!", 1, 4L);
-        testStrPosAndPosition("x", "", 1, 1L);
-        testStrPosAndPosition("", "", 1, 1L);
+        testStrPosAndPosition("high", "ig", 2L);
+        testStrPosAndPosition("high", "igx", 0L);
+        testStrPosAndPosition("Quadratically", "a", 3L);
+        testStrPosAndPosition("foobar", "foobar", 1L);
+        testStrPosAndPosition("foobar", "obar", 3L);
+        testStrPosAndPosition("zoo!", "!", 4L);
+        testStrPosAndPosition("x", "", 1L);
+        testStrPosAndPosition("", "", 1L);
 
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 1, 4L);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 1, 6L);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 1, 0L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 4L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 6L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0L);
 
-        testStrPosAndPosition(null, "", 1, null);
-        testStrPosAndPosition(null, "", -1, null);
-        testStrPosAndPosition("", null, 1, null);
-        testStrPosAndPosition("", null, -1, null);
-        testStrPosAndPosition(null, null, 1, null);
-        testStrPosAndPosition(null, null, -1, null);
+        testStrPosAndPosition(null, "", null);
+        testStrPosAndPosition("", null, null);
+        testStrPosAndPosition(null, null, null);
 
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", 1, 4L);
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", 2, 8L);
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", 3, 12L);
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", 4, 0L);
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", -1, 12L);
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", -3, 4L);
-        testStrPosAndPosition("abc/xyz/foo/bar", "/", -4, 0L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -1)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -3)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -4)", BIGINT, 0L);
+        assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
+        assertFunction("STRPOS('highhigh', 'ig', -1)", BIGINT, 6L);
+        assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
+        assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
+        assertFunction("STRPOS('foobarfoo', 'obar', -1)", BIGINT, 3L);
         // assert invalid argument in case of instance equal to 0
         assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "Invalid instance argument");
         assertInvalidFunction("STRPOS('', '', 0)", "Invalid instance argument");
     }
 
-    private void testStrPosAndPosition(String string, String substring, Integer instance, Long expected)
+    private void testStrPosAndPosition(String string, String substring, Long expected)
     {
         string = (string == null) ? "NULL" : ("'" + string + "'");
         substring = (substring == null) ? "NULL" : ("'" + substring + "'");
 
-        assertFunction(format("STRPOS(%s, %s, %d)", string, substring, instance), BIGINT, expected);
+        assertFunction(format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
+        assertFunction(format("POSITION(%s in %s)", substring, string), BIGINT, expected);
     }
 
     @Test

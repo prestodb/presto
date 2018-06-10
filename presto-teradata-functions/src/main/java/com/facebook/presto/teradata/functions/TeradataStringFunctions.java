@@ -43,14 +43,13 @@ public final class TeradataStringFunctions
             @FunctionDependency(
                     name = "strpos",
                     returnType = StandardTypes.BIGINT,
-                    argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR, StandardTypes.BIGINT})
+                    argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR})
                     MethodHandle method,
             @SqlType(StandardTypes.VARCHAR) Slice string,
-            @SqlType(StandardTypes.VARCHAR) Slice substring,
-            @SqlType(StandardTypes.BIGINT) long instance)
+            @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
         try {
-            return (long) method.invokeExact(string, substring, instance);
+            return (long) method.invokeExact(string, substring);
         }
         catch (Throwable t) {
             throwIfInstanceOf(t, Error.class);

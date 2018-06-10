@@ -32,8 +32,8 @@ public class ProductTestFunctions
     }
 
     @Test(groups = FUNCTIONS)
-    public void testStrPos()
+    public void testPosition()
     {
-        assertThat(onPresto().executeQuery("SELECT STRPOS('ala ma kota', 'ma', 1)")).contains(row(5));
+        assertThat(onPresto().executeQuery("SELECT POSITION('ma' IN 'ala ma kota')")).contains(row(5));
     }
 }

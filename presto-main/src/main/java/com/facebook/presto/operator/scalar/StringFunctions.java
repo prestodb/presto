@@ -193,6 +193,23 @@ public final class StringFunctions
     @ScalarFunction("strpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
+    public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
+    {
+        if (substring.length() == 0) {
+            return 1;
+        }
+
+        int index = string.indexOf(substring);
+        if (index < 0) {
+            return 0;
+        }
+        return countCodePoints(string, 0, index) + 1;
+    }
+
+    @Description("returns index of n-th occurrence (from backwards if n is negative) of a substring (or 0 if not found)")
+    @ScalarFunction("strpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
     {
         if (instance == 0) {

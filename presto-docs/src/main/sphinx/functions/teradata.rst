@@ -11,7 +11,7 @@ String Functions
 
     Returns the hexadecimal representation of the UTF-16BE encoding of the string.
 
-.. function:: index(string, substring, instance) -> bigint
+.. function:: index(string, substring) -> bigint
 
     Alias for :func:`strpos` function.
 

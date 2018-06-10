@@ -118,11 +118,16 @@ String Functions
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value.
 
+.. function:: strpos(string, substring) -> bigint
+
+    Returns the starting position of the first instance of ``substring`` in
+    ``string``. Positions start with ``1``. If not found, ``0`` is returned.
+
 .. function:: strpos(string, substring, instance) -> bigint
 
     Returns the position of the n-th ``instance`` of ``substring`` in
     ``string``. If ``instance`` is negative, it counts backwards from the end.
-    Positions start with ``1``. If not found, ``0`` is returned. An exception is thrown if ``instance`` is ``0``.
+    Positions start with ``1``. If not found, ``0`` is returned. Error is thrown if ``instance`` is ``0``.
 
 .. function:: position(substring IN string) -> bigint
 
