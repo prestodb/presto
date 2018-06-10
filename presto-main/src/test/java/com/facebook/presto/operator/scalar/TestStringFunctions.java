@@ -291,17 +291,50 @@ public class TestStringFunctions
         assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
         assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
         assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -1)", BIGINT, 12L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -3)", BIGINT, 4L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -4)", BIGINT, 0L);
         assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
-        assertFunction("STRPOS('highhigh', 'ig', -1)", BIGINT, 6L);
         assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
         assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
-        assertFunction("STRPOS('foobarfoo', 'obar', -1)", BIGINT, 3L);
         // assert invalid argument in case of instance equal to 0
         assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "Invalid instance argument");
         assertInvalidFunction("STRPOS('', '', 0)", "Invalid instance argument");
+        assertInvalidFunction("STRPOS('highhigh', 'ig', -1)", "Invalid instance argument");
+        assertInvalidFunction("STRPOS('foobarfoo', 'oo', -2)", "Invalid instance argument");
+    }
+
+    @Test
+    public void testStringReversePosition()
+    {
+        testStrReversePosAndPosition("high", "ig", 2L);
+        testStrReversePosAndPosition("high", "igx", 0L);
+        testStrReversePosAndPosition("Quadratically", "a", 10L);
+        testStrReversePosAndPosition("foobar", "foobar", 1L);
+        testStrReversePosAndPosition("foobar", "obar", 3L);
+        testStrReversePosAndPosition("zoo!", "!", 4L);
+        testStrReversePosAndPosition("x", "", 1L);
+        testStrReversePosAndPosition("", "", 1L);
+        testStrReversePosAndPosition("abc/xyz/foo/bar", "/", 12L);
+
+        testStrReversePosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 2L);
+        testStrReversePosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 3L);
+        testStrReversePosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0L);
+
+        testStrReversePosAndPosition(null, "", null);
+        testStrReversePosAndPosition("", null, null);
+        testStrReversePosAndPosition(null, null, null);
+
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/')", BIGINT, 12L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 12L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 4L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
+        assertFunction("STRRPOS('highhigh', 'ig', 1)", BIGINT, 6L);
+        assertFunction("STRRPOS('highhigh', 'ig', 2)", BIGINT, 2L);
+        assertFunction("STRRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
+        assertFunction("STRRPOS('foobarfoo', 'oo', 1)", BIGINT, 8L);
+        // assert invalid argument in case of instance equal to 0
+        assertInvalidFunction("STRRPOS('abc/xyz/foo/bar', '/', 0)", "Invalid instance argument");
+        assertInvalidFunction("STRRPOS('', '', 0)", "Invalid instance argument");
+        assertInvalidFunction("STRRPOS('foobarfoo', 'obar', -1)", "Invalid instance argument");
     }
 
     private void testStrPosAndPosition(String string, String substring, Long expected)
@@ -311,6 +344,14 @@ public class TestStringFunctions
 
         assertFunction(format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
         assertFunction(format("POSITION(%s in %s)", substring, string), BIGINT, expected);
+    }
+
+    private void testStrReversePosAndPosition(String string, String substring, Long expected)
+    {
+        string = (string == null) ? "NULL" : ("'" + string + "'");
+        substring = (substring == null) ? "NULL" : ("'" + substring + "'");
+
+        assertFunction(format("STRRPOS(%s, %s)", string, substring), BIGINT, expected);
     }
 
     @Test

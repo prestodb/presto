@@ -142,9 +142,20 @@ String Functions
 
 .. function:: strpos(string, substring, instance) -> bigint
 
-    Returns the position of the n-th ``instance`` of ``substring`` in
-    ``string``. If ``instance`` is negative, it counts backwards from the end.
-    Positions start with ``1``. If not found, ``0`` is returned. Error is thrown if ``instance`` is ``0``.
+    Returns the position of the n-th ``instance`` of ``substring`` in ``string``.
+    ``instance`` should be a positive number. Error is thrown if ``instance`` is ``0`` or negative.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strrpos(string, substring) -> bigint
+
+    Returns the starting position of the first instance of ``substring`` in ``string`` from the back.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strrpos(string, substring, instance) -> bigint
+
+    Returns the position of the n-th ``instance`` of ``substring`` in ``string`` from the back.
+    ``instance`` should be a positive number. Error is thrown if ``instance`` is ``0`` or negative.
+    Positions start with ``1``. If not found, ``0`` is returned.
 
 .. function:: position(substring IN string) -> bigint
 
