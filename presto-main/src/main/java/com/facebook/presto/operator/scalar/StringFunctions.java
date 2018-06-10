@@ -195,34 +195,43 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
     {
-        if (substring.length() == 0) {
-            return 1;
-        }
-
-        int index = string.indexOf(substring);
-        if (index < 0) {
-            return 0;
-        }
-        return countCodePoints(string, 0, index) + 1;
+        return stringPositionUtil(string, substring, 1, false);
     }
 
-    @Description("returns index of n-th occurrence (from backwards if n is negative) of a substring (or 0 if not found)")
+    @Description("returns index of n-th occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
     {
-        if (instance == 0) {
+        return stringPositionUtil(string, substring, instance, false);
+    }
+
+    @Description("returns index of first occurrence of a substring from the back (or 0 if not found)")
+    @ScalarFunction("strrpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringReversePosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
+    {
+        return stringPositionUtil(string, substring, 1, true);
+    }
+
+    @Description("returns index of n-th occurrence of a substring from the back (or 0 if not found)")
+    @ScalarFunction("strrpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringReversePosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
+    {
+        return stringPositionUtil(string, substring, instance, true);
+    }
+
+    private static long stringPositionUtil(Slice string, Slice substring, long instance, boolean countBackward)
+    {
+        if (instance <= 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid instance argument");
         }
         if (substring.length() == 0) {
             return 1;
-        }
-
-        boolean countBackward = false;
-        if (instance < 0) {
-            countBackward = true;
-            instance *= -1;
         }
 
         int foundInstances = 0;
