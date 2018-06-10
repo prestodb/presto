@@ -15,13 +15,11 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,16 +37,16 @@ public class StatsCalculatorAssertion
     private final StatsCalculator statsCalculator;
     private final Session session;
     private final PlanNode planNode;
-    private final Map<Symbol, Type> types;
+    private final TypeProvider types;
 
     private Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
 
-    public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, Map<Symbol, Type> types)
+    public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator can not be null");
         this.session = requireNonNull(session, "sesssion can not be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
-        this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+        this.types = requireNonNull(types, "types is null");
 
         sourcesStats = new HashMap<>();
         planNode.getSources().forEach(child -> sourcesStats.put(child, UNKNOWN_STATS));
@@ -89,7 +87,7 @@ public class StatsCalculatorAssertion
         return this;
     }
 
-    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         return rule.calculate((T) node, sourceStats, lookup, session, types);
     }

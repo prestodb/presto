@@ -18,8 +18,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -42,7 +42,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -91,7 +90,7 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, TypeProvider types)
     {
         CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, types);
         return node.accept(costEstimator, null);
@@ -102,9 +101,9 @@ public class CostCalculatorUsingExchanges
     {
         private final int numberOfNodes;
         private final StatsProvider stats;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        CostEstimator(int numberOfNodes, StatsProvider stats, Map<Symbol, Type> types)
+        CostEstimator(int numberOfNodes, StatsProvider stats, TypeProvider types)
         {
             this.numberOfNodes = numberOfNodes;
             this.stats = requireNonNull(stats, "stats is null");
@@ -251,7 +250,7 @@ public class CostCalculatorUsingExchanges
             List<Symbol> symbols,
             ExchangeNode.Type type,
             ExchangeNode.Scope scope,
-            Map<Symbol, Type> types)
+            TypeProvider types)
     {
         double exchangeSize = exchangeStats.getOutputSizeInBytes(symbols, types);
 

@@ -48,6 +48,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
@@ -227,7 +228,7 @@ public abstract class AbstractOperatorBenchmark
         verify(hashExpression.isPresent());
         projections.add(new InterpretedPageProjection(
                 hashExpression.get(),
-                symbolTypes.build(),
+                TypeProvider.copyOf(symbolTypes.build()),
                 symbolToInputMapping.build(),
                 localQueryRunner.getMetadata(),
                 localQueryRunner.getSqlParser(),

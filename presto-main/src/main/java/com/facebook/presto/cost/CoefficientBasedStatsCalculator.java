@@ -19,8 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -38,8 +37,6 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-
-import java.util.Map;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +63,7 @@ public class CoefficientBasedStatsCalculator
     }
 
     @Override
-    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         Visitor visitor = new Visitor(sourceStats, session);
         return node.accept(visitor, null);

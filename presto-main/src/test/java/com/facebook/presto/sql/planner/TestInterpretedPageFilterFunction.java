@@ -196,8 +196,8 @@ public class TestInterpretedPageFilterFunction
     private static void assertFilter(String expression, boolean expectedValue)
     {
         InterpretedPageFilter filterFunction = new InterpretedPageFilter(
-                createExpression(expression, METADATA, ImmutableMap.of()),
-                ImmutableMap.of(),
+                createExpression(expression, METADATA, TypeProvider.empty()),
+                TypeProvider.empty(),
                 ImmutableMap.of(),
                 METADATA,
                 SQL_PARSER,

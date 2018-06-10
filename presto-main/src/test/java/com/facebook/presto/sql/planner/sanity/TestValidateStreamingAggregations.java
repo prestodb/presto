@@ -18,10 +18,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -34,7 +33,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -114,7 +112,7 @@ public class TestValidateStreamingAggregations
     {
         PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
         PlanNode planNode = planProvider.apply(builder);
-        Map<Symbol, Type> types = builder.getSymbols();
+        TypeProvider types = builder.getTypes();
 
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction

@@ -16,14 +16,13 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ListMultimap;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndCollapseDistinctValues;
@@ -47,7 +46,7 @@ public class UnionStatsRule
     }
 
     @Override
-    protected final Optional<PlanNodeStatsEstimate> doCalculate(UnionNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected final Optional<PlanNodeStatsEstimate> doCalculate(UnionNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
     {
         checkArgument(!node.getSources().isEmpty(), "Empty Union is not supported");
 

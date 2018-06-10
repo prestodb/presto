@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingConnectorIndexHandle;
 import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -77,7 +78,6 @@ import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -733,8 +733,8 @@ public class PlanBuilder
                 .collect(toImmutableList());
     }
 
-    public Map<Symbol, Type> getSymbols()
+    public TypeProvider getTypes()
     {
-        return Collections.unmodifiableMap(symbols);
+        return TypeProvider.copyOf(symbols);
     }
 }

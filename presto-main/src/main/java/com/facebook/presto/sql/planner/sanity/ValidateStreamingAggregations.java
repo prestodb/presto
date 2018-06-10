@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.LocalProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -31,7 +31,6 @@ import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
@@ -44,7 +43,7 @@ public class ValidateStreamingAggregations
         implements Checker
 {
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types)
     {
         planNode.accept(new Visitor(session, metadata, sqlParser, types), null);
     }
@@ -55,9 +54,9 @@ public class ValidateStreamingAggregations
         private final Session sesstion;
         private final Metadata metadata;
         private final SqlParser sqlParser;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, TypeProvider types)
         {
             this.sesstion = sesstion;
             this.metadata = metadata;

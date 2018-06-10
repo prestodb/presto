@@ -41,6 +41,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -898,7 +899,7 @@ class StatementAnalyzer
                     session,
                     metadata,
                     sqlParser,
-                    ImmutableMap.of(),
+                    TypeProvider.empty(),
                     relation.getSamplePercentage(),
                     analysis.getParameters(),
                     analysis.isDescribe());

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -52,7 +53,7 @@ public final class TypeValidator
     public TypeValidator() {}
 
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types)
     {
         plan.accept(new Visitor(session, metadata, sqlParser, types), null);
     }
@@ -63,9 +64,9 @@ public final class TypeValidator
         private final Session session;
         private final Metadata metadata;
         private final SqlParser sqlParser;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
