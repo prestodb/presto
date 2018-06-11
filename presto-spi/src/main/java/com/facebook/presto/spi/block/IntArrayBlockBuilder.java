@@ -30,6 +30,7 @@ public class IntArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlockBuilder.class).instanceSize();
+    private static final Block NULL_VALUE_BLOCK = new IntArrayBlock(1, new boolean[] {true}, new int[1]);
 
     @Nullable
     private BlockBuilderStatus blockBuilderStatus;
@@ -37,6 +38,7 @@ public class IntArrayBlockBuilder
     private int initialEntryCount;
 
     private int positionCount;
+    private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
     private boolean[] valueIsNull = new boolean[0];
@@ -61,6 +63,7 @@ public class IntArrayBlockBuilder
 
         values[positionCount] = value;
 
+        hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Byte.BYTES + Integer.BYTES);
@@ -93,6 +96,9 @@ public class IntArrayBlockBuilder
     @Override
     public Block build()
     {
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
         return new IntArrayBlock(positionCount, valueIsNull, values);
     }
 
@@ -198,6 +204,9 @@ public class IntArrayBlockBuilder
     {
         checkArrayRange(positions, offset, length);
 
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
         boolean[] newValueIsNull = new boolean[length];
         int[] newValues = new int[length];
         for (int i = 0; i < length; i++) {
@@ -214,6 +223,9 @@ public class IntArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
         return new IntArrayBlock(positionOffset, length, valueIsNull, values);
     }
 
@@ -222,6 +234,9 @@ public class IntArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         int[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
         return new IntArrayBlock(length, newValueIsNull, newValues);

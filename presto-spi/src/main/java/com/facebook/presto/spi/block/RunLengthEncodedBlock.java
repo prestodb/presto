@@ -34,6 +34,9 @@ public class RunLengthEncodedBlock
     public static Block create(Type type, Object value, int positionCount)
     {
         Block block = Utils.nativeValueToBlock(type, value);
+        if (block instanceof RunLengthEncodedBlock) {
+            block = ((RunLengthEncodedBlock) block).getValue();
+        }
         return new RunLengthEncodedBlock(block, positionCount);
     }
 
@@ -47,16 +50,17 @@ public class RunLengthEncodedBlock
             throw new IllegalArgumentException(format("Expected value to contain a single position but has %s positions", value.getPositionCount()));
         }
 
-        // value can not be a RunLengthEncodedBlock because this could cause stack overflow in some of the methods
         if (value instanceof RunLengthEncodedBlock) {
-            throw new IllegalArgumentException(format("Value can not be an instance of a %s", getClass().getName()));
+            this.value = ((RunLengthEncodedBlock) value).getValue();
+        }
+        else {
+            this.value = value;
         }
 
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        this.value = value;
         this.positionCount = positionCount;
     }
 
