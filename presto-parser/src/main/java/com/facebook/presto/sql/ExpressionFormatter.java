@@ -505,9 +505,9 @@ public final class ExpressionFormatter
                     .append(" LIKE ")
                     .append(process(node.getPattern(), context));
 
-            if (node.getEscape() != null) {
+            if (node.getEscape().isPresent()) {
                 builder.append(" ESCAPE ")
-                        .append(process(node.getEscape(), context));
+                        .append(process(node.getEscape().get(), context));
             }
 
             builder.append(')');

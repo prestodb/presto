@@ -617,9 +617,10 @@ public class ExpressionAnalyzer
             Type patternType = getVarcharType(node.getPattern(), context);
             coerceType(context, node.getValue(), valueType, "Left side of LIKE expression");
             coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
-            if (node.getEscape() != null) {
-                Type escapeType = getVarcharType(node.getEscape(), context);
-                coerceType(context, node.getEscape(), escapeType, "Escape for LIKE expression");
+            if (node.getEscape().isPresent()) {
+                Expression escape = node.getEscape().get();
+                Type escapeType = getVarcharType(escape, context);
+                coerceType(context, escape, escapeType, "Escape for LIKE expression");
             }
 
             return setExpressionType(node, BOOLEAN);

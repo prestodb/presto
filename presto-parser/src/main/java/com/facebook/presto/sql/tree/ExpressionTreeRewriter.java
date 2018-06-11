@@ -622,12 +622,10 @@ public final class ExpressionTreeRewriter<C>
 
             Expression value = rewrite(node.getValue(), context.get());
             Expression pattern = rewrite(node.getPattern(), context.get());
-            Expression escape = null;
-            if (node.getEscape() != null) {
-                escape = rewrite(node.getEscape(), context.get());
-            }
+            Optional<Expression> escape = node.getEscape()
+                    .map(e -> rewrite(e, context.get()));
 
-            if (value != node.getValue() || pattern != node.getPattern() || escape != node.getEscape()) {
+            if (value != node.getValue() || pattern != node.getPattern() || !sameElements(node.getEscape(), escape)) {
                 return new LikePredicate(value, pattern, escape);
             }
 
