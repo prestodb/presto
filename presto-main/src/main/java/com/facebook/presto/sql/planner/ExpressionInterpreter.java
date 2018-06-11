@@ -1015,7 +1015,7 @@ public class ExpressionInterpreter
 
             if (value instanceof Slice &&
                     node.getPattern() instanceof StringLiteral &&
-                    (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
+                    (!node.getEscape().isPresent() || node.getEscape().get() instanceof StringLiteral)) {
                 // fast path when we know the pattern and escape are constant
                 return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
             }
@@ -1027,8 +1027,8 @@ public class ExpressionInterpreter
             }
 
             Object escape = null;
-            if (node.getEscape() != null) {
-                escape = process(node.getEscape(), context);
+            if (node.getEscape().isPresent()) {
+                escape = process(node.getEscape().get(), context);
 
                 if (escape == null) {
                     return null;
@@ -1069,9 +1069,9 @@ public class ExpressionInterpreter
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, valueExpression, patternExpression);
             }
 
-            Expression optimizedEscape = null;
-            if (node.getEscape() != null) {
-                optimizedEscape = toExpression(escape, type(node.getEscape()));
+            Optional<Expression> optimizedEscape = Optional.empty();
+            if (node.getEscape().isPresent()) {
+                optimizedEscape = Optional.of(toExpression(escape, type(node.getEscape().get())));
             }
 
             return new LikePredicate(
@@ -1097,13 +1097,13 @@ public class ExpressionInterpreter
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
-                StringLiteral escape = (StringLiteral) node.getEscape();
 
-                if (escape == null) {
-                    result = LikeFunctions.likePattern(pattern.getSlice());
+                if (node.getEscape().isPresent()) {
+                    Slice escape = ((StringLiteral) node.getEscape().get()).getSlice();
+                    result = LikeFunctions.likePattern(pattern.getSlice(), escape);
                 }
                 else {
-                    result = LikeFunctions.likePattern(pattern.getSlice(), escape.getSlice());
+                    result = LikeFunctions.likePattern(pattern.getSlice());
                 }
 
                 likePatternCache.put(node, result);
