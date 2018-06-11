@@ -22,6 +22,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -57,6 +58,7 @@ public final class Session
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final SqlPath path;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
@@ -80,6 +82,7 @@ public final class Session
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            SqlPath path,
             Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
@@ -102,6 +105,7 @@ public final class Session
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.path = requireNonNull(path, "path is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -159,6 +163,11 @@ public final class Session
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    public SqlPath getPath()
+    {
+        return path;
     }
 
     public TimeZoneKey getTimeZoneKey()
@@ -309,6 +318,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                path,
                 traceToken,
                 timeZoneKey,
                 locale,
@@ -352,6 +362,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                path,
                 traceToken,
                 timeZoneKey,
                 locale,
@@ -377,6 +388,7 @@ public final class Session
                 .add("source", source.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
+                .add("path", path)
                 .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
@@ -410,6 +422,7 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
+        private SqlPath path;
         private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();
@@ -440,6 +453,7 @@ public final class Session
             this.identity = session.identity;
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
+            this.path = session.path;
             this.schema = session.schema.orElse(null);
             this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
@@ -494,6 +508,12 @@ public final class Session
         public SessionBuilder setSchema(String schema)
         {
             this.schema = schema;
+            return this;
+        }
+
+        public SessionBuilder setPath(SqlPath path)
+        {
+            this.path = path;
             return this;
         }
 
@@ -588,6 +608,7 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
+                    path,
                     traceToken,
                     timeZoneKey,
                     locale,

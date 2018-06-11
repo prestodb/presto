@@ -22,7 +22,6 @@ import java.util.Optional;
 public class CurrentPath
         extends Expression
 {
-
     public CurrentPath(NodeLocation location)
     {
         this(Optional.of(location));
