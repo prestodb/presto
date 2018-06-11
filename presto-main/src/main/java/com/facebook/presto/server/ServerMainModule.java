@@ -134,6 +134,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -261,6 +262,8 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
         configBinder(binder).bindConfig(QueryManagerConfig.class);
+
+        configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
 

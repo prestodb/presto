@@ -34,7 +34,6 @@ public class SetPathTask
     @Override
     public ListenableFuture<?> execute(SetPath statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        //TODO: implementation
         throw new UnsupportedOperationException("SET PATH not implemented yet");
     }
 }
