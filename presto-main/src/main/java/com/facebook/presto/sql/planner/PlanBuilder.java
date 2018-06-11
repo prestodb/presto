@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -102,13 +101,10 @@ class PlanBuilder
         }
 
         ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
-        ParameterRewriter parameterRewriter = new ParameterRewriter(parameters, getAnalysis());
         for (Expression expression : expressions) {
-            Expression rewritten = ExpressionTreeRewriter.rewriteWith(parameterRewriter, expression);
-            translations.addIntermediateMapping(expression, rewritten);
-            Symbol symbol = symbolAllocator.newSymbol(rewritten, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(symbol, translations.rewrite(rewritten));
-            newTranslations.put(symbol, rewritten);
+            Symbol symbol = symbolAllocator.newSymbol(expression, getAnalysis().getTypeWithCoercions(expression));
+            projections.put(symbol, translations.rewrite(expression));
+            newTranslations.put(symbol, expression);
         }
         // Now append the new translations into the TranslationMap
         for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {

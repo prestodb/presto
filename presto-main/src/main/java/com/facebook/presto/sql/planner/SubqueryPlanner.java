@@ -31,7 +31,6 @@ import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -192,10 +191,10 @@ class SubqueryPlanner
         subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), symbolAllocator, idAllocator);
         SymbolReference valueList = subqueryPlan.translate(valueListSubquery).toSymbolReference();
 
-        InPredicate parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters, analysis), inPredicate);
-        InPredicate inPredicateSubqueryExpression = new InPredicate(subPlan.translate(parametersReplaced.getValue()).toSymbolReference(), valueList);
+        Symbol rewrittenValue = subPlan.translate(inPredicate.getValue());
+        InPredicate inPredicateSubqueryExpression = new InPredicate(rewrittenValue.toSymbolReference(), valueList);
         Symbol inPredicateSubquerySymbol = symbolAllocator.newSymbol(inPredicateSubqueryExpression, BOOLEAN);
-        subPlan.getTranslations().put(parametersReplaced, inPredicateSubquerySymbol);
+
         subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
 
         return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
@@ -341,7 +340,7 @@ class SubqueryPlanner
                                 quantifiedComparison.getSubquery());
                         Expression notAny = new NotExpression(rewrittenAny);
                         // "A <> ALL B" is equivalent to "NOT (A = ANY B)" so add a rewrite for the initial quantifiedComparison to notAny
-                        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAny);
+                        subPlan.getTranslations().put(quantifiedComparison, subPlan.getTranslations().rewrite(notAny));
                         // now plan "A = ANY B" part by calling ourselves for rewrittenAny
                         return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed, node);
                     case ANY:
@@ -354,7 +353,7 @@ class SubqueryPlanner
                                 quantifiedComparison.getSubquery());
                         Expression notAll = new NotExpression(rewrittenAll);
                         // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
-                        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAll);
+                        subPlan.getTranslations().put(quantifiedComparison, subPlan.getTranslations().rewrite(notAll));
                         // now plan "A = ALL B" part by calling ourselves for rewrittenAll
                         return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, correlationAllowed, node);
                 }
