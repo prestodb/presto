@@ -49,13 +49,6 @@ public final class OrcInputStream
     private byte[] buffer;
     private final LocalMemoryContext bufferMemoryUsage;
 
-    // When uncompressed,
-    // * This tracks the memory usage of `current`.
-    // When compressed,
-    // * This tracks the memory usage of compressedSliceInput.
-    // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
-    private final LocalMemoryContext fixedMemoryUsage;
-
     public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AggregatedMemoryContext systemMemoryContext)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
@@ -64,10 +57,11 @@ public final class OrcInputStream
 
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
 
+        // memory reserved in the systemMemoryContext is never release and instead it is
+        // expected that the context itself will be destroyed at the end of the read
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext();
-        this.fixedMemoryUsage = systemMemoryContext.newLocalMemoryContext();
-        this.fixedMemoryUsage.setBytes(sliceInput.getRetainedSize());
+        systemMemoryContext.newLocalMemoryContext().setBytes(sliceInput.getRetainedSize());
 
         if (!decompressor.isPresent()) {
             this.current = sliceInput;
@@ -82,11 +76,7 @@ public final class OrcInputStream
     @Override
     public void close()
     {
-        current = null;
-        fixedMemoryUsage.setBytes(compressedSliceInput.getRetainedSize()); // see comments above for fixedMemoryUsage
-
-        buffer = null;
-        bufferMemoryUsage.setBytes(0);
+        // close is never called, so do not add code here
     }
 
     @Override
