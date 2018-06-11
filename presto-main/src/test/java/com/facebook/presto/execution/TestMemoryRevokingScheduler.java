@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.base.Functions;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -81,7 +82,7 @@ public class TestMemoryRevokingScheduler
     {
         memoryPool = new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE));
 
-        TaskExecutor taskExecutor = new TaskExecutor(8, 16);
+        TaskExecutor taskExecutor = new TaskExecutor(8, 16, Ticker.systemTicker());
         taskExecutor.start();
 
         // Must be single threaded

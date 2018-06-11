@@ -68,6 +68,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -158,12 +159,6 @@ public class TaskExecutor
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers)
-    {
-        this(runnerThreads, minDrivers, Ticker.systemTicker());
-    }
-
-    @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
     {
         this(runnerThreads, minDrivers, new MultilevelSplitQueue(2), ticker);
@@ -193,7 +188,7 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
-        splitMonitorExecutor.scheduleWithFixedDelay(this::monitorActiveSplits, 1, 1, TimeUnit.MINUTES);
+        splitMonitorExecutor.scheduleWithFixedDelay(this::monitorActiveSplits, 1, 1, MINUTES);
     }
 
     @PreDestroy
