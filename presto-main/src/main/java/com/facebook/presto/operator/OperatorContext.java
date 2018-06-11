@@ -256,37 +256,37 @@ public class OperatorContext
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalSystemMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.newSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations);
+        return new InternalLocalMemoryContext(operatorMemoryContext.newSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localUserMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations);
+        return new InternalLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localSystemMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations);
+        return new InternalLocalMemoryContext(operatorMemoryContext.localSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, () -> {});
+        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, () -> {}, false);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // caller should close this context as it's a new context
     public AggregatedMemoryContext newAggregateSystemMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
@@ -606,12 +606,14 @@ public class OperatorContext
         private final LocalMemoryContext delegate;
         private final AtomicReference<SettableFuture<?>> memoryFuture;
         private final Runnable allocationListener;
+        private final boolean closeable;
 
-        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener)
+        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
             this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
+            this.closeable = closeable;
         }
 
         @Override
@@ -638,6 +640,9 @@ public class OperatorContext
         @Override
         public void close()
         {
+            if (!closeable) {
+                throw new UnsupportedOperationException("Called close on unclosable local memory context");
+            }
             delegate.close();
         }
     }
@@ -648,12 +653,14 @@ public class OperatorContext
         private final AggregatedMemoryContext delegate;
         private final AtomicReference<SettableFuture<?>> memoryFuture;
         private final Runnable allocationListener;
+        private final boolean closeable;
 
-        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener)
+        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
             this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
+            this.closeable = closeable;
         }
 
         @Override
@@ -665,7 +672,7 @@ public class OperatorContext
         @Override
         public LocalMemoryContext newLocalMemoryContext()
         {
-            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(), memoryFuture, allocationListener);
+            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(), memoryFuture, allocationListener, true);
         }
 
         @Override
@@ -677,6 +684,9 @@ public class OperatorContext
         @Override
         public void close()
         {
+            if (!closeable) {
+                throw new UnsupportedOperationException("Called close on unclosable aggregated memory context");
+            }
             delegate.close();
         }
     }
