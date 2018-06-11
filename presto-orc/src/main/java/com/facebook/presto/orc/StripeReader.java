@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -246,12 +245,13 @@ public class StripeReader
         diskRanges = diskRangesBuilder.build();
 
         // read ranges
-        Map<StreamId, FixedLengthSliceInput> streamsData = orcDataSource.readFully(diskRanges);
+        Map<StreamId, OrcDataSourceInput> streamsData = orcDataSource.readFully(diskRanges);
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
-        for (Entry<StreamId, FixedLengthSliceInput> entry : streamsData.entrySet()) {
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), entry.getValue(), decompressor, systemMemoryUsage));
+        for (Entry<StreamId, OrcDataSourceInput> entry : streamsData.entrySet()) {
+            OrcDataSourceInput sourceInput = entry.getValue();
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), sourceInput.getInput(), decompressor, systemMemoryUsage, sourceInput.getRetainedSizeInBytes()));
         }
         return streamsBuilder.build();
     }
@@ -363,7 +363,7 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage, tailLength)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
     }
