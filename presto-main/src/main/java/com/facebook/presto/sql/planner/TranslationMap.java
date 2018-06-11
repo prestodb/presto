@@ -133,10 +133,6 @@ class TranslationMap
 
     private Expression getMapping(Expression expression)
     {
-        if (!expressionToExpressions.containsKey(expression)) {
-            return expression;
-        }
-
         Expression mapped = expressionToExpressions.get(expression);
         Expression translated = translateNamesToSymbols(mapped);
         if (!translated.equals(expression) && expressionToExpressions.containsKey(translated)) {
