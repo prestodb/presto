@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
@@ -197,25 +198,6 @@ class TranslationMap
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
     }
 
-    public void addIntermediateMapping(Expression expression, Expression rewritten)
-    {
-        if (rewritten.equals(expression)) {
-            return;
-        }
-
-        Expression translated = translateNamesToSymbols(expression);
-        if (expressionToExpressions.containsKey(translated)) {
-            Expression previousMapping = expressionToExpressions.get(translated);
-            if (!previousMapping.equals(rewritten)) {
-                put(expression, rewritten);
-                addIntermediateMapping(rewritten, previousMapping);
-            }
-        }
-        else {
-            put(expression, rewritten);
-        }
-    }
-
     private Expression translateNamesToSymbols(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -285,6 +267,13 @@ class TranslationMap
                 }
                 Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
                 return new LambdaExpression(newArguments.build(), rewrittenBody);
+            }
+
+            @Override
+            public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
+                return coerceIfNecessary(node, analysis.getParameters().get(node.getPosition()));
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
