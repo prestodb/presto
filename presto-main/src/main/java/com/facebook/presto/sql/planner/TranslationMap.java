@@ -120,31 +120,11 @@ class TranslationMap
                 if (expressionToSymbols.containsKey(node)) {
                     return expressionToSymbols.get(node).toSymbolReference();
                 }
-                else if (expressionToExpressions.containsKey(node)) {
-                    Expression mapping = getMapping(node);
-                    mapping = translateNamesToSymbols(mapping);
-                    return treeRewriter.defaultRewrite(mapping, context);
-                }
-                else {
-                    return treeRewriter.defaultRewrite(node, context);
-                }
+
+                Expression translated = expressionToExpressions.getOrDefault(node, node);
+                return treeRewriter.defaultRewrite(translated, context);
             }
         }, mapped);
-    }
-
-    private Expression getMapping(Expression expression)
-    {
-        if (!expressionToExpressions.containsKey(expression)) {
-            return expression;
-        }
-
-        Expression mapped = expressionToExpressions.get(expression);
-        Expression translated = translateNamesToSymbols(mapped);
-        if (!translated.equals(expression) && expressionToExpressions.containsKey(translated)) {
-            mapped = getMapping(translated);
-        }
-
-        return mapped;
     }
 
     public void put(Expression expression, Symbol symbol)
