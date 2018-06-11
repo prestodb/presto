@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -207,8 +206,7 @@ class RelationPlanner
 
         RelationPlan rightPlan = process(node.getRight(), context);
 
-        if (!SystemSessionProperties.isLegacyJoinUsingEnabled(session) &&
-                node.getCriteria().isPresent() && node.getCriteria().get() instanceof JoinUsing) {
+        if (node.getCriteria().isPresent() && node.getCriteria().get() instanceof JoinUsing) {
             return planJoinUsing(node, leftPlan, rightPlan);
         }
 
@@ -245,14 +243,9 @@ class RelationPlanner
 
                 Set<QualifiedName> dependencies = SymbolsExtractor.extractNames(conjunct, analysis.getColumnReferences());
 
-                boolean isJoinUsing = node.getCriteria().filter(JoinUsing.class::isInstance).isPresent();
-                checkState(!isJoinUsing || SystemSessionProperties.isLegacyJoinUsingEnabled(session));
-                if (!isJoinUsing && (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve))) {
+                if (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve)) {
                     // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
                     // it to the list complex expressions and let the optimizers figure out how to push it down later.
-                    // Due to legacy reasons, the expression for "join using" looks like "x = x", which (incorrectly)
-                    // appears to fit the condition we're after. So we skip them.
-
                     complexJoinExpressions.add(conjunct);
                 }
                 else if (conjunct instanceof ComparisonExpression) {
