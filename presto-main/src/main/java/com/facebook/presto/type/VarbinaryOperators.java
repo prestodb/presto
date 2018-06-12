@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 
 public final class VarbinaryOperators
 {
@@ -92,7 +93,7 @@ public final class VarbinaryOperators
         // This needs to match the hash function for VARBINARY blocks
         // (i.e. AstractVariableWidthBlock.hash(...))
         // TODO: we need to get rid of hash from Block and rely on HASH_CODE operators only
-        return XxHash64.hash(value);
+        return xxHash64(value);
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
@@ -110,5 +111,12 @@ public final class VarbinaryOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.VARBINARY) Slice value)
+    {
+        return XxHash64.hash(value);
     }
 }

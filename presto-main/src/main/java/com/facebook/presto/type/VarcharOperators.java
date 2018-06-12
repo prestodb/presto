@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static java.lang.String.format;
 
 public final class VarcharOperators
@@ -249,5 +250,13 @@ public final class VarcharOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType("varchar(x)") Slice slice)
+    {
+        return XxHash64.hash(slice);
     }
 }
