@@ -201,8 +201,7 @@ public final class ShardCompactor
             if (isNullOrEmptyPage(page)) {
                 return false;
             }
-            page.assureLoaded();
-            currentPage = page;
+            currentPage = page.getLoadedPage();
             currentPosition = 0;
             return true;
         }
@@ -213,7 +212,7 @@ public final class ShardCompactor
             while (isNullOrEmptyPage(page) && !pageSource.isFinished()) {
                 page = pageSource.getNextPage();
                 if (page != null) {
-                    page.assureLoaded();
+                    page = page.getLoadedPage();
                 }
             }
             return page;

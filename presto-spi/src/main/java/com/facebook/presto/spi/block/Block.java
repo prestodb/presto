@@ -256,10 +256,14 @@ public interface Block
     boolean isNull(int position);
 
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a block that assures all data is in memory.
+     * May return the same block if all block data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    default void assureLoaded() {}
+    default Block getLoadedBlock()
+    {
+        return this;
+    }
 }

@@ -185,8 +185,7 @@ public class TestHivePageSink
         while (!pageSource.isFinished()) {
             Page nextPage = pageSource.getNextPage();
             if (nextPage != null) {
-                nextPage.assureLoaded();
-                pages.add(nextPage);
+                pages.add(nextPage.getLoadedPage());
             }
         }
         MaterializedResult expectedResults = toMaterializedResult(getSession(config), columnTypes, ImmutableList.of(page));

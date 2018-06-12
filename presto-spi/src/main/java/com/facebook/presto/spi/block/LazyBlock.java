@@ -254,7 +254,13 @@ public class LazyBlock
     }
 
     @Override
-    public void assureLoaded()
+    public Block getLoadedBlock()
+    {
+        assureLoaded();
+        return block;
+    }
+
+    private void assureLoaded()
     {
         if (block != null) {
             return;

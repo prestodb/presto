@@ -280,4 +280,29 @@ public class MapBlock
         sb.append('}');
         return sb.toString();
     }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        if (keyBlock != keyBlock.getLoadedBlock()) {
+            // keyBlock has to be loaded since MapBlock constructs hash table eagerly.
+            throw new IllegalStateException();
+        }
+
+        Block loadedValueBlock = valueBlock.getLoadedBlock();
+        if (loadedValueBlock == valueBlock) {
+            return this;
+        }
+        return createMapBlockInternal(
+                startOffset,
+                positionCount,
+                mapIsNull,
+                offsets,
+                keyBlock,
+                loadedValueBlock,
+                hashTables,
+                keyType,
+                keyBlockNativeEquals,
+                keyNativeHashCode);
+    }
 }

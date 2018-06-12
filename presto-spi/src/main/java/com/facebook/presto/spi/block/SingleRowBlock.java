@@ -95,4 +95,23 @@ public class SingleRowBlock
     {
         return format("SingleRowBlock{numFields=%d}", fieldBlocks.length);
     }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        boolean allLoaded = true;
+        Block[] loadedFieldBlocks = new Block[fieldBlocks.length];
+
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            loadedFieldBlocks[i] = fieldBlocks[i].getLoadedBlock();
+            if (loadedFieldBlocks[i] != fieldBlocks[i]) {
+                allLoaded = false;
+            }
+        }
+
+        if (allLoaded) {
+            return this;
+        }
+        return new SingleRowBlock(rowIndex, loadedFieldBlocks);
+    }
 }

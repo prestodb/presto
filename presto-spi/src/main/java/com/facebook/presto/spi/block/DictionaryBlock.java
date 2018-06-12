@@ -338,6 +338,17 @@ public class DictionaryBlock
         return sb.toString();
     }
 
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedDictionary = dictionary.getLoadedBlock();
+
+        if (loadedDictionary == dictionary) {
+            return this;
+        }
+        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
+    }
+
     public Block getDictionary()
     {
         return dictionary;

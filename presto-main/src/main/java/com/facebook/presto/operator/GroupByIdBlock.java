@@ -201,16 +201,17 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("groupCount", groupCount)
                 .add("positionCount", getPositionCount())
                 .toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        return block.getLoadedBlock();
     }
 }
