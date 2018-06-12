@@ -201,11 +201,6 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)

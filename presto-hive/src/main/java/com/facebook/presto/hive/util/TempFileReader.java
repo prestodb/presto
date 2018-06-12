@@ -88,9 +88,7 @@ public class TempFileReader
 
             Block[] blocks = new Block[types.size()];
             for (int i = 0; i < types.size(); i++) {
-                Block block = reader.readBlock(types.get(i), i);
-                block.assureLoaded();
-                blocks[i] = block;
+                blocks[i] = reader.readBlock(types.get(i), i).getLoadedBlock();
             }
             return new Page(batchSize, blocks);
         }

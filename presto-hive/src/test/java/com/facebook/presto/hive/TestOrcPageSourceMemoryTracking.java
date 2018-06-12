@@ -275,7 +275,7 @@ public class TestOrcPageSourceMemoryTracking
                     break;
                 }
                 assertNotNull(page);
-                page.assureLoaded();
+                page = page.getLoadedPage();
                 positionCount += page.getPositionCount();
                 // assert upper bound is tight
                 // ignore the first MAX_BATCH_SIZE rows given the sizes are set when loading the blocks

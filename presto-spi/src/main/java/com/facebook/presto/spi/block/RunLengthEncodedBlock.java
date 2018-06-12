@@ -263,9 +263,15 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void assureLoaded()
+    public Block getLoadedBlock()
     {
-        value.assureLoaded();
+        Block loadedValueBlock = value.getLoadedBlock();
+        if (loadedValueBlock == value) {
+            return this;
+        }
+        else {
+            throw new IllegalArgumentException("Value block is not loaded");
+        }
     }
 
     private void checkReadablePosition(int position)
