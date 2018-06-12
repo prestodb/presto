@@ -73,6 +73,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -353,6 +354,42 @@ public class TestLogicalPlanner
                         filter(
                                 "X = BIGINT '3'",
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")))));
+    }
+
+    @Test
+    public void testStreamingAggregationOverJoin()
+    {
+        // "orders" table is naturally grouped on orderkey
+        // this grouping should survive an inner join and allow for streaming aggregation later
+        // this grouping should not survive a cross join
+        assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l WHERE o.orderkey=l.orderkey GROUP BY 1",
+                anyTree(
+                        aggregation(
+                                ImmutableList.of(ImmutableList.of("o_orderkey")),
+                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableList.of("o_orderkey"), // streaming
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                SINGLE,
+                                join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))))));
+
+        assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l GROUP BY 1",
+                anyTree(
+                        aggregation(
+                                ImmutableList.of(ImmutableList.of("orderkey")),
+                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableList.of(), // not streaming
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                SINGLE,
+                                join(INNER, ImmutableList.of(),
+                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey")),
+                                        anyTree(
+                                                node(TableScanNode.class))))));
     }
 
     /**
