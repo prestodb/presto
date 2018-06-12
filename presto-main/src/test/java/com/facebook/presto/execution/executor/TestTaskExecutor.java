@@ -46,7 +46,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -138,7 +138,7 @@ public class TestTaskExecutor
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -172,7 +172,7 @@ public class TestTaskExecutor
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(2, 2, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -211,7 +211,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, new MultilevelSplitQueue(2), ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, new MultilevelSplitQueue(2), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -295,7 +295,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, ticker);
         taskExecutor.start();
 
         try {

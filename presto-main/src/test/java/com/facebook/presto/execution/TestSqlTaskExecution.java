@@ -129,7 +129,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-        TaskExecutor taskExecutor = new TaskExecutor(5, 10, Ticker.systemTicker());
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, Ticker.systemTicker());
         taskExecutor.start();
 
         try {
@@ -296,7 +296,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-        TaskExecutor taskExecutor = new TaskExecutor(5, 10, Ticker.systemTicker());
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, Ticker.systemTicker());
         taskExecutor.start();
 
         try {
