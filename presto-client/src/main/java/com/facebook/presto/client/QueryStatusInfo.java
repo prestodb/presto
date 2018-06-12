@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.PrestoWarning;
+
 import java.net.URI;
 import java.util.List;
 
@@ -31,6 +33,8 @@ public interface QueryStatusInfo
     StatementStats getStats();
 
     QueryError getError();
+
+    List<PrestoWarning> getWarnings();
 
     String getUpdateType();
 

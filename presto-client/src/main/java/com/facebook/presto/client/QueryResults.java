@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.PrestoWarning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +43,7 @@ public class QueryResults
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
+    private final List<PrestoWarning> warnings;
     private final String updateType;
     private final Long updateCount;
 
@@ -55,10 +57,11 @@ public class QueryResults
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
+            @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, warnings, updateType, updateCount);
     }
 
     public QueryResults(
@@ -70,6 +73,7 @@ public class QueryResults
             Iterable<List<Object>> data,
             StatementStats stats,
             QueryError error,
+            List<PrestoWarning> warnings,
             String updateType,
             Long updateCount)
     {
@@ -82,6 +86,7 @@ public class QueryResults
         checkArgument(data == null || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
+        this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
         this.updateType = updateType;
         this.updateCount = updateCount;
     }
@@ -148,6 +153,13 @@ public class QueryResults
     public QueryError getError()
     {
         return error;
+    }
+
+    @JsonProperty
+    @Override
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Nullable
