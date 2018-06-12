@@ -76,9 +76,6 @@ public class TaskExecutor
 {
     private static final Logger log = Logger.get(TaskExecutor.class);
 
-    // each task is guaranteed a minimum number of splits
-    static final int GUARANTEED_SPLITS_PER_TASK = 3;
-
     // print out split call stack if it has been running for a certain amount of time
     private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(1000, TimeUnit.SECONDS);
 
@@ -89,6 +86,7 @@ public class TaskExecutor
 
     private final int runnerThreads;
     private final int minimumNumberOfDrivers;
+    private final int minimumNumberOfDriversPerTask;
 
     private final Ticker ticker;
 
@@ -155,19 +153,20 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), splitQueue, Ticker.systemTicker());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), config.getMinDriversPerTask(), splitQueue, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int minimumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, minimumNumberOfDriversPerTask, new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, MultilevelSplitQueue splitQueue, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int minimumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
+        checkArgument(minimumNumberOfDriversPerTask > 0, "minimumNumberOfDriversPerTask must be at least 1");
 
         // we manage thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
@@ -177,6 +176,7 @@ public class TaskExecutor
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
+        this.minimumNumberOfDriversPerTask = minimumNumberOfDriversPerTask;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
     }
@@ -352,7 +352,7 @@ public class TaskExecutor
         // immediately schedule a new split for this task.  This assures
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
-        if (taskHandle.getRunningLeafSplits() < GUARANTEED_SPLITS_PER_TASK) {
+        if (taskHandle.getRunningLeafSplits() < minimumNumberOfDriversPerTask) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
                 startSplit(split);

@@ -50,6 +50,7 @@ public class TaskManagerConfig
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
+    private int minDriversPerTask = 3;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -248,6 +249,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setMinDrivers(int minDrivers)
     {
         this.minDrivers = minDrivers;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinDriversPerTask()
+    {
+        return minDriversPerTask;
+    }
+
+    @Config("task.min-drivers-per-task")
+    @ConfigDescription("Minimum number of drivers guaranteed to run per task given there is sufficient work to do")
+    public TaskManagerConfig setMinDriversPerTask(int minDriversPerTask)
+    {
+        this.minDriversPerTask = minDriversPerTask;
         return this;
     }
 
