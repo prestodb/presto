@@ -383,6 +383,16 @@ public class PropertyDerivations
                     constants.putAll(probeProperties.getConstants());
                     constants.putAll(buildProperties.getConstants());
 
+                    if (node.isCrossJoin()) {
+                        // Cross join preserves only constants from probe and build sides.
+                        // Cross join doesn't preserve sorting or grouping local properties on either side.
+                        return ActualProperties.builder()
+                                .global(probeProperties)
+                                .local(ImmutableList.of())
+                                .constants(constants)
+                                .build();
+                    }
+
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
                             .unordered(unordered)
