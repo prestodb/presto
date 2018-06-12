@@ -39,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -235,6 +236,7 @@ public class PlanBuilder
         private PlanNode source;
         private Map<Symbol, Aggregation> assignments = new HashMap<>();
         private List<List<Symbol>> groupingSets = new ArrayList<>();
+        private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
@@ -292,6 +294,13 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder preGroupedSymbols(Symbol... symbols)
+        {
+            checkState(this.preGroupedSymbols.isEmpty(), "preGroupedSymbols already defined");
+            this.preGroupedSymbols = ImmutableList.copyOf(symbols);
+            return this;
+        }
+
         public AggregationBuilder step(Step step)
         {
             this.step = step;
@@ -318,7 +327,7 @@ public class PlanBuilder
                     source,
                     assignments,
                     groupingSets,
-                    ImmutableList.of(),
+                    preGroupedSymbols,
                     step,
                     hashSymbol,
                     groupIdSymbol);
@@ -329,6 +338,11 @@ public class PlanBuilder
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
+    }
+
+    public AssignUniqueId assignUniqueId(Symbol unique, PlanNode source)
+    {
+        return new AssignUniqueId(idAllocator.getNextId(), source, unique);
     }
 
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)

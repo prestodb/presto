@@ -59,8 +59,7 @@ public class TestValidateAggregationsWithDefaultValues
     {
         metadata = getQueryRunner().getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
-        ConnectorId connectorId = getQueryRunner()
-                .inTransaction(session -> metadata.getCatalogHandle(session, session.getCatalog().get())).get();
+        ConnectorId connectorId = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 connectorId,
                 new TpchTableHandle(connectorId.toString(), "nation", 1.0));
