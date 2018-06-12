@@ -74,7 +74,7 @@ public class TestSqlTaskManager
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
-        taskExecutor = new TaskExecutor(8, 16, 3, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
     }

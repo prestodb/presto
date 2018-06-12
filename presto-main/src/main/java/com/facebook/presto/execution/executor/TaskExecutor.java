@@ -87,6 +87,7 @@ public class TaskExecutor
     private final int runnerThreads;
     private final int minimumNumberOfDrivers;
     private final int minimumNumberOfDriversPerTask;
+    private final int maximumNumberOfDriversPerTask;
 
     private final Ticker ticker;
 
@@ -153,20 +154,27 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), config.getMinDriversPerTask(), splitQueue, Ticker.systemTicker());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
+                config.getMinDrivers(),
+                config.getMinDriversPerTask(),
+                config.getMaxDriversPerTask(),
+                splitQueue,
+                Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int minimumNumberOfDriversPerTask, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int minimumNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, minimumNumberOfDriversPerTask, new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, minimumNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int minimumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int minimumNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
         checkArgument(minimumNumberOfDriversPerTask > 0, "minimumNumberOfDriversPerTask must be at least 1");
+        checkArgument(maximumNumberOfDriversPerTask > 0, "maximumNumberOfDriversPerTask must be at least 1");
+        checkArgument(minimumNumberOfDriversPerTask <= maximumNumberOfDriversPerTask, "minimumNumberOfDriversPerTask cannot be greater than maximumNumberOfDriversPerTask");
 
         // we manage thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
@@ -177,6 +185,7 @@ public class TaskExecutor
 
         this.minimumNumberOfDrivers = minDrivers;
         this.minimumNumberOfDriversPerTask = minimumNumberOfDriversPerTask;
+        this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
     }
@@ -400,6 +409,10 @@ public class TaskExecutor
         // end of the task list, so we get round robin
         for (Iterator<TaskHandle> iterator = tasks.iterator(); iterator.hasNext(); ) {
             TaskHandle task = iterator.next();
+            // skip tasks that are already running the configured max number of drivers
+            if (task.getRunningLeafSplits() >= maximumNumberOfDriversPerTask) {
+                continue;
+            }
             PrioritizedSplitRunner split = task.pollNextSplit();
             if (split != null) {
                 // move task to end of list
