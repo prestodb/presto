@@ -51,6 +51,7 @@ public class TaskManagerConfig
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
     private int minDriversPerTask = 3;
+    private int maxDriversPerTask = Integer.MAX_VALUE;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -249,6 +250,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setMinDrivers(int minDrivers)
     {
         this.minDrivers = minDrivers;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxDriversPerTask()
+    {
+        return maxDriversPerTask;
+    }
+
+    @Config("task.max-drivers-per-task")
+    @ConfigDescription("Maximum number of drivers a task can run")
+    public TaskManagerConfig setMaxDriversPerTask(int maxDriversPerTask)
+    {
+        this.maxDriversPerTask = maxDriversPerTask;
         return this;
     }
 
