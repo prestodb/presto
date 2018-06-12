@@ -360,8 +360,10 @@ public class TestLogicalPlanner
     public void testStreamingAggregationOverJoin()
     {
         // "orders" table is naturally grouped on orderkey
-        // this grouping should survive an inner join and allow for streaming aggregation later
+        // this grouping should survive inner and left joins and allow for streaming aggregation later
         // this grouping should not survive a cross join
+
+        // inner join -> streaming aggregation
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l WHERE o.orderkey=l.orderkey GROUP BY 1",
                 anyTree(
                         aggregation(
@@ -377,6 +379,23 @@ public class TestLogicalPlanner
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))))));
 
+        // left join -> streaming aggregation
+        assertPlan("SELECT o.orderkey, count(*) FROM orders o LEFT JOIN lineitem l ON o.orderkey=l.orderkey GROUP BY 1",
+                anyTree(
+                        aggregation(
+                                ImmutableList.of(ImmutableList.of("o_orderkey")),
+                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableList.of("o_orderkey"), // streaming
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                SINGLE,
+                                join(LEFT, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))))));
+
+        // cross join - no streaming
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l GROUP BY 1",
                 anyTree(
                         aggregation(
@@ -457,15 +476,13 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("FINAL_COUNT > BIGINT '0'",
                                 any(
-                                        aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("PARTIAL_COUNT"))),
+                                        aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
                                                 any(
-                                                        aggregation(ImmutableMap.of("PARTIAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
                                                                 any(
-                                                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                                                any(
-                                                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                                                project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                                                        node(ValuesNode.class)))))))))));
+                                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
+                                                                project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                                        node(ValuesNode.class)))))))));
     }
 
     @Test
