@@ -187,11 +187,17 @@ public class TestingPrestoServer
                 .put("presto.version", "testversion")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4");
+                .put("exchange.client-threads", "4")
+                .put("exchange.http-client.selector-count", "16")
+                .put("node-manager.http-client.selector-count", "16");
 
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
+            serverProperties.put("failure-detector.http-client.selector-count", "16");
+            serverProperties.put("scheduler.http-client.selector-count", "16");
+            serverProperties.put("memoryManager.http-client.selector-count", "16");
+            serverProperties.put("workerInfo.http-client.selector-count", "16");
         }
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
