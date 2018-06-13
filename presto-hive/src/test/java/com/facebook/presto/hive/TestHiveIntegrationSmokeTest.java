@@ -2293,7 +2293,7 @@ public class TestHiveIntegrationSmokeTest
             // UNION ALL / GROUP BY
             // ====================
 
-            @Language("SQL") String groupBySingleBucketedTable =
+            @Language("SQL") String groupBySingleBucketed =
                     "SELECT\n" +
                             "  keyD,\n" +
                             "  count(valueD)\n" +
@@ -2301,7 +2301,7 @@ public class TestHiveIntegrationSmokeTest
                             "  test_grouped_joinDual\n" +
                             "GROUP BY keyD";
             @Language("SQL") String expectedSingleGroupByQuery = "SELECT orderkey, 2 from orders";
-            @Language("SQL") String groupByThreeBucketedTable =
+            @Language("SQL") String groupByOfUnionBucketed =
                     "SELECT\n" +
                             "  key\n" +
                             ", arbitrary(value1)\n" +
@@ -2320,7 +2320,7 @@ public class TestHiveIntegrationSmokeTest
                             "  WHERE key3 % 3 = 0\n" +
                             ")\n" +
                             "GROUP BY key";
-            @Language("SQL") String groupByThreeMixedTable =
+            @Language("SQL") String groupByOfUnionMixed =
                     "SELECT\n" +
                             "  key\n" +
                             ", arbitrary(value1)\n" +
@@ -2339,16 +2339,42 @@ public class TestHiveIntegrationSmokeTest
                             "  WHERE keyN % 3 = 0\n" +
                             ")\n" +
                             "GROUP BY key";
-            @Language("SQL") String expectedThreeGroupByQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN comment END, CASE mod(orderkey, 3) WHEN 0 THEN comment END from orders";
+            @Language("SQL") String expectedGroupByOfUnion = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN comment END, CASE mod(orderkey, 3) WHEN 0 THEN comment END from orders";
+            // In this case:
+            // * left side can take advantage of bucketed execution
+            // * right side does not have the necessary organization to allow its parent to take advantage of bucketed execution
+            // In this scenario, we give up bucketed execution altogether. This can potentially be improved.
+            //
+            //       AGG(key)
+            //           |
+            //       UNION ALL
+            //      /         \
+            //  AGG(key)  Scan (not bucketed)
+            //     |
+            // Scan (bucketed on key)
+            @Language("SQL") String groupByOfUnionOfGroupByMixed =
+                    "SELECT\n" +
+                            "  key, sum(cnt) cnt\n" +
+                            "FROM (\n" +
+                            "  SELECT keyD key, count(valueD) cnt\n" +
+                            "  FROM test_grouped_joinDual\n" +
+                            "  GROUP BY keyD\n" +
+                            "UNION ALL\n" +
+                            "  SELECT keyN key, 1 cnt\n" +
+                            "  FROM test_grouped_joinN\n" +
+                            ")\n" +
+                            "group by key";
+            @Language("SQL") String expectedGroupByOfUnionOfGroupBy = "SELECT orderkey, 3 from orders";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
-            assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketedTable, expectedSingleGroupByQuery);
-            assertQuery(colocatedOneGroupAtATime, groupBySingleBucketedTable, expectedSingleGroupByQuery);
-            assertQuery(colocatedAllGroupsAtOnce, groupByThreeBucketedTable, expectedThreeGroupByQuery);
-            assertQuery(colocatedOneGroupAtATime, groupByThreeBucketedTable, expectedThreeGroupByQuery);
+            assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketed, expectedSingleGroupByQuery);
+            assertQuery(colocatedOneGroupAtATime, groupBySingleBucketed, expectedSingleGroupByQuery);
+            assertQuery(colocatedAllGroupsAtOnce, groupByOfUnionBucketed, expectedGroupByOfUnion);
+            assertQuery(colocatedOneGroupAtATime, groupByOfUnionBucketed, expectedGroupByOfUnion);
 
             // cannot be executed in a grouped manner but should still produce correct result
-            assertQuery(colocatedOneGroupAtATime, groupByThreeMixedTable, expectedThreeGroupByQuery);
+            assertQuery(colocatedOneGroupAtATime, groupByOfUnionMixed, expectedGroupByOfUnion);
+            assertQuery(colocatedOneGroupAtATime, groupByOfUnionOfGroupByMixed, expectedGroupByOfUnionOfGroupBy);
 
             //
             // GROUP BY and JOIN mixed
