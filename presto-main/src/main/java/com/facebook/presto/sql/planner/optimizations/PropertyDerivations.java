@@ -395,15 +395,17 @@ public class PropertyDerivations
                     buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
 
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                            // TODO: some probe properties could be retained (e.g: grouping)
                             .local(ImmutableList.of())
-                            .unordered(unordered)
+                            .unordered(true)
                             .build();
                 case FULL:
                     // We can't say anything about the partitioning scheme because any partition of
                     // a hash-partitioned join can produce nulls in case of a lack of matches
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
-                            .unordered(unordered)
+                            // TODO: some probe properties could be retained (e.g: grouping)
+                            .unordered(true)
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
