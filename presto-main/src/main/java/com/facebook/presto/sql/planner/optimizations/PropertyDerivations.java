@@ -392,18 +392,19 @@ public class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 case RIGHT:
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
-
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
-                            .local(ImmutableList.of())
-                            .unordered(unordered)
+                            .local(probeProperties.getLocalProperties().stream()
+                                    .filter(PropertyDerivations::isGroupingOrSortingNullsLast)
+                                    .collect(toImmutableList()))
                             .build();
                 case FULL:
                     // We can't say anything about the partitioning scheme because any partition of
                     // a hash-partitioned join can produce nulls in case of a lack of matches
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
-                            .unordered(unordered)
+                            .local(probeProperties.getLocalProperties().stream()
+                                    .filter(PropertyDerivations::isGroupingOrSortingNullsLast)
+                                    .collect(toImmutableList()))
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -732,6 +733,19 @@ public class PropertyDerivations
             default:
                 throw new IllegalStateException("Unknown join type: " + joinType);
         }
+    }
+
+    public static boolean isGroupingOrSortingNullsLast(LocalProperty<Symbol> property)
+    {
+        if (property instanceof GroupingProperty) {
+            return true;
+        }
+
+        if (property instanceof SortingProperty) {
+            return !((SortingProperty) property).getOrder().isNullsFirst();
+        }
+
+        return false;
     }
 
     public static Optional<Symbol> filterIfMissing(Collection<Symbol> columns, Symbol column)
