@@ -274,7 +274,8 @@ public class ExpressionRewriteRuleSet
                         filter,
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
-                        joinNode.getDistributionType()));
+                        joinNode.getDistributionType(),
+                        joinNode.getKdbTree()));
             }
             return Result.empty();
         }

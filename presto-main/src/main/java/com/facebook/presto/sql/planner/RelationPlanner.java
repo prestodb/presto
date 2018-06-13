@@ -316,6 +316,7 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         if (node.getType() != INNER) {
@@ -351,6 +352,7 @@ class RelationPlanner
                             .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
                             .build(),
                     Optional.of(rewrittenFilterCondition),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
@@ -458,6 +460,7 @@ class RelationPlanner
                         .addAll(leftCoercion.getOutputSymbols())
                         .addAll(rightCoercion.getOutputSymbols())
                         .build(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

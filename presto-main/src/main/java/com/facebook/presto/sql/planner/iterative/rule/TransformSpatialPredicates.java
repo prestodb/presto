@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -29,14 +30,23 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.Hashing;
+import com.google.common.io.Resources;
 
+import java.io.IOException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -45,9 +55,11 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isSpatialJoinEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
@@ -57,6 +69,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.google.common.base.Verify.verify;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -159,7 +172,7 @@ public class TransformSpatialPredicates
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
 
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, metadata);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -208,7 +221,7 @@ public class TransformSpatialPredicates
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
 
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, metadata);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -275,15 +288,23 @@ public class TransformSpatialPredicates
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType());
+                joinNode.getDistributionType(),
+                joinNode.getKdbTree());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), metadata);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata);
     }
 
-    private static Result tryCreateSpatialJoin(Context context, JoinNode joinNode, Expression filter, PlanNodeId nodeId, List<Symbol> outputSymbols, FunctionCall spatialFunction, Metadata metadata)
+    private static Result tryCreateSpatialJoin(Context context, JoinNode joinNode, Expression filter, PlanNodeId nodeId, List<Symbol> outputSymbols, FunctionCall spatialFunction, Optional<Expression> radius, Metadata metadata)
     {
         List<Expression> arguments = spatialFunction.getArguments();
-        verify(arguments.size() == 2);
+        verify(arguments.size() == 2 || arguments.size() == 3);
+        if (joinNode.getType() == LEFT && arguments.size() == 3) {
+            // TODO Add support for distributed left joins
+            // Impediments:
+            //  (1) Spatial partitioning logic filters out probe records with null or empty geometries
+            //  (2) Inline deduplication doesn't work for duplicate probe records with no matches
+            return Result.empty();
+        }
 
         Expression firstArgument = arguments.get(0);
         Expression secondArgument = arguments.get(1);
@@ -320,6 +341,20 @@ public class TransformSpatialPredicates
         Expression newFirstArgument = toExpression(newFirstSymbol, firstArgument);
         Expression newSecondArgument = toExpression(newSecondSymbol, secondArgument);
 
+        Optional<String> kdbTreeOptional = extractKdbTree(joinNode, arguments);
+        if (kdbTreeOptional.isPresent()) {
+            String kdbTree = kdbTreeOptional.get();
+            long kdbTreeHash = Hashing.sha256().newHasher().putBytes(kdbTree.getBytes()).hash().asLong();
+            if (alignment > 0) {
+                newLeftNode = addPartitioningNodes(context, newLeftNode, kdbTreeHash, kdbTree, newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, newRightNode, kdbTreeHash, kdbTree, newSecondArgument, radius);
+            }
+            else {
+                newLeftNode = addPartitioningNodes(context, newLeftNode, kdbTreeHash, kdbTree, newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, newRightNode, kdbTreeHash, kdbTree, newFirstArgument, radius);
+            }
+        }
+
         Expression newSpatialFunction = new FunctionCall(spatialFunction.getName(), ImmutableList.of(newFirstArgument, newSecondArgument));
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
@@ -333,7 +368,24 @@ public class TransformSpatialPredicates
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType()));
+                joinNode.getDistributionType(),
+                kdbTreeOptional));
+    }
+
+    private static Optional<String> extractKdbTree(JoinNode joinNode, List<Expression> arguments)
+    {
+        if (joinNode.getType() == INNER && arguments.size() == 3) {
+            Expression kdbTreeExpression = arguments.get(2);
+            if (kdbTreeExpression instanceof Cast) {
+                Cast cast = (Cast) kdbTreeExpression;
+                if (cast.getType().equalsIgnoreCase("varchar")) {
+                    if (cast.getExpression() instanceof StringLiteral) {
+                        return Optional.of(((StringLiteral) cast.getExpression()).getValue());
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)
@@ -390,6 +442,45 @@ public class TransformSpatialPredicates
 
         projections.put(symbol, expression);
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
+    }
+
+    private static PlanNode addPartitioningNodes(Context context, PlanNode node, long kdbTreeHash, String kdbTree, Expression geometry, Optional<Expression> radius)
+    {
+        Assignments.Builder projections = Assignments.builder();
+        for (Symbol outputSymbol : node.getOutputSymbols()) {
+            projections.putIdentity(outputSymbol);
+        }
+
+        ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
+                .add(new LongLiteral(Long.toString(kdbTreeHash)))
+                .add(new StringLiteral(kdbTree))
+                .add(geometry);
+        radius.map(partitioningArguments::add);
+
+        FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
+        Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
+        projections.put(partitionsSymbol, partitioningFunction);
+
+        ProjectNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
+
+        Symbol partitionSymbol = context.getSymbolAllocator().newSymbol("pid", INTEGER);
+
+        return new UnnestNode(context.getIdAllocator().getNextId(),
+                projectNode,
+                node.getOutputSymbols(),
+                ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
+                Optional.empty());
+    }
+
+    private static String getKDBTree()
+    {
+        URL resource = requireNonNull(TransformSpatialPredicates.class.getClassLoader().getResource("kdb_tree.json"), "resource not found: kdb_tree.json");
+        try {
+            return Resources.toString(resource, UTF_8);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)

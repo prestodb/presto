@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.Page;
@@ -52,6 +53,7 @@ public class PagesRTreeIndex
     private final int radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final JoinFilterFunction filterFunction;
+    private final List<com.esri.core.geometry.Envelope2D> extents;
 
     public static final class GeometryWithPosition
     {
@@ -80,7 +82,8 @@ public class PagesRTreeIndex
             STRtree rtree,
             Optional<Integer> radiusChannel,
             SpatialPredicate spatialRelationshipTest,
-            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            List<com.esri.core.geometry.Envelope2D> extents)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.types = types;
@@ -90,6 +93,7 @@ public class PagesRTreeIndex
         this.radiusChannel = radiusChannel.orElse(-1);
         this.spatialRelationshipTest = requireNonNull(spatialRelationshipTest, "spatial relationship is null");
         this.filterFunction = filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels)).orElse(null);
+        this.extents = requireNonNull(extents, "extents is null");
     }
 
     private static Envelope getEnvelope(OGCGeometry ogcGeometry)
@@ -122,27 +126,48 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
+        boolean probeIsPoint = probeGeometry instanceof OGCPoint;
+
         IntArrayList matchingPositions = new IntArrayList();
 
         Envelope envelope = getEnvelope(probeGeometry);
-        if (radiusChannel == -1) {
-            rtree.query(envelope, item -> {
-                GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
-                if (spatialRelationshipTest.apply(geometryWithPosition.ogcGeometry, probeGeometry, OptionalDouble.empty())) {
-                    matchingPositions.add(geometryWithPosition.position);
+        rtree.query(envelope, item -> {
+            GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
+            OGCGeometry buildGeometry = geometryWithPosition.ogcGeometry;
+            if (extents.isEmpty() || (probeIsPoint || (buildGeometry instanceof OGCPoint) || testReferencePoint(envelope, buildGeometry))) {
+                if (radiusChannel == -1) {
+                    if (spatialRelationshipTest.apply(buildGeometry, probeGeometry, OptionalDouble.empty())) {
+                        matchingPositions.add(geometryWithPosition.position);
+                    }
                 }
-            });
-        }
-        else {
-            rtree.query(envelope, item -> {
-                GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
-                if (spatialRelationshipTest.apply(geometryWithPosition.ogcGeometry, probeGeometry, OptionalDouble.of(getRadius(geometryWithPosition.position)))) {
-                    matchingPositions.add(geometryWithPosition.position);
+                else {
+                    if (spatialRelationshipTest.apply(geometryWithPosition.ogcGeometry, probeGeometry, OptionalDouble.of(getRadius(geometryWithPosition.position)))) {
+                        matchingPositions.add(geometryWithPosition.position);
+                    }
                 }
-            });
-        }
+            }
+        });
 
         return matchingPositions.toIntArray(null);
+    }
+
+    private boolean testReferencePoint(Envelope probeEnvelope, OGCGeometry buildGeometry)
+    {
+        Envelope buildEnvelope = getEnvelope(buildGeometry);
+        Envelope intersection = buildEnvelope.intersection(probeEnvelope);
+        if (intersection.isNull()) {
+            return false;
+        }
+
+        double x = intersection.getMinX();
+        double y = intersection.getMinY();
+        for (com.esri.core.geometry.Envelope2D extent : extents) {
+            if (x >= extent.xmin && x < extent.xmax && y >= extent.ymin && y < extent.ymax) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private double getRadius(int joinPosition)

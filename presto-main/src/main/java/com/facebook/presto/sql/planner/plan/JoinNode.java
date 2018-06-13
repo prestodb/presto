@@ -64,6 +64,7 @@ public class JoinNode
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
     private Optional<Boolean> spatialJoin = Optional.empty();
+    private final Optional<String> kdbTree;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
@@ -75,7 +76,8 @@ public class JoinNode
             @JsonProperty("filter") Optional<Expression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
         super(id);
         requireNonNull(type, "type is null");
@@ -87,6 +89,7 @@ public class JoinNode
         requireNonNull(leftHashSymbol, "leftHashSymbol is null");
         requireNonNull(rightHashSymbol, "rightHashSymbol is null");
         requireNonNull(distributionType, "distributionType is null");
+        requireNonNull(kdbTree, "kdbTree is null");
 
         this.type = type;
         this.left = left;
@@ -97,6 +100,7 @@ public class JoinNode
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
         this.distributionType = distributionType;
+        this.kdbTree = kdbTree;
 
         List<Symbol> inputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
@@ -121,7 +125,8 @@ public class JoinNode
                 filter,
                 rightHashSymbol,
                 leftHashSymbol,
-                distributionType);
+                distributionType,
+                kdbTree);
     }
 
     private static Type flipType(Type type)
@@ -273,6 +278,12 @@ public class JoinNode
         return distributionType;
     }
 
+    @JsonProperty("kdbTree")
+    public Optional<String> getKdbTree()
+    {
+        return kdbTree;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -289,12 +300,12 @@ public class JoinNode
         List<Symbol> newOutputSymbols = Stream.concat(newLeft.getOutputSymbols().stream(), newRight.getOutputSymbols().stream())
                 .filter(outputSymbols::contains)
                 .collect(toImmutableList());
-        return new JoinNode(getId(), type, newLeft, newRight, criteria, newOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(getId(), type, newLeft, newRight, criteria, newOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, kdbTree);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), kdbTree);
     }
 
     public boolean isCrossJoin()

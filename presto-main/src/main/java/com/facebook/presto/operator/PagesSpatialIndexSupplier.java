@@ -58,6 +58,7 @@ public class PagesSpatialIndexSupplier
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
     private final STRtree rtree;
+    private final List<com.esri.core.geometry.Envelope2D> extents;
     private final long memorySizeInBytes;
 
     public PagesSpatialIndexSupplier(
@@ -69,7 +70,8 @@ public class PagesSpatialIndexSupplier
             int geometryChannel,
             Optional<Integer> radiusChannel,
             SpatialPredicate spatialRelationshipTest,
-            Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory)
+            Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory,
+            List<com.esri.core.geometry.Envelope2D> extents)
     {
         this.session = session;
         this.addresses = addresses;
@@ -78,6 +80,7 @@ public class PagesSpatialIndexSupplier
         this.channels = channels;
         this.spatialRelationshipTest = spatialRelationshipTest;
         this.filterFunctionFactory = filterFunctionFactory;
+        this.extents = extents;
 
         this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel);
         this.radiusChannel = radiusChannel;
@@ -152,6 +155,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, radiusChannel, spatialRelationshipTest, filterFunctionFactory);
+        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, radiusChannel, spatialRelationshipTest, filterFunctionFactory, extents);
     }
 }

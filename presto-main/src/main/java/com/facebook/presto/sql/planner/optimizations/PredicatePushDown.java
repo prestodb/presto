@@ -414,7 +414,7 @@ public class PredicatePushDown
                     newJoinFilter = Optional.empty();
                 }
 
-                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
+                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty() && !node.isSpatialJoin()) {
                     // if we do not have any equi conjunct we do not pushdown non-equality condition into
                     // inner join, so we plan execution as nested-loops-join followed by filter instead
                     // hash join.
@@ -439,7 +439,8 @@ public class PredicatePushDown
                         newJoinFilter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
-                        node.getDistributionType());
+                        node.getDistributionType(),
+                        node.getKdbTree());
             }
 
             if (!postJoinPredicate.equals(TRUE_LITERAL)) {
@@ -730,11 +731,11 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.getKdbTree());
                 }
                 else {
                     return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.getKdbTree());
                 }
             }
 
@@ -742,7 +743,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.getKdbTree());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)

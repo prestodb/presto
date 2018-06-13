@@ -1787,6 +1787,7 @@ public class LocalExecutionPlanner
                     buildChannel,
                     radiusChannel,
                     spatialRelationshipTest,
+                    node.getKdbTree(),
                     filterFunctionFactory,
                     10_000,
                     pagesIndexFactory);

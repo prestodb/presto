@@ -380,8 +380,17 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new CreatePartialTopN(),
                         new PushTopNThroughUnion())));
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveRedundantIdentityProjections())
+                        .addAll(new TransformSpatialPredicates(metadata).rules())
+                        .add(new InlineProjections())
+                        .build()));
 
-        if (!forceSingleNode) {
+        if (true || !forceSingleNode) {
             builder.add((new IterativeOptimizer(
                     ruleStats,
                     statsCalculator,
@@ -420,7 +429,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new TransformSpatialPredicates(metadata).rules())
+                        //.addAll(new TransformSpatialPredicates(metadata).rules())
                         .add(new InlineProjections())
                         .build()));
 

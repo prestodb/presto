@@ -13,21 +13,32 @@
  */
 package com.facebook.presto.operator;
 
+import com.esri.core.geometry.Envelope2D;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.geospatial.KDBTree;
+import com.facebook.presto.geospatial.KDBTreeSpec;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.json.ObjectMapperProvider;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class SpatialIndexBuilderOperator
@@ -51,6 +62,7 @@ public class SpatialIndexBuilderOperator
         private final SpatialPredicate spatialRelationshipTest;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
         private final PagesIndex.Factory pagesIndexFactory;
+        private final Map<Integer, Envelope2D> spatialPartitions = new HashMap<>();
 
         private final int expectedPositions;
 
@@ -64,6 +76,7 @@ public class SpatialIndexBuilderOperator
                 int indexChannel,
                 Optional<Integer> radiusChannel,
                 SpatialPredicate spatialRelationshipTest,
+                Optional<String> kdbTree,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory)
@@ -83,6 +96,20 @@ public class SpatialIndexBuilderOperator
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
             this.pagesIndexFactory = pagesIndexFactory;
             this.expectedPositions = expectedPositions;
+            if (kdbTree.isPresent()) {
+                this.spatialPartitions.putAll(getKdbTree(kdbTree.get()).getAllLeafs());
+            }
+        }
+
+        private static KDBTree getKdbTree(String json)
+        {
+            ObjectMapper objectMapper = new ObjectMapperProvider().get();
+            try {
+                return KDBTree.fromSpec(objectMapper.readValue(json, KDBTreeSpec.class));
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         public PagesSpatialIndexFactory getPagesSpatialIndexFactory()
@@ -90,10 +117,19 @@ public class SpatialIndexBuilderOperator
             return pagesSpatialIndexFactory;
         }
 
+        private static int spatialPartitionToTaskId(int partition, int partitionCount)
+        {
+            long rawHash = AbstractIntType.hash(partition);
+
+            rawHash &= 0x7fff_ffff_ffff_ffffL;
+            return (int) (rawHash % partitionCount);
+        }
+
         @Override
         public SpatialIndexBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SpatialIndexBuilderOperator.class.getSimpleName());
             return new SpatialIndexBuilderOperator(
                     operatorContext,
@@ -104,7 +140,25 @@ public class SpatialIndexBuilderOperator
                     spatialRelationshipTest,
                     filterFunctionFactory,
                     expectedPositions,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    getExtents(driverContext.getPipelineContext().getTaskContext()));
+        }
+
+        private List<Envelope2D> getExtents(TaskContext taskContext)
+        {
+            if (spatialPartitions.isEmpty()) {
+                return emptyList();
+            }
+
+            int partitionNumber = taskContext.getTaskId().getId();
+            int totalPartitions = taskContext.getTotalPartitions().getAsInt();
+            List<Envelope2D> extents = new ArrayList<>();
+            for (Map.Entry<Integer, Envelope2D> entry : spatialPartitions.entrySet()) {
+                if (partitionNumber == spatialPartitionToTaskId(entry.getKey(), totalPartitions)) {
+                    extents.add(entry.getValue());
+                }
+            }
+            return extents;
         }
 
         @Override
@@ -129,6 +183,7 @@ public class SpatialIndexBuilderOperator
     private final Optional<Integer> radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+    private final List<Envelope2D> extents;
 
     private final PagesIndex index;
     private ListenableFuture<?> indexNotNeeded;
@@ -145,7 +200,8 @@ public class SpatialIndexBuilderOperator
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions,
-            PagesIndex.Factory pagesIndexFactory)
+            PagesIndex.Factory pagesIndexFactory,
+            List<Envelope2D> extents)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -158,6 +214,8 @@ public class SpatialIndexBuilderOperator
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.indexChannel = indexChannel;
         this.radiusChannel = radiusChannel;
+
+        this.extents = extents;
     }
 
     @Override
@@ -211,7 +269,7 @@ public class SpatialIndexBuilderOperator
         }
 
         finishing = true;
-        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels);
+        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels, extents);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + spatialIndex.getEstimatedSize().toBytes());
         indexNotNeeded = pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
     }
