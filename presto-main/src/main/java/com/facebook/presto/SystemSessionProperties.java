@@ -288,7 +288,7 @@ public final class SystemSessionProperties
                 integerSessionProperty(
                         CONCURRENT_LIFESPANS_PER_NODE,
                         "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
-                        -1,
+                        featuresConfig.getConcurrentLifespansPerTask(),
                         false),
                 new PropertyMetadata<>(
                         SPILL_ENABLED,
@@ -554,11 +554,11 @@ public final class SystemSessionProperties
     public static OptionalInt getConcurrentLifespansPerNode(Session session)
     {
         Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
-        if (result == -1) {
+        if (result == 0) {
             return OptionalInt.empty();
         }
         else {
-            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set");
+            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set to non-zero");
             return OptionalInt.of(result);
         }
     }
