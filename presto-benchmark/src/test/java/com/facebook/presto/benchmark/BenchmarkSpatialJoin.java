@@ -118,12 +118,17 @@ public class BenchmarkSpatialJoin
             throws IOException
     {
         Context context = new Context();
-        context.setUp();
-        context.createPointsTable();
+        try {
+            context.setUp();
+            context.createPointsTable();
 
-        BenchmarkSpatialJoin benchmark = new BenchmarkSpatialJoin();
-        benchmark.benchmarkJoin(context);
-        benchmark.benchmarkUserOptimizedJoin(context);
+            BenchmarkSpatialJoin benchmark = new BenchmarkSpatialJoin();
+            benchmark.benchmarkJoin(context);
+            benchmark.benchmarkUserOptimizedJoin(context);
+        }
+        finally {
+            context.queryRunner.close();
+        }
     }
 
     public static void main(String[] args)

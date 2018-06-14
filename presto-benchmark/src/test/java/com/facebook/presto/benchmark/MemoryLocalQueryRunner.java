@@ -48,6 +48,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.testng.Assert.assertTrue;
 
 public class MemoryLocalQueryRunner
+        implements AutoCloseable
 {
     protected final LocalQueryRunner localQueryRunner;
 
@@ -136,5 +137,11 @@ public class MemoryLocalQueryRunner
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, QualifiedObjectName.valueOf(tableName));
         assertTrue(tableHandle.isPresent(), "Table " + tableName + " does not exist");
         metadata.dropTable(session, tableHandle.get());
+    }
+
+    @Override
+    public void close()
+    {
+        localQueryRunner.close();
     }
 }
