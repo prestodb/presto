@@ -299,6 +299,9 @@ public class BaseJdbcClient
             String catalog = connection.getCatalog();
 
             String temporaryName = generateTemporaryTableName();
+            if (uppercase) {
+                temporaryName = temporaryName.toUpperCase();
+            }
             StringBuilder sql = new StringBuilder()
                     .append("CREATE TABLE ")
                     .append(quoted(catalog, schema, temporaryName))
