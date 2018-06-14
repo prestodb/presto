@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
@@ -233,6 +232,11 @@ public class AggregationNode
         //
         // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
         return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
+    }
+
+    public boolean isStreamable()
+    {
+        return !preGroupedSymbols.isEmpty() && groupingSets.size() == 1 && !Iterables.getOnlyElement(groupingSets).isEmpty();
     }
 
     public enum Step
