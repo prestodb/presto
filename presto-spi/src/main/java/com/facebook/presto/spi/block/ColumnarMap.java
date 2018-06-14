@@ -38,7 +38,7 @@ public class ColumnarMap
             if (!lazyBlock.isLoaded()) {
                 throw new IllegalArgumentException("LazyBlock is expected to be loaded");
             }
-            return toColumnarMap(lazyBlock.getBlock());
+            return toColumnarMap(lazyBlock.getLoadedBlock());
         }
 
         if (!(block instanceof AbstractMapBlock)) {

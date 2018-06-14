@@ -37,7 +37,7 @@ public class ColumnarArray
             if (!lazyBlock.isLoaded()) {
                 throw new IllegalArgumentException("LazyBlock is expected to be loaded");
             }
-            return toColumnarArray(lazyBlock.getBlock());
+            return toColumnarArray(lazyBlock.getLoadedBlock());
         }
 
         if (!(block instanceof AbstractArrayBlock)) {

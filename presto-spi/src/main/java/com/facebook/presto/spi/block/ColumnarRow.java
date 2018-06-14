@@ -35,7 +35,7 @@ public final class ColumnarRow
             if (!lazyBlock.isLoaded()) {
                 throw new IllegalArgumentException("LazyBlock is expected to be loaded");
             }
-            return toColumnarRow(lazyBlock.getBlock());
+            return toColumnarRow(lazyBlock.getLoadedBlock());
         }
 
         if (!(block instanceof AbstractRowBlock)) {

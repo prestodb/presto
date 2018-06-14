@@ -234,12 +234,6 @@ public class LazyBlock
         return block.isNull(position);
     }
 
-    public Block getBlock()
-    {
-        assureLoaded();
-        return block;
-    }
-
     public void setBlock(Block block)
     {
         if (this.block != null) {
