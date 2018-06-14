@@ -38,12 +38,12 @@ public class JdbcPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        return new JdbcPageSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return jdbcClient.getPageSink((JdbcOutputTableHandle) tableHandle);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        return new JdbcPageSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return jdbcClient.getPageSink((JdbcOutputTableHandle) tableHandle);
     }
 }

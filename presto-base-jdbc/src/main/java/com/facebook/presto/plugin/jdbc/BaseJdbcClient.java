@@ -387,6 +387,12 @@ public class BaseJdbcClient
     }
 
     @Override
+    public JdbcPageSink getPageSink(JdbcOutputTableHandle tableHandle)
+    {
+        return new JdbcPageSink(tableHandle, this);
+    }
+
+    @Override
     public void dropTable(JdbcTableHandle handle)
     {
         StringBuilder sql = new StringBuilder()
