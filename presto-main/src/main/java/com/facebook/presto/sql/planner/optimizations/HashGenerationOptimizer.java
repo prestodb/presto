@@ -160,7 +160,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
-            if (!canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
                 groupByHash = computeHash(node.getGroupingKeys());
             }
 
