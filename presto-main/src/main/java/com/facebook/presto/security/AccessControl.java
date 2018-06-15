@@ -195,6 +195,7 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to create a view that selects from the specified columns.
+     * If this is implemented, checkCanCreateViewWithSelectFromTable and checkCanCreateViewWithSelectFromView can be pass-through.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
