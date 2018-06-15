@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
-import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -25,8 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +33,6 @@ import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -74,10 +70,6 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
-import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
@@ -87,11 +79,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -342,43 +330,6 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
-    public void testParquet(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
-        assertThatFileFormat(PARQUET)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-        assertThatFileFormat(PARQUET)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorPushdownSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testParquetCaseInsensitiveColumnLookup(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> writeColumns = ImmutableList.of(new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"), false));
-        List<TestColumn> readColumns = ImmutableList.of(new TestColumn("Column_Name", javaStringObjectInspector, "test", utf8Slice("test"), false));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorSessionUseName)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorPushdownSessionUseName)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-    }
-
-    @Test(dataProvider = "rowCount")
     public void testParquetPageSource(int rowCount)
             throws Exception
     {
@@ -426,26 +377,6 @@ public class TestHiveFileFormats
                 .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testParquetUseColumnNames(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> writeColumns = getTestColumnsSupportedByParquet();
-        List<TestColumn> readColumns = Lists.reverse(writeColumns);
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorSessionUseName)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorPushdownSessionUseName)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-    }
-
     private static List<TestColumn> getTestColumnsSupportedByParquet()
     {
         // Write of complex hive data to Parquet is broken
@@ -459,43 +390,6 @@ public class TestHiveFileFormats
                         !hasType(column.getObjectInspector(), PrimitiveCategory.SHORT) &&
                         !hasType(column.getObjectInspector(), PrimitiveCategory.BYTE))
                 .collect(toList());
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testParquetThrift(int rowCount)
-    {
-        RowType nameType = RowType.anonymous(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()));
-        RowType phoneType = RowType.anonymous(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()));
-        RowType personType = RowType.anonymous(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)));
-
-        List<TestColumn> testColumns = ImmutableList.of(
-                new TestColumn(
-                        "persons",
-                        getStandardListObjectInspector(
-                                getStandardStructObjectInspector(
-                                        ImmutableList.of("name", "id", "email", "phones"),
-                                        ImmutableList.of(
-                                                getStandardStructObjectInspector(
-                                                        ImmutableList.of("first_name", "last_name"),
-                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)),
-                                                javaIntObjectInspector,
-                                                javaStringObjectInspector,
-                                                getStandardListObjectInspector(
-                                                        getStandardStructObjectInspector(
-                                                                ImmutableList.of("number", "type"),
-                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)))))),
-                        null,
-                        arrayBlockOf(personType,
-                                rowBlockOf(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)),
-                                        rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "Bob", "Roberts"),
-                                        0,
-                                        "bob.roberts@example.com",
-                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null))))));
-
-        File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
-        FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);
-        HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS);
-        testCursorProvider(cursorProvider, split, PARQUET, testColumns, SESSION, 1);
     }
 
     @Test(dataProvider = "rowCount")
@@ -566,17 +460,6 @@ public class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .withSession(parquetCursorSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(ImmutableList.of(writeColumn))
-                .withReadColumns(ImmutableList.of(readColumn))
-                .withSession(parquetCursorPushdownSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS));
-
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(ImmutableList.of(writeColumn))
-                .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(parquetPageSourceSession)
                 .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
         assertThatFileFormat(PARQUET)
@@ -626,15 +509,6 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withColumns(columns)
                 .isFailingForPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage);
-
-        assertThatFileFormat(PARQUET)
-                .withColumns(columns)
-                .withSession(parquetCursorSession)
-                .isFailingForRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage);
-        assertThatFileFormat(PARQUET)
-                .withColumns(columns)
-                .withSession(parquetCursorPushdownSession)
-                .isFailingForRecordCursor(new ParquetRecordCursorProvider(HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
