@@ -30,7 +30,6 @@ import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.TestData;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
-import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
@@ -298,8 +297,8 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(hdfsEnvironment, new FileFormatDataSourceStats());
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
+            HivePageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
         @Override

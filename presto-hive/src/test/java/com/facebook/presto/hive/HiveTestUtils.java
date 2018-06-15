@@ -19,7 +19,6 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
-import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
@@ -82,7 +81,6 @@ public final class HiveTestUtils
     {
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new ParquetRecordCursorProvider(testHdfsEnvironment, new FileFormatDataSourceStats()))
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }
