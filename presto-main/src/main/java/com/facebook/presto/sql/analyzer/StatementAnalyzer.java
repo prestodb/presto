@@ -391,7 +391,7 @@ class StatementAnalyzer
                     session);
 
             Scope tableScope = analyzer.analyze(table, scope);
-            node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, tableScope, where));
+            node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
             analysis.setUpdateType("DELETE");
 
