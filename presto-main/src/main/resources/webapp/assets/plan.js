@@ -50,21 +50,7 @@ function flattenNode(stages, nodeInfo, result)
     const allSources = computeSources(nodeInfo);
     const sources = allSources[0];
     const remoteSources = allSources[1];
-
-    var extraInfo = '';
-    switch(nodeInfo['@type']) {
-        case 'tablescan':
-            if (nodeInfo.hasOwnProperty('table')) {
-                // TODO: Check handle.schemaTableName.schema. If not defined, try handle.schemaName. Similarly with the table name.
-                extraInfo = nodeInfo.table.connectorHandle.schemaTableName.schema + '.' + nodeInfo.table.connectorHandle.schemaTableName.table;
-            }
-            break;
-        case 'filter':
-            if (nodeInfo.hasOwnProperty('predicate')) {
-                extraInfo = nodeInfo.predicate;
-            }
-            break;
-    }
+    const extraInfo = computeExtraInfo(nodeInfo);
 
     result.set(nodeInfo.id, {
         id: nodeInfo.id,
@@ -221,21 +207,14 @@ let LivePlan = React.createClass({
         });
     },
     getNodeLabelSvg: function(node) {
-        var svg_label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        var tspan = document.createElementNS('http://www.w3.org/2000/svg','tspan');
-        tspan.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
-        tspan.setAttribute('dy', '1em');
-        tspan.setAttribute('x', '1');
-        tspan.textContent = node.type;
-        svg_label.appendChild(tspan);
+        var svgLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
 
+        svgLabel.appendChild(buildSvgElement('tspan', node.type));
         if (node.extraInfo !== '') {
-            var title = document.createElementNS('http://www.w3.org/2000/svg','title');
-            title.textContent = node.extraInfo;
-            svg_label.appendChild(title);
+            svgLabel.appendChild(buildSvgElement('title', node.extraInfo));
         }
 
-        return svg_label;
+        return svgLabel;
     },
     updateD3Graph: function() {
         if (!this.state.query) {

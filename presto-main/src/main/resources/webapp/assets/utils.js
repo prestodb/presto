@@ -261,6 +261,30 @@ function computeSources(nodeInfo)
     return [sources, remoteSources];
 }
 
+function computeExtraInfo(nodeInfo) {
+    var extraInfo = '';
+
+    switch(nodeInfo['@type']) {
+        case 'tablescan':
+            if (nodeInfo.hasOwnProperty('table')) {
+                const connectorHandle = nodeInfo.table.connectorHandle;
+
+                if (connectorHandle.hasOwnProperty('schemaTableName')) {
+                    extraInfo = connectorHandle.schemaTableName.schema + '.' + connectorHandle.schemaTableName.table;
+                } else if (connectorHandle.hasOwnProperty('schemaName') || connectorHandle.hasOwnProperty('tableName')) {
+                    extraInfo = connectorHandle.schemaName + '.' + connectorHandle.tableName;
+                }
+            }
+            break;
+        case 'filter':
+            if (nodeInfo.hasOwnProperty('predicate')) {
+                extraInfo = nodeInfo.predicate;
+            }
+            break;
+    }
+    return extraInfo;
+}
+
 // Utility functions
 // =================
 
@@ -553,4 +577,11 @@ function removeQueryId(id) {
         return id.substring(pos + 1);
     }
     return id;
+}
+
+function buildSvgElement(qualifiedName, textContent) {
+    var svgElement = document.createElementNS('http://www.w3.org/2000/svg', qualifiedName);
+    svgElement.setAttribute('dy', '1em');
+    svgElement.textContent = textContent;
+    return svgElement;
 }
