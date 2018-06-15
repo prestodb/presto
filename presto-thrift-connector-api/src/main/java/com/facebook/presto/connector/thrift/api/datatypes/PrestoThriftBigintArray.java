@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.bigintArrayData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
@@ -97,7 +98,7 @@ public final class PrestoThriftBigintArray
                 numberOfRecords,
                 nulls == null ? new boolean[numberOfRecords] : nulls,
                 calculateOffsets(sizes, nulls, numberOfRecords),
-                values != null ? values.toBlock(BIGINT) : new LongArrayBlock(0, new boolean[] {}, new long[] {}));
+                values != null ? values.toBlock(BIGINT) : new LongArrayBlock(0, Optional.empty(), new long[] {}));
     }
 
     @Override

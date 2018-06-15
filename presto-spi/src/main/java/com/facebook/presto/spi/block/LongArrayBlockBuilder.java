@@ -31,7 +31,7 @@ public class LongArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize();
-    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(1, new boolean[] {true}, new long[1]);
+    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new boolean[] {true}, new long[1]);
 
     @Nullable
     private BlockBuilderStatus blockBuilderStatus;
@@ -39,6 +39,7 @@ public class LongArrayBlockBuilder
     private int initialEntryCount;
 
     private int positionCount;
+    private boolean hasNullValue;
     private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
@@ -87,6 +88,7 @@ public class LongArrayBlockBuilder
 
         valueIsNull[positionCount] = true;
 
+        hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
@@ -100,7 +102,7 @@ public class LongArrayBlockBuilder
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
         }
-        return new LongArrayBlock(positionCount, valueIsNull, values);
+        return new LongArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
@@ -222,6 +224,12 @@ public class LongArrayBlockBuilder
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -241,8 +249,9 @@ public class LongArrayBlockBuilder
     {
         checkReadablePosition(position);
         return new LongArrayBlock(
+                0,
                 1,
-                new boolean[] {valueIsNull[position]},
+                valueIsNull[position] ? new boolean[] {true} : null,
                 new long[] {values[position]});
     }
 
@@ -254,15 +263,20 @@ public class LongArrayBlockBuilder
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
         }
-        boolean[] newValueIsNull = new boolean[length];
+        boolean[] newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = new boolean[length];
+        }
         long[] newValues = new long[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position];
+            if (hasNullValue) {
+                newValueIsNull[i] = valueIsNull[position];
+            }
             newValues[i] = values[position];
         }
-        return new LongArrayBlock(length, newValueIsNull, newValues);
+        return new LongArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -273,7 +287,7 @@ public class LongArrayBlockBuilder
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
         }
-        return new LongArrayBlock(positionOffset, length, valueIsNull, values);
+        return new LongArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
@@ -284,9 +298,12 @@ public class LongArrayBlockBuilder
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
         }
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        boolean[] newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        }
         long[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
-        return new LongArrayBlock(length, newValueIsNull, newValues);
+        return new LongArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
