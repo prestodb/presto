@@ -34,7 +34,7 @@ public class TestPartitionsAwareAccessControl
     {
         for (Method interfaceMethod : interfaceClass.getMethods()) {
             Method implementationMethod = implementationClass.getMethod(interfaceMethod.getName(), interfaceMethod.getParameterTypes());
-            if (interfaceMethod.equals(implementationMethod)) {
+            if (interfaceMethod.equals(implementationMethod) && interfaceMethod.getAnnotation(Deprecated.class) == null) {
                 throw new AssertionError(format(
                         "Method should be overridden in %s: %s",
                         implementationClass,
