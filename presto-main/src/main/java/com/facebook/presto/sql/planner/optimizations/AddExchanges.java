@@ -259,12 +259,12 @@ public class AddExchanges
         private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
         {
             return symbol -> {
-                if (node.getArgumentMappings().containsKey(symbol)) {
-                    return Optional.of(node.getArgumentMappings().get(symbol));
+                if (node.getAggregationArguments().contains(symbol)) {
+                    return Optional.of(symbol);
                 }
 
                 if (node.getCommonGroupingColumns().contains(symbol)) {
-                    return Optional.of(node.getGroupingSetMappings().get(symbol));
+                    return Optional.of(node.getGroupingColumns().get(symbol));
                 }
 
                 return Optional.empty();

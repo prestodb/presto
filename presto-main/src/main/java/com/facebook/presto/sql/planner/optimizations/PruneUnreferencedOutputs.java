@@ -419,10 +419,10 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
-            Map<Symbol, Symbol> newArgumentMappings = node.getArgumentMappings().entrySet().stream()
-                    .filter(entry -> context.get().contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            expectedInputs.addAll(newArgumentMappings.values());
+            List<Symbol> newAggregationArguments = node.getAggregationArguments().stream()
+                    .filter(context.get()::contains)
+                    .collect(Collectors.toList());
+            expectedInputs.addAll(newAggregationArguments);
 
             ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
             Map<Symbol, Symbol> newGroupingMapping = new HashMap<>();
@@ -433,15 +433,15 @@ public class PruneUnreferencedOutputs
                 for (Symbol output : groupingSet) {
                     if (context.get().contains(output)) {
                         newGroupingSet.add(output);
-                        newGroupingMapping.putIfAbsent(output, node.getGroupingSetMappings().get(output));
-                        expectedInputs.add(node.getGroupingSetMappings().get(output));
+                        newGroupingMapping.putIfAbsent(output, node.getGroupingColumns().get(output));
+                        expectedInputs.add(node.getGroupingColumns().get(output));
                     }
                 }
                 newGroupingSets.add(newGroupingSet.build());
             }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMapping, newArgumentMappings, node.getGroupIdSymbol());
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMapping, newAggregationArguments, node.getGroupIdSymbol());
         }
 
         @Override

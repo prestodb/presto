@@ -368,7 +368,7 @@ public class OptimizeMixedDistinctAggregations
                     allSymbols.stream().collect(Collectors.toMap(
                             symbol -> symbol,
                             symbol -> (symbol.equals(duplicatedDistinctSymbol) ? distinctSymbol : symbol))),
-                    ImmutableMap.of(),
+                    ImmutableList.of(),
                     groupSymbol);
         }
 

@@ -147,24 +147,13 @@ public class UnaliasSymbolReferences
             for (List<Symbol> groupingSet : node.getGroupingSets()) {
                 ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
                 for (Symbol output : groupingSet) {
-                    newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingSetMappings().get(output)));
+                    newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingColumns().get(output)));
                     newGroupingSet.add(canonicalize(output));
                 }
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            Map<Symbol, Symbol> newArgumentMappings = new HashMap<>();
-            for (Symbol output : node.getArgumentMappings().keySet()) {
-                Symbol canonicalOutput = canonicalize(output);
-                if (newArgumentMappings.containsKey(canonicalOutput)) {
-                    map(output, canonicalOutput);
-                }
-                else {
-                    newArgumentMappings.put(canonicalOutput, canonicalize(node.getArgumentMappings().get(output)));
-                }
-            }
-
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, newArgumentMappings, canonicalize(node.getGroupIdSymbol()));
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override

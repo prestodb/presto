@@ -748,7 +748,7 @@ public class PlanPrinter
             // grouping sets are easier to understand in terms of inputs
             List<List<Symbol>> inputGroupingSetSymbols = node.getGroupingSets().stream()
                     .map(set -> set.stream()
-                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .map(symbol -> node.getGroupingColumns().get(symbol))
                             .collect(Collectors.toList()))
                     .collect(Collectors.toList());
 
@@ -756,11 +756,8 @@ public class PlanPrinter
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
 
-            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingSetMappings().entrySet()) {
+            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
                 print(indent + 2, "%s := %s", mapping.getKey(), mapping.getValue());
-            }
-            for (Map.Entry<Symbol, Symbol> argument : node.getArgumentMappings().entrySet()) {
-                print(indent + 2, "%s := %s", argument.getKey(), argument.getValue());
             }
 
             return processChildren(node, indent + 1);

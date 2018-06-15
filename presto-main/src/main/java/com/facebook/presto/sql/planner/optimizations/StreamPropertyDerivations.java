@@ -332,7 +332,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
         {
             Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingSetMappings().entrySet()) {
+            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
@@ -342,8 +342,8 @@ public final class StreamPropertyDerivations
 
             // TODO: Add support for translating a property on a single column to multiple columns
             // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
-            for (Map.Entry<Symbol, Symbol> argumentMapping : node.getArgumentMappings().entrySet()) {
-                inputToOutputMappings.putIfAbsent(argumentMapping.getValue(), argumentMapping.getKey());
+            for (Symbol argument : node.getAggregationArguments()) {
+                inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
             return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
