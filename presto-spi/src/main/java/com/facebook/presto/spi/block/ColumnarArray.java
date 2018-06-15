@@ -32,13 +32,6 @@ public class ColumnarArray
         if (block instanceof RunLengthEncodedBlock) {
             return toColumnarArray((RunLengthEncodedBlock) block);
         }
-        if (block instanceof LazyBlock) {
-            LazyBlock lazyBlock = (LazyBlock) block;
-            if (!lazyBlock.isLoaded()) {
-                throw new IllegalArgumentException("LazyBlock is expected to be loaded");
-            }
-            return toColumnarArray(lazyBlock.getBlock());
-        }
 
         if (!(block instanceof AbstractArrayBlock)) {
             throw new IllegalArgumentException("Invalid array block: " + block.getClass().getName());

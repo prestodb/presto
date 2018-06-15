@@ -21,7 +21,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 
@@ -95,10 +94,7 @@ public class DictionaryAwarePageProjection
             this.session = session;
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
 
-            Block block = requireNonNull(page, "page is null").getBlock(0);
-            if (block instanceof LazyBlock) {
-                block = ((LazyBlock) block).getBlock();
-            }
+            Block block = requireNonNull(page, "page is null").getBlock(0).getLoadedBlock();
             this.block = block;
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
 
