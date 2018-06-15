@@ -87,13 +87,12 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
     {
-        Binding binding = callSiteBinder.bind(function.getMethodHandle());
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return generateInvocation(scope, name, function, instance, arguments, binding);
+        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
     }
 
     public Variable wasNull()

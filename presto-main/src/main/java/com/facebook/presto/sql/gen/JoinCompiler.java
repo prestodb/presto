@@ -713,7 +713,7 @@ public class JoinCompiler
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, rightBlock, rightPosition));
 
             body.append(new IfStatement()
-                    .condition(BytecodeUtils.generateInvocation(scope, "isDistinctFrom", operator, Optional.empty(), argumentsBytecode, binding))
+                    .condition(BytecodeUtils.generateInvocation(scope, "isDistinctFrom", operator, Optional.empty(), argumentsBytecode, callSiteBinder))
                     .ifTrue(constantFalse().ret()));
         }
         body.append(constantTrue().ret());
