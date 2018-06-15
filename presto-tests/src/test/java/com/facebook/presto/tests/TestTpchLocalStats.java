@@ -503,4 +503,12 @@ public class TestTpchLocalStats
                 // of values are filtered out.
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.0, 1.0)));
     }
+
+    @Test
+    public void testCorrelatedSubquery()
+    {
+        statisticsAssertion.check("SELECT (SELECT count(*) FROM nation n1 WHERE n1.n_nationkey = n2.n_nationkey AND n1.n_regionkey > n2.n_regionkey) FROM nation n2",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.5)));
+    }
 }
