@@ -24,6 +24,7 @@ import com.facebook.presto.spi.session.TestingSessionPropertyConfigurationManage
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.node.NodeInfo;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -66,12 +67,14 @@ public class TestQuerySessionSupplier
                     .build(),
             "testRemote");
     private static final ResourceGroupId TEST_RESOURCE_GROUP_ID = new ResourceGroupId("test");
+    private static final NodeInfo TEST_NODE_INFO = new NodeInfo("test");
 
     @Test
     public void testCreateSession()
     {
         HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST);
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                TEST_NODE_INFO,
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager());
@@ -103,6 +106,7 @@ public class TestQuerySessionSupplier
     {
         HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST);
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                TEST_NODE_INFO,
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager());
@@ -154,6 +158,7 @@ public class TestQuerySessionSupplier
                 "testRemote");
         HttpRequestSessionContext context = new HttpRequestSessionContext(request);
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                TEST_NODE_INFO,
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager());

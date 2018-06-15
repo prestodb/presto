@@ -11,15 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.session;
+package com.facebook.presto.spi.resourceGroups;
 
-import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
-
-import java.util.Map;
-
-public interface SessionPropertyConfigurationManagerFactory
+public interface SessionPropertyConfigurationManagerContext
 {
-    String getName();
-
-    SessionPropertyConfigurationManager create(Map<String, String> config, SessionPropertyConfigurationManagerContext context);
+    default String getEnvironment()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

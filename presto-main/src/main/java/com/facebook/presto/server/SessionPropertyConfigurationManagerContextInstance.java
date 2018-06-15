@@ -11,15 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.session;
+package com.facebook.presto.server;
 
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 
-import java.util.Map;
+import static java.util.Objects.requireNonNull;
 
-public interface SessionPropertyConfigurationManagerFactory
+public class SessionPropertyConfigurationManagerContextInstance
+        implements SessionPropertyConfigurationManagerContext
 {
-    String getName();
+    private final String environment;
 
-    SessionPropertyConfigurationManager create(Map<String, String> config, SessionPropertyConfigurationManagerContext context);
+    public SessionPropertyConfigurationManagerContextInstance(String environment)
+    {
+        this.environment = requireNonNull(environment, "environment is null");
+    }
+
+    @Override
+    public String getEnvironment()
+    {
+        return environment;
+    }
 }
