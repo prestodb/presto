@@ -51,9 +51,15 @@ function flattenNode(stages, nodeInfo, result)
     const sources = allSources[0];
     const remoteSources = allSources[1];
 
+    var tableName = '';
+    if (nodeInfo.hasOwnProperty('table')) {
+        tableName = nodeInfo.table.connectorHandle.schemaTableName.schema + '.' + nodeInfo.table.connectorHandle.schemaTableName.table;
+    }
+
     result.set(nodeInfo.id, {
         id: nodeInfo.id,
         type: nodeInfo['@type'],
+        tableName: tableName,
         sources: sources.map(function(node) { return node.id }),
         remoteSources: remoteSources,
         stats: {}
@@ -188,7 +194,7 @@ let LivePlan = React.createClass({
         stage.nodes.forEach(node => {
             const nodeId = "node-" + node.id;
 
-            graph.setNode(nodeId, {label: node.type, style: 'fill: #fff'});
+            graph.setNode(nodeId, {label: this.getNodeLabelSvg(node.type, node.tableName), labelType: 'svg', style: 'fill: #fff'});
             graph.setParent(nodeId, clusterId);
 
             node.sources.forEach(source => {
@@ -203,6 +209,19 @@ let LivePlan = React.createClass({
                 });
             }
         });
+    },
+    getNodeLabelSvg: function(label, tooltip) {
+        var svg_label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        var tspan = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        tspan.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+        tspan.setAttribute('dy', '1em');
+        tspan.setAttribute('x', '1');
+        tspan.textContent = label;
+        var title = document.createElementNS('http://www.w3.org/2000/svg','title');
+        title.textContent = tooltip;
+        svg_label.appendChild(tspan);
+        svg_label.appendChild(title);
+        return svg_label;
     },
     updateD3Graph: function() {
         if (!this.state.query) {
