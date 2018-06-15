@@ -1021,12 +1021,12 @@ public class LocalExecutionPlanner
 
             for (Symbol output : node.getGroupingSets().stream().flatMap(Collection::stream).collect(Collectors.toSet())) {
                 newLayout.put(output, outputChannel++);
-                outputTypes.add(source.getTypes().get(source.getLayout().get(node.getGroupingSetMappings().get(output))));
+                outputTypes.add(source.getTypes().get(source.getLayout().get(node.getGroupingColumns().get(output))));
             }
 
             Map<Symbol, Integer> argumentMappings = new HashMap<>();
-            for (Symbol output : node.getArgumentMappings().keySet()) {
-                int inputChannel = source.getLayout().get(node.getArgumentMappings().get(output));
+            for (Symbol output : node.getAggregationArguments()) {
+                int inputChannel = source.getLayout().get(output);
 
                 newLayout.put(output, outputChannel++);
                 outputTypes.add(source.getTypes().get(inputChannel));
@@ -1039,7 +1039,7 @@ public class LocalExecutionPlanner
                 ImmutableMap.Builder<Integer, Integer> setMapping = ImmutableMap.builder();
 
                 for (Symbol output : groupingSet) {
-                    setMapping.put(newLayout.get(output), source.getLayout().get(node.getGroupingSetMappings().get(output)));
+                    setMapping.put(newLayout.get(output), source.getLayout().get(node.getGroupingColumns().get(output)));
                 }
 
                 for (Symbol output : argumentMappings.keySet()) {

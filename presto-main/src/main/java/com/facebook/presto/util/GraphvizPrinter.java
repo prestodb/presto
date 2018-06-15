@@ -344,7 +344,7 @@ public final class GraphvizPrinter
             // grouping sets are easier to understand in terms of inputs
             List<String> inputGroupingSetSymbols = node.getGroupingSets().stream()
                     .map(set -> "(" + Joiner.on(", ").join(set.stream()
-                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .map(symbol -> node.getGroupingColumns().get(symbol))
                             .collect(Collectors.toList())) + ")")
                     .collect(Collectors.toList());
 

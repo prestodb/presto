@@ -460,17 +460,14 @@ class QueryPlanner
 
         // 2.a. Rewrite aggregate arguments
         TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-        ImmutableMap.Builder<Symbol, Symbol> argumentMappingBuilder = ImmutableMap.builder();
-        for (Expression argument : arguments.build()) {
-            Symbol input = subPlan.translate(argument);
 
-            if (!argumentTranslations.containsSymbol(argument)) {
-                Symbol output = symbolAllocator.newSymbol(argument, analysis.getTypeWithCoercions(argument), "arg");
-                argumentMappingBuilder.put(output, input);
-                argumentTranslations.put(argument, output);
-            }
+        ImmutableList.Builder<Symbol> aggregationArgumentsBuilder = ImmutableList.builder();
+        for (Expression argument : arguments.build()) {
+            Symbol symbol = subPlan.translate(argument);
+            argumentTranslations.put(argument, symbol);
+            aggregationArgumentsBuilder.add(symbol);
         }
-        Map<Symbol, Symbol> argumentMappings = argumentMappingBuilder.build();
+        List<Symbol> aggregationArguments = aggregationArgumentsBuilder.build();
 
         // 2.b. Rewrite grouping columns
         TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
@@ -501,18 +498,13 @@ class QueryPlanner
         Optional<Symbol> groupIdSymbol = Optional.empty();
         if (groupingSets.size() > 1) {
             groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSymbols, groupingSetMappings, argumentMappings, groupIdSymbol.get());
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSymbols, groupingSetMappings, aggregationArguments, groupIdSymbol.get());
             subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            for (Symbol output : argumentMappings.keySet()) {
-                assignments.put(output, argumentMappings.get(output).toSymbolReference());
-            }
-
-            for (Symbol output : groupingSetMappings.keySet()) {
-                assignments.put(output, groupingSetMappings.get(output).toSymbolReference());
-            }
+            aggregationArguments.forEach(assignments::putIdentity);
+            groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
