@@ -20,14 +20,20 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.BytecodeVisitor;
+import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
+import org.objectweb.asm.MethodVisitor;
 
+import java.util.List;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -52,23 +58,7 @@ class InputReferenceCompiler
 
     public static BytecodeNode generateInputReference(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
     {
-        Variable wasNullVariable = scope.getVariable("wasNull");
-        Class<?> javaType = type.getJavaType();
-        if (!javaType.isPrimitive() && javaType != Slice.class) {
-            javaType = Object.class;
-        }
-
-        IfStatement ifStatement = new IfStatement();
-        ifStatement.condition(block.invoke("isNull", boolean.class, position));
-
-        ifStatement.ifTrue()
-                .putVariable(wasNullVariable, true)
-                .pushJavaDefault(javaType);
-
-        String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-        ifStatement.ifFalse(constantType(callSiteBinder, type).invoke(methodName, javaType, block, position));
-
-        return ifStatement;
+        return new InputReferenceNode(callSiteBinder, scope, type, block, position);
     }
 
     @Override
@@ -105,5 +95,63 @@ class InputReferenceCompiler
     public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
     {
         throw new UnsupportedOperationException();
+    }
+
+    static class InputReferenceNode
+            implements BytecodeNode
+    {
+        private final BytecodeNode body;
+        private final BytecodeExpression block;
+        private final BytecodeExpression position;
+
+        private InputReferenceNode(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
+        {
+            // Generate body based on block and position
+            Variable wasNullVariable = scope.getVariable("wasNull");
+            Class<?> javaType = type.getJavaType();
+            if (!javaType.isPrimitive() && javaType != Slice.class) {
+                javaType = Object.class;
+            }
+
+            IfStatement ifStatement = new IfStatement();
+            ifStatement.condition(block.invoke("isNull", boolean.class, position));
+
+            ifStatement.ifTrue()
+                    .putVariable(wasNullVariable, true)
+                    .pushJavaDefault(javaType);
+
+            String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
+            ifStatement.ifFalse(constantType(callSiteBinder, type).invoke(methodName, javaType, block, position));
+
+            this.body = ifStatement;
+            this.block = block;
+            this.position = position;
+        }
+
+        @Override
+        public List<BytecodeNode> getChildNodes()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
+        {
+            body.accept(visitor, generationContext);
+        }
+
+        @Override
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
+        {
+            return visitor.visitIf(parent, (IfStatement) body);
+        }
+
+        public BytecodeNode produceBlockAndPosition()
+        {
+            BytecodeBlock blockAndPosition = new BytecodeBlock();
+            blockAndPosition.append(block);
+            blockAndPosition.append(position);
+            return blockAndPosition;
+        }
     }
 }
