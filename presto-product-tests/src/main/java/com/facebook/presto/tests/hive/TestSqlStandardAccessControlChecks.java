@@ -144,7 +144,7 @@ public class TestSqlStandardAccessControlChecks
 
         // Verify that Charlie does not have SELECT on the view, then grant access
         assertThat(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
-                .failsWithMessage(format("Access Denied: Cannot select from view default.%s", viewName));
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", viewName));
         bobExecutor.executeQuery(format("GRANT SELECT ON %s TO charlie", viewName));
 
         // Charlie still cannot access view because Bob does not have SELECT WITH GRANT OPTION

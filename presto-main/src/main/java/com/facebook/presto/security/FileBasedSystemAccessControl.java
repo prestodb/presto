@@ -247,11 +247,6 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
     public void checkCanInsertIntoTable(Identity identity, CatalogSchemaTableName table)
     {
     }
@@ -268,21 +263,6 @@ public class FileBasedSystemAccessControl
 
     @Override
     public void checkCanDropView(Identity identity, CatalogSchemaTableName view)
-    {
-    }
-
-    @Override
-    public void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
     {
     }
 

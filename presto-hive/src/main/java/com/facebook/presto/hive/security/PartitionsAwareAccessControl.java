@@ -119,21 +119,17 @@ public class PartitionsAwareAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        delegate.checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
-    }
-    @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-    {
         if (isPartitionsSystemTable(tableName)) {
             try {
-                checkCanSelectFromTable(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName));
+                checkCanSelectFromColumns(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName), columnNames);
                 return;
             }
             catch (AccessDeniedException e) {
                 denySelectTable(tableName.toString());
             }
         }
-        delegate.checkCanSelectFromTable(transactionHandle, identity, tableName);
+
+        delegate.checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
     }
 
     @Override
@@ -158,24 +154,6 @@ public class PartitionsAwareAccessControl
     public void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
         delegate.checkCanDropView(transactionHandle, identity, viewName);
-    }
-
-    @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-    {
-        delegate.checkCanSelectFromView(transactionHandle, identity, viewName);
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-    {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionHandle, identity, tableName);
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-    {
-        delegate.checkCanCreateViewWithSelectFromView(transactionHandle, identity, viewName);
     }
 
     @Override
