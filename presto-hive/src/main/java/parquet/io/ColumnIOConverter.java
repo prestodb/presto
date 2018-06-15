@@ -13,10 +13,10 @@
  */
 package parquet.io;
 
-import com.facebook.presto.hive.parquet.Field;
-import com.facebook.presto.hive.parquet.GroupField;
-import com.facebook.presto.hive.parquet.PrimitiveField;
-import com.facebook.presto.hive.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.Field;
+import com.facebook.presto.parquet.GroupField;
+import com.facebook.presto.parquet.PrimitiveField;
+import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getArrayElementColumn;
-import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getMapKeyValueColumn;
-import static com.facebook.presto.hive.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
+import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
+import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
