@@ -118,6 +118,7 @@
         <module>presto-thrift-connector</module>
         <module>presto-matching</module>
         <module>presto-memory-context</module>
+        <module>presto-pulsar</module>
     </modules>
 
     <dependencyManagement>
