@@ -778,7 +778,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.addEmptyColumnReferencesForTable(session.getIdentity(), name);
+            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
             Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
@@ -2051,7 +2051,8 @@ class StatementAnalyzer
 
                 ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
                         metadata,
-                        accessControl, sqlParser,
+                        accessControl,
+                        sqlParser,
                         orderByScope,
                         analysis,
                         expression);
