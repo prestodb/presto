@@ -95,7 +95,6 @@ public class SqlQueryExecution
 
     private final QueryStateMachine stateMachine;
 
-    private final Statement statement;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -142,7 +141,6 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
-            this.statement = requireNonNull(statement, "statement is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
