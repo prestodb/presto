@@ -54,7 +54,7 @@ public class ColumnIOConverter
         if (ROW.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();
-            ImmutableList.Builder<Optional<Field>> fileldsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
             List<TypeSignatureParameter> fields = type.getTypeSignature().getParameters();
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
@@ -62,10 +62,10 @@ public class ColumnIOConverter
                 String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
                 Optional<Field> field = constructField(parameters.get(i), groupColumnIO.getChild(name));
                 structHasParameters |= field.isPresent();
-                fileldsBuilder.add(field);
+                fieldsBuilder.add(field);
             }
             if (structHasParameters) {
-                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fileldsBuilder.build()));
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
             }
             return Optional.empty();
         }
@@ -73,7 +73,7 @@ public class ColumnIOConverter
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             MapType mapType = (MapType) type;
             GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
-            if (keyValueColumnIO.getChildrenCount() < 2) {
+            if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
             }
             Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
@@ -83,7 +83,7 @@ public class ColumnIOConverter
         else if (ARRAY.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> types = type.getTypeParameters();
-            if (groupColumnIO.getChildrenCount() == 0) {
+            if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
             Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));

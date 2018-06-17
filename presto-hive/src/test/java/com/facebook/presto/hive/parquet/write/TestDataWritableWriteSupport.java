@@ -31,6 +31,12 @@ class TestDataWritableWriteSupport
 {
     private TestDataWritableWriter writer;
     private MessageType schema;
+    private boolean singleLevelArray;
+
+    public TestDataWritableWriteSupport(boolean singleLevelArray)
+    {
+        this.singleLevelArray = singleLevelArray;
+    }
 
     @Override
     public WriteContext init(final Configuration configuration)
@@ -42,7 +48,7 @@ class TestDataWritableWriteSupport
     @Override
     public void prepareForWrite(final RecordConsumer recordConsumer)
     {
-        writer = new TestDataWritableWriter(recordConsumer, schema);
+        writer = new TestDataWritableWriter(recordConsumer, schema, singleLevelArray);
     }
 
     @Override

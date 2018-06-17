@@ -206,7 +206,7 @@ public abstract class AbstractTestParquetReader
         Iterable<List<List>> values = createTestArrays(structs);
         List<String> structFieldNames = asList("a", "b", "c");
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
-        tester.testRoundTrip(
+        tester.testSingleLevelArrayRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaLongObjectInspector, javaBooleanObjectInspector, javaStringObjectInspector))),
                 values, values, new ArrayType(structType), Optional.of(customSchemaArrayOfStucts));
     }
@@ -377,6 +377,44 @@ public abstract class AbstractTestParquetReader
                         javaIntObjectInspector,
                         getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector)))),
                 values, values, new ArrayType(mapType(INTEGER, structType)));
+    }
+
+    @Test
+    public void testSingleLevelArrayOfStructOfSingleElement()
+            throws Exception
+    {
+        Iterable<List> structs = createTestStructs(transform(intsBetween(0, 31_234), Object::toString));
+        Iterable<List<List>> values = createTestArrays(structs);
+        List<String> structFieldNames = singletonList("test");
+        Type structType = RowType.from(singletonList(field("test", VARCHAR)));
+        tester.testRoundTrip(
+                getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, singletonList(javaStringObjectInspector))),
+                values, values, new ArrayType(structType));
+        tester.testSingleLevelArraySchemaRoundTrip(
+                getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, singletonList(javaStringObjectInspector))),
+                values, values, new ArrayType(structType));
+    }
+
+    @Test
+    public void testSingleLevelArrayOfStructOfStructOfSingleElement()
+            throws Exception
+    {
+        Iterable<List> structs = createTestStructs(transform(intsBetween(0, 31_234), Object::toString));
+        Iterable<List> structsOfStructs = createTestStructs(structs);
+        Iterable<List<List>> values = createTestArrays(structsOfStructs);
+        List<String> structFieldNames = singletonList("test");
+        List<String> structsOfStructsFieldNames = singletonList("test");
+        Type structType = RowType.from(singletonList(field("test", VARCHAR)));
+        Type structsOfStructsType = RowType.from(singletonList(field("test", structType)));
+        ObjectInspector structObjectInspector = getStandardStructObjectInspector(structFieldNames, singletonList(javaStringObjectInspector));
+        tester.testRoundTrip(
+                getStandardListObjectInspector(
+                        getStandardStructObjectInspector(structsOfStructsFieldNames, singletonList(structObjectInspector))),
+                values, values, new ArrayType(structsOfStructsType));
+        tester.testSingleLevelArraySchemaRoundTrip(
+                getStandardListObjectInspector(
+                        getStandardStructObjectInspector(structsOfStructsFieldNames, singletonList(structObjectInspector))),
+                values, values, new ArrayType(structsOfStructsType));
     }
 
     @Test
@@ -1085,7 +1123,7 @@ public abstract class AbstractTestParquetReader
         ObjectInspector eInspector = getStandardStructObjectInspector(singletonList("f"), singletonList(fInspector));
         tester.testRoundTrip(asList(aInspector, eInspector),
                 new Iterable<?>[] {aValues, eValues}, new Iterable<?>[] {aValues, eValues},
-                asList("a", "e"), asList(aType, eType), Optional.of(parquetSchema));
+                asList("a", "e"), asList(aType, eType), Optional.of(parquetSchema), false);
     }
 
     @Test
@@ -1098,7 +1136,7 @@ public abstract class AbstractTestParquetReader
                 "  }" +
                 "} ");
         Iterable<List<Integer>> nonNullArrayElements = createTestArrays(intsBetween(0, 31_234));
-        tester.testRoundTrip(getStandardListObjectInspector(javaIntObjectInspector), nonNullArrayElements, nonNullArrayElements, new ArrayType(INTEGER), Optional.of(parquetMrAvroSchema));
+        tester.testSingleLevelArrayRoundTrip(getStandardListObjectInspector(javaIntObjectInspector), nonNullArrayElements, nonNullArrayElements, new ArrayType(INTEGER), Optional.of(parquetMrAvroSchema));
     }
 
     @Test

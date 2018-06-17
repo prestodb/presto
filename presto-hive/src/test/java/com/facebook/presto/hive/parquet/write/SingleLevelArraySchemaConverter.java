@@ -162,7 +162,7 @@ public class SingleLevelArraySchemaConverter
     private static GroupType convertArrayType(final String name, final ListTypeInfo typeInfo, final Repetition repetition)
     {
         final TypeInfo subType = typeInfo.getListElementTypeInfo();
-        return listWrapper(name, OriginalType.LIST, convertType("array_element", subType, Repetition.REPEATED), repetition);
+        return listWrapper(name, OriginalType.LIST, convertType("array", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
