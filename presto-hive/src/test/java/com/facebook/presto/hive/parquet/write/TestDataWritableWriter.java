@@ -54,7 +54,7 @@ import java.util.Map;
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter
  * and extended to support empty arrays and maps (HIVE-13632).
- * Additionally, there is a support for arrays without include an inner element layer and
+ * Additionally, there is a support for arrays without an inner element layer and
  * support for maps where  MAP_KEY_VALUE is incorrectly used in place of MAP
  * for backward-compatibility rules testing (https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists)
  */
@@ -63,11 +63,13 @@ public class TestDataWritableWriter
     private static final Logger log = Logger.get(DataWritableWriter.class);
     private final RecordConsumer recordConsumer;
     private final GroupType schema;
+    private final boolean singleLevelArray;
 
-    public TestDataWritableWriter(final RecordConsumer recordConsumer, final GroupType schema)
+    public TestDataWritableWriter(final RecordConsumer recordConsumer, final GroupType schema, boolean singleLevelArray)
     {
         this.recordConsumer = recordConsumer;
         this.schema = schema;
+        this.singleLevelArray = singleLevelArray;
     }
 
     /**
@@ -139,7 +141,12 @@ public class TestDataWritableWriter
 
             if (originalType != null && originalType.equals(OriginalType.LIST)) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.LIST);
-                writeArray(value, (ListObjectInspector) inspector, groupType);
+                if (singleLevelArray) {
+                    writeSingleLevelArray(value, (ListObjectInspector) inspector, groupType);
+                }
+                else {
+                    writeArray(value, (ListObjectInspector) inspector, groupType);
+                }
             }
             else if (originalType != null && (originalType.equals(OriginalType.MAP) || originalType.equals(OriginalType.MAP_KEY_VALUE))) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.MAP);
@@ -198,16 +205,8 @@ public class TestDataWritableWriter
      */
     private void writeArray(final Object value, final ListObjectInspector inspector, final GroupType type)
     {
-        if (type.getType(0).isPrimitive()) {
-            writeSingleLevelArray(value, inspector, type);
-            return;
-        }
         // Get the internal array structure
         GroupType repeatedType = type.getType(0).asGroupType();
-        if (repeatedType.getOriginalType() != null || repeatedType.getFieldCount() > 1) {
-            writeSingleLevelArray(value, inspector, type);
-            return;
-        }
         recordConsumer.startGroup();
 
         List<?> arrayValues = inspector.getList(value);
