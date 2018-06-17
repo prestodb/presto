@@ -186,6 +186,19 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testArrayOfStructOfSingleElement()
+            throws Exception
+    {
+        Iterable<List> structs = createNullableTestStructs(transform(intsBetween(0, 31_234), Object::toString));
+        Iterable<List<List>> values = createTestArrays(structs);
+        List<String> structFieldNames = asList("stringField");
+        Type structType = RowType.from(asList(field("stringField", VARCHAR)));
+        tester.testRoundTrip(
+                getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector))),
+                values, values, new ArrayType(structType));
+    }
+
+    @Test
     public void testCustomSchemaArrayOfStucts()
             throws Exception
     {

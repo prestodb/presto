@@ -52,6 +52,13 @@ public class ColumnIOConverter
         int repetitionLevel = columnIO.getRepetitionLevel();
         int definitionLevel = columnIO.getDefinitionLevel();
         if (ROW.equals(type.getTypeSignature().getBase())) {
+            if (columnIO instanceof PrimitiveColumnIO) {
+                // single element struct
+                PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
+                RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
+                Optional<Field> field = Optional.of(new PrimitiveField(type.getTypeParameters().get(0), repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+            }
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();
             ImmutableList.Builder<Optional<Field>> fileldsBuilder = ImmutableList.builder();
