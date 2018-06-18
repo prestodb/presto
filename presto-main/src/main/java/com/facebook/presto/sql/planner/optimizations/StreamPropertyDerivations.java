@@ -278,6 +278,10 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
+            if (node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
+
             if (node.getScope() == REMOTE) {
                 return StreamProperties.fixedStreams();
             }

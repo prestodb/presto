@@ -68,7 +68,10 @@ public class PushPartialAggregationThroughExchange
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(node -> !node.isStreamable())
-            .with(source().matching(exchange().capturedAs(EXCHANGE_NODE)));
+            .with(source().matching(
+                    exchange()
+                            .matching(node -> !node.getOrderingScheme().isPresent())
+                            .capturedAs(EXCHANGE_NODE)));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -186,7 +189,8 @@ public class PushPartialAggregationThroughExchange
                 exchange.getScope(),
                 partitioning,
                 partials,
-                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())));
+                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())),
+                Optional.empty());
     }
 
     private PlanNode split(AggregationNode node, Context context)

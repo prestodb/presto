@@ -535,7 +535,8 @@ public class HashGenerationOptimizer
                             node.getScope(),
                             partitioningScheme,
                             newSources.build(),
-                            newInputs.build()),
+                            newInputs.build(),
+                            node.getOrderingScheme()),
                     newHashSymbols);
         }
 
