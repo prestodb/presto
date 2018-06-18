@@ -31,6 +31,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -101,6 +102,7 @@ public class ExchangeNode
         orderingScheme.ifPresent(ordering -> {
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
             checkArgument(scope != REMOTE || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
+            checkArgument(scope != LOCAL || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
             sources.forEach(source ->
                     checkArgument(source.getOutputSymbols().containsAll(ordering.getOrderBy()), "Source does not supply all required ordering symbols"));
         });
@@ -181,11 +183,12 @@ public class ExchangeNode
 
     public static ExchangeNode mergingExchange(PlanNodeId id, Scope scope, PlanNode child, OrderingScheme orderingScheme)
     {
+        PartitioningHandle partitioningHandle = scope == LOCAL ? FIXED_PASSTHROUGH_DISTRIBUTION : SINGLE_DISTRIBUTION;
         return new ExchangeNode(
                 id,
                 Type.GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()),
                 Optional.of(orderingScheme));
