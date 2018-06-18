@@ -301,7 +301,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
-            printNode(node, "Exchange 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
+            printNode(node, (node.getOrderingScheme().isPresent() ? "Merge" : "Exchange") + " 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
             return null;
         }
 

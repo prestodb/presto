@@ -90,6 +90,7 @@ public final class SystemSessionProperties
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
+    public static final String DISTRIBUTED_SORT = "distributed_sort";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
@@ -415,6 +416,11 @@ public final class SystemSessionProperties
                         featuresConfig.getFilterAndProjectMinOutputPageRowCount(),
                         false),
                 booleanSessionProperty(
+                        DISTRIBUTED_SORT,
+                        "Parallelize sort across multiple nodes",
+                        featuresConfig.isDistributedSortEnabled(),
+                        false),
+                booleanSessionProperty(
                         USE_MARK_DISTINCT,
                         "Implement DISTINCT aggregations using MarkDistinct",
                         featuresConfig.isUseMarkDistinct(),
@@ -702,6 +708,11 @@ public final class SystemSessionProperties
     public static boolean preferPartialAggregation(Session session)
     {
         return session.getSystemProperty(PREFER_PARTITIAL_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isDistributedSortEnabled(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
     }
 
     public static int getMaxGroupingSets(Session session)
