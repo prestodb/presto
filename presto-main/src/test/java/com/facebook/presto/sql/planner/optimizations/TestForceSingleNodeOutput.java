@@ -65,14 +65,14 @@ public class TestForceSingleNodeOutput
         // don't force gather
         assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", singleNodeOutput(false), false,
                 output(
-                        anyTree(
-                                exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
+                        exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
+                                anyTree(
                                         tableScan("orders")))));
         // force gather, same result
         assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", singleNodeOutput(true), false,
                 output(
-                        anyTree(
-                                exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
+                        exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
+                                anyTree(
                                         tableScan("orders")))));
     }
 
