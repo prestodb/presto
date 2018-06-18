@@ -205,9 +205,8 @@ public class ByteArrayBlockBuilder
         checkArrayRange(positions, offset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
         }
-
         boolean[] newValueIsNull = new boolean[length];
         byte[] newValues = new byte[length];
         for (int i = 0; i < length; i++) {
@@ -225,7 +224,7 @@ public class ByteArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
         }
         return new ByteArrayBlock(positionOffset, length, valueIsNull, values);
     }
@@ -236,7 +235,7 @@ public class ByteArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         byte[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
