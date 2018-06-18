@@ -70,6 +70,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveSessionProperties.isForceLocalScheduling;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
+import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -331,7 +332,7 @@ public class BackgroundHiveSplitLoader
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
-        if (shouldUseFileSplitsFromInputFormat(inputFormat) || getHeaderCount(schema) > 0) {
+        if (shouldUseFileSplitsFromInputFormat(inputFormat) || getHeaderCount(schema) > 0 || getFooterCount(schema) > 0) {
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
@@ -355,8 +356,9 @@ public class BackgroundHiveSplitLoader
     private void handleFileHeader(Properties schema, JobConf jobConf)
     {
         int headerCount = getHeaderCount(schema);
-        if (headerCount > 0) {
-            // do not split file when skip.header.line.count is used
+        int footerCount = getFooterCount(schema);
+        if (headerCount > 0 || footerCount > 0) {
+            // do not split file when skip.header.line.count or skip.footer.line.count is used
             jobConf.setLong("mapreduce.input.fileinputformat.split.minsize", Long.MAX_VALUE);
             // TODO remove this when Hadoop 1.x is not supported
             jobConf.setLong("mapred.min.split.size", Long.MAX_VALUE);

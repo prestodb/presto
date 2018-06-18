@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -205,6 +206,11 @@ public final class HiveUtil
             int headerCount = getHeaderCount(schema);
             if (headerCount > 0) {
                 Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
+            }
+
+            int footerCount = getFooterCount(schema);
+            if (footerCount > 0) {
+                recordReader = new FooterAwareRecordReader<>(recordReader, footerCount, jobConf);
             }
 
             return recordReader;
@@ -880,12 +886,26 @@ public final class HiveUtil
 
     public static int getHeaderCount(Properties schema)
     {
-        String headerCount = schema.getProperty("skip.header.line.count", "0");
+        return getPositiveIntegerValue(schema, "skip.header.line.count", "0");
+    }
+
+    public static int getFooterCount(Properties schema)
+    {
+        return getPositiveIntegerValue(schema, "skip.footer.line.count", "0");
+    }
+
+    private static int getPositiveIntegerValue(Properties schema, String key, String defaultValue)
+    {
+        String value = schema.getProperty(key, defaultValue);
         try {
-            return Integer.parseInt(headerCount);
+            int intValue = Integer.parseInt(value);
+            if (intValue < 0) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", key, value));
+            }
+            return intValue;
         }
         catch (NumberFormatException e) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid value for skip.header.line.count property: " + headerCount);
+            throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", key, value));
         }
     }
 }
