@@ -16,6 +16,7 @@ package com.facebook.presto.array;
 import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -86,6 +87,9 @@ public final class ReferenceCountMap
         }
         else if (key instanceof Slice) {
             extraIdentity = (int) ((Slice) key).getRetainedSize();
+        }
+        else if (key instanceof SliceOutput) {
+            extraIdentity = (int) ((SliceOutput) key).getRetainedSize();
         }
         else if (key.getClass().isArray()) {
             extraIdentity = getLength(key);
