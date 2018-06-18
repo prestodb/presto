@@ -283,6 +283,8 @@ public final class StreamPropertyDerivations
             }
 
             if (node.getScope() == REMOTE) {
+                // TODO: correctly determine if stream is parallelised
+                // based on session properties
                 return StreamProperties.fixedStreams();
             }
 
