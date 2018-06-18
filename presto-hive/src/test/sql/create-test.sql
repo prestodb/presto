@@ -122,12 +122,6 @@ PARTITIONED BY (t_boolean BOOLEAN)
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
-CREATE TABLE presto_test_table_with_footer (
-  t_data STRING
-)
-TBLPROPERTIES ('skip.footer.line.count'='2')
-;
-
 CREATE VIEW presto_test_view
 COMMENT 'Presto test view'
 TBLPROPERTIES ('RETENTION'='-1')
