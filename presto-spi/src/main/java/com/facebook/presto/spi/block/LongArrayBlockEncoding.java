@@ -50,7 +50,7 @@ public class LongArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
 
         long[] values = new long[positionCount];
         for (int position = 0; position < positionCount; position++) {

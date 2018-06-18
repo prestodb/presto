@@ -50,7 +50,7 @@ public class ShortArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
 
         short[] values = new short[positionCount];
         for (int position = 0; position < positionCount; position++) {

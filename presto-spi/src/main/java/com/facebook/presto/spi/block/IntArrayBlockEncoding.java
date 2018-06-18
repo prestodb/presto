@@ -50,7 +50,7 @@ public class IntArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
 
         int[] values = new int[positionCount];
         for (int position = 0; position < positionCount; position++) {

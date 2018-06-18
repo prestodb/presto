@@ -91,7 +91,7 @@ public class MapBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
-        boolean[] mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        boolean[] mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
         return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
     }
 }

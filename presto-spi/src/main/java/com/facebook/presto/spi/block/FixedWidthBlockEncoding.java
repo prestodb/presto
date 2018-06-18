@@ -55,7 +55,7 @@ public class FixedWidthBlockEncoding
         int fixedSize = sliceInput.readInt();
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
 
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);

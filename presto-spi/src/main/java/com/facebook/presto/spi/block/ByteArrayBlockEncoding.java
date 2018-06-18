@@ -50,7 +50,7 @@ public class ByteArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
 
         byte[] values = new byte[positionCount];
         for (int position = 0; position < positionCount; position++) {
