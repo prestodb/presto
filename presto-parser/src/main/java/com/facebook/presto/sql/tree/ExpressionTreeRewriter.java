@@ -134,7 +134,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new ArithmeticBinaryExpression(node.getType(), left, right);
+                return new ArithmeticBinaryExpression(node.getOperator(), left, right);
             }
 
             return node;
@@ -213,7 +213,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new ComparisonExpression(node.getType(), left, right);
+                return new ComparisonExpression(node.getOperator(), left, right);
             }
 
             return node;
@@ -254,7 +254,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new LogicalBinaryExpression(node.getType(), left, right);
+                return new LogicalBinaryExpression(node.getOperator(), left, right);
             }
 
             return node;
@@ -508,7 +508,7 @@ public final class ExpressionTreeRewriter<C>
                     if (start.getValue().isPresent()) {
                         Expression value = rewrite(start.getValue().get(), context.get());
                         if (value != start.getValue().get()) {
-                            start = new FrameBound(start.getType(), value, start.getOriginalValue().get());
+                            start = new FrameBound(start.getType(), value);
                         }
                     }
 
@@ -518,8 +518,7 @@ public final class ExpressionTreeRewriter<C>
                         if (value.isPresent()) {
                             Expression rewrittenValue = rewrite(value.get(), context.get());
                             if (rewrittenValue != value.get()) {
-                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(),
-                                        rewrittenValue, rewrittenEnd.get().getOriginalValue().get()));
+                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
                             }
                         }
                     }
@@ -622,12 +621,10 @@ public final class ExpressionTreeRewriter<C>
 
             Expression value = rewrite(node.getValue(), context.get());
             Expression pattern = rewrite(node.getPattern(), context.get());
-            Expression escape = null;
-            if (node.getEscape() != null) {
-                escape = rewrite(node.getEscape(), context.get());
-            }
+            Optional<Expression> escape = node.getEscape()
+                    .map(e -> rewrite(e, context.get()));
 
-            if (value != node.getValue() || pattern != node.getPattern() || escape != node.getEscape()) {
+            if (value != node.getValue() || pattern != node.getPattern() || !sameElements(node.getEscape(), escape)) {
                 return new LikePredicate(value, pattern, escape);
             }
 

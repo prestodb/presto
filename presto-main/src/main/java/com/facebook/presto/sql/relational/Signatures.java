@@ -89,7 +89,7 @@ public final class Signatures
         return internalScalarFunction(TRY_CAST, returnType.getTypeSignature(), valueType.getTypeSignature());
     }
 
-    public static Signature logicalExpressionSignature(LogicalBinaryExpression.Type expressionType)
+    public static Signature logicalExpressionSignature(LogicalBinaryExpression.Operator expressionType)
     {
         return internalScalarFunction(expressionType.name(), parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN));
     }
@@ -99,7 +99,7 @@ public final class Signatures
         return internalOperator("NEGATION", returnType.getTypeSignature(), valueType.getTypeSignature());
     }
 
-    public static Signature arithmeticExpressionSignature(ArithmeticBinaryExpression.Type expressionType, Type returnType, Type leftType, Type rightType)
+    public static Signature arithmeticExpressionSignature(ArithmeticBinaryExpression.Operator expressionType, Type returnType, Type leftType, Type rightType)
     {
         return internalOperator(expressionType.name(), returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
     }

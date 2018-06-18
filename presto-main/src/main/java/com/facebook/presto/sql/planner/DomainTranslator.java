@@ -275,7 +275,7 @@ public final class DomainTranslator
             Metadata metadata,
             Session session,
             Expression predicate,
-            Map<Symbol, Type> types)
+            TypeProvider types)
     {
         return new Visitor(metadata, session, types).process(predicate, false);
     }
@@ -286,15 +286,15 @@ public final class DomainTranslator
         private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final FunctionInvoker functionInvoker;
 
-        private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
+        private Visitor(Metadata metadata, Session session, TypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
-            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.types = types;
             this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
         }
 
@@ -336,7 +336,7 @@ public final class DomainTranslator
             TupleDomain<Symbol> leftTupleDomain = leftResult.getTupleDomain();
             TupleDomain<Symbol> rightTupleDomain = rightResult.getTupleDomain();
 
-            LogicalBinaryExpression.Type type = complement ? flipLogicalBinaryType(node.getType()) : node.getType();
+            LogicalBinaryExpression.Operator type = complement ? flipLogicalBinaryType(node.getOperator()) : node.getOperator();
             switch (type) {
                 case AND:
                     return new ExtractionResult(
@@ -374,17 +374,17 @@ public final class DomainTranslator
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
 
                 default:
-                    throw new AssertionError("Unknown type: " + node.getType());
+                    throw new AssertionError("Unknown type: " + node.getOperator());
             }
         }
 
-        private static LogicalBinaryExpression.Type flipLogicalBinaryType(LogicalBinaryExpression.Type type)
+        private static LogicalBinaryExpression.Operator flipLogicalBinaryType(LogicalBinaryExpression.Operator type)
         {
             switch (type) {
                 case AND:
-                    return LogicalBinaryExpression.Type.OR;
+                    return LogicalBinaryExpression.Operator.OR;
                 case OR:
-                    return LogicalBinaryExpression.Type.AND;
+                    return LogicalBinaryExpression.Operator.AND;
                 default:
                     throw new AssertionError("Unknown type: " + type);
             }
@@ -479,12 +479,12 @@ public final class DomainTranslator
 
             if (left instanceof Expression) {
                 symbolExpression = comparison.getLeft();
-                comparisonType = comparison.getType();
+                comparisonType = comparison.getOperator();
                 value = new NullableValue(rightType, right);
             }
             else {
                 symbolExpression = comparison.getRight();
-                comparisonType = comparison.getType().flip();
+                comparisonType = comparison.getOperator().flip();
                 value = new NullableValue(leftType, left);
             }
 
@@ -769,7 +769,7 @@ public final class DomainTranslator
         }
     }
 
-    private static Type typeOf(Expression expression, Session session, Metadata metadata, Map<Symbol, Type> types)
+    private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
         return expressionTypes.get(NodeRef.of(expression));

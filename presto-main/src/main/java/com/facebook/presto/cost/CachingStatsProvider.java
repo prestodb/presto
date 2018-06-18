@@ -14,8 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
@@ -38,16 +37,16 @@ public final class CachingStatsProvider
     private final Optional<Memo> memo;
     private final Lookup lookup;
     private final Session session;
-    private final Supplier<Map<Symbol, Type>> types;
+    private final Supplier<TypeProvider> types;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>();
 
-    public CachingStatsProvider(StatsCalculator statsCalculator, Session session, Map<Symbol, Type> types)
+    public CachingStatsProvider(StatsCalculator statsCalculator, Session session, TypeProvider types)
     {
         this(statsCalculator, Optional.empty(), noLookup(), session, Suppliers.ofInstance(requireNonNull(types, "types is null")));
     }
 
-    public CachingStatsProvider(StatsCalculator statsCalculator, Optional<Memo> memo, Lookup lookup, Session session, Supplier<Map<Symbol, Type>> types)
+    public CachingStatsProvider(StatsCalculator statsCalculator, Optional<Memo> memo, Lookup lookup, Session session, Supplier<TypeProvider> types)
     {
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.memo = requireNonNull(memo, "memo is null");

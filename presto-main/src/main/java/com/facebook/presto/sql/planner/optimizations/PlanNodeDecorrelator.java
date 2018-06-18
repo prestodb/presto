@@ -286,7 +286,7 @@ public class PlanNodeDecorrelator
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 if (!(comparison.getLeft() instanceof SymbolReference
                         && comparison.getRight() instanceof SymbolReference
-                        && comparison.getType().equals(EQUAL))) {
+                        && comparison.getOperator().equals(EQUAL))) {
                     continue;
                 }
 

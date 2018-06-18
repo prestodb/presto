@@ -330,8 +330,8 @@ public abstract class DefaultTraversalVisitor<R, C>
     {
         process(node.getValue(), context);
         process(node.getPattern(), context);
-        if (node.getEscape() != null) {
-            process(node.getEscape(), context);
+        if (node.getEscape().isPresent()) {
+            process(node.getEscape().get(), context);
         }
 
         return null;

@@ -53,7 +53,9 @@ public class WindowFrameProvider
                 startType,
                 startValue.map(alias -> alias.toSymbol(aliases)),
                 endType,
-                endValue.map(alias -> alias.toSymbol(aliases)));
+                endValue.map(alias -> alias.toSymbol(aliases)),
+                Optional.empty(),
+                Optional.empty());
     }
 
     @Override

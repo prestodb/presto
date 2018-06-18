@@ -264,7 +264,7 @@ public class EqualityInference
                     isDeterministic(expression) &&
                     !mayReturnNullOnNonNullInput(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getType() == ComparisonExpressionType.EQUAL) {
+                if (comparison.getOperator() == ComparisonExpressionType.EQUAL) {
                     // We should only consider equalities that have distinct left and right components
                     return !comparison.getLeft().equals(comparison.getRight());
                 }

@@ -341,7 +341,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlan plan(
             TaskContext taskContext,
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             PartitioningScheme partitioningScheme,
             boolean planGrouped,
             List<PlanNodeId> partitionedSourceOrder,
@@ -421,7 +421,7 @@ public class LocalExecutionPlanner
             boolean planGrouped,
             PlanNode plan,
             List<Symbol> outputLayout,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory)
     {
@@ -497,7 +497,7 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
@@ -508,14 +508,14 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, Map<Symbol, Type> types)
+        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
         {
             this(taskContext, types, new ArrayList<>(), Optional.empty(), new AtomicInteger(0));
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                Map<Symbol, Type> types,
+                TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId)
@@ -556,7 +556,7 @@ public class LocalExecutionPlanner
             return taskContext.getTaskId().getStageId();
         }
 
-        public Map<Symbol, Type> getTypes()
+        public TypeProvider getTypes()
         {
             return types;
         }
@@ -972,12 +972,12 @@ public class LocalExecutionPlanner
 
             for (Symbol output : node.getGroupingSets().stream().flatMap(Collection::stream).collect(Collectors.toSet())) {
                 newLayout.put(output, outputChannel++);
-                outputTypes.add(source.getTypes().get(source.getLayout().get(node.getGroupingSetMappings().get(output))));
+                outputTypes.add(source.getTypes().get(source.getLayout().get(node.getGroupingColumns().get(output))));
             }
 
             Map<Symbol, Integer> argumentMappings = new HashMap<>();
-            for (Symbol output : node.getArgumentMappings().keySet()) {
-                int inputChannel = source.getLayout().get(node.getArgumentMappings().get(output));
+            for (Symbol output : node.getAggregationArguments()) {
+                int inputChannel = source.getLayout().get(output);
 
                 newLayout.put(output, outputChannel++);
                 outputTypes.add(source.getTypes().get(inputChannel));
@@ -990,7 +990,7 @@ public class LocalExecutionPlanner
                 ImmutableMap.Builder<Integer, Integer> setMapping = ImmutableMap.builder();
 
                 for (Symbol output : groupingSet) {
-                    setMapping.put(newLayout.get(output), source.getLayout().get(node.getGroupingSetMappings().get(output)));
+                    setMapping.put(newLayout.get(output), source.getLayout().get(node.getGroupingColumns().get(output)));
                 }
 
                 for (Symbol output : argumentMappings.keySet()) {
@@ -1234,7 +1234,7 @@ public class LocalExecutionPlanner
                         context.getSession(),
                         metadata,
                         sqlParser,
-                        ImmutableMap.of(),
+                        TypeProvider.empty(),
                         ImmutableList.copyOf(row),
                         emptyList(),
                         false);
@@ -1539,12 +1539,12 @@ public class LocalExecutionPlanner
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+                if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     Expression radius = spatialComparison.getRight();
                     if (radius instanceof SymbolReference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
                         FunctionCall spatialFunction = (FunctionCall) spatialComparison.getLeft();
-                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getType()));
+                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getOperator()));
                         if (operation.isPresent()) {
                             return operation.get();
                         }
@@ -1938,7 +1938,7 @@ public class LocalExecutionPlanner
                 Expression filterExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout,
-                Map<Symbol, Type> types,
+                TypeProvider types,
                 Session session)
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
@@ -2247,12 +2247,12 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<Type> getSourceOperatorTypes(PlanNode node, Map<Symbol, Type> types)
+        private List<Type> getSourceOperatorTypes(PlanNode node, TypeProvider types)
         {
             return getSymbolTypes(node.getOutputSymbols(), types);
         }
 
-        private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, Type> types)
+        private List<Type> getSymbolTypes(List<Symbol> symbols, TypeProvider types)
         {
             return symbols.stream()
                     .map(types::get)

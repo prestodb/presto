@@ -315,7 +315,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
-                    comparisonExpressionSignature(node.getType(), left.getType(), right.getType()),
+                    comparisonExpressionSignature(node.getOperator(), left.getType(), right.getType()),
                     BOOLEAN,
                     left,
                     right);
@@ -386,7 +386,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
-                    arithmeticExpressionSignature(node.getType(), getType(node), left.getType(), right.getType()),
+                    arithmeticExpressionSignature(node.getOperator(), getType(node), left.getType(), right.getType()),
                     getType(node),
                     left,
                     right);
@@ -414,7 +414,7 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
             return call(
-                    logicalExpressionSignature(node.getType()),
+                    logicalExpressionSignature(node.getOperator()),
                     BOOLEAN,
                     process(node.getLeft(), context),
                     process(node.getRight(), context));
@@ -679,8 +679,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getValue(), context);
             RowExpression pattern = process(node.getPattern(), context);
 
-            if (node.getEscape() != null) {
-                RowExpression escape = process(node.getEscape(), context);
+            if (node.getEscape().isPresent()) {
+                RowExpression escape = process(node.getEscape().get(), context);
                 return call(likeSignature(), BOOLEAN, value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
             }
 

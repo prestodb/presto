@@ -47,7 +47,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
-        "deprecated.legacy-order-by"})
+        "deprecated.legacy-order-by",
+        "deprecated.legacy-join-using"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -79,7 +80,6 @@ public class FeaturesConfig
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
     private boolean legacyRoundNBigint;
-    private boolean legacyJoinUsing;
     private boolean legacyRowFieldOrdinalAccess;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
@@ -176,18 +176,6 @@ public class FeaturesConfig
     public boolean isLegacyRoundNBigint()
     {
         return legacyRoundNBigint;
-    }
-
-    @Config("deprecated.legacy-join-using")
-    public FeaturesConfig setLegacyJoinUsing(boolean value)
-    {
-        this.legacyJoinUsing = value;
-        return this;
-    }
-
-    public boolean isLegacyJoinUsing()
-    {
-        return legacyJoinUsing;
     }
 
     @Config("deprecated.legacy-row-field-ordinal-access")

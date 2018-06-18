@@ -528,45 +528,45 @@ public class TestSqlParser
     @Test
     public void testPrecedenceAndAssociativity()
     {
-        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
-                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
                 new LongLiteral("1"),
-                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
 
-        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
+        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
                 negative(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
+        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
+        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
                 new LongLiteral("1"),
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
     }
@@ -629,7 +629,7 @@ public class TestSqlParser
     @Test
     public void testCurrentTimestamp()
     {
-        assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
+        assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Operation.TIMESTAMP));
     }
 
     @Test
@@ -1854,7 +1854,7 @@ public class TestSqlParser
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                                    new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
                                             new ComparisonExpression(GREATER_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0")),

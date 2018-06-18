@@ -83,7 +83,7 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialComparison(ComparisonExpression expression)
     {
-        switch (expression.getType()) {
+        switch (expression.getOperator()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
                 return isSTDistance(expression.getLeft());
@@ -115,7 +115,7 @@ public class SpatialJoinUtils
 
         List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
         for (ComparisonExpression spatialComparison : spatialComparisons) {
-            if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+            if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
                 // ST_Distance(a, b) <= r
                 Expression radius = spatialComparison.getRight();
                 if (radius instanceof Literal || (radius instanceof SymbolReference && getSymbolReferences(right.getOutputSymbols()).contains(radius))) {

@@ -175,7 +175,7 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(node.getType().getName());
+            builder.append(node.getOperation().getName());
 
             if (node.getPrecision() != null) {
                 builder.append('(')
@@ -411,7 +411,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            return formatBinaryExpression(node.getType().toString(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getOperator().toString(), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -423,7 +423,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getOperator().getValue(), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -492,7 +492,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getOperator().getValue(), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -505,9 +505,9 @@ public final class ExpressionFormatter
                     .append(" LIKE ")
                     .append(process(node.getPattern(), context));
 
-            if (node.getEscape() != null) {
+            if (node.getEscape().isPresent()) {
                 builder.append(" ESCAPE ")
-                        .append(process(node.getEscape(), context));
+                        .append(process(node.getEscape().get(), context));
             }
 
             builder.append(')');

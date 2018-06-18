@@ -51,7 +51,6 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CurrentUser;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -115,8 +114,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
@@ -220,11 +219,6 @@ public class ExpressionInterpreter
         return result;
     }
 
-    public static void verifyExpressionIsConstant(Set<NodeRef<Expression>> columnReferences, Expression expression)
-    {
-        new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
-    }
-
     private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
     {
         this.expression = requireNonNull(expression, "expression is null");
@@ -261,42 +255,6 @@ public class ExpressionInterpreter
     {
         checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
         return visitor.process(expression, inputs);
-    }
-
-    private static class ConstantExpressionVerifierVisitor
-            extends DefaultTraversalVisitor<Void, Void>
-    {
-        private final Set<NodeRef<Expression>> columnReferences;
-        private final Expression expression;
-
-        public ConstantExpressionVerifierVisitor(Set<NodeRef<Expression>> columnReferences, Expression expression)
-        {
-            this.columnReferences = columnReferences;
-            this.expression = expression;
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
-        {
-            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-            }
-
-            process(node.getBase(), context);
-            return null;
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, Void context)
-        {
-            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-        }
-
-        @Override
-        protected Void visitFieldReference(FieldReference node, Void context)
-        {
-            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-        }
     }
 
     @SuppressWarnings("FloatingPointEquality")
@@ -749,16 +707,16 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticBinaryExpression(node.getType(), toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                return new ArithmeticBinaryExpression(node.getOperator(), toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 
-            return invokeOperator(OperatorType.valueOf(node.getType().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
+            return invokeOperator(OperatorType.valueOf(node.getOperator().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            ComparisonExpressionType type = node.getType();
+            ComparisonExpressionType type = node.getOperator();
 
             Object left = process(node.getLeft(), context);
             if (left == null && type != ComparisonExpressionType.IS_DISTINCT_FROM) {
@@ -872,7 +830,7 @@ public class ExpressionInterpreter
             Object left = process(node.getLeft(), context);
             Object right;
 
-            switch (node.getType()) {
+            switch (node.getOperator()) {
                 case AND: {
                     if (Boolean.FALSE.equals(left)) {
                         return false;
@@ -913,7 +871,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            return new LogicalBinaryExpression(node.getType(),
+            return new LogicalBinaryExpression(node.getOperator(),
                     toExpression(left, type(node.getLeft())),
                     toExpression(right, type(node.getRight())));
         }
@@ -1011,7 +969,7 @@ public class ExpressionInterpreter
 
             if (value instanceof Slice &&
                     node.getPattern() instanceof StringLiteral &&
-                    (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
+                    (!node.getEscape().isPresent() || node.getEscape().get() instanceof StringLiteral)) {
                 // fast path when we know the pattern and escape are constant
                 return LikeFunctions.like((Slice) value, getConstantPattern(node));
             }
@@ -1023,8 +981,8 @@ public class ExpressionInterpreter
             }
 
             Object escape = null;
-            if (node.getEscape() != null) {
-                escape = process(node.getEscape(), context);
+            if (node.getEscape().isPresent()) {
+                escape = process(node.getEscape().get(), context);
 
                 if (escape == null) {
                     return null;
@@ -1065,10 +1023,8 @@ public class ExpressionInterpreter
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, valueExpression, patternExpression);
             }
 
-            Expression optimizedEscape = null;
-            if (node.getEscape() != null) {
-                optimizedEscape = toExpression(escape, type(node.getEscape()));
-            }
+            Optional<Expression> optimizedEscape = node.getEscape()
+                    .map(e -> toExpression(e, type(node.getEscape().get())));
 
             return new LikePredicate(
                     toExpression(value, type(node.getValue())),
@@ -1082,13 +1038,12 @@ public class ExpressionInterpreter
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
-                StringLiteral escape = (StringLiteral) node.getEscape();
 
-                if (escape == null) {
-                    result = LikeFunctions.likePattern(pattern.getSlice());
+                if (node.getEscape().isPresent()) {
+                    result = LikeFunctions.likePattern(pattern.getSlice(), ((StringLiteral) node.getEscape().get()).getSlice());
                 }
                 else {
-                    result = LikeFunctions.likePattern(pattern.getSlice(), escape.getSlice());
+                    result = LikeFunctions.likePattern(pattern.getSlice());
                 }
 
                 likePatternCache.put(node, result);

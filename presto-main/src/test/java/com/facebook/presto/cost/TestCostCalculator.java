@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -259,7 +260,7 @@ public class TestCostCalculator
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
                 noLookup(),
                 session,
-                ImmutableMap.of());
+                TypeProvider.empty());
 
         PlanNodeCostEstimate sourcesCost = node.getSources().stream()
                 .map(source -> requireNonNull(costs.apply(source), "no cost for source"))

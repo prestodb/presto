@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -80,7 +81,6 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
@@ -142,7 +142,7 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), PreferredProperties.any());
         return result.getNode();
@@ -153,7 +153,7 @@ public class AddExchanges
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
@@ -164,7 +164,7 @@ public class AddExchanges
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
-            this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
+            this.types = symbolAllocator.getTypes();
             this.session = session;
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
@@ -259,12 +259,12 @@ public class AddExchanges
         private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
         {
             return symbol -> {
-                if (node.getArgumentMappings().containsKey(symbol)) {
-                    return Optional.of(node.getArgumentMappings().get(symbol));
+                if (node.getAggregationArguments().contains(symbol)) {
+                    return Optional.of(symbol);
                 }
 
                 if (node.getCommonGroupingColumns().contains(symbol)) {
-                    return Optional.of(node.getGroupingSetMappings().get(symbol));
+                    return Optional.of(node.getGroupingColumns().get(symbol));
                 }
 
                 return Optional.empty();
@@ -1353,7 +1353,7 @@ public class AddExchanges
         private final Map<Symbol, ColumnHandle> assignments;
         private final ExpressionInterpreter evaluator;
 
-        public LayoutConstraintEvaluator(Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> assignments, Expression expression)
+        public LayoutConstraintEvaluator(Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
         {
             this.assignments = assignments;
 

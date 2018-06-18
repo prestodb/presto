@@ -1065,12 +1065,11 @@ class AstBuilder
     @Override
     public Node visitLike(SqlBaseParser.LikeContext context)
     {
-        Expression escape = null;
-        if (context.escape != null) {
-            escape = (Expression) visit(context.escape);
-        }
-
-        Expression result = new LikePredicate(getLocation(context), (Expression) visit(context.value), (Expression) visit(context.pattern), escape);
+        Expression result = new LikePredicate(
+                getLocation(context),
+                (Expression) visit(context.value),
+                (Expression) visit(context.pattern),
+                visitIfPresent(context.escape, Expression.class));
 
         if (context.NOT() != null) {
             result = new NotExpression(getLocation(context), result);
@@ -1214,13 +1213,13 @@ class AstBuilder
     @Override
     public Node visitSpecialDateTimeFunction(SqlBaseParser.SpecialDateTimeFunctionContext context)
     {
-        CurrentTime.Type type = getDateTimeFunctionType(context.name);
+        CurrentTime.Operation operation = getDateTimeFunctionType(context.name);
 
         if (context.precision != null) {
-            return new CurrentTime(getLocation(context), type, Integer.parseInt(context.precision.getText()));
+            return new CurrentTime(getLocation(context), operation, Integer.parseInt(context.precision.getText()));
         }
 
-        return new CurrentTime(getLocation(context), type);
+        return new CurrentTime(getLocation(context), operation);
     }
 
     @Override
@@ -1835,19 +1834,19 @@ class AstBuilder
                 .map(Token::getText);
     }
 
-    private static ArithmeticBinaryExpression.Type getArithmeticBinaryOperator(Token operator)
+    private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)
     {
         switch (operator.getType()) {
             case SqlBaseLexer.PLUS:
-                return ArithmeticBinaryExpression.Type.ADD;
+                return ArithmeticBinaryExpression.Operator.ADD;
             case SqlBaseLexer.MINUS:
-                return ArithmeticBinaryExpression.Type.SUBTRACT;
+                return ArithmeticBinaryExpression.Operator.SUBTRACT;
             case SqlBaseLexer.ASTERISK:
-                return ArithmeticBinaryExpression.Type.MULTIPLY;
+                return ArithmeticBinaryExpression.Operator.MULTIPLY;
             case SqlBaseLexer.SLASH:
-                return ArithmeticBinaryExpression.Type.DIVIDE;
+                return ArithmeticBinaryExpression.Operator.DIVIDE;
             case SqlBaseLexer.PERCENT:
-                return ArithmeticBinaryExpression.Type.MODULUS;
+                return ArithmeticBinaryExpression.Operator.MODULUS;
         }
 
         throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
@@ -1873,19 +1872,19 @@ class AstBuilder
         throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
     }
 
-    private static CurrentTime.Type getDateTimeFunctionType(Token token)
+    private static CurrentTime.Operation getDateTimeFunctionType(Token token)
     {
         switch (token.getType()) {
             case SqlBaseLexer.CURRENT_DATE:
-                return CurrentTime.Type.DATE;
+                return CurrentTime.Operation.DATE;
             case SqlBaseLexer.CURRENT_TIME:
-                return CurrentTime.Type.TIME;
+                return CurrentTime.Operation.TIME;
             case SqlBaseLexer.CURRENT_TIMESTAMP:
-                return CurrentTime.Type.TIMESTAMP;
+                return CurrentTime.Operation.TIMESTAMP;
             case SqlBaseLexer.LOCALTIME:
-                return CurrentTime.Type.LOCALTIME;
+                return CurrentTime.Operation.LOCALTIME;
             case SqlBaseLexer.LOCALTIMESTAMP:
-                return CurrentTime.Type.LOCALTIMESTAMP;
+                return CurrentTime.Operation.LOCALTIMESTAMP;
         }
 
         throw new IllegalArgumentException("Unsupported special function: " + token.getText());
@@ -1971,13 +1970,13 @@ class AstBuilder
         throw new IllegalArgumentException("Unsupported sampling method: " + token.getText());
     }
 
-    private static LogicalBinaryExpression.Type getLogicalBinaryOperator(Token token)
+    private static LogicalBinaryExpression.Operator getLogicalBinaryOperator(Token token)
     {
         switch (token.getType()) {
             case SqlBaseLexer.AND:
-                return LogicalBinaryExpression.Type.AND;
+                return LogicalBinaryExpression.Operator.AND;
             case SqlBaseLexer.OR:
-                return LogicalBinaryExpression.Type.OR;
+                return LogicalBinaryExpression.Operator.OR;
         }
 
         throw new IllegalArgumentException("Unsupported operator: " + token.getText());

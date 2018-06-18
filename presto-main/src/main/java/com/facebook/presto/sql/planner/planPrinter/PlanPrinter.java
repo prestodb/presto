@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -89,11 +90,8 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -143,14 +141,14 @@ public class PlanPrinter
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
     private final boolean verbose;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
+    private PlanPrinter(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
     {
         this(plan, types, functionRegistry, statsCalculator, costCalculator, session, 0, false);
     }
 
     private PlanPrinter(
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             FunctionRegistry functionRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -163,7 +161,7 @@ public class PlanPrinter
 
     private PlanPrinter(
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             FunctionRegistry functionRegistry,
             StatsProvider statsProvider,
             CostCalculator costCalculator,
@@ -184,7 +182,7 @@ public class PlanPrinter
 
     private PlanPrinter(
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             FunctionRegistry functionRegistry,
             StatsProvider statsProvider,
             CostProvider costProvider,
@@ -207,7 +205,7 @@ public class PlanPrinter
 
     private PlanPrinter(
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             FunctionRegistry functionRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -237,27 +235,27 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
     {
         return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent)
     {
         return textLogicalPlan(plan, types, functionRegistry, statsCalculator, costCalculator, session, indent, false);
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, FunctionRegistry functionRegistry, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
     {
         return new PlanPrinter(plan, types, functionRegistry, statsProvider, costProvider, session, indent, false).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
     {
         return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session, indent, verbose).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
     {
         return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session, stats, indent, verbose).toString();
     }
@@ -351,23 +349,23 @@ public class PlanPrinter
         builder.append(indentString(1)).append(format("Execution Flow: %s\n", fragment.getPipelineExecutionStrategy()));
 
         if (stageInfo.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), functionRegistry, statsCalculator, costCalculator, session, planNodeStats.get(), 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), new TypeProvider(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, planNodeStats.get(), 1, verbose))
                     .append("\n");
         }
         else {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), functionRegistry, statsCalculator, costCalculator, session, 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), new TypeProvider(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, 1, verbose))
                     .append("\n");
         }
 
         return builder.toString();
     }
 
-    public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
+    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
     {
         PlanFragment fragment = new PlanFragment(
                 new PlanFragmentId("graphviz_plan"),
                 plan,
-                types,
+                types.allTypes(),
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
@@ -582,12 +580,12 @@ public class PlanPrinter
     private class Visitor
             extends PlanVisitor<Void, Integer>
     {
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final StatsProvider statsProvider;
         private final CostProvider costProvider;
         private final Session session;
 
-        public Visitor(StatsProvider statsProvider, CostProvider costProvider, Map<Symbol, Type> types, Session session)
+        public Visitor(StatsProvider statsProvider, CostProvider costProvider, TypeProvider types, Session session)
         {
             this.types = types;
             this.statsProvider = statsProvider;
@@ -750,7 +748,7 @@ public class PlanPrinter
             // grouping sets are easier to understand in terms of inputs
             List<List<Symbol>> inputGroupingSetSymbols = node.getGroupingSets().stream()
                     .map(set -> set.stream()
-                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .map(symbol -> node.getGroupingColumns().get(symbol))
                             .collect(Collectors.toList()))
                     .collect(Collectors.toList());
 
@@ -758,11 +756,8 @@ public class PlanPrinter
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
 
-            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingSetMappings().entrySet()) {
+            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
                 print(indent + 2, "%s := %s", mapping.getKey(), mapping.getValue());
-            }
-            for (Map.Entry<Symbol, Symbol> argument : node.getArgumentMappings().entrySet()) {
-                print(indent + 2, "%s := %s", argument.getKey(), argument.getValue());
             }
 
             return processChildren(node, indent + 1);
@@ -829,10 +824,7 @@ public class PlanPrinter
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 FunctionCall call = entry.getValue().getFunctionCall();
-                String frameInfo = call.getWindow()
-                        .flatMap(Window::getFrame)
-                        .map(PlanPrinter::formatFrame)
-                        .orElse("");
+                String frameInfo = PlanPrinter.formatFrame(entry.getValue().getFrame());
 
                 print(indent + 2, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
             }
@@ -1406,21 +1398,22 @@ public class PlanPrinter
         return "[" + Joiner.on(", ").join(symbols) + "]";
     }
 
-    private static String formatFrame(WindowFrame frame)
+    private static String formatFrame(WindowNode.Frame frame)
     {
         StringBuilder builder = new StringBuilder(frame.getType().toString());
-        FrameBound start = frame.getStart();
-        if (start.getValue().isPresent()) {
-            builder.append(" ").append(start.getOriginalValue().get());
-        }
-        builder.append(" ").append(start.getType());
 
-        Optional<FrameBound> end = frame.getEnd();
-        if (end.isPresent()) {
-            if (end.get().getOriginalValue().isPresent()) {
-                builder.append(" ").append(end.get().getOriginalValue().get());
+        Optional<Symbol> startValue = frame.getStartValue();
+        if (startValue.isPresent()) {
+            builder.append(" ").append(frame.getOriginalStartValue().get());
+        }
+        builder.append(" ").append(frame.getStartType());
+
+        Optional<Symbol> endValue = frame.getEndValue();
+        if (endValue.isPresent()) {
+            if (frame.getOriginalEndValue().isPresent()) {
+                builder.append(" ").append(frame.getOriginalEndValue().get());
             }
-            builder.append(" ").append(end.get().getType());
+            builder.append(" ").append(frame.getEndType());
         }
         return builder.toString();
     }
