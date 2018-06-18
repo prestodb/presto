@@ -56,9 +56,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalTotalLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalUserLimit;
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
@@ -67,12 +69,14 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -91,12 +95,14 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
+    private final DataSize maxQueryTotalMemory;
     private final boolean enabled;
     private final LowMemoryKiller lowMemoryKiller;
     private final Duration killOnOutOfMemoryDelay;
     private final String coordinatorId;
     private final AtomicLong memoryPoolAssignmentsVersion = new AtomicLong();
-    private final AtomicLong clusterMemoryUsageBytes = new AtomicLong();
+    private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
+    private final AtomicLong clusterTotalMemoryReservation = new AtomicLong();
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
 
@@ -145,10 +151,14 @@ public class ClusterMemoryManager
         this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.lowMemoryKiller = requireNonNull(lowMemoryKiller, "lowMemoryKiller is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
+        this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isLegacySystemPoolEnabled = nodeMemoryConfig.isLegacySystemPoolEnabled();
+
+        verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
+                "maxQueryMemory cannot be greater than maxQueryTotalMemory");
 
         ImmutableMap.Builder<MemoryPoolId, ClusterMemoryPool> builder = ImmutableMap.builder();
         for (MemoryPoolId poolId : POOLS) {
@@ -185,31 +195,46 @@ public class ClusterMemoryManager
         preAllocationsConsumed.clear();
 
         boolean queryKilled = false;
-        long totalBytes = 0;
+        long totalUserMemoryBytes = 0L;
+        long totalMemoryBytes = 0L;
         for (QueryExecution query : queries) {
-            long bytes = getQueryMemoryReservation(query);
-            DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
-            long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
-            totalBytes += bytes;
-            if (resourceOvercommit(query.getSession()) && outOfMemory) {
+            boolean resourceOvercommit = resourceOvercommit(query.getSession());
+            long userMemoryReservation = query.getUserMemoryReservation();
+            long totalMemoryReservation = query.getTotalMemoryReservation();
+
+            if (resourceOvercommit && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
-                DataSize memory = succinctBytes(bytes);
+                DataSize memory = succinctBytes(getQueryMemoryReservation(query));
                 query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
                         format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
                 queryKilled = true;
             }
-            if (!resourceOvercommit(query.getSession()) && bytes > queryMemoryLimit) {
-                DataSize maxMemory = succinctBytes(queryMemoryLimit);
-                query.fail(exceededGlobalLimit(maxMemory));
-                queryKilled = true;
+
+            if (!resourceOvercommit) {
+                long userMemoryLimit = min(maxQueryMemory.toBytes(), getQueryMaxMemory(query.getSession()).toBytes());
+                if (userMemoryReservation > userMemoryLimit) {
+                    query.fail(exceededGlobalUserLimit(succinctBytes(userMemoryLimit)));
+                    queryKilled = true;
+                }
+
+                // enforce global total memory limit if system pool is disabled
+                long totalMemoryLimit = min(maxQueryTotalMemory.toBytes(), getQueryMaxTotalMemory(query.getSession()).toBytes());
+                if (!isLegacySystemPoolEnabled && totalMemoryReservation > totalMemoryLimit) {
+                    query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
+                    queryKilled = true;
+                }
             }
 
             if (preAllocations.containsKey(query.getQueryId())) {
-                preAllocationsConsumed.put(query.getQueryId(), bytes);
+                preAllocationsConsumed.put(query.getQueryId(), userMemoryReservation);
             }
+
+            totalUserMemoryBytes += userMemoryReservation;
+            totalMemoryBytes += totalMemoryReservation;
         }
 
-        clusterMemoryUsageBytes.set(totalBytes);
+        clusterUserMemoryReservation.set(totalUserMemoryBytes);
+        clusterTotalMemoryReservation.set(totalMemoryBytes);
 
         if (!(lowMemoryKiller instanceof NoneLowMemoryKiller) &&
                 outOfMemory &&
@@ -493,9 +518,15 @@ public class ClusterMemoryManager
     }
 
     @Managed
-    public long getClusterMemoryUsageBytes()
+    public long getClusterUserMemoryReservation()
     {
-        return clusterMemoryUsageBytes.get();
+        return clusterUserMemoryReservation.get();
+    }
+
+    @Managed
+    public long getClusterTotalMemoryReservation()
+    {
+        return clusterTotalMemoryReservation.get();
     }
 
     @Managed
