@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlock;
@@ -77,7 +78,7 @@ public final class PrestoThriftInteger
         int numberOfRecords = numberOfRecords();
         return new IntArrayBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.ofNullable(nulls),
                 ints == null ? new int[numberOfRecords] : ints);
     }
 
