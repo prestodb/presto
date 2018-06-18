@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -31,6 +32,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.Patterns.assignUniqueId;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -57,6 +59,8 @@ public final class PushRemoteExchangeThroughAssignUniqueId
     @Override
     public Result apply(ExchangeNode node, Captures captures, Context context)
     {
+        checkArgument(!node.getOrderingScheme().isPresent(), "Merge exchange over AssignUniqueId not supported");
+
         AssignUniqueId assignUniqueId = captures.get(ASSIGN_UNIQUE_ID);
         PartitioningScheme partitioningScheme = node.getPartitioningScheme();
         if (partitioningScheme.getPartitioning().getColumns().contains(assignUniqueId.getIdColumn())) {
@@ -78,7 +82,8 @@ public final class PushRemoteExchangeThroughAssignUniqueId
                                 partitioningScheme.isReplicateNullsAndAny(),
                                 partitioningScheme.getBucketToPartition()),
                         ImmutableList.of(assignUniqueId.getSource()),
-                        ImmutableList.of(removeSymbol(getOnlyElement(node.getInputs()), assignUniqueId.getIdColumn()))),
+                        ImmutableList.of(removeSymbol(getOnlyElement(node.getInputs()), assignUniqueId.getIdColumn())),
+                        Optional.empty()),
                 assignUniqueId.getIdColumn()));
     }
 

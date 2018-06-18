@@ -127,6 +127,7 @@ public class PruneUnreferencedOutputs
             node.getPartitioningScheme().getHashColumn().ifPresent(expectedOutputSymbols::add);
             node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
+            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbols.addAll(orderingScheme.getOrderBy()));
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -144,7 +145,7 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            // newOutputSymbols contains all partition and hash symbols so simply swap the output layout
+            // newOutputSymbols contains all partition, sort and hash symbols so simply swap the output layout
             PartitioningScheme partitioningScheme = new PartitioningScheme(
                     node.getPartitioningScheme().getPartitioning(),
                     newOutputSymbols,
@@ -168,7 +169,8 @@ public class PruneUnreferencedOutputs
                     node.getScope(),
                     partitioningScheme,
                     rewrittenSources.build(),
-                    inputsBySource);
+                    inputsBySource,
+                    node.getOrderingScheme());
         }
 
         @Override
