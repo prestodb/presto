@@ -224,7 +224,7 @@ public class SqlStandardAccessControl
             denySelectTable(tableName.toString());
         }
         if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
-            denyCreateViewWithSelect(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
     }
 

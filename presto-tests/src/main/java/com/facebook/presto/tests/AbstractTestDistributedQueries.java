@@ -898,7 +898,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
                 "SELECT * FROM test_view_access",
-                "Cannot create view that selects from .*.orders.*",
+                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
 
         // verify the view owner can select from the view even without special view creation privileges
@@ -930,7 +930,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
                 "SELECT * FROM test_nested_view_access",
-                "Cannot create view that selects from .*.test_view_access.*",
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
                 privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
@@ -965,7 +965,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
                 "SELECT * FROM test_view_access",
-                "Cannot create view that selects from .*.orders.*",
+                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
@@ -997,7 +997,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
                 "SELECT * FROM test_nested_view_access",
-                "Cannot create view that selects from .*.test_view_access.*",
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
                 privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
