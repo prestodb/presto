@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -104,7 +105,7 @@ public class ByteArrayBlockBuilder
     @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
-        return new ByteArrayBlockBuilder(blockBuilderStatus, positionCount);
+        return new ByteArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
     }
 
     private void growCapacity()
