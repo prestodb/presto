@@ -48,6 +48,7 @@ public class LocalExchangeSink
     public void finish()
     {
         if (finished.compareAndSet(false, true)) {
+            exchanger.finish();
             onFinish.accept(this);
         }
     }

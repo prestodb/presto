@@ -35,4 +35,6 @@ public interface LocalExchanger
     void accept(Page page);
 
     ListenableFuture<?> waitForWriting();
+
+    default void finish() {}
 }
