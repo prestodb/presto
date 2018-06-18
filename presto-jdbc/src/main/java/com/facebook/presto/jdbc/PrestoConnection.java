@@ -89,6 +89,7 @@ public class PrestoConnection
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
+    private final WarningsManager warningsManager = new WarningsManager();
 
     PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
@@ -700,6 +701,11 @@ public class PrestoConnection
         if (client.isClearTransactionId()) {
             transactionId.set(null);
         }
+    }
+
+    WarningsManager getWarningsManager()
+    {
+        return warningsManager;
     }
 
     private void checkOpen()
