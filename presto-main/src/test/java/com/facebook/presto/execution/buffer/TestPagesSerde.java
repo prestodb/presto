@@ -91,13 +91,13 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 43); // page overhead
+        assertEquals(pageSize, 44); // page overhead
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertEquals(firstValueSize, 4 + 5 + 1); // length + "alice" + null
+        assertEquals(firstValueSize, 4 + 5); // length + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");

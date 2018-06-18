@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -44,7 +45,7 @@ public class TestDictionaryBuilder
     {
         public TestHashCollisionBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
         {
-            super(positionCount, slice, offsets, valueIsNull);
+            super(positionCount, slice, offsets, Optional.of(valueIsNull));
         }
 
         @Override
