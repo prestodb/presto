@@ -10,3 +10,4 @@ Administration
     admin/properties
     admin/spill
     admin/resource-groups
+    admin/dist-sort
