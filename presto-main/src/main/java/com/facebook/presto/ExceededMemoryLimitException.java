@@ -24,9 +24,14 @@ public class ExceededMemoryLimitException
 {
     private final DataSize maxMemory;
 
-    public static ExceededMemoryLimitException exceededGlobalLimit(DataSize maxMemory)
+    public static ExceededMemoryLimitException exceededGlobalUserLimit(DataSize maxMemory)
     {
-        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded max memory size of %s", maxMemory));
+        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded max user memory size of %s", maxMemory));
+    }
+
+    public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory)
+    {
+        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded max total memory size of %s", maxMemory));
     }
 
     public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory)

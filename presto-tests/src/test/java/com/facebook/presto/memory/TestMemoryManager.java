@@ -25,6 +25,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -285,13 +286,34 @@ public class TestMemoryManager
                 .anyMatch(task -> task.getBlockedReasons().contains(WAITING_FOR_MEMORY));
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max memory size of 1kB.*")
-    public void testQueryMemoryLimit()
+    @DataProvider(name = "legacy_system_pool_enabled")
+    public Object[][] legacySystemPoolEnabled()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    @Test(timeOut = 60_000, dataProvider = "legacy_system_pool_enabled", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max user memory size of 1kB.*")
+    public void testQueryUserMemoryLimit(boolean systemPoolEnabled)
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.max-partial-aggregation-memory", "1B")
                 .put("query.max-memory", "1kB")
+                .put("query.max-total-memory", "1GB")
+                .put("deprecated.legacy-system-pool-enabled", String.valueOf(systemPoolEnabled))
+                .build();
+        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+            queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
+        }
+    }
+
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max total memory size of 2kB.*")
+    public void testQueryTotalMemoryLimit()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.max-memory", "1kB")
+                .put("query.max-total-memory", "2kB")
                 .build();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");

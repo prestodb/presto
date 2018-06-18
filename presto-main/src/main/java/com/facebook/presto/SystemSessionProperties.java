@@ -51,6 +51,7 @@ public final class SystemSessionProperties
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
+    public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
@@ -223,6 +224,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         DataSize.class,
                         memoryManagerConfig.getMaxQueryMemory(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_TOTAL_MEMORY,
+                        "Maximum amount of distributed total memory a query can use",
+                        VARCHAR,
+                        DataSize.class,
+                        memoryManagerConfig.getMaxQueryTotalMemory(),
                         true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -509,6 +519,11 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxMemory(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_MEMORY, DataSize.class);
+    }
+
+    public static DataSize getQueryMaxTotalMemory(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY, DataSize.class);
     }
 
     public static Duration getQueryMaxRunTime(Session session)
