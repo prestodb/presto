@@ -49,10 +49,14 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.TryExpression;
+import com.facebook.presto.sql.util.AstUtils;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -65,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -212,15 +217,51 @@ public class PredicatePushDown
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
 
-            // Push down conjuncts from the inherited predicate that don't depend on non-deterministic assignments
-            PlanNode rewrittenNode = context.defaultRewrite(node, inlineSymbols(node.getAssignments().getMap(), combineConjuncts(conjuncts.get(true))));
+            // Push down conjuncts from the inherited predicate that only depend on deterministic assignments with
+            // certain limitations.
+            List<Expression> deterministicConjuncts = conjuncts.get(true);
 
-            // All non-deterministic conjuncts, if any, will be in the filter node.
-            if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+            // We partition the expressions in the deterministicConjuncts into two lists, and only inline the
+            // expressions that are in the inlining targets list.
+            Map<Boolean, List<Expression>> inlineConjuncts = deterministicConjuncts.stream()
+                    .collect(Collectors.partitioningBy(expression -> isInliningCandidate(expression, node)));
+
+            List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
+                    .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
+                    .collect(Collectors.toList());
+
+            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));
+
+            // All deterministic conjuncts that contains non-inlining targets, and non-deterministic conjuncts,
+            // if any, will be in the filter node.
+            List<Expression> nonInliningConjuncts = inlineConjuncts.get(false);
+            nonInliningConjuncts.addAll(conjuncts.get(false));
+
+            if (!nonInliningConjuncts.isEmpty()) {
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(nonInliningConjuncts));
             }
 
             return rewrittenNode;
+        }
+
+        private boolean isInliningCandidate(Expression expression, ProjectNode node)
+        {
+            // TryExpressions should not be pushed down. However they are now being handled as lambda
+            // passed to a FunctionCall now and should not affect predicate push down. So we want to make
+            // sure the conjuncts are not TryExpressions.
+            Verify.verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
+
+            // candidate symbols for inlining are
+            //   1. references to simple constants
+            //   2. references to complex expressions that appear only once
+            // which come from the node, as opposed to an enclosing scope.
+            Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
+            Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
+                    .filter(childOutputSet::contains)
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+            return dependencies.entrySet().stream()
+                    .allMatch(entry -> entry.getValue() == 1 || node.getAssignments().get(entry.getKey()) instanceof Literal);
         }
 
         @Override
