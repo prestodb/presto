@@ -191,7 +191,7 @@ public class FileBasedAccessControl
             denySelectTable(tableName.toString());
         }
         if (!checkTablePermission(identity, tableName, GRANT_SELECT)) {
-            denyCreateViewWithSelect(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
     }
 

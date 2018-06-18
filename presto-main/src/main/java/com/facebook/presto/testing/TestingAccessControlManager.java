@@ -292,7 +292,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_TABLE)) {
-            denyCreateViewWithSelect(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
@@ -303,7 +303,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         if (shouldDenyPrivilege(identity.getUser(), viewName.getObjectName(), CREATE_VIEW_WITH_SELECT_VIEW)) {
-            denyCreateViewWithSelect(viewName.toString());
+            denyCreateViewWithSelect(viewName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
@@ -314,7 +314,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
-            denyCreateViewWithSelect(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
