@@ -26,16 +26,6 @@ import static java.util.Objects.requireNonNull;
 public class SimplePageWithPositionComparator
         implements PageWithPositionComparator
 {
-    public static class Factory
-            implements PageWithPositionComparatorFactory
-    {
-        @Override
-        public PageWithPositionComparator create(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
-        {
-            return new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders);
-        }
-    }
-
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
     private final List<Type> types;

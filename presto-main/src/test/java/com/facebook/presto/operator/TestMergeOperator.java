@@ -21,6 +21,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -69,6 +70,7 @@ public class TestMergeOperator
     private PagesSerdeFactory serdeFactory;
     private HttpClient httpClient;
     private ExchangeClientFactory exchangeClientFactory;
+    private OrderingCompiler orderingCompiler;
 
     private LoadingCache<String, TestingTaskBuffer> taskBuffers;
 
@@ -81,12 +83,14 @@ public class TestMergeOperator
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
         exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, executor);
+        orderingCompiler = new OrderingCompiler();
     }
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         serdeFactory = null;
+        orderingCompiler = null;
 
         httpClient.close();
         httpClient = null;
@@ -333,7 +337,7 @@ public class TestMergeOperator
                 new PlanNodeId("plan_node_id" + mergeOperatorId),
                 exchangeClientFactory,
                 serdeFactory,
-                new SimplePageWithPositionComparator.Factory(),
+                orderingCompiler,
                 sourceTypes,
                 outputChannels,
                 sortChannels,
