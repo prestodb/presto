@@ -45,7 +45,6 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -143,23 +142,23 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
-                    ImmutableMap.of(
-                            minValue, new Aggregation(
+                    ImmutableList.of(
+                            new Aggregation(
                                     minValue,
                                     new FunctionCall(MIN, outputColumnReferences),
                                     functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
-                            maxValue, new Aggregation(
+                            new Aggregation(
                                     maxValue,
                                     new FunctionCall(MAX, outputColumnReferences),
                                     functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
-                            countAllValue, new Aggregation(
+                            new Aggregation(
                                     countAllValue,
                                     new FunctionCall(COUNT, emptyList()),
                                     functionRegistry.resolveFunction(COUNT, emptyList()),
                                     Optional.empty()),
-                            countNonNullValue, new Aggregation(
+                            new Aggregation(
                                     countNonNullValue,
                                     new FunctionCall(COUNT, outputColumnReferences),
                                     functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),

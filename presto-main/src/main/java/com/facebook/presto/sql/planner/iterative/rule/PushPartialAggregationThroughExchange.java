@@ -35,9 +35,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -191,30 +189,28 @@ public class PushPartialAggregationThroughExchange
     private PlanNode split(AggregationNode node, Context context)
     {
         // otherwise, add a partial and final with an exchange in between
-        Map<Symbol, AggregationNode.Aggregation> intermediateAggregation = new HashMap<>();
-        Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
-            AggregationNode.Aggregation originalAggregation = entry.getValue();
+        List<AggregationNode.Aggregation> partialAggregations = new ArrayList<>();
+        List<AggregationNode.Aggregation> finalAggregations = new ArrayList<>();
+        for (AggregationNode.Aggregation originalAggregation : node.getAggregations()) {
             Signature signature = originalAggregation.getSignature();
             InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
 
             checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(intermediateSymbol, originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            partialAggregations.add(new AggregationNode.Aggregation(intermediateSymbol, originalAggregation.getCall(), signature, originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
-            finalAggregation.put(entry.getKey(),
-                    new AggregationNode.Aggregation(
-                            entry.getValue().getOutputSymbol(),
-                            new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
-                            signature,
-                            Optional.empty()));
+            finalAggregations.add(new AggregationNode.Aggregation(
+                    originalAggregation.getOutputSymbol(),
+                    new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
+                    signature,
+                    Optional.empty()));
         }
 
         PlanNode partial = new AggregationNode(
                 context.getIdAllocator().getNextId(),
                 node.getSource(),
-                intermediateAggregation,
+                partialAggregations,
                 node.getGroupingSets(),
                 PARTIAL,
                 node.getHashSymbol(),
@@ -223,7 +219,7 @@ public class PushPartialAggregationThroughExchange
         return new AggregationNode(
                 node.getId(),
                 partial,
-                finalAggregation,
+                finalAggregations,
                 node.getGroupingSets(),
                 FINAL,
                 node.getHashSymbol(),

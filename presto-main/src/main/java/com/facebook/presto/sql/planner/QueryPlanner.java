@@ -535,7 +535,7 @@ class QueryPlanner
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
+        ImmutableList.Builder<Aggregation> aggregationsBuilder = ImmutableList.builder();
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), aggregate);
@@ -551,9 +551,9 @@ class QueryPlanner
             }
             aggregationTranslations.put(parametersReplaced, newSymbol);
 
-            aggregationsBuilder.put(newSymbol, new Aggregation(newSymbol, (FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
+            aggregationsBuilder.add(new Aggregation(newSymbol, (FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
         }
-        Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
+        List<Aggregation> aggregations = aggregationsBuilder.build();
 
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
@@ -768,7 +768,7 @@ class QueryPlanner
                     new AggregationNode(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
-                            ImmutableMap.of(),
+                            ImmutableList.of(),
                             ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),

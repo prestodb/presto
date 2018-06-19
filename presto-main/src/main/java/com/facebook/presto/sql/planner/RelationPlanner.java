@@ -811,7 +811,7 @@ class RelationPlanner
     {
         return new AggregationNode(idAllocator.getNextId(),
                 node,
-                ImmutableMap.of(),
+                ImmutableList.of(),
                 ImmutableList.of(node.getOutputSymbols()),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),

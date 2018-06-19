@@ -31,7 +31,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -169,7 +168,7 @@ public class PlanNodeDecorrelator
             AggregationNode aggregationNode = new AggregationNode(
                     idAllocator.getNextId(),
                     decorrelatedChildNode,
-                    ImmutableMap.of(),
+                    ImmutableList.of(),
                     ImmutableList.of(ImmutableList.<Symbol>builder()
                             .addAll(decorrelatedChildNode.getOutputSymbols())
                             .build()),

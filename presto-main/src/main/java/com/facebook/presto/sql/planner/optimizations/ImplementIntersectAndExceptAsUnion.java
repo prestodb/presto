@@ -42,7 +42,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -228,12 +227,11 @@ public class ImplementIntersectAndExceptAsUnion
 
         private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
         {
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+            ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
 
             for (int i = 0; i < markers.size(); i++) {
-                Symbol output = aggregationOutputs.get(i);
-                aggregations.put(output, new Aggregation(
-                        output,
+                aggregations.add(new Aggregation(
+                        aggregationOutputs.get(i),
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
                         COUNT_AGGREGATION,
                         Optional.empty()));
@@ -250,7 +248,8 @@ public class ImplementIntersectAndExceptAsUnion
 
         private FilterNode addFilterForIntersect(AggregationNode aggregation)
         {
-            ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
+            ImmutableList<Expression> predicates = aggregation.getAggregations().stream()
+                    .map(Aggregation::getOutputSymbol)
                     .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
             return new FilterNode(idAllocator.getNextId(), aggregation, ExpressionUtils.and(predicates));

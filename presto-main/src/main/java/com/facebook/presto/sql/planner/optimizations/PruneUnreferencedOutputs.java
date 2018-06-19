@@ -303,15 +303,12 @@ public class PruneUnreferencedOutputs
                 expectedInputs.add(node.getHashSymbol().get());
             }
 
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                Symbol symbol = entry.getKey();
-
-                if (context.get().contains(symbol)) {
-                    Aggregation aggregation = entry.getValue();
+            ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+            for (Aggregation aggregation : node.getAggregations()) {
+                if (context.get().contains(aggregation.getOutputSymbol())) {
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall()));
                     aggregation.getMask().ifPresent(expectedInputs::add);
-                    aggregations.put(symbol, aggregation);
+                    aggregations.add(aggregation);
                 }
             }
 

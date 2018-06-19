@@ -81,14 +81,10 @@ public class SymbolMapper
 
     private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-            Symbol symbol = entry.getKey();
-            Aggregation aggregation = entry.getValue();
-
-            Symbol outputSymbol = map(symbol);
-            aggregations.put(outputSymbol, new Aggregation(
-                    outputSymbol,
+        ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+        for (Aggregation aggregation : node.getAggregations()) {
+            aggregations.add(new Aggregation(
+                    map(aggregation.getOutputSymbol()),
                     (FunctionCall) map(aggregation.getCall()),
                     aggregation.getSignature(),
                     aggregation.getMask().map(this::map)));

@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
@@ -161,7 +160,7 @@ public class TransformExistsApplyToLateralNode
                         new AggregationNode(
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
-                                ImmutableMap.of(count, new Aggregation(count, COUNT_CALL, countSignature, Optional.empty())),
+                                ImmutableList.of(new Aggregation(count, COUNT_CALL, countSignature, Optional.empty())),
                                 ImmutableList.of(ImmutableList.of()),
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),

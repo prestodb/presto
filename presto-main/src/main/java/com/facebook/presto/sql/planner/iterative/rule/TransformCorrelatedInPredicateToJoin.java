@@ -51,7 +51,6 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
@@ -199,9 +198,9 @@ public class TransformCorrelatedInPredicateToJoin
         AggregationNode aggregation = new AggregationNode(
                 idAllocator.getNextId(),
                 leftOuterJoin,
-                ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(countMatchesSymbol, matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(countNullMatchesSymbol, nullMatchCondition))
+                ImmutableList.<AggregationNode.Aggregation>builder()
+                        .add(countWithFilter(countMatchesSymbol, matchCondition))
+                        .add(countWithFilter(countNullMatchesSymbol, nullMatchCondition))
                         .build(),
                 ImmutableList.of(probeSide.getOutputSymbols()),
                 AggregationNode.Step.SINGLE,

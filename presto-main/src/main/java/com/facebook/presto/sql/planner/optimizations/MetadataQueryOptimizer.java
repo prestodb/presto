@@ -104,7 +104,7 @@ public class MetadataQueryOptimizer
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
-            for (Aggregation aggregation : node.getAggregations().values()) {
+            for (Aggregation aggregation : node.getAggregations()) {
                 if (!ALLOWED_FUNCTIONS.contains(aggregation.getCall().getName().toString()) && !aggregation.getCall().isDistinct()) {
                     return context.defaultRewrite(node);
                 }

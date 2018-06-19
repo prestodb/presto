@@ -732,12 +732,12 @@ public class PlanPrinter
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
 
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    print(indent + 2, "%s := %s (mask = %s)", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get());
+            for (Aggregation aggregation : node.getAggregations()) {
+                if (aggregation.getMask().isPresent()) {
+                    print(indent + 2, "%s := %s (mask = %s)", aggregation.getOutputSymbol(), aggregation.getCall(), aggregation.getMask().get());
                 }
                 else {
-                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue().getCall());
+                    print(indent + 2, "%s := %s", aggregation.getOutputSymbol(), aggregation.getCall());
                 }
             }
 

@@ -32,9 +32,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
@@ -172,20 +171,17 @@ public class AddIntermediateAggregations
      * 'a' := sum('b') => 'a' := sum('a')
      * 'a' := count(*) => 'a' := count('a')
      */
-    private static Map<Symbol, AggregationNode.Aggregation> outputsAsInputs(Map<Symbol, AggregationNode.Aggregation> assignments)
+    private static List<AggregationNode.Aggregation> outputsAsInputs(List<AggregationNode.Aggregation> assignments)
     {
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
-            Symbol output = entry.getKey();
-            AggregationNode.Aggregation aggregation = entry.getValue();
+        ImmutableList.Builder<AggregationNode.Aggregation> builder = ImmutableList.builder();
+        for (AggregationNode.Aggregation aggregation : assignments) {
+            Symbol output = aggregation.getOutputSymbol();
             checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
-            builder.put(
+            builder.add(new AggregationNode.Aggregation(
                     output,
-                    new AggregationNode.Aggregation(
-                            output,
-                            new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
-                            aggregation.getSignature(),
-                            Optional.empty()));  // No mask for INTERMEDIATE
+                    new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
+                    aggregation.getSignature(),
+                    Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();
     }
@@ -198,13 +194,13 @@ public class AddIntermediateAggregations
      * Example:
      * 'a' := sum('b') => 'b' := sum('b')
      */
-    private static Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments)
+    private static List<Aggregation> inputsAsOutputs(List<AggregationNode.Aggregation> assignments)
     {
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Aggregation aggregation : assignments.values()) {
+        ImmutableList.Builder<AggregationNode.Aggregation> builder = ImmutableList.builder();
+        for (Aggregation aggregation : assignments) {
             // Should only have one input symbol
             Symbol input = getOnlyElement(SymbolsExtractor.extractAll(aggregation.getCall()));
-            builder.put(input, new Aggregation(
+            builder.add(new Aggregation(
                     input,
                     aggregation.getCall(),
                     aggregation.getSignature(),

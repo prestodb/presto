@@ -154,9 +154,9 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, DE),
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
-                ImmutableMap.of(
-                        C, new Aggregation(C, fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
-                        D, new Aggregation(D, fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
+                ImmutableList.of(
+                        new Aggregation(C, fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
+                        new Aggregation(D, fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -179,7 +179,7 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new AggregationNode(
                 newId(),
                 filter(baseTableScan, FALSE_LITERAL),
-                ImmutableMap.of(),
+                ImmutableList.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

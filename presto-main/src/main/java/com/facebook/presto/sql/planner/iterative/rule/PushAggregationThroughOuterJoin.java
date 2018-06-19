@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -40,6 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -50,6 +52,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 /**
  * This optimizer pushes aggregations below outer joins when: the aggregation
@@ -143,7 +146,9 @@ public class PushAggregationThroughOuterJoin
                     join.getCriteria(),
                     ImmutableList.<Symbol>builder()
                             .addAll(join.getLeft().getOutputSymbols())
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
+                            .addAll(rewrittenAggregation.getAggregations().stream()
+                                    .map(AggregationNode.Aggregation::getOutputSymbol)
+                                    .collect(toImmutableList()))
                             .build(),
                     join.getFilter(),
                     join.getLeftHashSymbol(),
@@ -158,7 +163,9 @@ public class PushAggregationThroughOuterJoin
                     join.getRight(),
                     join.getCriteria(),
                     ImmutableList.<Symbol>builder()
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
+                            .addAll(rewrittenAggregation.getAggregations().stream()
+                                    .map(AggregationNode.Aggregation::getOutputSymbol)
+                                    .collect(toImmutableList()))
                             .addAll(join.getRight().getOutputSymbols())
                             .build(),
                     join.getFilter(),
@@ -231,8 +238,11 @@ public class PushAggregationThroughOuterJoin
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
+        Set<Symbol> aggregationSymbols = aggregationNode.getAggregations().stream()
+                .map(Aggregation::getOutputSymbol)
+                .collect(toImmutableSet());
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
-            if (aggregationNode.getAggregations().containsKey(symbol)) {
+            if (aggregationSymbols.contains(symbol)) {
                 assignmentsBuilder.put(symbol, new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
             }
             else {
@@ -267,10 +277,9 @@ public class PushAggregationThroughOuterJoin
         // that points to the nullRow. Map the symbols from the aggregations in referenceAggregation to the
         // symbols in these new aggregations.
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
-            Symbol aggregationSymbol = entry.getKey();
-            AggregationNode.Aggregation aggregation = entry.getValue();
+        ImmutableList.Builder<AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableList.builder();
+        for (AggregationNode.Aggregation aggregation : referenceAggregation.getAggregations()) {
+            Symbol aggregationSymbol = aggregation.getOutputSymbol();
             FunctionCall overNullCall = (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall());
             Symbol overNullSymbol = symbolAllocator.newSymbol(overNullCall, symbolAllocator.getTypes().get(aggregationSymbol));
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
@@ -278,7 +287,7 @@ public class PushAggregationThroughOuterJoin
                     overNullCall,
                     aggregation.getSignature(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
-            aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
+            aggregationsOverNullBuilder.add(overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }
         Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.build();

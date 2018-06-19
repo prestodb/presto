@@ -233,8 +233,8 @@ public class PlanBuilder
     public class AggregationBuilder
     {
         private PlanNode source;
-        private Map<Symbol, Aggregation> assignments = new HashMap<>();
-        private List<List<Symbol>> groupingSets = new ArrayList<>();
+        private final List<Aggregation> aggregations = new ArrayList<>();
+        private final List<List<Symbol>> groupingSets = new ArrayList<>();
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
@@ -260,12 +260,12 @@ public class PlanBuilder
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(output, aggregation, signature, mask));
+            return addAggregation(new Aggregation(output, aggregation, signature, mask));
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)
+        public AggregationBuilder addAggregation(Aggregation aggregation)
         {
-            assignments.put(output, aggregation);
+            aggregations.add(aggregation);
             return this;
         }
 
@@ -316,7 +316,7 @@ public class PlanBuilder
             return new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    assignments,
+                    aggregations,
                     groupingSets,
                     step,
                     hashSymbol,

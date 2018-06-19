@@ -166,17 +166,17 @@ public final class TypeValidator
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 
-        private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
+        private void checkFunctionSignature(List<Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue().getSignature());
+            for (Aggregation aggregation : aggregations) {
+                checkSignature(aggregation.getOutputSymbol(), aggregation.getSignature());
             }
         }
 
-        private void checkFunctionCall(Map<Symbol, Aggregation> aggregations)
+        private void checkFunctionCall(List<Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkCall(entry.getKey(), entry.getValue().getCall());
+            for (Aggregation aggregation : aggregations) {
+                checkCall(aggregation.getOutputSymbol(), aggregation.getCall());
             }
         }
 

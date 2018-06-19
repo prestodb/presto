@@ -30,7 +30,6 @@ import com.google.common.collect.Streams;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -95,9 +94,9 @@ public class PushPartialAggregationThroughJoin
         return Result.empty();
     }
 
-    private boolean allAggregationsOn(Map<Symbol, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
+    private boolean allAggregationsOn(List<AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
     {
-        Set<Symbol> inputs = extractUnique(aggregations.values().stream().map(AggregationNode.Aggregation::getCall).collect(toImmutableList()));
+        Set<Symbol> inputs = extractUnique(aggregations.stream().map(AggregationNode.Aggregation::getCall).collect(toImmutableList()));
         return symbols.containsAll(inputs);
     }
 

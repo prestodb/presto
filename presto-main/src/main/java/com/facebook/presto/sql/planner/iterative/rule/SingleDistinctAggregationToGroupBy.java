@@ -22,12 +22,10 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -36,6 +34,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Implements distinct aggregations with similar inputs by transforming plans of the following shape:
@@ -76,31 +75,27 @@ public class SingleDistinctAggregationToGroupBy
 
     private static boolean allDistinctAggregates(AggregationNode aggregation)
     {
-        return aggregation.getAggregations()
-                .values().stream()
+        return aggregation.getAggregations().stream()
                 .map(Aggregation::getCall)
                 .allMatch(FunctionCall::isDistinct);
     }
 
     private static boolean noFilters(AggregationNode aggregation)
     {
-        return aggregation.getAggregations()
-                .values().stream()
+        return aggregation.getAggregations().stream()
                 .map(Aggregation::getCall)
                 .noneMatch(call -> call.getFilter().isPresent());
     }
 
     private static boolean noMasks(AggregationNode aggregation)
     {
-        return aggregation.getAggregations()
-                .values().stream()
+        return aggregation.getAggregations().stream()
                 .noneMatch(e -> e.getMask().isPresent());
     }
 
     private static Stream<Set<Expression>> extractArgumentSets(AggregationNode aggregation)
     {
-        return aggregation.getAggregations()
-                .values().stream()
+        return aggregation.getAggregations().stream()
                 .map(Aggregation::getCall)
                 .filter(FunctionCall::isDistinct)
                 .map(FunctionCall::getArguments)
@@ -130,7 +125,7 @@ public class SingleDistinctAggregationToGroupBy
                         new AggregationNode(
                                 context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
-                                ImmutableMap.of(),
+                                ImmutableList.of(),
                                 ImmutableList.of(ImmutableList.<Symbol>builder()
                                         .addAll(aggregation.getGroupingKeys())
                                         .addAll(symbols)
@@ -139,11 +134,9 @@ public class SingleDistinctAggregationToGroupBy
                                 Optional.empty(),
                                 Optional.empty()),
                         // remove DISTINCT flag from function calls
-                        aggregation.getAggregations()
-                                .entrySet().stream()
-                                .collect(Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        e -> removeDistinct(e.getValue()))),
+                        aggregation.getAggregations().stream()
+                                .map(SingleDistinctAggregationToGroupBy::removeDistinct)
+                                .collect(toImmutableList()),
                         aggregation.getGroupingSets(),
                         aggregation.getStep(),
                         aggregation.getHashSymbol(),

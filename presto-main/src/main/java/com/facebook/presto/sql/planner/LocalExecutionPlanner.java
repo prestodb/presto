@@ -2300,11 +2300,9 @@ public class LocalExecutionPlanner
             int outputChannel = 0;
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                Symbol symbol = entry.getKey();
-                Aggregation aggregation = entry.getValue();
+            for (Aggregation aggregation : node.getAggregations()) {
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
-                outputMappings.put(symbol, outputChannel); // one aggregation per channel
+                outputMappings.put(aggregation.getOutputSymbol(), outputChannel); // one aggregation per channel
                 outputChannel++;
             }
 
@@ -2324,12 +2322,9 @@ public class LocalExecutionPlanner
 
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                Symbol symbol = entry.getKey();
-                Aggregation aggregation = entry.getValue();
-
+            for (Aggregation aggregation : node.getAggregations()) {
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
-                aggregationOutputSymbols.add(symbol);
+                aggregationOutputSymbols.add(aggregation.getOutputSymbol());
             }
 
             ImmutableList.Builder<Integer> globalAggregationGroupIds = ImmutableList.builder();

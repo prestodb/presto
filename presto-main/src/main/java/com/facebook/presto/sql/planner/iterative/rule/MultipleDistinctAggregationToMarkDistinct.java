@@ -28,8 +28,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -73,15 +75,13 @@ public class MultipleDistinctAggregationToMarkDistinct
 
     private static boolean hasNoDistinctWithFilterOrMask(AggregationNode aggregation)
     {
-        return aggregation.getAggregations()
-                .values().stream()
+        return aggregation.getAggregations().stream()
                 .noneMatch(e -> e.getCall().isDistinct() && (e.getCall().getFilter().isPresent() || e.getMask().isPresent()));
     }
 
     private static boolean hasMultipleDistincts(AggregationNode aggregation)
     {
-        return aggregation.getAggregations()
-                .values().stream()
+        return aggregation.getAggregations().stream()
                 .filter(e -> e.getCall().isDistinct())
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getArguments)
@@ -92,8 +92,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
     private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregation)
     {
-        long distincts = aggregation.getAggregations()
-                .values().stream()
+        long distincts = aggregation.getAggregations().stream()
                 .map(Aggregation::getCall)
                 .filter(FunctionCall::isDistinct)
                 .count();
@@ -117,11 +116,10 @@ public class MultipleDistinctAggregationToMarkDistinct
         // the distinct marker for the given set of input columns
         Map<Set<Symbol>, Symbol> markers = new HashMap<>();
 
-        Map<Symbol, Aggregation> newAggregations = new HashMap<>();
+        List<Aggregation> newAggregations = new ArrayList<>();
         PlanNode subPlan = parent.getSource();
 
-        for (Map.Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
-            Aggregation aggregation = entry.getValue();
+        for (Aggregation aggregation : parent.getAggregations()) {
             FunctionCall call = aggregation.getCall();
 
             if (call.isDistinct() && !call.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
@@ -148,21 +146,20 @@ public class MultipleDistinctAggregationToMarkDistinct
                 }
 
                 // remove the distinct flag and set the distinct marker
-                newAggregations.put(entry.getKey(),
-                        new Aggregation(
-                                entry.getValue().getOutputSymbol(),
-                                new FunctionCall(
-                                        call.getName(),
-                                        call.getWindow(),
-                                        call.getFilter(),
-                                        call.getOrderBy(),
-                                        false,
-                                        call.getArguments()),
-                                aggregation.getSignature(),
-                                Optional.of(marker)));
+                newAggregations.add(new Aggregation(
+                        aggregation.getOutputSymbol(),
+                        new FunctionCall(
+                                call.getName(),
+                                call.getWindow(),
+                                call.getFilter(),
+                                call.getOrderBy(),
+                                false,
+                                call.getArguments()),
+                        aggregation.getSignature(),
+                        Optional.of(marker)));
             }
             else {
-                newAggregations.put(entry.getKey(), aggregation);
+                newAggregations.add(aggregation);
             }
         }
 

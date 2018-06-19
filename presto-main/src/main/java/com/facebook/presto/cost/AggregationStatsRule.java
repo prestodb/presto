@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -59,7 +60,7 @@ public class AggregationStatsRule
                 node.getAggregations()));
     }
 
-    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, List<Aggregation> aggregations)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         for (Symbol groupBySymbol : groupBySymbols) {
@@ -80,8 +81,8 @@ public class AggregationStatsRule
         }
         result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
 
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+        for (Aggregation aggregation : aggregations) {
+            result.addSymbolStatistics(aggregation.getOutputSymbol(), estimateAggregationStats(aggregation, sourceStats));
         }
 
         return result.build();

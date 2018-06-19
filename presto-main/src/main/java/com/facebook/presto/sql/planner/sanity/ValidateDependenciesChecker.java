@@ -117,7 +117,7 @@ public final class ValidateDependenciesChecker
             Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
 
-            for (Aggregation aggregation : node.getAggregations().values()) {
+            for (Aggregation aggregation : node.getAggregations()) {
                 Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation.getCall());
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
                 aggregation.getMask().ifPresent(mask -> {

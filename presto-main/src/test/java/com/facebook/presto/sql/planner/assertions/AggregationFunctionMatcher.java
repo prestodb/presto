@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -48,10 +47,10 @@ public class AggregationFunctionMatcher
         AggregationNode aggregationNode = (AggregationNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
-            if (expectedCall.equals(assignment.getValue().getCall())) {
+        for (Aggregation aggregation : aggregationNode.getAggregations()) {
+            if (expectedCall.equals(aggregation.getCall())) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
-                result = Optional.of(assignment.getKey());
+                result = Optional.of(aggregation.getOutputSymbol());
             }
         }
 

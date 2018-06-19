@@ -21,22 +21,18 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -44,7 +40,7 @@ public final class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Map<Symbol, Aggregation> aggregations;
+    private final List<Aggregation> aggregations;
     private final List<List<Symbol>> groupingSets;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
@@ -55,7 +51,7 @@ public final class AggregationNode
     public AggregationNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
+            @JsonProperty("aggregations") List<Aggregation> aggregations,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
@@ -64,12 +60,12 @@ public final class AggregationNode
         super(id);
 
         this.source = requireNonNull(source, "source is null");
-        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.aggregations = ImmutableList.copyOf(requireNonNull(aggregations, "aggregations is null"));
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = listOfListsCopy(groupingSets);
 
-        boolean hasOrderBy = aggregations.values().stream()
+        boolean hasOrderBy = aggregations.stream()
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getOrderBy)
                 .noneMatch(Optional::isPresent);
@@ -82,12 +78,10 @@ public final class AggregationNode
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         outputSymbols.addAll(getGroupingKeys());
         hashSymbol.ifPresent(outputSymbols::add);
-        outputSymbols.addAll(aggregations.keySet());
+        aggregations.stream()
+                .map(Aggregation::getOutputSymbol)
+                .forEach(outputSymbols::add);
         this.outputSymbols = outputSymbols.build();
-
-        for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-            verify(entry.getKey().equals(entry.getValue().getOutputSymbol()));
-        }
     }
 
     public List<Symbol> getGroupingKeys()
@@ -137,7 +131,7 @@ public final class AggregationNode
     }
 
     @JsonProperty
-    public Map<Symbol, Aggregation> getAggregations()
+    public List<Aggregation> getAggregations()
     {
         return aggregations;
     }
@@ -174,7 +168,7 @@ public final class AggregationNode
 
     public boolean hasOrderings()
     {
-        return aggregations.values().stream()
+        return aggregations.stream()
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getOrderBy)
                 .anyMatch(Optional::isPresent);
@@ -194,16 +188,16 @@ public final class AggregationNode
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        boolean hasOrderBy = getAggregations().values().stream()
+        boolean hasOrderBy = getAggregations().stream()
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getOrderBy)
                 .anyMatch(Optional::isPresent);
 
-        boolean hasDistinct = getAggregations().values().stream()
+        boolean hasDistinct = getAggregations().stream()
                 .map(Aggregation::getCall)
                 .anyMatch(FunctionCall::isDistinct);
 
-        boolean decomposableFunctions = getAggregations().values().stream()
+        boolean decomposableFunctions = getAggregations().stream()
                 .map(Aggregation::getSignature)
                 .map(functionRegistry::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);

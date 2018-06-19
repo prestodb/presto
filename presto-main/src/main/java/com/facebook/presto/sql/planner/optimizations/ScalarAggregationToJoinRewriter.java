@@ -35,11 +35,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -170,25 +168,24 @@ public class ScalarAggregationToJoinRewriter
             JoinNode leftOuterJoin,
             Symbol nonNullableAggregationSourceSymbol)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
-            FunctionCall call = entry.getValue().getCall();
-            Symbol symbol = entry.getKey();
+        ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+        for (Aggregation aggregation : scalarAggregation.getAggregations()) {
+            FunctionCall call = aggregation.getCall();
             if (call.getName().equals(COUNT)) {
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
-                aggregations.put(symbol, new Aggregation(
-                        symbol,
+                aggregations.add(new Aggregation(
+                        aggregation.getOutputSymbol(),
                         new FunctionCall(
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         functionRegistry.resolveFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
-                        entry.getValue().getMask()));
+                        aggregation.getMask()));
             }
             else {
-                aggregations.put(symbol, entry.getValue());
+                aggregations.add(aggregation);
             }
         }
 

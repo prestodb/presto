@@ -16,13 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.Map;
+import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -53,15 +50,14 @@ public class PruneOrderByInAggregation
         }
 
         boolean anyRewritten = false;
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-            Aggregation aggregation = entry.getValue();
+        ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+        for (Aggregation aggregation : node.getAggregations()) {
             if (!aggregation.getCall().getOrderBy().isPresent()) {
-                aggregations.put(entry);
+                aggregations.add(aggregation);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
             else if (functionRegistry.getAggregateFunctionImplementation(aggregation.getSignature()).isOrderSensitive()) {
-                aggregations.put(entry);
+                aggregations.add(aggregation);
             }
             else {
                 anyRewritten = true;
@@ -71,7 +67,7 @@ public class PruneOrderByInAggregation
                         aggregation.getCall().getArguments(),
                         aggregation.getCall().getFilter());
 
-                aggregations.put(entry.getKey(), new Aggregation(entry.getValue().getOutputSymbol(), rewritten, aggregation.getSignature(), aggregation.getMask()));
+                aggregations.add(new Aggregation(aggregation.getOutputSymbol(), rewritten, aggregation.getSignature(), aggregation.getMask()));
             }
         }
 

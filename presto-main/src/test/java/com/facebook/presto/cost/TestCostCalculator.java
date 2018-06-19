@@ -365,7 +365,7 @@ public class TestCostCalculator
         return new AggregationNode(
                 new PlanNodeId(id),
                 source,
-                ImmutableMap.of(aggregation.getOutputSymbol(), aggregation),
+                ImmutableList.of(aggregation),
                 ImmutableList.of(source.getOutputSymbols()),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

@@ -18,6 +18,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
@@ -70,10 +71,9 @@ public class AggregationMatcher
         }
 
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
-                .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().getCall().isDistinct())
-                .map(entry -> entry.getKey())
+                .filter(aggregation -> aggregation.getCall().isDistinct())
+                .map(Aggregation::getOutputSymbol)
                 .collect(Collectors.toList());
 
         if (aggregationsWithMask.size() != masks.keySet().size()) {

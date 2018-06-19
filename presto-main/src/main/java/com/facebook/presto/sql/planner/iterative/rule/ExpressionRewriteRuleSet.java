@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -29,11 +28,9 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -154,13 +151,10 @@ public class ExpressionRewriteRuleSet
         public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
         {
             boolean anyRewritten = false;
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
-                Aggregation aggregation = entry.getValue();
+            ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+            for (Aggregation aggregation : aggregationNode.getAggregations()) {
                 FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
-                aggregations.put(
-                        entry.getKey(),
-                        new Aggregation(entry.getValue().getOutputSymbol(), call, aggregation.getSignature(), aggregation.getMask()));
+                aggregations.add(new Aggregation(aggregation.getOutputSymbol(), call, aggregation.getSignature(), aggregation.getMask()));
                 if (!aggregation.getCall().equals(call)) {
                     anyRewritten = true;
                 }

@@ -45,7 +45,7 @@ public class PruneAggregationSourceColumns
         Set<Symbol> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
                 aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),
-                aggregationNode.getAggregations().values().stream()
+                aggregationNode.getAggregations().stream()
                         .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
                 .collect(toImmutableSet());
 

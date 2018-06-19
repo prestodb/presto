@@ -110,14 +110,14 @@ public class OptimizeMixedDistinctAggregations
             // optimize if and only if
             // some aggregation functions have a distinct mask symbol
             // and if not all aggregation functions on same distinct mask symbol (this case handled by SingleDistinctOptimizer)
-            List<Symbol> masks = node.getAggregations().values().stream()
+            List<Symbol> masks = node.getAggregations().stream()
                     .map(Aggregation::getMask).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
             Set<Symbol> uniqueMasks = ImmutableSet.copyOf(masks);
             if (uniqueMasks.size() != 1 || masks.size() == node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            if (node.getAggregations().values().stream().map(Aggregation::getCall).map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
+            if (node.getAggregations().stream().map(Aggregation::getCall).map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
                 // Skip if any aggregation contains a filter
                 return context.defaultRewrite(node, Optional.empty());
             }
@@ -148,26 +148,26 @@ public class OptimizeMixedDistinctAggregations
 
             // Change aggregate node to do second aggregation, handles this part of optimized plan mentioned above:
             //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c))
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                FunctionCall functionCall = entry.getValue().getCall();
-                if (entry.getValue().getMask().isPresent()) {
-                    aggregations.put(entry.getKey(), new Aggregation(
-                            entry.getValue().getOutputSymbol(),
+            ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+            for (Aggregation aggregation : node.getAggregations()) {
+                FunctionCall functionCall = aggregation.getCall();
+                if (aggregation.getMask().isPresent()) {
+                    aggregations.add(new Aggregation(
+                            aggregation.getOutputSymbol(),
                             new FunctionCall(
                                     functionCall.getName(),
                                     functionCall.getWindow(),
                                     false,
                                     ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
-                            entry.getValue().getSignature(),
+                            aggregation.getSignature(),
                             Optional.empty()));
                 }
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
-                    Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
+                    Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(aggregation.getOutputSymbol());
                     QualifiedName functionName = QualifiedName.of("arbitrary");
-                    aggregations.put(entry.getKey(), new Aggregation(
-                            entry.getValue().getOutputSymbol(),
+                    aggregations.add(new Aggregation(
+                            aggregation.getOutputSymbol(),
                             new FunctionCall(functionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
                             getFunctionSignature(functionName, argument),
                             Optional.empty()));
@@ -392,12 +392,12 @@ public class OptimizeMixedDistinctAggregations
                 MarkDistinctNode originalNode,
                 ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder)
         {
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
-                FunctionCall functionCall = entry.getValue().getCall();
-                if (!entry.getValue().getMask().isPresent()) {
-                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
-                    aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
+            ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
+            for (Aggregation aggregation : aggregateInfo.getAggregations()) {
+                FunctionCall functionCall = aggregation.getCall();
+                if (!aggregation.getMask().isPresent()) {
+                    Symbol newSymbol = symbolAllocator.newSymbol(aggregation.getOutputSymbol().toSymbolReference(), symbolAllocator.getTypes().get(aggregation.getOutputSymbol()));
+                    aggregationOutputSymbolsMapBuilder.put(newSymbol, aggregation.getOutputSymbol());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
                         // Handling for cases when mask symbol appears in non distinct aggregations too
                         // Now the aggregation should happen over the duplicate symbol added before
@@ -414,7 +414,7 @@ public class OptimizeMixedDistinctAggregations
                             functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, arguments.build());
                         }
                     }
-                    aggregations.put(newSymbol, new Aggregation(newSymbol, functionCall, entry.getValue().getSignature(), Optional.empty()));
+                    aggregations.add(new Aggregation(newSymbol, functionCall, aggregation.getSignature(), Optional.empty()));
                 }
             }
             return new AggregationNode(
@@ -449,25 +449,25 @@ public class OptimizeMixedDistinctAggregations
     {
         private final List<Symbol> groupBySymbols;
         private final Symbol mask;
-        private final Map<Symbol, Aggregation> aggregations;
+        private final List<Aggregation> aggregations;
 
         // Filled on the way back, these are the symbols corresponding to their distinct or non-distinct original symbols
         private Map<Symbol, Symbol> newNonDistinctAggregateSymbols;
         private Symbol newDistinctAggregateSymbol;
         private boolean foundMarkDistinct;
 
-        public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, Map<Symbol, Aggregation> aggregations)
+        public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, List<Aggregation> aggregations)
         {
             this.groupBySymbols = ImmutableList.copyOf(groupBySymbols);
 
             this.mask = mask;
 
-            this.aggregations = ImmutableMap.copyOf(aggregations);
+            this.aggregations = ImmutableList.copyOf(aggregations);
         }
 
         public List<Symbol> getOriginalNonDistinctAggregateArgs()
         {
-            return aggregations.values().stream()
+            return aggregations.stream()
                     .filter(aggregation -> !aggregation.getMask().isPresent())
                     .map(Aggregation::getCall)
                     .flatMap(function -> function.getArguments().stream())
@@ -478,7 +478,7 @@ public class OptimizeMixedDistinctAggregations
 
         public List<Symbol> getOriginalDistinctAggregateArgs()
         {
-            return aggregations.values().stream()
+            return aggregations.stream()
                     .filter(aggregation -> aggregation.getMask().isPresent())
                     .map(Aggregation::getCall)
                     .flatMap(function -> function.getArguments().stream())
@@ -517,7 +517,7 @@ public class OptimizeMixedDistinctAggregations
             return groupBySymbols;
         }
 
-        public Map<Symbol, Aggregation> getAggregations()
+        public List<Aggregation> getAggregations()
         {
             return aggregations;
         }

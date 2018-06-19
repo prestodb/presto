@@ -326,12 +326,12 @@ public final class GraphvizPrinter
         public Void visitAggregation(AggregationNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get()));
+            for (Aggregation aggregation : node.getAggregations()) {
+                if (aggregation.getMask().isPresent()) {
+                    builder.append(format("%s := %s (mask = %s)\\n", aggregation.getOutputSymbol(), aggregation.getCall(), aggregation.getMask().get()));
                 }
                 else {
-                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue().getCall()));
+                    builder.append(format("%s := %s\\n", aggregation.getOutputSymbol(), aggregation.getCall()));
                 }
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));

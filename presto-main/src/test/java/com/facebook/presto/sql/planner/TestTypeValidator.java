@@ -184,7 +184,7 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                ImmutableList.of(new Aggregation(
                         aggregationSymbol,
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         new Signature(
@@ -242,7 +242,7 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                ImmutableList.of(new Aggregation(
                         aggregationSymbol,
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
                         new Signature(
@@ -270,7 +270,7 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                ImmutableList.of(new Aggregation(
                         aggregationSymbol,
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         new Signature(
