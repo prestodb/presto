@@ -24,21 +24,22 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestTaskExecutor
@@ -48,7 +49,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -140,7 +141,7 @@ public class TestTaskExecutor
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -174,7 +175,7 @@ public class TestTaskExecutor
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(2, 2, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -209,67 +210,11 @@ public class TestTaskExecutor
     }
 
     @Test(invocationCount = 100)
-    public void testNoInstantaneousFairness()
-            throws Exception
-    {
-        TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, new MultilevelSplitQueue(true, 2), true, ticker);
-        taskExecutor.start();
-        ticker.increment(20, MILLISECONDS);
-
-        try {
-            for (int i = 2; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
-                int levelStartMillis = (int) SECONDS.toMillis(LEVEL_THRESHOLD_SECONDS[i]);
-                int nextLevelStartMillis = (int) SECONDS.toMillis(LEVEL_THRESHOLD_SECONDS[i + 1]);
-
-                TaskHandle longJob = taskExecutor.addTask(new TaskId("longTask", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS));
-                TestingJob longSplit = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), (nextLevelStartMillis / 100) - 20, 100);
-
-                taskExecutor.enqueueSplits(longJob, true, ImmutableList.of(longSplit));
-                longSplit.getCompletedFuture().get();
-
-                TaskHandle shortJob = taskExecutor.addTask(new TaskId("shortTask", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS));
-                TestingJob shortSplit = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), (levelStartMillis / 100) + 1, 100);
-
-                taskExecutor.enqueueSplits(shortJob, true, ImmutableList.of(shortSplit));
-                shortSplit.getCompletedFuture().get();
-
-                Phaser globalPhaser = new Phaser(2);
-                TestingJob shortSplit1 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), 20, 10);
-                TestingJob shortSplit2 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), 20, 10);
-                TestingJob longSplit1 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), 20, 10);
-                TestingJob longSplit2 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), 20, 10);
-
-                taskExecutor.enqueueSplits(longJob, true, ImmutableList.of(longSplit1, longSplit2));
-                taskExecutor.enqueueSplits(shortJob, true, ImmutableList.of(shortSplit1, shortSplit2));
-
-                for (int j = 0; j < 10; j++) {
-                    globalPhaser.arriveAndAwaitAdvance();
-                }
-
-                assertLessThanOrEqual(longSplit1.getCompletedPhases() + longSplit2.getCompletedPhases(), 2);
-                assertGreaterThanOrEqual(shortSplit1.getCompletedPhases() + shortSplit2.getCompletedPhases(), 8);
-
-                globalPhaser.arriveAndDeregister();
-                longSplit1.getCompletedFuture().get();
-                longSplit2.getCompletedFuture().get();
-                shortSplit1.getCompletedFuture().get();
-                shortSplit2.getCompletedFuture().get();
-                longJob.destroy();
-                shortJob.destroy();
-            }
-        }
-        finally {
-            taskExecutor.stop();
-        }
-    }
-
-    @Test(invocationCount = 100)
     public void testLevelMultipliers()
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, new MultilevelSplitQueue(false, 2), false, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -353,7 +298,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
         taskExecutor.start();
 
         try {
@@ -388,7 +333,7 @@ public class TestTaskExecutor
     @Test
     public void testLevelContributionCap()
     {
-        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(false, 2);
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
         TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
 
@@ -408,7 +353,7 @@ public class TestTaskExecutor
     @Test
     public void testUpdateLevelWithCap()
     {
-        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(false, 2);
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
 
         long quantaNanos = MINUTES.toNanos(10);
@@ -419,6 +364,72 @@ public class TestTaskExecutor
             long thisLevelTime = Math.min(SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]), cappedNanos);
             assertEquals(splitQueue.getLevelScheduledTime(i), thisLevelTime);
             cappedNanos -= thisLevelTime;
+        }
+    }
+
+    @Test(timeOut = 30_000)
+    public void testMinMaxDriversPerTask()
+    {
+        int maxDriversPerTask = 2;
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
+        TestingTicker ticker = new TestingTicker();
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
+        taskExecutor.start();
+        try {
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS));
+
+            // enqueue all batches of splits
+            int batchCount = 4;
+            TestingJob[] splits = new TestingJob[8];
+            Phaser[] phasers = new Phaser[batchCount];
+            for (int batch = 0; batch < batchCount; batch++) {
+                phasers[batch] = new Phaser();
+                phasers[batch].register();
+                TestingJob split1 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], maxDriversPerTask, 0);
+                TestingJob split2 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], maxDriversPerTask, 0);
+                splits[2 * batch] = split1;
+                splits[2 * batch + 1] = split2;
+                taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(split1, split2));
+            }
+
+            // assert that the splits are processed in batches as expected
+            for (int batch = 0; batch < batchCount; batch++) {
+                // wait until the current batch starts
+                waitUntilSplitsStart(ImmutableList.of(splits[2 * batch], splits[2 * batch + 1]));
+                // assert that only the splits including and up to the current batch are running and the rest haven't started yet
+                assertSplitStates(2 * batch + 1, splits);
+                // complete the current batch
+                phasers[batch].arriveAndDeregister();
+            }
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    private void assertSplitStates(int endIndex, TestingJob[] splits)
+    {
+        // assert that splits up to and including endIndex are all started
+        for (int i = 0; i <= endIndex; i++) {
+            assertTrue(splits[i].isStarted());
+        }
+
+        // assert that splits starting from endIndex haven't started yet
+        for (int i = endIndex + 1; i < splits.length; i++) {
+            assertFalse(splits[i].isStarted());
+        }
+    }
+
+    private static void waitUntilSplitsStart(List<TestingJob> splits)
+    {
+        while (splits.stream().anyMatch(split -> !split.isStarted())) {
+            try {
+                Thread.sleep(200);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -436,6 +447,7 @@ public class TestTaskExecutor
         private final AtomicInteger firstPhase = new AtomicInteger(-1);
         private final AtomicInteger lastPhase = new AtomicInteger(-1);
 
+        private final AtomicBoolean started = new AtomicBoolean();
         private final SettableFuture<?> completed = SettableFuture.create();
 
         public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
@@ -473,6 +485,7 @@ public class TestTaskExecutor
         @Override
         public ListenableFuture<?> processFor(Duration duration)
         {
+            started.set(true);
             ticker.increment(quantaTimeMillis, MILLISECONDS);
             globalPhaser.arriveAndAwaitAdvance();
             int phase = beginQuantaPhaser.arriveAndAwaitAdvance();
@@ -499,6 +512,11 @@ public class TestTaskExecutor
         public boolean isFinished()
         {
             return completed.isDone();
+        }
+
+        public boolean isStarted()
+        {
+            return started.get();
         }
 
         @Override

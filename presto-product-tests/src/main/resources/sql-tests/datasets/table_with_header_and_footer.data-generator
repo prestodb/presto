@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Output 2 header lines
+echo 'id|data'
+echo 'INT|STRING'
+
+# loop outputs more than 32MB, while 32MB is size of a HDFS block
+for j in `seq 0 33`; do
+  j=$((1024*j))
+# loop outputs more than 1MB
+  for i in `seq 0 1023`; do
+    echo $(($j + $i))'|very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes, very long comment which is as long as 1KB bytes'
+  done
+done
+
+# Output 2 footer lines
+echo 'id|data'
+echo 'INT|STRING'

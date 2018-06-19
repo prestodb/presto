@@ -368,11 +368,7 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        Block value = BOOLEAN.createBlockBuilder(null, 1)
-                .appendNull()
-                .build();
-
-        return new RunLengthEncodedBlock(value, positionCount);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
     }
 
     public static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)

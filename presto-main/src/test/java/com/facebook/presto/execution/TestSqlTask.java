@@ -26,6 +26,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -76,7 +77,7 @@ public class TestSqlTask
 
     public TestSqlTask()
     {
-        taskExecutor = new TaskExecutor(8, 16);
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));

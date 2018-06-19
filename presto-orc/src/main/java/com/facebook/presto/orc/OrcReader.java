@@ -173,13 +173,13 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext())) {
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext(), metadataSize)) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext())) {
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext(), footerSize)) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
 

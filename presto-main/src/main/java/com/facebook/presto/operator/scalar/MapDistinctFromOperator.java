@@ -61,8 +61,6 @@ public final class MapDistinctFromOperator
         }
         // Note that we compare to NOT distinct here and so negate the result.
         return !MapGenericEquality.genericEqual(
-                keyEqualsFunction,
-                keyHashcodeFunction,
                 keyType,
                 leftMapBlock,
                 rightMapBlock,

@@ -22,6 +22,8 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 
+@Description("Creates an empty map")
+@ScalarFunction("map")
 public final class EmptyMapConstructor
 {
     private final Block emptyMap;
@@ -34,8 +36,6 @@ public final class EmptyMapConstructor
         emptyMap = ((MapType) mapType).getObject(mapBlockBuilder.build(), 0);
     }
 
-    @Description("Creates an empty map")
-    @ScalarFunction
     @SqlType("map(unknown,unknown)")
     public Block map()
     {

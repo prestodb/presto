@@ -31,6 +31,7 @@ public class LongArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize();
+    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(1, new boolean[] {true}, new long[1]);
 
     @Nullable
     private BlockBuilderStatus blockBuilderStatus;
@@ -38,6 +39,7 @@ public class LongArrayBlockBuilder
     private int initialEntryCount;
 
     private int positionCount;
+    private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
     private boolean[] valueIsNull = new boolean[0];
@@ -62,6 +64,7 @@ public class LongArrayBlockBuilder
 
         values[positionCount] = value;
 
+        hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
@@ -94,6 +97,9 @@ public class LongArrayBlockBuilder
     @Override
     public Block build()
     {
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
         return new LongArrayBlock(positionCount, valueIsNull, values);
     }
 
@@ -245,6 +251,9 @@ public class LongArrayBlockBuilder
     {
         checkArrayRange(positions, offset, length);
 
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
         boolean[] newValueIsNull = new boolean[length];
         long[] newValues = new long[length];
         for (int i = 0; i < length; i++) {
@@ -261,6 +270,9 @@ public class LongArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
         return new LongArrayBlock(positionOffset, length, valueIsNull, values);
     }
 
@@ -269,6 +281,9 @@ public class LongArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         long[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
         return new LongArrayBlock(length, newValueIsNull, newValues);

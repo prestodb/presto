@@ -114,9 +114,6 @@ public class HivePartitionManager
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
-        if (!table.getParameters().getOrDefault("skip.footer.line.count", "0").equals("0")) {
-            throw new PrestoException(HiveErrorCode.HIVE_UNSUPPORTED_FORMAT, "Table with 'skip.footer.line.count' is not supported");
-        }
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);

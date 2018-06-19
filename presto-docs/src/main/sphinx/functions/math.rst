@@ -135,7 +135,7 @@ Mathematical Functions
 
     For double arguments, the function additionally returns:
 
-    * NaN if tha argument is NaN,
+    * NaN if the argument is NaN,
     * 1 if the argument is +Infinity,
     * -1 if the argument is -Infinity.
 

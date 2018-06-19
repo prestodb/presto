@@ -71,6 +71,13 @@ public final class ParquetTypeUtils
         return groupColumnIO;
     }
 
+    /* For backward-compatibility, the type of elements in LIST-annotated structures should always be determined by the following rules:
+     * 1. If the repeated field is not a group, then its type is the element type and elements are required.
+     * 2. If the repeated field is a group with multiple fields, then its type is the element type and elements are required.
+     * 3. If the repeated field is a group with one field and is named either array or uses the LIST-annotated group's name with _tuple appended then the repeated type is the element type and elements are required.
+     * 4. Otherwise, the repeated field's type is the element type with the repeated field's repetition.
+     * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
+     */
     public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
     {
         while (columnIO instanceof GroupColumnIO && !columnIO.getType().isRepetition(REPEATED)) {
@@ -86,7 +93,9 @@ public final class ParquetTypeUtils
          */
         if (columnIO instanceof GroupColumnIO &&
                 columnIO.getType().getOriginalType() == null &&
-                ((GroupColumnIO) columnIO).getChildrenCount() == 1) {
+                ((GroupColumnIO) columnIO).getChildrenCount() == 1 &&
+                !columnIO.getName().equals("array") &&
+                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
             return ((GroupColumnIO) columnIO).getChild(0);
         }
 

@@ -484,14 +484,20 @@ public class PlanFragmenter
             // (except for special cases as detailed in addSourceDistribution).
             // As a result, it is not necessary to check the compatibility between node.getSources because
             // they are guaranteed to be compatible.
-            boolean currentNodeCapable = true;
-            boolean subTreeUseful = false;
+
+            // * If any child is "not capable", return "not capable"
+            // * When all children are capable ("capable and useful" or "capable but not useful")
+            //   * if any child is "capable and useful", return "capable and useful"
+            //   * if no children is "capable and useful", return "capable but not useful"
+            boolean anyUseful = false;
             for (PlanNode source : node.getSources()) {
                 GroupedExecutionProperties properties = source.accept(this, null);
-                currentNodeCapable &= properties.isCurrentNodeCapable();
-                subTreeUseful |= properties.isSubTreeUseful();
+                if (!properties.isCurrentNodeCapable()) {
+                    return new GroupedExecutionProperties(false, false);
+                }
+                anyUseful |= properties.isSubTreeUseful();
             }
-            return new GroupedExecutionProperties(currentNodeCapable, subTreeUseful);
+            return new GroupedExecutionProperties(true, anyUseful);
         }
     }
 

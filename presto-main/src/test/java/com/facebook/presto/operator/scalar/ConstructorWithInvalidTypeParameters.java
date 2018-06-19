@@ -19,13 +19,13 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 
+@ScalarFunction("good1")
 public final class ConstructorWithInvalidTypeParameters
 {
     @TypeParameter("K")
     @TypeParameter("V")
     public ConstructorWithInvalidTypeParameters(@TypeParameter("K(varchar)") Type type) {}
 
-    @ScalarFunction
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlType(StandardTypes.BIGINT)

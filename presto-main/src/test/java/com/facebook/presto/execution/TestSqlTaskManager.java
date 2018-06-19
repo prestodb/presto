@@ -30,6 +30,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeInfo;
@@ -73,7 +74,7 @@ public class TestSqlTaskManager
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
-        taskExecutor = new TaskExecutor(8, 16);
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
     }

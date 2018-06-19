@@ -47,7 +47,7 @@ public class PrestoStatement
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
-    private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<PrestoResultSet> currentResult = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
@@ -225,14 +225,14 @@ public class PrestoStatement
         return internalExecute(sql);
     }
 
-    boolean internalExecute(String sql)
+    final boolean internalExecute(String sql)
             throws SQLException
     {
         clearCurrentResults();
         checkOpen();
 
         StatementClient client = null;
-        ResultSet resultSet = null;
+        PrestoResultSet resultSet = null;
         try {
             client = connection().startQuery(sql, getStatementSessionProperties());
             if (client.isFinished()) {
@@ -583,13 +583,30 @@ public class PrestoStatement
         return currentUpdateType.get();
     }
 
-    private void checkOpen()
+    public void partialCancel()
+            throws SQLException
+    {
+        checkOpen();
+
+        StatementClient client = executingClient.get();
+        if (client != null) {
+            client.cancelLeafStage();
+        }
+        else {
+            PrestoResultSet resultSet = currentResult.get();
+            if (resultSet != null) {
+                resultSet.partialCancel();
+            }
+        }
+    }
+
+    protected final void checkOpen()
             throws SQLException
     {
         connection();
     }
 
-    private PrestoConnection connection()
+    protected final PrestoConnection connection()
             throws SQLException
     {
         PrestoConnection connection = this.connection.get();

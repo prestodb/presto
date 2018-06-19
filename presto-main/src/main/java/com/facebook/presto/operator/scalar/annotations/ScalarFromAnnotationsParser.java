@@ -21,14 +21,13 @@ import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
@@ -43,7 +42,7 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
-            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructors(clazz)));
+            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz)));
         }
         return builder.build();
     }
@@ -52,7 +51,8 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructors(clazz)));
+            // Non-static function only makes sense in classes annotated @ScalarFunction.
+            builder.add(parseParametricScalar(methods, Optional.empty()));
         }
         return builder.build();
     }
@@ -91,14 +91,14 @@ public final class ScalarFromAnnotationsParser
         return methods;
     }
 
-    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Map<Set<TypeParameter>, Constructor<?>> constructors)
+    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)
     {
         ParametricImplementationsGroup.Builder<ScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
 
         for (Method method : scalar.getMethods()) {
-            ScalarImplementation implementation = ScalarImplementation.Parser.parseImplementation(header.getName(), method, constructors);
+            ScalarImplementation implementation = ScalarImplementation.Parser.parseImplementation(header.getName(), method, constructor);
             implementationsBuilder.addImplementation(implementation);
         }
 

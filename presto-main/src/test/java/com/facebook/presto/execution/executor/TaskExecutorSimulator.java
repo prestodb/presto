@@ -77,8 +77,8 @@ public class TaskExecutorSimulator
 
     private TaskExecutorSimulator()
     {
-        splitQueue = new MultilevelSplitQueue(false, 2);
-        taskExecutor = new TaskExecutor(36, 72, splitQueue, false, Ticker.systemTicker());
+        splitQueue = new MultilevelSplitQueue(2);
+        taskExecutor = new TaskExecutor(36, 72, 3, 8, splitQueue, Ticker.systemTicker());
         taskExecutor.start();
     }
 

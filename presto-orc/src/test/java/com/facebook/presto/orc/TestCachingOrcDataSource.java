@@ -19,7 +19,6 @@ import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
@@ -290,7 +289,7 @@ public class TestCachingOrcDataSource
         }
 
         @Override
-        public <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
+        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
         {
             throw new UnsupportedOperationException();
         }

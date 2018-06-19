@@ -15,10 +15,17 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
+import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.spi.block.RunLengthBlockEncoding;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestRunLengthEncodedBlock
         extends AbstractTestBlock
@@ -52,5 +59,44 @@ public class TestRunLengthEncodedBlock
     private static BlockBuilder createBlockBuilder()
     {
         return new VariableWidthBlockBuilder(null, 1, 1);
+    }
+
+    @Test
+    public void testBuildingFromLongArrayBlockBuilder()
+    {
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testBuildingFromIntArrayBlockBuilder()
+    {
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testBuildingFromShortArrayBlockBuilder()
+    {
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testBuildingFromByteArrayBlockBuilder()
+    {
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    private void populateNullValues(BlockBuilder blockBuilder, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            blockBuilder.appendNull();
+        }
     }
 }

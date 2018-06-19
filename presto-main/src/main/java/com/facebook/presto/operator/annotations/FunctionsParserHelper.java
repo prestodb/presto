@@ -27,7 +27,6 @@ import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -161,16 +160,14 @@ public class FunctionsParserHelper
         return methods.build();
     }
 
-    public static Map<Set<TypeParameter>, Constructor<?>> findConstructors(Class<?> clazz)
+    public static Optional<Constructor<?>> findConstructor(Class<?> clazz)
     {
-        ImmutableMap.Builder<Set<TypeParameter>, Constructor<?>> builder = ImmutableMap.builder();
-        for (Constructor<?> constructor : clazz.getConstructors()) {
-            Set<TypeParameter> typeParameters = new HashSet<>();
-            Stream.of(constructor.getAnnotationsByType(TypeParameter.class))
-                    .forEach(typeParameters::add);
-            builder.put(typeParameters, constructor);
+        Constructor<?>[] constructors = clazz.getConstructors();
+        checkArgument(constructors.length <= 1, "Class [%s] must have no more than 1 public constructor");
+        if (constructors.length == 0) {
+            return Optional.empty();
         }
-        return builder.build();
+        return Optional.of(constructors[0]);
     }
 
     public static Set<String> parseLiteralParameters(Method method)

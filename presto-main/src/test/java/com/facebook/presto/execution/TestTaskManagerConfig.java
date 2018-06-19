@@ -41,6 +41,8 @@ public class TestTaskManagerConfig
                 .setTaskCpuTimerEnabled(true)
                 .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 2 * 2)
+                .setMinDriversPerTask(3)
+                .setMaxDriversPerTask(Integer.MAX_VALUE)
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
                 .setMaxIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
@@ -55,9 +57,7 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
-                .setLevelAbsolutePriority(false)
-                .setLevelTimeMultiplier(new BigDecimal("2"))
-                .setLegacySchedulingBehavior(false));
+                .setLevelTimeMultiplier(new BigDecimal("2")));
     }
 
     @Test
@@ -76,6 +76,8 @@ public class TestTaskManagerConfig
                 .put("task.max-local-exchange-buffer-size", "33MB")
                 .put("task.max-worker-threads", "3")
                 .put("task.min-drivers", "2")
+                .put("task.min-drivers-per-task", "5")
+                .put("task.max-drivers-per-task", "13")
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
@@ -86,9 +88,7 @@ public class TestTaskManagerConfig
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
                 .put("task.task-yield-threads", "8")
-                .put("task.level-absolute-priority", "true")
                 .put("task.level-time-multiplier", "2.1")
-                .put("task.legacy-scheduling-behavior", "true")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -104,6 +104,8 @@ public class TestTaskManagerConfig
                 .setMaxLocalExchangeBufferSize(new DataSize(33, Unit.MEGABYTE))
                 .setMaxWorkerThreads(3)
                 .setMinDrivers(2)
+                .setMinDriversPerTask(5)
+                .setMaxDriversPerTask(13)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
@@ -114,9 +116,7 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
-                .setLevelAbsolutePriority(true)
-                .setLevelTimeMultiplier(new BigDecimal("2.1"))
-                .setLegacySchedulingBehavior(true);
+                .setLevelTimeMultiplier(new BigDecimal("2.1"));
 
         assertFullMapping(properties, expected);
     }

@@ -41,9 +41,9 @@ public class TestMapredParquetOutputFormat
 {
     private final Optional<MessageType> schema;
 
-    public TestMapredParquetOutputFormat(Optional<MessageType> schema)
+    public TestMapredParquetOutputFormat(Optional<MessageType> schema, boolean singleLevelArray)
     {
-        super(new ParquetOutputFormat<>(new TestDataWritableWriteSupport()));
+        super(new ParquetOutputFormat<>(new TestDataWritableWriteSupport(singleLevelArray)));
         this.schema = requireNonNull(schema, "schema is null");
     }
 

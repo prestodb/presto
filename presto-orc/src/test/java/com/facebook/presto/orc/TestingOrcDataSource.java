@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.FixedLengthSliceInput;
 
 import java.io.IOException;
 import java.util.List;
@@ -88,7 +87,7 @@ class TestingOrcDataSource
     }
 
     @Override
-    public <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         readCount += diskRanges.size();

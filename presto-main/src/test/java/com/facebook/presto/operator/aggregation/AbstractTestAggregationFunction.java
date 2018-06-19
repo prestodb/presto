@@ -102,10 +102,7 @@ public abstract class AbstractTestAggregationFunction
         }
         Block[] blocks = new Block[parameterTypes.size()];
         for (int i = 0; i < parameterTypes.size(); i++) {
-            Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(null, 1)
-                    .appendNull()
-                    .build();
-            blocks[i] = new RunLengthEncodedBlock(nullValueBlock, 10);
+            blocks[i] = RunLengthEncodedBlock.create(parameterTypes.get(0), null, 10);
         }
 
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), blocks);

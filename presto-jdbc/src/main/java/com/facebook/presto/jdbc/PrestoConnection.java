@@ -51,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -77,6 +78,7 @@ public class PrestoConnection
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
+    private final AtomicLong nextStatementId = new AtomicLong(1);
 
     private final URI jdbcUri;
     private final URI httpUri;
@@ -116,7 +118,8 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        throw new NotImplementedException("Connection", "prepareStatement");
+        String name = "statement" + nextStatementId.getAndIncrement();
+        return new PrestoPreparedStatement(this, name, sql);
     }
 
     @Override
