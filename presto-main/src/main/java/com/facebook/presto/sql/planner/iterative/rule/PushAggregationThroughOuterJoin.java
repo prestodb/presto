@@ -271,11 +271,13 @@ public class PushAggregationThroughOuterJoin
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
+            FunctionCall overNullCall = (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall());
+            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullCall, symbolAllocator.getTypes().get(aggregationSymbol));
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
-                    (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
+                    overNullSymbol,
+                    overNullCall,
                     aggregation.getSignature(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
-            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }

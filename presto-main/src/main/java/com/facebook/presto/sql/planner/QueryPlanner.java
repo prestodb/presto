@@ -551,7 +551,7 @@ class QueryPlanner
             }
             aggregationTranslations.put(parametersReplaced, newSymbol);
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
+            aggregationsBuilder.put(newSymbol, new Aggregation(newSymbol, (FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 

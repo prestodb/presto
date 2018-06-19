@@ -93,6 +93,7 @@ public class ImplementFilteredAggregations
                 mask = Optional.of(symbol);
             }
             aggregations.put(output, new Aggregation(
+                    output,
                     new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
                     entry.getValue().getSignature(),
                     mask));

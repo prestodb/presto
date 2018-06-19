@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -181,6 +182,7 @@ public class AddIntermediateAggregations
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
+                            output,
                             new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getSignature(),
                             Optional.empty()));  // No mask for INTERMEDIATE
@@ -199,10 +201,14 @@ public class AddIntermediateAggregations
     private static Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments)
     {
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        for (Aggregation aggregation : assignments.values()) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue().getCall()));
-            builder.put(input, entry.getValue());
+            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(aggregation.getCall()));
+            builder.put(input, new Aggregation(
+                    input,
+                    aggregation.getCall(),
+                    aggregation.getSignature(),
+                    aggregation.getMask()));
         }
         return builder.build();
     }

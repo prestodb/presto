@@ -233,6 +233,7 @@ public class ImplementIntersectAndExceptAsUnion
             for (int i = 0; i < markers.size(); i++) {
                 Symbol output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
+                        output,
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
                         COUNT_AGGREGATION,
                         Optional.empty()));

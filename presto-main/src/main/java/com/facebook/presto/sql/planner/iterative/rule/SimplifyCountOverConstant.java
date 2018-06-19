@@ -71,6 +71,7 @@ public class SimplifyCountOverConstant
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
+                        entry.getValue().getOutputSymbol(),
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                         new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
                         aggregation.getMask()));

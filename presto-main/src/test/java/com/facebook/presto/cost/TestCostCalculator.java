@@ -357,6 +357,7 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
+                new Symbol("count"),
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
                 Optional.empty());
@@ -364,7 +365,7 @@ public class TestCostCalculator
         return new AggregationNode(
                 new PlanNodeId(id),
                 source,
-                ImmutableMap.of(new Symbol("count"), aggregation),
+                ImmutableMap.of(aggregation.getOutputSymbol(), aggregation),
                 ImmutableList.of(source.getOutputSymbols()),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

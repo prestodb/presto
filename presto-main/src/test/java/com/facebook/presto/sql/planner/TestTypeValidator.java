@@ -185,6 +185,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        aggregationSymbol,
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         new Signature(
                                 "sum",
@@ -242,6 +243,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        aggregationSymbol,
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
                         new Signature(
                                 "sum",
@@ -269,6 +271,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        aggregationSymbol,
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         new Signature(
                                 "sum",

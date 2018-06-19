@@ -200,8 +200,8 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
+                        .put(countMatchesSymbol, countWithFilter(countMatchesSymbol, matchCondition))
+                        .put(countNullMatchesSymbol, countWithFilter(countNullMatchesSymbol, nullMatchCondition))
                         .build(),
                 ImmutableList.of(probeSide.getOutputSymbols()),
                 AggregationNode.Step.SINGLE,
@@ -241,7 +241,7 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private static AggregationNode.Aggregation countWithFilter(Expression condition)
+    private static AggregationNode.Aggregation countWithFilter(Symbol outputSymbol, Expression condition)
     {
         FunctionCall countCall = new FunctionCall(
                 QualifiedName.of("count"),
@@ -252,6 +252,7 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableList.<Expression>of()); /* arguments */
 
         return new AggregationNode.Aggregation(
+                outputSymbol,
                 countCall,
                 new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
                 Optional.<Symbol>empty()); /* mask */

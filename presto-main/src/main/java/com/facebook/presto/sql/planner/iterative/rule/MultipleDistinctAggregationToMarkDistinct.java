@@ -150,6 +150,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                 // remove the distinct flag and set the distinct marker
                 newAggregations.put(entry.getKey(),
                         new Aggregation(
+                                entry.getValue().getOutputSymbol(),
                                 new FunctionCall(
                                         call.getName(),
                                         call.getWindow(),

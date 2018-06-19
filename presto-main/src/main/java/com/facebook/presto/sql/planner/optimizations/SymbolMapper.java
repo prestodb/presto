@@ -86,7 +86,9 @@ public class SymbolMapper
             Symbol symbol = entry.getKey();
             Aggregation aggregation = entry.getValue();
 
-            aggregations.put(map(symbol), new Aggregation(
+            Symbol outputSymbol = map(symbol);
+            aggregations.put(outputSymbol, new Aggregation(
+                    outputSymbol,
                     (FunctionCall) map(aggregation.getCall()),
                     aggregation.getSignature(),
                     aggregation.getMask().map(this::map)));

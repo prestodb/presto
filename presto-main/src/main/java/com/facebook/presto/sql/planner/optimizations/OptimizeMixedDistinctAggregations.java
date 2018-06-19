@@ -153,6 +153,7 @@ public class OptimizeMixedDistinctAggregations
                 FunctionCall functionCall = entry.getValue().getCall();
                 if (entry.getValue().getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
+                            entry.getValue().getOutputSymbol(),
                             new FunctionCall(
                                     functionCall.getName(),
                                     functionCall.getWindow(),
@@ -166,6 +167,7 @@ public class OptimizeMixedDistinctAggregations
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
                     QualifiedName functionName = QualifiedName.of("arbitrary");
                     aggregations.put(entry.getKey(), new Aggregation(
+                            entry.getValue().getOutputSymbol(),
                             new FunctionCall(functionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
                             getFunctionSignature(functionName, argument),
                             Optional.empty()));
@@ -412,7 +414,7 @@ public class OptimizeMixedDistinctAggregations
                             functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, arguments.build());
                         }
                     }
-                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty()));
+                    aggregations.put(newSymbol, new Aggregation(newSymbol, functionCall, entry.getValue().getSignature(), Optional.empty()));
                 }
             }
             return new AggregationNode(

@@ -29,12 +29,14 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -82,6 +84,10 @@ public final class AggregationNode
         hashSymbol.ifPresent(outputSymbols::add);
         outputSymbols.addAll(aggregations.keySet());
         this.outputSymbols = outputSymbols.build();
+
+        for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+            verify(entry.getKey().equals(entry.getValue().getOutputSymbol()));
+        }
     }
 
     public List<Symbol> getGroupingKeys()
@@ -269,19 +275,28 @@ public final class AggregationNode
 
     public static class Aggregation
     {
+        private final Symbol outputSymbol;
         private final FunctionCall call;
         private final Signature signature;
         private final Optional<Symbol> mask;
 
         @JsonCreator
         public Aggregation(
+                @JsonProperty("outputSymbol") Symbol outputSymbol,
                 @JsonProperty("call") FunctionCall call,
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.call = call;
-            this.signature = signature;
-            this.mask = mask;
+            this.outputSymbol = requireNonNull(outputSymbol, "outputSymbol is null");
+            this.call = requireNonNull(call, "call is null");
+            this.signature = requireNonNull(signature, "signature is null");
+            this.mask = requireNonNull(mask, "mask is null");
+        }
+
+        @JsonProperty
+        public Symbol getOutputSymbol()
+        {
+            return outputSymbol;
         }
 
         @JsonProperty

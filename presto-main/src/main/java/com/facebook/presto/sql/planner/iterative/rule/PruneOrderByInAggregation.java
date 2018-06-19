@@ -71,7 +71,7 @@ public class PruneOrderByInAggregation
                         aggregation.getCall().getArguments(),
                         aggregation.getCall().getFilter());
 
-                aggregations.put(entry.getKey(), new Aggregation(rewritten, aggregation.getSignature(), aggregation.getMask()));
+                aggregations.put(entry.getKey(), new Aggregation(entry.getValue().getOutputSymbol(), rewritten, aggregation.getSignature(), aggregation.getMask()));
             }
         }
 

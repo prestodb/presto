@@ -156,6 +156,7 @@ public class SingleDistinctAggregationToGroupBy
 
         FunctionCall call = aggregation.getCall();
         return new AggregationNode.Aggregation(
+                aggregation.getOutputSymbol(),
                 new FunctionCall(
                         call.getName(),
                         call.getWindow(),

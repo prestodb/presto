@@ -178,6 +178,7 @@ public class ScalarAggregationToJoinRewriter
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
+                        symbol,
                         new FunctionCall(
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),

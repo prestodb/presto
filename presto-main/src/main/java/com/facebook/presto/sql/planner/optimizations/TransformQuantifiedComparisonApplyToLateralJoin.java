@@ -145,18 +145,22 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
+                                    minValue,
                                     new FunctionCall(MIN, outputColumnReferences),
                                     functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
                             maxValue, new Aggregation(
+                                    maxValue,
                                     new FunctionCall(MAX, outputColumnReferences),
                                     functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
+                                    countAllValue,
                                     new FunctionCall(COUNT, emptyList()),
                                     functionRegistry.resolveFunction(COUNT, emptyList()),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
+                                    countNonNullValue,
                                     new FunctionCall(COUNT, outputColumnReferences),
                                     functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty())),
