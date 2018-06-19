@@ -76,6 +76,7 @@ public class TestMetadataManager
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

@@ -41,6 +41,7 @@ public class TestAtopSmoke
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

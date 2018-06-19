@@ -67,6 +67,7 @@ public class TestMinimalFunctionality
             throws Exception
     {
         embeddedKafka.close();
+        embeddedKafka = null;
     }
 
     @BeforeMethod
@@ -86,10 +87,11 @@ public class TestMinimalFunctionality
                         .build());
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     private void createMessages(String topicName, int count)

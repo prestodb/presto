@@ -63,6 +63,7 @@ public class TestIterativeOptimizer
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
     }
 
