@@ -31,6 +31,7 @@ public class TestOrderedAggregation
     public void teardown()
     {
         assertions.close();
+        assertions = null;
     }
 
     @Test

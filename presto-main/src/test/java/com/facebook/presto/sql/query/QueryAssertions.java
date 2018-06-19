@@ -115,6 +115,7 @@ class QueryAssertions
         }
     }
 
+    @Override
     public void close()
     {
         runner.close();

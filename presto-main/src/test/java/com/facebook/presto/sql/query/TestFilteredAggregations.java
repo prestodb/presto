@@ -31,6 +31,7 @@ public class TestFilteredAggregations
     public void teardown()
     {
         assertions.close();
+        assertions = null;
     }
 
     @Test
