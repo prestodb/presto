@@ -97,6 +97,13 @@ public class BenchmarkSpatialJoin
         {
             queryRunner.dropTable("memory.default.points");
         }
+
+        @TearDown
+        public void tearDown()
+        {
+            queryRunner.close();
+            queryRunner = null;
+        }
     }
 
     @Benchmark
