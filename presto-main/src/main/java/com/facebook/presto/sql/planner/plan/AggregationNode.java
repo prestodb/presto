@@ -26,7 +26,6 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class AggregationNode
+public final class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
@@ -48,7 +47,7 @@ public class AggregationNode
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
-    private final List<Symbol> outputs;
+    private final List<Symbol> outputSymbols;
 
     @JsonCreator
     public AggregationNode(
@@ -62,7 +61,7 @@ public class AggregationNode
     {
         super(id);
 
-        this.source = source;
+        this.source = requireNonNull(source, "source is null");
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
@@ -74,24 +73,23 @@ public class AggregationNode
                 .noneMatch(Optional::isPresent);
         checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
-        this.step = step;
-        this.hashSymbol = hashSymbol;
-        this.groupIdSymbol = requireNonNull(groupIdSymbol);
+        this.step = requireNonNull(step, "step is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.groupIdSymbol = requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        outputs.addAll(getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
-        outputs.addAll(aggregations.keySet());
-
-        this.outputs = outputs.build();
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        outputSymbols.addAll(getGroupingKeys());
+        hashSymbol.ifPresent(outputSymbols::add);
+        outputSymbols.addAll(aggregations.keySet());
+        this.outputSymbols = outputSymbols.build();
     }
 
     public List<Symbol> getGroupingKeys()
     {
-        List<Symbol> symbols = new ArrayList<>(groupingSets.stream()
+        List<Symbol> symbols = groupingSets.stream()
                 .flatMap(Collection::stream)
                 .distinct()
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
 
         groupIdSymbol.ifPresent(symbols::add);
         return symbols;
@@ -107,7 +105,7 @@ public class AggregationNode
      */
     public boolean hasDefaultOutput()
     {
-        return hasEmptyGroupingSet() && (step.isOutputPartial() || step.equals(SINGLE));
+        return hasEmptyGroupingSet() && (step.isOutputPartial() || step == SINGLE);
     }
 
     public boolean hasEmptyGroupingSet()
@@ -129,7 +127,7 @@ public class AggregationNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return outputs;
+        return outputSymbols;
     }
 
     @JsonProperty
@@ -251,20 +249,20 @@ public class AggregationNode
         public static Step partialOutput(Step step)
         {
             if (step.isInputRaw()) {
-                return Step.PARTIAL;
+                return PARTIAL;
             }
             else {
-                return Step.INTERMEDIATE;
+                return INTERMEDIATE;
             }
         }
 
         public static Step partialInput(Step step)
         {
             if (step.isOutputPartial()) {
-                return Step.INTERMEDIATE;
+                return INTERMEDIATE;
             }
             else {
-                return Step.FINAL;
+                return FINAL;
             }
         }
     }
