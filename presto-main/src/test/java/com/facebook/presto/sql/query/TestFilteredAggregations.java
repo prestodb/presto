@@ -37,29 +37,29 @@ public class TestFilteredAggregations
     public void testGroupAll()
     {
         assertions.assertQuery(
-                "SELECT count(DISTINCT x) FILTER (WHERE x > 1) " +
+                "SELECT sum(DISTINCT x) FILTER (WHERE x > 1) " +
                         "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)",
-                "VALUES BIGINT '2'");
+                "VALUES BIGINT '5'");
 
         assertions.assertQuery(
-                "SELECT count(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
+                "SELECT sum(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
                         "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)",
-                "VALUES (BIGINT '2', BIGINT '6')");
+                "VALUES (BIGINT '5', BIGINT '6')");
 
         assertions.assertQuery(
-                "SELECT count(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT y) FILTER (WHERE x < 3)" +
+                "SELECT sum(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT y) FILTER (WHERE x < 3)" +
                         "FROM (VALUES " +
                         "(1, 10)," +
                         "(1, 20)," +
                         "(1, 20)," +
                         "(2, 20)," +
                         "(3, 30)) t(x, y)",
-                "VALUES (BIGINT '2', BIGINT '30')");
+                "VALUES (BIGINT '5', BIGINT '30')");
 
         assertions.assertQuery(
-                "SELECT count(x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
+                "SELECT sum(x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
                         "FROM (VALUES 1, 2, 3, 3) t(x)",
-                "VALUES (BIGINT '3', BIGINT '6')");
+                "VALUES (BIGINT '8', BIGINT '6')");
     }
 
     @Test

@@ -216,7 +216,7 @@ public class PushPartialAggregationThroughExchange
             }
             finalAggregations.add(new AggregationNode.Aggregation(
                     originalAggregation.getOutputSymbol(),
-                    new FunctionCall(QualifiedName.of(signature.getName()), finalAggregationArguments),
+                    new FunctionCall(QualifiedName.of(signature.getName()), originalAggregation.getCall().isDistinct(), finalAggregationArguments),
                     signature,
                     finalAggregationMask));
         }

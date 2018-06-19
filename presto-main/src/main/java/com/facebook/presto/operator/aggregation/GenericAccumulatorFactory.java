@@ -29,7 +29,6 @@ import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.Nullable;
 
@@ -45,6 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Long.max;
 import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;
@@ -112,25 +112,8 @@ public class GenericAccumulatorFactory
     @Override
     public Accumulator createAccumulator()
     {
-        Accumulator accumulator;
-
-        if (distinct) {
-            // channel 0 will contain the distinct mask
-            accumulator = instantiateAccumulator(
-                    inputChannels.stream()
-                            .map(value -> value + 1)
-                            .collect(Collectors.toList()),
-                    Optional.of(0));
-
-            List<Type> argumentTypes = inputChannels.stream()
-                    .map(sourceTypes::get)
-                    .collect(Collectors.toList());
-
-            accumulator = new DistinctingAccumulator(accumulator, argumentTypes, inputChannels, maskChannel, session, joinCompiler);
-        }
-        else {
-            accumulator = instantiateAccumulator(inputChannels, maskChannel);
-        }
+        verify(!distinct);
+        Accumulator accumulator = instantiateAccumulator(inputChannels, maskChannel);
 
         if (orderByChannels.isEmpty()) {
             return accumulator;
@@ -221,91 +204,6 @@ public class GenericAccumulatorFactory
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    private static class DistinctingAccumulator
-            implements Accumulator
-    {
-        private final Accumulator accumulator;
-        private final MarkDistinctHash hash;
-        private final Optional<Integer> maskChannel;
-
-        private DistinctingAccumulator(
-                Accumulator accumulator,
-                List<Type> inputTypes,
-                List<Integer> inputs,
-                Optional<Integer> maskChannel,
-                Session session,
-                JoinCompiler joinCompiler)
-        {
-            this.accumulator = requireNonNull(accumulator, "accumulator is null");
-            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
-
-            hash = new MarkDistinctHash(session, inputTypes, Ints.toArray(inputs), Optional.empty(), joinCompiler, UpdateMemory.NOOP);
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return hash.getEstimatedSize() + accumulator.getEstimatedSize();
-        }
-
-        @Override
-        public Type getFinalType()
-        {
-            return accumulator.getFinalType();
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void addInput(Page page)
-        {
-            // 1. filter out positions based on mask, if present
-            Page filtered = maskChannel
-                    .map(channel -> filter(page, page.getBlock(channel)))
-                    .orElse(page);
-
-            if (filtered.getPositionCount() == 0) {
-                return;
-            }
-
-            // 2. compute a distinct mask
-            Work<Block> work = hash.markDistinctRows(filtered);
-            checkState(work.process());
-            Block distinctMask = work.getResult();
-
-            // 3. feed a Page with a new mask to the underlying aggregation
-            accumulator.addInput(filtered.prependColumn(distinctMask));
-        }
-
-        @Override
-        public void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void addIntermediate(Block block)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void evaluateIntermediate(BlockBuilder blockBuilder)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder blockBuilder)
-        {
-            accumulator.evaluateFinal(blockBuilder);
         }
     }
 
@@ -460,7 +358,7 @@ public class GenericAccumulatorFactory
         @Override
         public Type getIntermediateType()
         {
-            throw new UnsupportedOperationException();
+            return accumulator.getIntermediateType();
         }
 
         @Override

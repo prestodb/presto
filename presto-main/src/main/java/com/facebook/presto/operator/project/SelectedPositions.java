@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
@@ -24,6 +27,11 @@ public class SelectedPositions
     private final int[] positions;
     private final int offset;
     private final int size;
+
+    public static SelectedPositions empty()
+    {
+        return new SelectedPositions(false, new int[0], 0, 0);
+    }
 
     public static SelectedPositions positionsList(int[] positions, int offset, int size)
     {
@@ -73,6 +81,32 @@ public class SelectedPositions
     public int size()
     {
         return size;
+    }
+
+    public int getSelectedPosition(int position)
+    {
+        checkArgument(position >= 0 && position < size, "invalid position");
+        if (isList) {
+            return positions[offset + position];
+        }
+        return offset + position;
+    }
+
+    public Page selectPositions(Page page)
+    {
+        Block[] blocks = new Block[page.getChannelCount()];
+        for (int channel = 0; channel < blocks.length; channel++) {
+            blocks[channel] = selectPositions(page.getBlock(channel));
+        }
+        return new Page(size, blocks);
+    }
+
+    public Block selectPositions(Block block)
+    {
+        if (isList) {
+            return block.getPositions(positions, offset, size);
+        }
+        return block.getRegion(offset, size);
     }
 
     public SelectedPositions subRange(int start, int end)

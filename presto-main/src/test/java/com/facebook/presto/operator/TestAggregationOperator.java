@@ -15,10 +15,14 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.AggregationOperator.AggregationInputChannel;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
+import com.facebook.presto.operator.aggregation.GeneralInternalAccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -43,6 +47,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.mapWithIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -93,7 +99,8 @@ public class TestAggregationOperator
                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
         InternalAggregationFunction maxVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
-        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
+        List<Type> inputTypes = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR);
+        List<Page> input = rowPagesBuilder(inputTypes)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
 
@@ -101,15 +108,18 @@ public class TestAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        REAL_SUM.bind(ImmutableList.of(4), Optional.empty()),
-                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty())));
+                ImmutableList.of(
+                        new GeneralInternalAccumulatorFactory(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(countVarcharColumn.bind(ImmutableList.of(0), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(LONG_SUM.bind(ImmutableList.of(3), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(REAL_SUM.bind(ImmutableList.of(4), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty())),
+                        new GeneralInternalAccumulatorFactory(maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty()))),
+                mapWithIndex(inputTypes.stream(), (type, channel) -> new AggregationInputChannel(new Symbol("i" + channel), (int) channel, type))
+                    .collect(toImmutableList()));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, REAL, DOUBLE, VARCHAR)
                 .row(100L, 4950L, 49.5, "399", 100L, 54950L, 44950.0f, 54950.0, "599")

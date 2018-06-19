@@ -14,9 +14,11 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.AggregationOperator.AggregationInputChannel;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.aggregation.GeneralInternalAccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
@@ -27,6 +29,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -85,8 +88,8 @@ public class HandTpchQuery6
                 2,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty())));
+                ImmutableList.of(new GeneralInternalAccumulatorFactory(doubleSum.bind(ImmutableList.of(0), Optional.empty()))),
+                ImmutableList.of(new AggregationInputChannel(new Symbol("input"), 0, DOUBLE)));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }

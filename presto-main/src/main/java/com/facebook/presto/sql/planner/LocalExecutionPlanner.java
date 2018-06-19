@@ -25,6 +25,7 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.AggregationOperator.AggregationInputChannel;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
@@ -75,6 +76,9 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
+import com.facebook.presto.operator.aggregation.DistinctInternalAccumulatorFactory;
+import com.facebook.presto.operator.aggregation.GeneralInternalAccumulatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAccumulatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -2259,6 +2263,61 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
+        private InternalAccumulatorFactory buildInternalAccumulatorFactory(PhysicalOperation source, Aggregation aggregation)
+        {
+            if (!aggregation.getCall().isDistinct()) {
+                AccumulatorFactory accumulatorFactory = buildAccumulatorFactory(source, aggregation);
+                return new GeneralInternalAccumulatorFactory(accumulatorFactory);
+            }
+
+            List<Integer> argumentChannels = aggregation.getCall().getArguments().stream()
+                    .map(Symbol::from)
+                    .map(source::getChannel)
+                    .collect(toImmutableList());
+
+            List<Type> argumentTypes = aggregation.getCall().getArguments().stream()
+                    .map(Symbol::from)
+                    .map(source::getType)
+                    .collect(toImmutableList());
+
+            List<SortOrder> sortOrders = ImmutableList.of();
+            List<Symbol> sortKeys = ImmutableList.of();
+            if (aggregation.getCall().getOrderBy().isPresent()) {
+                OrderBy orderBy = aggregation.getCall().getOrderBy().get();
+
+                sortKeys = orderBy.getSortItems().stream()
+                        .map(SortItem::getSortKey)
+                        .map(Symbol::from)
+                        .collect(toImmutableList());
+
+                sortOrders = orderBy.getSortItems().stream()
+                        .map(QueryPlanner::toSortOrder)
+                        .collect(toImmutableList());
+            }
+
+            AccumulatorFactory accumulatorFactory = metadata
+                    .getFunctionRegistry()
+                    .getAggregateFunctionImplementation(aggregation.getSignature())
+                    .bind(
+                            argumentChannels,
+                            Optional.empty(), // mask is applied in the DistinctInternalAccumulatorFactory
+                            source.getTypes(),
+                            getChannelsForSymbols(sortKeys, source.getLayout()),
+                            sortOrders,
+                            pagesIndexFactory,
+                            false,
+                            joinCompiler,
+                            session);
+
+            return new DistinctInternalAccumulatorFactory(
+                    accumulatorFactory,
+                    argumentTypes,
+                    argumentChannels,
+                    aggregation.getMask().map(source::getChannel),
+                    session,
+                    joinCompiler);
+        }
+
         private AccumulatorFactory buildAccumulatorFactory(
                 PhysicalOperation source,
                 Aggregation aggregation)
@@ -2269,10 +2328,8 @@ public class LocalExecutionPlanner
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
 
-            Optional<Integer> maskChannel = Optional.empty();
-            if (aggregation.getMask() != null) {
-                maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
-            }
+            Optional<Integer> maskChannel = aggregation.getMask()
+                    .map(value -> source.getLayout().get(value));
 
             List<SortOrder> sortOrders = ImmutableList.of();
             List<Symbol> sortKeys = ImmutableList.of();
@@ -2292,29 +2349,33 @@ public class LocalExecutionPlanner
             return metadata
                     .getFunctionRegistry()
                     .getAggregateFunctionImplementation(aggregation.getSignature())
-                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory, aggregation.getCall().isDistinct(), joinCompiler, session);
+                    .bind(
+                            arguments,
+                            maskChannel,
+                            source.getTypes(),
+                            getChannelsForSymbols(sortKeys, source.getLayout()),
+                            sortOrders,
+                            pagesIndexFactory,
+                            aggregation.getCall().isDistinct(),
+                            joinCompiler,
+                            session);
         }
 
         private PhysicalOperation planGlobalAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
         {
-            int outputChannel = 0;
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            // add row type if present
-            if (node.getRowTypeSymbol().isPresent()) {
-                outputMappings.put(node.getRowTypeSymbol().get(), outputChannel);
-                outputChannel++;
-            }
-            // each aggregation uses one output channel
-            List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            for (Aggregation aggregation : node.getAggregations()) {
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
-                outputMappings.put(aggregation.getOutputSymbol(), outputChannel);
-                outputChannel++;
-            }
+            // final data for final (or single) aggregation
+            // intermediate output or distinct mask for partial (or intermediate) aggregations
+            List<InternalAccumulatorFactory> accumulatorFactories = node.getAggregations().stream()
+                    .map(aggregation -> buildInternalAccumulatorFactory(source, aggregation))
+                    .collect(toImmutableList());
 
-            OperatorFactory operatorFactory = new AggregationOperatorFactory(context.getNextOperatorId(), node.getId(), node.getStep(), accumulatorFactories);
+            List<AggregationInputChannel> inputChannels = node.getPassThroughSymbols().stream()
+                    .map(symbol -> new AggregationInputChannel(symbol, source.getLayout().get(symbol), source.getTypes().get(source.getLayout().get(symbol))))
+                    .collect(toImmutableList());
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+            OperatorFactory operatorFactory = new AggregationOperatorFactory(context.getNextOperatorId(), node.getId(), node.getStep(), accumulatorFactories, inputChannels);
+
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         private PhysicalOperation planGroupByAggregation(
@@ -2526,6 +2587,16 @@ public class LocalExecutionPlanner
         public Map<Symbol, Integer> getLayout()
         {
             return layout;
+        }
+
+        protected int getChannel(Symbol symbol)
+        {
+            return requireNonNull(layout.get(symbol), () -> "Unknown symbol " + symbol);
+        }
+
+        public Type getType(Symbol symbol)
+        {
+            return types.get(getChannel(symbol));
         }
 
         private List<OperatorFactory> getOperatorFactories()

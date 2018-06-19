@@ -253,7 +253,7 @@ public final class AggregationNode
                 .map(functionRegistry::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
-        return !hasOrderBy && !hasDistinct && decomposableFunctions;
+        return !hasOrderBy && decomposableFunctions && (!hasNonEmptyGroupingSet() || !hasDistinct);
     }
 
     public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)

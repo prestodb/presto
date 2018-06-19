@@ -14,21 +14,33 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AccumulatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAccumulatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAccumulatorFactory.InternalFinalAccumulator;
+import com.facebook.presto.operator.aggregation.InternalAccumulatorFactory.InternalIntermediateAccumulator;
+import com.facebook.presto.operator.aggregation.InternalAccumulatorFactory.InternalPartialAccumulator;
+import com.facebook.presto.operator.aggregation.InternalAccumulatorFactory.InternalSingleAccumulator;
+import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +50,45 @@ import static java.util.Objects.requireNonNull;
 public class AggregationOperator
         implements Operator
 {
-    private final boolean partial;
+    public static class AggregationInputChannel
+    {
+        private final Symbol symbol;
+        private final int channel;
+        private final Type type;
+
+        public AggregationInputChannel(Symbol symbol, int channel, Type type)
+        {
+            this.symbol = requireNonNull(symbol, "symbol is null");
+            checkArgument(channel >= 0, "channel is negative");
+            this.channel = channel;
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        public Symbol getSymbol()
+        {
+            return symbol;
+        }
+
+        public int getChannel()
+        {
+            return channel;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("symbol", symbol)
+                    .add("channel", channel)
+                    .add("type", type)
+                    .toString();
+        }
+    }
 
     public static class AggregationOperatorFactory
             implements OperatorFactory
@@ -46,15 +96,22 @@ public class AggregationOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final Step step;
-        private final List<AccumulatorFactory> accumulatorFactories;
+        private final List<InternalAccumulatorFactory> accumulatorFactories;
+        private final List<AggregationInputChannel> inputs;
         private boolean closed;
 
-        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, Step step, List<AccumulatorFactory> accumulatorFactories)
+        public AggregationOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Step step,
+                List<InternalAccumulatorFactory> accumulatorFactories,
+                List<AggregationInputChannel> inputs)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
+            this.inputs = ImmutableList.copyOf(requireNonNull(inputs, "inputs is null"));
         }
 
         @Override
@@ -62,7 +119,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, step, accumulatorFactories);
+            return new AggregationOperator(operatorContext, step, accumulatorFactories, inputs);
         }
 
         @Override
@@ -74,40 +131,50 @@ public class AggregationOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories);
+            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories, inputs);
         }
     }
 
     private enum State
     {
         NEEDS_INPUT,
-        HAS_OUTPUT,
+        FINISHING,
         FINISHED
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext systemMemoryContext;
-    private final LocalMemoryContext userMemoryContext;
-    private final List<Aggregator> aggregates;
+    private final Processor processor;
 
+    private Optional<Page> partialOutput = Optional.empty();
     private State state = State.NEEDS_INPUT;
 
-    public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
+    public AggregationOperator(
+            OperatorContext operatorContext,
+            Step step,
+            List<InternalAccumulatorFactory> accumulatorFactories,
+            List<AggregationInputChannel> inputs)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
-        this.userMemoryContext = operatorContext.localUserMemoryContext();
 
-        requireNonNull(step, "step is null");
-        this.partial = step.isOutputPartial();
-
-        // wrapper each function with an aggregator
+        IntermediateLayout intermediateLayout = new IntermediateLayout(accumulatorFactories, inputs);
         requireNonNull(accumulatorFactories, "accumulatorFactories is null");
-        ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            builder.add(new Aggregator(accumulatorFactory, step));
+        requireNonNull(step, "step is null");
+        switch (step) {
+            case SINGLE:
+                processor = new SingleProcessor(operatorContext.localUserMemoryContext(), accumulatorFactories);
+                break;
+            case PARTIAL:
+                processor = new PartialProcessor(operatorContext.newLocalSystemMemoryContext(), accumulatorFactories, intermediateLayout);
+                break;
+            case INTERMEDIATE:
+                processor = new IntermediateProcessor(operatorContext.newLocalSystemMemoryContext(), accumulatorFactories, intermediateLayout);
+                break;
+            case FINAL:
+                processor = new FinalProcessor(operatorContext.localUserMemoryContext(), accumulatorFactories, intermediateLayout);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported step " + step);
         }
-        aggregates = builder.build();
     }
 
     @Override
@@ -120,7 +187,7 @@ public class AggregationOperator
     public void finish()
     {
         if (state == State.NEEDS_INPUT) {
-            state = State.HAS_OUTPUT;
+            state = State.FINISHING;
         }
     }
 
@@ -133,115 +200,440 @@ public class AggregationOperator
     @Override
     public boolean needsInput()
     {
-        return state == State.NEEDS_INPUT;
+        return state == State.NEEDS_INPUT && !partialOutput.isPresent();
     }
 
     @Override
     public void addInput(Page page)
     {
         checkState(needsInput(), "Operator is already finishing");
+        checkState(!partialOutput.isPresent());
         requireNonNull(page, "page is null");
 
-        long memorySize = 0;
-        for (Aggregator aggregate : aggregates) {
-            aggregate.processPage(page);
-            memorySize += aggregate.getEstimatedSize();
-        }
-        if (partial) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            userMemoryContext.setBytes(memorySize);
-        }
+        partialOutput = processor.addInput(page);
     }
 
     @Override
     public Page getOutput()
     {
-        if (state != State.HAS_OUTPUT) {
+        if (partialOutput.isPresent()) {
+            Page output = partialOutput.get();
+            partialOutput = Optional.empty();
+            return output;
+        }
+
+        if (state != State.FINISHING) {
             return null;
         }
 
-        // project results into output blocks
-        List<Type> types = aggregates.stream().map(Aggregator::getType).collect(toImmutableList());
-
-        // output page will only be constructed once,
-        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
-        PageBuilder pageBuilder = new PageBuilder(1, types);
-
-        pageBuilder.declarePosition();
-        for (int i = 0; i < aggregates.size(); i++) {
-            Aggregator aggregator = aggregates.get(i);
-            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-            aggregator.evaluate(blockBuilder);
-        }
-
         state = State.FINISHED;
-
-        Page page = pageBuilder.build();
-
-        // prepend the row type block for partial outputs
-        if (partial) {
-            BlockBuilder blockBuilder = TINYINT.createBlockBuilder(null, 1);
-            TINYINT.writeLong(blockBuilder, 1);
-            page = page.prependColumn(blockBuilder.build());
-        }
-        return page;
+        return processor.getFinalOutput();
     }
 
-    private static class Aggregator
+    private interface Processor
     {
-        private final Accumulator aggregation;
-        private final Step step;
-        private final int intermediateChannel;
+        Optional<Page> addInput(Page page);
 
-        private Aggregator(AccumulatorFactory accumulatorFactory, Step step)
+        Page getFinalOutput();
+    }
+
+    private static class SingleProcessor
+            implements Processor
+    {
+        private final LocalMemoryContext userMemoryContext;
+        private final List<InternalSingleAccumulator> accumulators;
+
+        public SingleProcessor(LocalMemoryContext userMemoryContext, List<InternalAccumulatorFactory> accumulatorFactories)
         {
-            if (step.isInputRaw()) {
-                intermediateChannel = -1;
-                aggregation = accumulatorFactory.createAccumulator();
-            }
-            else {
-                checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
-                intermediateChannel = accumulatorFactory.getInputChannels().get(0);
-                aggregation = accumulatorFactory.createIntermediateAccumulator();
-            }
-            this.step = step;
+            this.userMemoryContext = userMemoryContext;
+            this.accumulators = accumulatorFactories.stream()
+                    .map(InternalAccumulatorFactory::createSingleAccumulator)
+                    .collect(toImmutableList());
         }
 
-        public Type getType()
+        @Override
+        public Optional<Page> addInput(Page inputPage)
         {
-            if (step.isOutputPartial()) {
-                return aggregation.getIntermediateType();
+            long memorySize = 0;
+            for (InternalSingleAccumulator accumulator : accumulators) {
+                accumulator.addInput(inputPage);
+                memorySize += accumulator.getEstimatedSize();
             }
-            else {
-                return aggregation.getFinalType();
-            }
+            userMemoryContext.setBytes(memorySize);
+            return Optional.empty();
         }
 
-        public void processPage(Page page)
+        @Override
+        public Page getFinalOutput()
         {
-            if (step.isInputRaw()) {
-                aggregation.addInput(page);
+            List<Block> finalResults = new ArrayList<>();
+            for (InternalSingleAccumulator accumulator : accumulators) {
+                BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1);
+                accumulator.evaluateFinal(blockBuilder);
+                finalResults.add(blockBuilder.build());
             }
-            else {
-                aggregation.addIntermediate(page.getBlock(intermediateChannel));
-            }
+            return new Page(1, finalResults.stream().toArray(Block[]::new));
+        }
+    }
+
+    private static class PartialProcessor
+            implements Processor
+    {
+        private final LocalMemoryContext systemMemoryContext;
+        private final List<InternalPartialAccumulator> accumulators;
+        private final IntermediateLayout intermediateLayout;
+
+        public PartialProcessor(
+                LocalMemoryContext systemMemoryContext,
+                List<InternalAccumulatorFactory> accumulatorFactories, IntermediateLayout intermediateLayout)
+        {
+            this.systemMemoryContext = systemMemoryContext;
+            this.accumulators = accumulatorFactories.stream()
+                    .map(InternalAccumulatorFactory::createPartialAccumulator)
+                    .collect(toImmutableList());
+            this.intermediateLayout = intermediateLayout;
         }
 
-        public void evaluate(BlockBuilder blockBuilder)
+        @Override
+        public Optional<Page> addInput(Page inputPage)
         {
-            if (step.isOutputPartial()) {
-                aggregation.evaluateIntermediate(blockBuilder);
+            List<Optional<Block>> partialDistinctMasks = new ArrayList<>(accumulators.size());
+            long memorySize = 0;
+            for (InternalPartialAccumulator accumulator : accumulators) {
+                partialDistinctMasks.add(accumulator.addInput(inputPage));
+                memorySize += accumulator.getEstimatedSize();
             }
-            else {
-                aggregation.evaluateFinal(blockBuilder);
+            systemMemoryContext.setBytes(memorySize);
+
+            if (!intermediateLayout.hasDistinct()) {
+                return Optional.empty();
             }
+            return intermediateLayout.buildPartialDistinctRows(inputPage, partialDistinctMasks);
         }
 
-        public long getEstimatedSize()
+        @Override
+        public Page getFinalOutput()
         {
-            return aggregation.getEstimatedSize();
+            List<Block> intermediateResults = new ArrayList<>();
+            for (InternalPartialAccumulator accumulator : accumulators) {
+                BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(null, 1);
+                accumulator.evaluateIntermediate(blockBuilder);
+                intermediateResults.add(blockBuilder.build());
+            }
+            return intermediateLayout.buildIntermediateOutput(intermediateResults);
+        }
+    }
+
+    private static class IntermediateProcessor
+            implements Processor
+    {
+        private final LocalMemoryContext systemMemoryContext;
+        private final List<InternalIntermediateAccumulator> accumulators;
+        private final IntermediateLayout intermediateLayout;
+
+        public IntermediateProcessor(
+                LocalMemoryContext systemMemoryContext,
+                List<InternalAccumulatorFactory> accumulatorFactories,
+                IntermediateLayout intermediateLayout)
+        {
+            this.systemMemoryContext = systemMemoryContext;
+            this.accumulators = accumulatorFactories.stream()
+                    .map(InternalAccumulatorFactory::createIntermediateAccumulator)
+                    .collect(toImmutableList());
+            this.intermediateLayout = intermediateLayout;
+        }
+
+        @Override
+        public Optional<Page> addInput(Page intermediatePage)
+        {
+            Optional<Page> partialOutput = Optional.empty();
+            if (intermediateLayout.hasDistinct()) {
+                Page distinctInput = RowType.DISTINCT_PARTIAL.extractPositions(intermediatePage);
+                if (distinctInput.getPositionCount() > 0) {
+                    List<Optional<Block>> partialDistinctMasks = new ArrayList<>(accumulators.size());
+                    for (InternalIntermediateAccumulator accumulator : accumulators) {
+                        if (accumulator.isDistinct()) {
+                            partialDistinctMasks.add(accumulator.addInput(distinctInput));
+                        }
+                    }
+                    partialOutput = intermediateLayout.buildPartialDistinctRows(distinctInput, partialDistinctMasks);
+                }
+            }
+
+            if (intermediateLayout.hasNonDistinct()) {
+                Page intermediateInput = RowType.INTERMEDIATE.extractPositions(intermediatePage);
+                if (intermediateInput.getPositionCount() > 0) {
+                    for (int intermediateIndex = 0; intermediateIndex < accumulators.size(); intermediateIndex++) {
+                        InternalIntermediateAccumulator accumulator = accumulators.get(intermediateIndex);
+                        if (!accumulator.isDistinct()) {
+                            Block intermediateInputBlock = intermediateInput.getBlock(intermediateLayout.getIntermediateChannel(intermediateIndex));
+                            accumulator.addIntermediate(intermediateInputBlock);
+                        }
+                    }
+                }
+            }
+
+            long memorySize = 0;
+            for (InternalIntermediateAccumulator accumulator : accumulators) {
+                memorySize += accumulator.getEstimatedSize();
+            }
+            systemMemoryContext.setBytes(memorySize);
+            return partialOutput;
+        }
+
+        @Override
+        public Page getFinalOutput()
+        {
+            List<Block> intermediateResults = new ArrayList<>();
+            for (InternalIntermediateAccumulator accumulator : accumulators) {
+                BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(null, 1);
+                accumulator.evaluateIntermediate(blockBuilder);
+                intermediateResults.add(blockBuilder.build());
+            }
+
+            return intermediateLayout.buildIntermediateOutput(intermediateResults);
+        }
+    }
+
+    private static class FinalProcessor
+            implements Processor
+    {
+        private final LocalMemoryContext userMemoryContext;
+        private final List<InternalFinalAccumulator> accumulators;
+        private final IntermediateLayout intermediateLayout;
+
+        public FinalProcessor(LocalMemoryContext userMemoryContext, List<InternalAccumulatorFactory> accumulatorFactories, IntermediateLayout intermediateLayout)
+        {
+            this.userMemoryContext = userMemoryContext;
+            this.accumulators = accumulatorFactories.stream()
+                    .map(InternalAccumulatorFactory::createFinalAccumulator)
+                    .collect(toImmutableList());
+            this.intermediateLayout = intermediateLayout;
+        }
+
+        @Override
+        public Optional<Page> addInput(Page intermediateInput)
+        {
+            if (intermediateLayout.hasDistinct()) {
+                Page distinctRows = RowType.DISTINCT_PARTIAL.extractPositions(intermediateInput);
+                if (distinctRows.getPositionCount() > 0) {
+                    for (InternalFinalAccumulator accumulator : accumulators) {
+                        if (accumulator.isDistinct()) {
+                            accumulator.addInput(distinctRows);
+                        }
+                    }
+                }
+            }
+
+            if (intermediateLayout.hasNonDistinct()) {
+                Page intermediateRows = RowType.INTERMEDIATE.extractPositions(intermediateInput);
+                if (intermediateRows.getPositionCount() > 0) {
+                    for (int intermediateIndex = 0; intermediateIndex < accumulators.size(); intermediateIndex++) {
+                        InternalFinalAccumulator accumulator = accumulators.get(intermediateIndex);
+                        if (!accumulator.isDistinct()) {
+                            Block intermediateInputBlock = intermediateInput.getBlock(intermediateLayout.getIntermediateChannel(intermediateIndex));
+                            accumulator.addIntermediate(intermediateInputBlock);
+                        }
+                    }
+                }
+            }
+
+            long memorySize = 0;
+            for (InternalFinalAccumulator accumulator : accumulators) {
+                memorySize += accumulator.getEstimatedSize();
+            }
+            userMemoryContext.setBytes(memorySize);
+            return Optional.empty();
+        }
+
+        @Override
+        public Page getFinalOutput()
+        {
+            List<Block> finalResults = new ArrayList<>();
+            for (InternalFinalAccumulator accumulator : accumulators) {
+                BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1);
+                accumulator.evaluateFinal(blockBuilder);
+                finalResults.add(blockBuilder.build());
+            }
+            return new Page(1, finalResults.stream().toArray(Block[]::new));
+        }
+    }
+
+    private static class IntermediateLayout
+    {
+        private static final Block FALSE_SINGLE_VALUE_BLOCK;
+
+        static {
+            BlockBuilder falseBlockBuilder = BOOLEAN.createBlockBuilder(null, 1);
+            BOOLEAN.writeBoolean(falseBlockBuilder, false);
+            FALSE_SINGLE_VALUE_BLOCK = falseBlockBuilder.build();
+        }
+
+        private final int intermediateIsDistinctCount;
+        private final List<Boolean> intermediateIsDistinct;
+        private final List<Type> intermediateTypes;
+        private final List<AggregationInputChannel> inputs;
+        private final List<Block> inputSingleNullBlocks;
+
+        public IntermediateLayout(List<InternalAccumulatorFactory> accumulatorFactories, List<AggregationInputChannel> inputs)
+        {
+            requireNonNull(accumulatorFactories, "accumulatorFactories is null");
+            requireNonNull(inputs, "inputs is null");
+            this.intermediateIsDistinctCount = (int) accumulatorFactories.stream()
+                    .filter(InternalAccumulatorFactory::isDistinct)
+                    .count();
+            this.intermediateIsDistinct = accumulatorFactories.stream()
+                    .map(InternalAccumulatorFactory::isDistinct)
+                    .collect(toImmutableList());
+            this.intermediateTypes = accumulatorFactories.stream()
+                    .map(InternalAccumulatorFactory::getIntermediateType)
+                    .collect(toImmutableList());
+
+            this.inputs = ImmutableList.copyOf(requireNonNull(inputs, "inputs is null"));
+            this.inputSingleNullBlocks = accumulatorFactories.stream()
+                    .map(accumulatorFactory -> accumulatorFactory.getIntermediateType().createBlockBuilder(null, 1)
+                            .appendNull()
+                            .build())
+                    .collect(toImmutableList());
+        }
+
+        private int getOutputChannelCount()
+        {
+            return 1 + intermediateTypes.size() + inputs.size();
+        }
+
+        public boolean hasDistinct()
+        {
+            return intermediateIsDistinctCount > 0;
+        }
+
+        public boolean hasNonDistinct()
+        {
+            return intermediateIsDistinctCount < intermediateIsDistinct.size();
+        }
+
+        private int getIntermediateChannel(int accumulatorIndex)
+        {
+            checkElementIndex(accumulatorIndex, intermediateTypes.size());
+            return 1 + accumulatorIndex;
+        }
+
+        private Optional<Page> buildPartialDistinctRows(Page page, List<Optional<Block>> partialDistinctMasks)
+        {
+            checkArgument(partialDistinctMasks.size() == intermediateTypes.size());
+            verify(partialDistinctMasks.stream().filter(Optional::isPresent).allMatch(mask -> mask.get().getPositionCount() == page.getPositionCount()));
+
+            // check if any positions are distinct, this shouldn't happen since functions shouldn't return an empty mask
+            SelectedPositions allDistinctPositions = combineDistinctMasks(partialDistinctMasks);
+            if (allDistinctPositions.isEmpty()) {
+                return Optional.empty();
+            }
+
+            List<Block> blocks = new ArrayList<>(getOutputChannelCount());
+
+            // add row type
+            blocks.add(RowType.DISTINCT_PARTIAL.createRowTypeBlock(page.getPositionCount()));
+
+            // add intermediates
+            for (int intermediateIndex = 0; intermediateIndex < partialDistinctMasks.size(); intermediateIndex++) {
+                Optional<Block> partialDistinctMask = partialDistinctMasks.get(intermediateIndex);
+                if (partialDistinctMask.isPresent()) {
+                    blocks.add(partialDistinctMask.get());
+                }
+                else if (intermediateIsDistinct.get(intermediateIndex)) {
+                    blocks.add(new RunLengthEncodedBlock(FALSE_SINGLE_VALUE_BLOCK, page.getPositionCount()));
+                }
+                else {
+                    blocks.add(new RunLengthEncodedBlock(inputSingleNullBlocks.get(intermediateIndex), page.getPositionCount()));
+                }
+            }
+
+            // add inputs
+            inputs.stream()
+                    .map(AggregationInputChannel::getChannel)
+                    .map(page::getBlock)
+                    .forEach(blocks::add);
+
+            Page outputPage = new Page(page.getPositionCount(), blocks.stream().toArray(Block[]::new));
+
+            // filter output page to selected positions
+            outputPage = allDistinctPositions.selectPositions(outputPage);
+            return Optional.of(outputPage);
+        }
+
+        private static SelectedPositions combineDistinctMasks(List<Optional<Block>> partialDistinctMasks)
+        {
+            List<Block> presentMasks = partialDistinctMasks.stream()
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+            if (presentMasks.isEmpty()) {
+                return SelectedPositions.empty();
+            }
+
+            int[] distinctPositions = new int[presentMasks.get(0).getPositionCount()];
+            int distinctCount = 0;
+            for (int position = 0; position < distinctPositions.length; position++) {
+                boolean selected = false;
+                for (Block presentMask : presentMasks) {
+                    if (BOOLEAN.getBoolean(presentMask, position)) {
+                        selected = true;
+                        break;
+                    }
+                }
+                if (selected) {
+                    distinctPositions[distinctCount++] = position;
+                }
+            }
+            return SelectedPositions.positionsList(distinctPositions, 0, distinctCount);
+        }
+
+        private Page buildIntermediateOutput(List<Block> intermediateResults)
+        {
+            List<Block> blocks = new ArrayList<>(getOutputChannelCount());
+            blocks.add(RowType.INTERMEDIATE.createRowTypeBlock(1));
+            blocks.addAll(intermediateResults);
+            blocks.addAll(inputSingleNullBlocks);
+            return new Page(1, blocks.stream().toArray(Block[]::new));
+        }
+    }
+
+    private enum RowType
+    {
+        INPUT((byte) 1),
+        INTERMEDIATE((byte) 2),
+        DISTINCT_PARTIAL((byte) 3);
+
+        private final byte value;
+        private final Block singleValueBlock;
+
+        RowType(byte value)
+        {
+            this.value = value;
+            BlockBuilder blockBuilder = TINYINT.createBlockBuilder(null, 1);
+            TINYINT.writeLong(blockBuilder, value);
+            this.singleValueBlock = blockBuilder.build();
+        }
+
+        public Block createRowTypeBlock(int positionCount)
+        {
+            if (positionCount == 1) {
+                return singleValueBlock;
+            }
+            return new RunLengthEncodedBlock(singleValueBlock, positionCount);
+        }
+
+        public Page extractPositions(Page page)
+        {
+            int[] selectedPositions = new int[page.getPositionCount()];
+            Block rowTypeBlock = page.getBlock(0);
+            int next = 0;
+            for (int position = 0; position < selectedPositions.length; position++) {
+                if (TINYINT.getLong(rowTypeBlock, position) == value) {
+                    selectedPositions[next++] = position;
+                }
+            }
+            return page.getPositions(selectedPositions, 0, next);
         }
     }
 }

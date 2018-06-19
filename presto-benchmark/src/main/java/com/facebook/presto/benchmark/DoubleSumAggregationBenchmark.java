@@ -15,9 +15,13 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.AggregationOperator.AggregationInputChannel;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.aggregation.GeneralInternalAccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -29,6 +33,8 @@ import java.util.Optional;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.mapWithIndex;
 
 public class DoubleSumAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -41,10 +47,17 @@ public class DoubleSumAggregationBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
+        List<Type> ordersTableTypes = getColumnTypes("orders", "orderkey", "totalprice");
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         InternalAggregationFunction doubleSum = MetadataManager.createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())));
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                Step.SINGLE,
+                ImmutableList.of(new GeneralInternalAccumulatorFactory(doubleSum.bind(ImmutableList.of(0), Optional.empty()))),
+                mapWithIndex(ordersTableTypes.stream(), (type, channel) -> new AggregationInputChannel(new Symbol("i" + channel), (int) channel, type))
+                    .collect(toImmutableList()));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 
