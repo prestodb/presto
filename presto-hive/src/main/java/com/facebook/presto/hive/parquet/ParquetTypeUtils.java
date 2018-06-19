@@ -247,6 +247,27 @@ public final class ParquetTypeUtils
         return null;
     }
 
+    /**
+     * Parquet column names are case-sensitive unlike Hive, which converts all column names to lowercase.
+     * Therefore, when we look up columns we first check for exact match, and if that fails we look for a case-insensitive match.
+     */
+    public static ColumnIO lookupColumnByName(GroupColumnIO groupColumnIO, String columnName)
+    {
+        ColumnIO columnIO = groupColumnIO.getChild(columnName);
+
+        if (columnIO != null) {
+            return columnIO;
+        }
+
+        for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
+            if (groupColumnIO.getChild(i).getName().equalsIgnoreCase(columnName)) {
+                return groupColumnIO.getChild(i);
+            }
+        }
+
+        return null;
+    }
+
     public static Optional<Type> createDecimalType(RichColumnDescriptor descriptor)
     {
         if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
