@@ -47,15 +47,10 @@ public class TestTypeSignature
     @Test
     public void parseRowSignature()
     {
+        // row signature with named fields
         assertRowSignature(
                 "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
-        assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));
-        assertRowSignature(
-                "ROW(a bigint,b varchar)",
-                "ROW",
-                ImmutableList.of("a bigint", "b varchar"),
-                "row(a bigint,b varchar)");
         assertRowSignature(
                 "row(a bigint,b array(bigint),c row(a bigint))",
                 rowSignature(
@@ -78,7 +73,103 @@ public class TestTypeSignature
                 "row(a decimal(p1,s1),b decimal(p2,s2))",
                 ImmutableSet.of("p1", "s1", "p2", "s2"),
                 rowSignature(namedParameter("a", false, decimal("p1", "s1")), namedParameter("b", false, decimal("p2", "s2"))));
+
+        // row with mixed fields
+        assertRowSignature(
+                "row(bigint,varchar)",
+                rowSignature(unnamedParameter(signature("bigint")), unnamedParameter(varchar())));
+        assertRowSignature(
+                "row(bigint,array(bigint),row(a bigint))",
+                rowSignature(
+                        unnamedParameter(signature("bigint")),
+                        unnamedParameter(array(signature("bigint"))),
+                        unnamedParameter(rowSignature(namedParameter("a", false, signature("bigint"))))));
+        assertRowSignature(
+                "row(varchar(10),b row(bigint))",
+                rowSignature(
+                        unnamedParameter(varchar(10)),
+                        namedParameter("b", false, rowSignature(unnamedParameter(signature("bigint"))))));
+        assertRowSignature(
+                "array(row(col0 bigint,double))",
+                array(rowSignature(namedParameter("col0", false, signature("bigint")), unnamedParameter(signature("double")))));
+        assertRowSignature(
+                "row(col0 array(row(bigint,double)))",
+                rowSignature(namedParameter("col0", false, array(
+                        rowSignature(unnamedParameter(signature("bigint")), unnamedParameter(signature("double")))))));
+        assertRowSignature(
+                "row(a decimal(p1,s1),decimal(p2,s2))",
+                ImmutableSet.of("p1", "s1", "p2", "s2"),
+                rowSignature(namedParameter("a", false, decimal("p1", "s1")), unnamedParameter(decimal("p2", "s2"))));
+
+        // named fields of types with spaces
+        assertRowSignature(
+                "row(time time with time zone)",
+                rowSignature(namedParameter("time", false, signature("time with time zone"))));
+        assertRowSignature(
+                "row(time timestamp with time zone)",
+                rowSignature(namedParameter("time", false, signature("timestamp with time zone"))));
+        assertRowSignature(
+                "row(interval interval day to second)",
+                rowSignature(namedParameter("interval", false, signature("interval day to second"))));
+        assertRowSignature(
+                "row(interval interval year to month)",
+                rowSignature(namedParameter("interval", false, signature("interval year to month"))));
+        assertRowSignature(
+                "row(double double precision)",
+                rowSignature(namedParameter("double", false, signature("double precision"))));
+
+        // unnamed fields of types with spaces
+        assertRowSignature(
+                "row(time with time zone)",
+                rowSignature(unnamedParameter(signature("time with time zone"))));
+        assertRowSignature(
+                "row(timestamp with time zone)",
+                rowSignature(unnamedParameter(signature("timestamp with time zone"))));
+        assertRowSignature(
+                "row(interval day to second)",
+                rowSignature(unnamedParameter(signature("interval day to second"))));
+        assertRowSignature(
+                "row(interval year to month)",
+                rowSignature(unnamedParameter(signature("interval year to month"))));
+        assertRowSignature(
+                "row(double precision)",
+                rowSignature(unnamedParameter(signature("double precision"))));
+        assertRowSignature(
+                "row(array(time with time zone))",
+                rowSignature(unnamedParameter(array(signature("time with time zone")))));
+        assertRowSignature(
+                "row(map(timestamp with time zone,interval day to second))",
+                rowSignature(unnamedParameter(map(signature("timestamp with time zone"), signature("interval day to second")))));
+
+        // quoted field names
+        assertRowSignature(
+                "row(\"time with time zone\" time with time zone,\"double\" double)",
+                rowSignature(
+                        namedParameter("time with time zone", true, signature("time with time zone")),
+                        namedParameter("double", true, signature("double"))));
+
+        // allow spaces
+        assertSignature(
+                "row( time  time with time zone, array( interval day to seconds ) )",
+                "row",
+                ImmutableList.of("time time with time zone", "array(interval day to seconds)"),
+                "row(time time with time zone,array(interval day to seconds))");
+
+        // preserve base name case
+        assertSignature(
+                "RoW(a bigint,b varchar)",
+                "RoW",
+                ImmutableList.of("a bigint", "b varchar"),
+                "row(a bigint,b varchar)");
+
+        // field type canonicalization
+        assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));
         assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a integer(p1))"));
+
+        // signature with invalid type
+        assertRowSignature(
+                "row(\"time\" with time zone)",
+                rowSignature(namedParameter("time", true, signature("with time zone"))));
     }
 
     private TypeSignature varchar()
@@ -107,9 +198,19 @@ public class TestTypeSignature
         return new NamedTypeSignature(Optional.of(new RowFieldName(name, delimited)), value);
     }
 
+    private static NamedTypeSignature unnamedParameter(TypeSignature value)
+    {
+        return new NamedTypeSignature(Optional.empty(), value);
+    }
+
     private static TypeSignature array(TypeSignature type)
     {
         return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.of(type));
+    }
+
+    private static TypeSignature map(TypeSignature keyType, TypeSignature valueType)
+    {
+        return new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType));
     }
 
     private TypeSignature signature(String name)
@@ -120,7 +221,6 @@ public class TestTypeSignature
     @Test
     public void parseSignature()
     {
-        assertSignature("bigint", "bigint", ImmutableList.of());
         assertSignature("boolean", "boolean", ImmutableList.of());
         assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
         assertEquals(parseTypeSignature("int"), parseTypeSignature("integer"));
@@ -208,15 +308,6 @@ public class TestTypeSignature
     private static void assertSignature(String typeName, String base, List<String> parameters)
     {
         assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
-    }
-
-    private static void assertRowSignature(
-            String typeName,
-            String base,
-            List<String> parameters,
-            String expected)
-    {
-        assertSignature(typeName, base, parameters, expected);
     }
 
     private static void assertSignature(

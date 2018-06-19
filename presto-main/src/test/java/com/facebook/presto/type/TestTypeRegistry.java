@@ -277,6 +277,16 @@ public class TestTypeRegistry
         }
     }
 
+    @Test
+    public void testRowTypeCreation()
+    {
+        createType("row(time with time zone,time time with time zone)");
+        createType("row(timestamp with time zone,\"timestamp\" timestamp with time zone)");
+        createType("row(interval day to second,interval interval day to second)");
+        createType("row(interval year to month,\"interval\" interval year to month)");
+        createType("row(array(time with time zone),    \"a\" array(map(timestamp with time zone, interval day to second)))");
+    }
+
     private Set<Type> getStandardPrimitiveTypes()
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
