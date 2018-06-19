@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -48,7 +49,7 @@ public class TestTypeSignature
     {
         assertRowSignature(
                 "row(a bigint,b varchar)",
-                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
+                rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
         assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));
         assertRowSignature(
                 "ROW(a bigint,b varchar)",
@@ -58,25 +59,25 @@ public class TestTypeSignature
         assertRowSignature(
                 "row(a bigint,b array(bigint),c row(a bigint))",
                 rowSignature(
-                        namedParameter("a", signature("bigint")),
-                        namedParameter("b", array(signature("bigint"))),
-                        namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
+                        namedParameter("a", false, signature("bigint")),
+                        namedParameter("b", false, array(signature("bigint"))),
+                        namedParameter("c", false, rowSignature(namedParameter("a", false, signature("bigint"))))));
         assertRowSignature(
                 "row(a varchar(10),b row(a bigint))",
                 rowSignature(
-                        namedParameter("a", varchar(10)),
-                        namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
+                        namedParameter("a", false, varchar(10)),
+                        namedParameter("b", false, rowSignature(namedParameter("a", false, signature("bigint"))))));
         assertRowSignature(
                 "array(row(col0 bigint,col1 double))",
-                array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
+                array(rowSignature(namedParameter("col0", false, signature("bigint")), namedParameter("col1", false, signature("double")))));
         assertRowSignature(
                 "row(col0 array(row(col0 bigint,col1 double)))",
-                rowSignature(namedParameter("col0", array(
-                        rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
+                rowSignature(namedParameter("col0", false, array(
+                        rowSignature(namedParameter("col0", false, signature("bigint")), namedParameter("col1", false, signature("double")))))));
         assertRowSignature(
                 "row(a decimal(p1,s1),b decimal(p2,s2))",
                 ImmutableSet.of("p1", "s1", "p2", "s2"),
-                rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
+                rowSignature(namedParameter("a", false, decimal("p1", "s1")), namedParameter("b", false, decimal("p2", "s2"))));
         assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a integer(p1))"));
     }
 
@@ -101,9 +102,9 @@ public class TestTypeSignature
         return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::of));
     }
 
-    private static NamedTypeSignature namedParameter(String name, TypeSignature value)
+    private static NamedTypeSignature namedParameter(String name, boolean delimited, TypeSignature value)
     {
-        return new NamedTypeSignature(name, value);
+        return new NamedTypeSignature(Optional.of(new RowFieldName(name, delimited)), value);
     }
 
     private static TypeSignature array(TypeSignature type)

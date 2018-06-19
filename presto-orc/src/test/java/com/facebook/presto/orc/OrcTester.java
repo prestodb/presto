@@ -25,6 +25,7 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -103,6 +104,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
@@ -1277,7 +1279,7 @@ public class OrcTester
         for (int i = 0; i < fieldTypes.length; i++) {
             String filedName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(filedName, fieldType.getTypeSignature())));
+            typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(filedName, false)), fieldType.getTypeSignature())));
         }
         return TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }

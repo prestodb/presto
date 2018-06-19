@@ -39,6 +39,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -519,7 +520,9 @@ public class OrcStorageManager
                 List<String> fieldNames = type.getFieldNames();
                 ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
                 for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldNames.get(i), getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
+                    fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                            Optional.of(new RowFieldName(fieldNames.get(i), false)),
+                            getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
                 }
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
         }

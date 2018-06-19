@@ -22,6 +22,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -536,7 +537,7 @@ public class MongoSession
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
                                 .mapToObj(idx -> TypeSignatureParameter.of(
-                                        new NamedTypeSignature(String.format("%s%d", implicitPrefix, idx + 1), subTypes.get(idx).get())))
+                                        new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
                                 .collect(toList()));
             }
         }
@@ -549,7 +550,7 @@ public class MongoSession
                     return Optional.empty();
                 }
 
-                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(key, fieldType.get())));
+                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.get())));
             }
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -36,6 +37,7 @@ import javax.annotation.Nonnull;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -245,7 +247,7 @@ public final class HiveType
                     // Users can't work around this by casting in their queries because Presto parser always lower case types.
                     // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
                     String rowFieldName = structFieldNames.get(i).toLowerCase(Locale.US);
-                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(rowFieldName, typeSignature)));
+                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName, false)), typeSignature)));
                 }
                 return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
         }
