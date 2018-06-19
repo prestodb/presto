@@ -54,6 +54,7 @@ public class TestSubqueries
     public void teardown()
     {
         assertions.close();
+        assertions = null;
     }
 
     @Test

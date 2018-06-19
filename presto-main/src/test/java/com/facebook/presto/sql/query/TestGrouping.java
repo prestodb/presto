@@ -31,6 +31,7 @@ public class TestGrouping
     public void teardown()
     {
         assertions.close();
+        assertions = null;
     }
 
     @Test
