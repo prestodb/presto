@@ -117,7 +117,7 @@ public class DecimalOutputStream
     @Override
     public long getBufferedBytes()
     {
-        return buffer.size();
+        return buffer.estimateOutputDataSize();
     }
 
     @Override

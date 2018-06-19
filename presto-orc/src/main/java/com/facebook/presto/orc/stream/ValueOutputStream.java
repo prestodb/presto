@@ -27,6 +27,10 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     StreamDataOutput getStreamDataOutput(int column);
 
+    /**
+     * This method returns the size of the flushed data plus any unflushed data.
+     * If the output is compressed, flush data size is the size after compression.
+     */
     long getBufferedBytes();
 
     long getRetainedBytes();
