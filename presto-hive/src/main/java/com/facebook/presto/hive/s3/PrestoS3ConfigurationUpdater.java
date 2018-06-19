@@ -30,6 +30,7 @@ public class PrestoS3ConfigurationUpdater
     private final PrestoS3SignerType signerType;
     private final boolean pathStyleAccess;
     private final boolean useInstanceCredentials;
+    private final String iamRole;
     private final boolean sslEnabled;
     private final boolean sseEnabled;
     private final PrestoS3SseType sseType;
@@ -58,6 +59,7 @@ public class PrestoS3ConfigurationUpdater
         this.signerType = config.getS3SignerType();
         this.pathStyleAccess = config.isS3PathStyleAccess();
         this.useInstanceCredentials = config.isS3UseInstanceCredentials();
+        this.iamRole = config.getS3IamRole();
         this.sslEnabled = config.isS3SslEnabled();
         this.sseEnabled = config.isS3SseEnabled();
         this.sseType = config.getS3SseType();
@@ -100,6 +102,9 @@ public class PrestoS3ConfigurationUpdater
         }
         config.setBoolean(S3_PATH_STYLE_ACCESS, pathStyleAccess);
         config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
+        if (iamRole != null) {
+            config.set(S3_IAM_ROLE, iamRole);
+        }
         config.setBoolean(S3_SSL_ENABLED, sslEnabled);
         config.setBoolean(S3_SSE_ENABLED, sseEnabled);
         config.set(S3_SSE_TYPE, sseType.name());

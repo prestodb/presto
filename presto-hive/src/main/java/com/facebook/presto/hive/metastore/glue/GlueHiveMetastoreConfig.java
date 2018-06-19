@@ -26,6 +26,7 @@ public class GlueHiveMetastoreConfig
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
+    private Optional<String> iamRole = Optional.empty();
 
     public Optional<String> getGlueRegion()
     {
@@ -77,6 +78,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setDefaultWarehouseDir(String defaultWarehouseDir)
     {
         this.defaultWarehouseDir = Optional.ofNullable(defaultWarehouseDir);
+        return this;
+    }
+
+    public Optional<String> getIamRole()
+    {
+        return iamRole;
+    }
+
+    @Config("hive.metastore.glue.iam-role")
+    @ConfigDescription("IAM role to assume when connecting to the Hive Glue metastore")
+    public GlueHiveMetastoreConfig setIamRole(String iamRole)
+    {
+        this.iamRole = Optional.ofNullable(iamRole);
         return this;
     }
 }
