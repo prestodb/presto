@@ -57,6 +57,7 @@ public class PruneAggregationColumns
                         aggregationNode.getGroupingSets(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getGroupIdSymbol(),
+                        aggregationNode.getRowTypeSymbol()));
     }
 }

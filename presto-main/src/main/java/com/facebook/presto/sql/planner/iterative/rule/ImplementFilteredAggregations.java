@@ -109,6 +109,7 @@ public class ImplementFilteredAggregations
                         aggregationNode.getGroupingSets(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getGroupIdSymbol(),
+                        aggregationNode.getRowTypeSymbol()));
     }
 }

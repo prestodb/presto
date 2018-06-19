@@ -238,6 +238,7 @@ public class PlanBuilder
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
+        private Optional<Symbol> rowTypeSymbol = Optional.empty();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -310,6 +311,12 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder rowTypeSymbol(Symbol rowTypeSymbol)
+        {
+            this.rowTypeSymbol = Optional.of(rowTypeSymbol);
+            return this;
+        }
+
         protected AggregationNode build()
         {
             checkState(!groupingSets.isEmpty(), "No grouping sets defined; use globalGrouping/addGroupingSet/addEmptyGroupingSet method");
@@ -320,7 +327,8 @@ public class PlanBuilder
                     groupingSets,
                     step,
                     hashSymbol,
-                    groupIdSymbol);
+                    groupIdSymbol,
+                    rowTypeSymbol);
         }
     }
 

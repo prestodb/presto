@@ -159,7 +159,8 @@ public class PushPartialAggregationThroughJoin
                 ImmutableList.of(groupingSet),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+                aggregation.getGroupIdSymbol(),
+                aggregation.getRowTypeSymbol());
     }
 
     private PlanNode pushPartialToJoin(

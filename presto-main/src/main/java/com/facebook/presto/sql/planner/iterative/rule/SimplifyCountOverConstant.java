@@ -86,7 +86,8 @@ public class SimplifyCountOverConstant
                 parent.getGroupingSets(),
                 parent.getStep(),
                 parent.getHashSymbol(),
-                parent.getGroupIdSymbol()));
+                parent.getGroupIdSymbol(),
+                parent.getRowTypeSymbol()));
     }
 
     private static boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)

@@ -174,6 +174,7 @@ public class PlanNodeDecorrelator
                             .build()),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
 
             return Optional.of(new DecorrelationResult(
@@ -233,7 +234,8 @@ public class PlanNodeDecorrelator
                     newGroupingSets.build(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashSymbol(),
-                    decorrelatedAggregation.getGroupIdSymbol());
+                    decorrelatedAggregation.getGroupIdSymbol(),
+                    decorrelatedAggregation.getRowTypeSymbol());
 
             boolean atMostSingleRow = newAggregation.getGroupingSets().size() == 1
                     && constantSymbols.containsAll(newAggregation.getGroupingKeys());

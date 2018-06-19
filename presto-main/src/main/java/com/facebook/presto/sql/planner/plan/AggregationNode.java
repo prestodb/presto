@@ -48,6 +48,7 @@ public final class AggregationNode
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
+    private final Optional<Symbol> rowTypeSymbol;
     private final List<Symbol> outputSymbols;
     private final Set<Symbol> inputSymbols;
 
@@ -59,7 +60,8 @@ public final class AggregationNode
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol,
+            @JsonProperty("rowTypeSymbol") Optional<Symbol> rowTypeSymbol)
     {
         super(id);
 
@@ -78,8 +80,13 @@ public final class AggregationNode
         this.step = requireNonNull(step, "step is null");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.groupIdSymbol = requireNonNull(groupIdSymbol, "groupIdSymbol is null");
+        this.rowTypeSymbol = requireNonNull(rowTypeSymbol, "rowTypeSymbol is null");
+        checkArgument(step.isOutputPartial() || !rowTypeSymbol.isPresent(), "rowTypeSymbol is required with partial output");
 
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        if (step.isOutputPartial() && getGroupingKeys().isEmpty()) {
+            rowTypeSymbol.ifPresent(outputSymbols::add);
+        }
         outputSymbols.addAll(getGroupingKeys());
         hashSymbol.ifPresent(outputSymbols::add);
         aggregations.stream()
@@ -183,6 +190,12 @@ public final class AggregationNode
         return groupIdSymbol;
     }
 
+    @JsonProperty("rowTypeSymbol")
+    public Optional<Symbol> getRowTypeSymbol()
+    {
+        return rowTypeSymbol;
+    }
+
     public boolean hasOrderings()
     {
         return aggregations.stream()
@@ -200,7 +213,7 @@ public final class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol, rowTypeSymbol);
     }
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)

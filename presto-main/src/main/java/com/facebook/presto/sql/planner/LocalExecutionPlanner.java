@@ -2299,10 +2299,16 @@ public class LocalExecutionPlanner
         {
             int outputChannel = 0;
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            // add row type if present
+            if (node.getRowTypeSymbol().isPresent()) {
+                outputMappings.put(node.getRowTypeSymbol().get(), outputChannel);
+                outputChannel++;
+            }
+            // each aggregation uses one output channel
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
             for (Aggregation aggregation : node.getAggregations()) {
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
-                outputMappings.put(aggregation.getOutputSymbol(), outputChannel); // one aggregation per channel
+                outputMappings.put(aggregation.getOutputSymbol(), outputChannel);
                 outputChannel++;
             }
 
@@ -2413,17 +2419,22 @@ public class LocalExecutionPlanner
 
     private static Function<Page, Page> enforceLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
-        int[] channels = expectedLayout.stream()
-                .peek(symbol -> checkArgument(inputLayout.containsKey(symbol), "channel not found for symbol: %s", symbol))
-                .mapToInt(inputLayout::get)
-                .toArray();
+        try {
+            int[] channels = expectedLayout.stream()
+                    .peek(symbol -> checkArgument(inputLayout.containsKey(symbol), "channel not found for symbol: %s", symbol))
+                    .mapToInt(inputLayout::get)
+                    .toArray();
 
-        if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
-            // this is an identity mapping
-            return Function.identity();
+            if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
+                // this is an identity mapping
+                return Function.identity();
+            }
+
+            return new PageChannelSelector(channels);
         }
-
-        return new PageChannelSelector(channels);
+        catch (Exception e) {
+            throw e;
+        }
     }
 
     private static List<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Integer> layout)

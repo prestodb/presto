@@ -562,7 +562,8 @@ class QueryPlanner
                 groupingSymbols,
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
-                groupIdSymbol);
+                groupIdSymbol,
+                Optional.empty());
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 
@@ -771,6 +772,7 @@ class QueryPlanner
                             ImmutableList.of(),
                             ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
                             AggregationNode.Step.SINGLE,
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty()));
         }

@@ -197,6 +197,7 @@ public class ScalarAggregationToJoinRewriter
                 ImmutableList.of(groupBySymbols),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashSymbol(),
-                Optional.empty()));
+                Optional.empty(),
+                scalarAggregation.getRowTypeSymbol()));
     }
 }

@@ -319,7 +319,8 @@ public class PruneUnreferencedOutputs
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdSymbol(),
+                    node.getRowTypeSymbol());
         }
 
         @Override

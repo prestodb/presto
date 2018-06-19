@@ -243,6 +243,7 @@ public class ImplementIntersectAndExceptAsUnion
                     ImmutableList.of(originalColumns),
                     Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 

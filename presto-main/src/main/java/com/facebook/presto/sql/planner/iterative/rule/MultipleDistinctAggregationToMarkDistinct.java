@@ -171,6 +171,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                         parent.getGroupingSets(),
                         parent.getStep(),
                         parent.getHashSymbol(),
-                        parent.getGroupIdSymbol()));
+                        parent.getGroupIdSymbol(),
+                        parent.getRowTypeSymbol()));
     }
 }

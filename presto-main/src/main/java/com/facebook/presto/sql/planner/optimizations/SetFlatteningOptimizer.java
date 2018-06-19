@@ -134,7 +134,8 @@ public class SetFlatteningOptimizer
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdSymbol(),
+                    node.getRowTypeSymbol());
         }
 
         private static boolean isDistinctOperator(AggregationNode node)

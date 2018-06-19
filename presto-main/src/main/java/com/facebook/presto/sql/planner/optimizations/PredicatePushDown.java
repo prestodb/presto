@@ -1008,7 +1008,8 @@ public class PredicatePushDown
                         node.getGroupingSets(),
                         node.getStep(),
                         node.getHashSymbol(),
-                        node.getGroupIdSymbol());
+                        node.getGroupIdSymbol(),
+                        node.getRowTypeSymbol());
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postAggregationConjuncts));

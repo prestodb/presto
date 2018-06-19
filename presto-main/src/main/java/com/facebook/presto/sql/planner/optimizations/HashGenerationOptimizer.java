@@ -178,7 +178,8 @@ public class HashGenerationOptimizer
                             node.getGroupingSets(),
                             node.getStep(),
                             hashSymbol,
-                            node.getGroupIdSymbol()),
+                            node.getGroupIdSymbol(),
+                            node.getRowTypeSymbol()),
                     hashSymbol.isPresent() ? ImmutableMap.of(groupByHash.get(), hashSymbol.get()) : ImmutableMap.of());
         }
 

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -176,7 +177,16 @@ public class AggregationOperator
         }
 
         state = State.FINISHED;
-        return pageBuilder.build();
+
+        Page page = pageBuilder.build();
+
+        // prepend the row type block for partial outputs
+        if (partial) {
+            BlockBuilder blockBuilder = TINYINT.createBlockBuilder(null, 1);
+            TINYINT.writeLong(blockBuilder, 1);
+            page = page.prependColumn(blockBuilder.build());
+        }
+        return page;
     }
 
     private static class Aggregator

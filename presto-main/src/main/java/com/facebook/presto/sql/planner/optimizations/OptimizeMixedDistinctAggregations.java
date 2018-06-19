@@ -181,7 +181,8 @@ public class OptimizeMixedDistinctAggregations
                     node.getGroupingSets(),
                     node.getStep(),
                     Optional.empty(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdSymbol(),
+                    node.getRowTypeSymbol());
         }
 
         @Override
@@ -424,6 +425,7 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableList.of(ImmutableList.copyOf(groupByKeys)),
                     SINGLE,
                     originalNode.getHashSymbol(),
+                    Optional.empty(),
                     Optional.empty());
         }
 

@@ -167,7 +167,8 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getGroupingSets(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getGroupIdSymbol(),
+                        aggregationNode.getRowTypeSymbol()));
             }
             return Result.empty();
         }

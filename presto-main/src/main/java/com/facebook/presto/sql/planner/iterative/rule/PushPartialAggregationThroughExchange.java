@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.preferPartialAggregation;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -214,7 +215,8 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupingSets(),
                 PARTIAL,
                 node.getHashSymbol(),
-                node.getGroupIdSymbol());
+                node.getGroupIdSymbol(),
+                Optional.of(context.getSymbolAllocator().newSymbol("rowType", TINYINT)));
 
         return new AggregationNode(
                 node.getId(),
@@ -223,6 +225,7 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupingSets(),
                 FINAL,
                 node.getHashSymbol(),
-                node.getGroupIdSymbol());
+                node.getGroupIdSymbol(),
+                Optional.empty());
     }
 }

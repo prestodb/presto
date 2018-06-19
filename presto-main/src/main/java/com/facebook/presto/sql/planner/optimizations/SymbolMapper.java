@@ -101,7 +101,8 @@ public class SymbolMapper
                 groupingSets,
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
-                node.getGroupIdSymbol().map(this::map));
+                node.getGroupIdSymbol().map(this::map),
+                node.getRowTypeSymbol().map(this::map));
     }
 
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)

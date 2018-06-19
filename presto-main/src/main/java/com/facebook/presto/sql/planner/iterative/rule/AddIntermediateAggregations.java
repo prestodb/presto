@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -37,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.matching.Pattern.empty;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingKeys;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
@@ -95,9 +97,10 @@ public class AddIntermediateAggregations
     {
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
+        SymbolAllocator symbolAllocator = context.getSymbolAllocator();
         Session session = context.getSession();
 
-        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
+        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator, symbolAllocator);
 
         if (!rewrittenSource.isPresent()) {
             return Result.empty();
@@ -118,7 +121,8 @@ public class AddIntermediateAggregations
                     aggregation.getGroupingSets(),
                     AggregationNode.Step.INTERMEDIATE,
                     aggregation.getHashSymbol(),
-                    aggregation.getGroupIdSymbol());
+                    aggregation.getGroupIdSymbol(),
+                    Optional.of(symbolAllocator.newSymbol("rowType", TINYINT)));
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }
 
@@ -128,10 +132,10 @@ public class AddIntermediateAggregations
     /**
      * Recurse through a series of preceding ExchangeNodes and ProjectNodes to find the preceding PARTIAL aggregation
      */
-    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
+    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL) {
-            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator));
+            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator, symbolAllocator));
         }
 
         if (!(node instanceof ExchangeNode) && !(node instanceof ProjectNode)) {
@@ -140,7 +144,7 @@ public class AddIntermediateAggregations
 
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
         for (PlanNode source : node.getSources()) {
-            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator);
+            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator, symbolAllocator);
             if (!planNode.isPresent()) {
                 return Optional.empty();
             }
@@ -149,7 +153,7 @@ public class AddIntermediateAggregations
         return Optional.of(node.replaceChildren(builder.build()));
     }
 
-    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator)
+    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
         ExchangeNode gatheringExchange = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, aggregation);
@@ -160,7 +164,8 @@ public class AddIntermediateAggregations
                 aggregation.getGroupingSets(),
                 AggregationNode.Step.INTERMEDIATE,
                 aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+                aggregation.getGroupIdSymbol(),
+                Optional.of(symbolAllocator.newSymbol("rowType", TINYINT)));
     }
 
     /**

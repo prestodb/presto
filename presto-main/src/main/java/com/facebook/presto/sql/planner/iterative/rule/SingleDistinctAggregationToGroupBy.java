@@ -132,6 +132,7 @@ public class SingleDistinctAggregationToGroupBy
                                         .build()),
                                 SINGLE,
                                 Optional.empty(),
+                                Optional.empty(),
                                 Optional.empty()),
                         // remove DISTINCT flag from function calls
                         aggregation.getAggregations().stream()
@@ -140,7 +141,8 @@ public class SingleDistinctAggregationToGroupBy
                         aggregation.getGroupingSets(),
                         aggregation.getStep(),
                         aggregation.getHashSymbol(),
-                        aggregation.getGroupIdSymbol()));
+                        aggregation.getGroupIdSymbol(),
+                        aggregation.getRowTypeSymbol()));
     }
 
     private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
