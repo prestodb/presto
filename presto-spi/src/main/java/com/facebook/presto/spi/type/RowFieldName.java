@@ -17,40 +17,33 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
-import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class NamedTypeSignature
+public class RowFieldName
 {
-    private final Optional<RowFieldName> fieldName;
-    private final TypeSignature typeSignature;
+    private final String name;
+    private final boolean delimited;
 
     @JsonCreator
-    public NamedTypeSignature(
-            @JsonProperty("fieldName") Optional<RowFieldName> fieldName,
-            @JsonProperty("typeSignature") TypeSignature typeSignature)
+    public RowFieldName(
+            @JsonProperty("name") String name,
+            @JsonProperty("delimited") boolean delimited)
     {
-        this.fieldName = requireNonNull(fieldName, "fieldName is null");
-        this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
+        this.name = requireNonNull(name, "name is null");
+        this.delimited = delimited;
     }
 
     @JsonProperty
-    public Optional<RowFieldName> getFieldName()
+    public String getName()
     {
-        return fieldName;
+        return name;
     }
 
     @JsonProperty
-    public TypeSignature getTypeSignature()
+    public boolean isDelimited()
     {
-        return typeSignature;
-    }
-
-    public Optional<String> getName()
-    {
-        return getFieldName().map(RowFieldName::getName);
+        return delimited;
     }
 
     @Override
@@ -63,24 +56,24 @@ public class NamedTypeSignature
             return false;
         }
 
-        NamedTypeSignature other = (NamedTypeSignature) o;
+        RowFieldName other = (RowFieldName) o;
 
-        return Objects.equals(this.fieldName, other.fieldName) &&
-                Objects.equals(this.typeSignature, other.typeSignature);
+        return Objects.equals(this.name, other.name) &&
+                Objects.equals(this.delimited, other.delimited);
     }
 
     @Override
     public String toString()
     {
-        if (fieldName.isPresent()) {
-            return format("%s %s", fieldName.get(), typeSignature);
+        if (!isDelimited()) {
+            return name;
         }
-        return typeSignature.toString();
+        return '"' + name.replace("\"", "\"\"") + '"';
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(fieldName, typeSignature);
+        return Objects.hash(name, delimited);
     }
 }

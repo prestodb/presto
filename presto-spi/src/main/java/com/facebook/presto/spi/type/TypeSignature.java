@@ -161,7 +161,7 @@ public class TypeSignature
         boolean inFieldName = false;
 
         List<TypeSignatureParameter> fields = new ArrayList<>();
-        String fieldName = null;
+        RowFieldName fieldName = null;
         for (int i = 0; i < signature.length(); i++) {
             char c = signature.charAt(i);
             if (c == '(') {
@@ -177,7 +177,7 @@ public class TypeSignature
             else if (c == ' ') {
                 if (bracketCount == 1 && inFieldName) {
                     checkArgument(parameterStart >= 0 && parameterStart < i, "Bad type signature: '%s'", signature);
-                    fieldName = signature.substring(parameterStart, i);
+                    fieldName = new RowFieldName(signature.substring(parameterStart, i), false);
                     parameterStart = i + 1;
                     inFieldName = false;
                 }

@@ -18,16 +18,16 @@ import java.util.Optional;
 
 public class NamedType
 {
-    private final Optional<String> name;
+    private final Optional<RowFieldName> name;
     private final Type type;
 
-    public NamedType(Optional<String> name, Type type)
+    public NamedType(Optional<RowFieldName> name, Type type)
     {
         this.name = name;
         this.type = type;
     }
 
-    public Optional<String> getName()
+    public Optional<RowFieldName> getName()
     {
         return name;
     }
