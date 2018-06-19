@@ -60,6 +60,8 @@ public interface InternalAccumulatorFactory
         Optional<Block> addInput(Page page);
 
         void evaluateIntermediate(BlockBuilder blockBuilder);
+
+        void flush();
     }
 
     interface InternalIntermediateAccumulator
@@ -75,6 +77,8 @@ public interface InternalAccumulatorFactory
         void addIntermediate(Block block);
 
         void evaluateIntermediate(BlockBuilder blockBuilder);
+
+        void flush();
     }
 
     interface InternalFinalAccumulator

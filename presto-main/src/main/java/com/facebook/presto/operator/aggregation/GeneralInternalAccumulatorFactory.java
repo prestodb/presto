@@ -178,5 +178,10 @@ public class GeneralInternalAccumulatorFactory
         {
             accumulator.evaluateIntermediate(blockBuilder);
         }
+
+        @Override
+        public void flush()
+        {
+        }
     }
 }

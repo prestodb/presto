@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkState;
@@ -110,7 +111,8 @@ public class DistinctInternalAccumulatorFactory
     public static class DistinctInternalPartialAccumulator
             implements InternalPartialAccumulator, InternalIntermediateAccumulator
     {
-        private final MarkDistinctHash hash;
+        private final Supplier<MarkDistinctHash> hashSupplier;
+        private MarkDistinctHash hash;
         private final List<Integer> argumentChannels;
         private final Optional<Integer> maskChannel;
 
@@ -124,7 +126,8 @@ public class DistinctInternalAccumulatorFactory
             this.argumentChannels = ImmutableList.copyOf(requireNonNull(argumentChannels, "argumentChannels is null"));
             this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
 
-            hash = new MarkDistinctHash(session, argumentTypes, range(0, argumentTypes.size()).toArray(), Optional.empty(), joinCompiler, UpdateMemory.NOOP);
+            hashSupplier = () -> new MarkDistinctHash(session, argumentTypes, range(0, argumentTypes.size()).toArray(), Optional.empty(), 1, joinCompiler, UpdateMemory.NOOP);
+            hash = hashSupplier.get();
         }
 
         @Override
@@ -180,6 +183,12 @@ public class DistinctInternalAccumulatorFactory
         public void evaluateIntermediate(BlockBuilder blockBuilder)
         {
             blockBuilder.appendNull();
+        }
+
+        @Override
+        public void flush()
+        {
+            hash = hashSupplier.get();
         }
     }
 

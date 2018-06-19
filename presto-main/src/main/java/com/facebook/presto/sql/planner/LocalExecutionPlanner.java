@@ -2373,7 +2373,13 @@ public class LocalExecutionPlanner
                     .map(symbol -> new AggregationInputChannel(symbol, source.getLayout().get(symbol), source.getTypes().get(source.getLayout().get(symbol))))
                     .collect(toImmutableList());
 
-            OperatorFactory operatorFactory = new AggregationOperatorFactory(context.getNextOperatorId(), node.getId(), node.getStep(), accumulatorFactories, inputChannels);
+            OperatorFactory operatorFactory = new AggregationOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    node.getStep(),
+                    accumulatorFactories,
+                    inputChannels,
+                    maxPartialAggregationMemorySize);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }

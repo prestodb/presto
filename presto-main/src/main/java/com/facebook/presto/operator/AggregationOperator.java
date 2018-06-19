@@ -29,8 +29,10 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +45,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
@@ -98,6 +101,7 @@ public class AggregationOperator
         private final Step step;
         private final List<InternalAccumulatorFactory> accumulatorFactories;
         private final List<AggregationInputChannel> inputs;
+        private final DataSize maxPartialMemory;
         private boolean closed;
 
         public AggregationOperatorFactory(
@@ -105,13 +109,15 @@ public class AggregationOperator
                 PlanNodeId planNodeId,
                 Step step,
                 List<InternalAccumulatorFactory> accumulatorFactories,
-                List<AggregationInputChannel> inputs)
+                List<AggregationInputChannel> inputs,
+                DataSize maxPartialMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.inputs = ImmutableList.copyOf(requireNonNull(inputs, "inputs is null"));
+            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         }
 
         @Override
@@ -119,7 +125,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, step, accumulatorFactories, inputs);
+            return new AggregationOperator(operatorContext, step, accumulatorFactories, inputs, maxPartialMemory);
         }
 
         @Override
@@ -131,7 +137,7 @@ public class AggregationOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories, inputs);
+            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories, inputs, maxPartialMemory);
         }
     }
 
@@ -152,7 +158,8 @@ public class AggregationOperator
             OperatorContext operatorContext,
             Step step,
             List<InternalAccumulatorFactory> accumulatorFactories,
-            List<AggregationInputChannel> inputs)
+            List<AggregationInputChannel> inputs,
+            DataSize maxPartialMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
@@ -164,10 +171,10 @@ public class AggregationOperator
                 processor = new SingleProcessor(operatorContext.localUserMemoryContext(), accumulatorFactories);
                 break;
             case PARTIAL:
-                processor = new PartialProcessor(operatorContext.newLocalSystemMemoryContext(), accumulatorFactories, intermediateLayout);
+                processor = new PartialProcessor(operatorContext.newLocalSystemMemoryContext(), accumulatorFactories, intermediateLayout, maxPartialMemory);
                 break;
             case INTERMEDIATE:
-                processor = new IntermediateProcessor(operatorContext.newLocalSystemMemoryContext(), accumulatorFactories, intermediateLayout);
+                processor = new IntermediateProcessor(operatorContext.newLocalSystemMemoryContext(), accumulatorFactories, intermediateLayout, maxPartialMemory);
                 break;
             case FINAL:
                 processor = new FinalProcessor(operatorContext.localUserMemoryContext(), accumulatorFactories, intermediateLayout);
@@ -282,28 +289,31 @@ public class AggregationOperator
         private final LocalMemoryContext systemMemoryContext;
         private final List<InternalPartialAccumulator> accumulators;
         private final IntermediateLayout intermediateLayout;
+        private final long maxPartialMemory;
 
         public PartialProcessor(
                 LocalMemoryContext systemMemoryContext,
-                List<InternalAccumulatorFactory> accumulatorFactories, IntermediateLayout intermediateLayout)
+                List<InternalAccumulatorFactory> accumulatorFactories,
+                IntermediateLayout intermediateLayout,
+                DataSize maxPartialMemory)
         {
             this.systemMemoryContext = systemMemoryContext;
             this.accumulators = accumulatorFactories.stream()
                     .map(InternalAccumulatorFactory::createPartialAccumulator)
                     .collect(toImmutableList());
             this.intermediateLayout = intermediateLayout;
+            this.maxPartialMemory = maxPartialMemory.toBytes();
         }
 
         @Override
         public Optional<Page> addInput(Page inputPage)
         {
             List<Optional<Block>> partialDistinctMasks = new ArrayList<>(accumulators.size());
-            long memorySize = 0;
             for (InternalPartialAccumulator accumulator : accumulators) {
                 partialDistinctMasks.add(accumulator.addInput(inputPage));
-                memorySize += accumulator.getEstimatedSize();
             }
-            systemMemoryContext.setBytes(memorySize);
+
+            updateMemoryUsage();
 
             if (!intermediateLayout.hasDistinct()) {
                 return Optional.empty();
@@ -322,6 +332,30 @@ public class AggregationOperator
             }
             return intermediateLayout.buildIntermediateOutput(intermediateResults);
         }
+
+        private void updateMemoryUsage()
+        {
+            long memorySize = accumulators.stream()
+                    .mapToLong(InternalPartialAccumulator::getEstimatedSize)
+                    .sum();
+            if (memorySize > maxPartialMemory) {
+                List<InternalPartialAccumulator> reverseFlushOrder = accumulators.stream()
+                        .sorted(Comparator.comparing(InternalPartialAccumulator::getEstimatedSize))
+                        .collect(toList());
+                do {
+                    // if there is nothing left to flush, just set the memory directly and it should work or fail
+                    if (reverseFlushOrder.isEmpty()) {
+                        break;
+                    }
+
+                    InternalPartialAccumulator accumulatorToFlush = reverseFlushOrder.remove(reverseFlushOrder.size() - 1);
+                    memorySize -= accumulatorToFlush.getEstimatedSize();
+                    accumulatorToFlush.flush();
+                    memorySize += accumulatorToFlush.getEstimatedSize();
+                } while (memorySize > maxPartialMemory);
+            }
+            systemMemoryContext.setBytes(memorySize);
+        }
     }
 
     private static class IntermediateProcessor
@@ -330,17 +364,20 @@ public class AggregationOperator
         private final LocalMemoryContext systemMemoryContext;
         private final List<InternalIntermediateAccumulator> accumulators;
         private final IntermediateLayout intermediateLayout;
+        private final long maxPartialMemory;
 
         public IntermediateProcessor(
                 LocalMemoryContext systemMemoryContext,
                 List<InternalAccumulatorFactory> accumulatorFactories,
-                IntermediateLayout intermediateLayout)
+                IntermediateLayout intermediateLayout,
+                DataSize maxPartialMemory)
         {
             this.systemMemoryContext = systemMemoryContext;
             this.accumulators = accumulatorFactories.stream()
                     .map(InternalAccumulatorFactory::createIntermediateAccumulator)
                     .collect(toImmutableList());
             this.intermediateLayout = intermediateLayout;
+            this.maxPartialMemory = maxPartialMemory.toBytes();
         }
 
         @Override
@@ -373,11 +410,8 @@ public class AggregationOperator
                 }
             }
 
-            long memorySize = 0;
-            for (InternalIntermediateAccumulator accumulator : accumulators) {
-                memorySize += accumulator.getEstimatedSize();
-            }
-            systemMemoryContext.setBytes(memorySize);
+            updateMemoryUsage();
+
             return partialOutput;
         }
 
@@ -392,6 +426,30 @@ public class AggregationOperator
             }
 
             return intermediateLayout.buildIntermediateOutput(intermediateResults);
+        }
+
+        private void updateMemoryUsage()
+        {
+            long memorySize = accumulators.stream()
+                    .mapToLong(InternalIntermediateAccumulator::getEstimatedSize)
+                    .sum();
+            if (memorySize > maxPartialMemory) {
+                List<InternalIntermediateAccumulator> reverseFlushOrder = accumulators.stream()
+                        .sorted(Comparator.comparing(InternalIntermediateAccumulator::getEstimatedSize))
+                        .collect(toList());
+                do {
+                    // if there is nothing left to flush, just set the memory directly and it should work or fail
+                    if (reverseFlushOrder.isEmpty()) {
+                        break;
+                    }
+
+                    InternalIntermediateAccumulator accumulatorToFlush = reverseFlushOrder.remove(reverseFlushOrder.size() - 1);
+                    memorySize -= accumulatorToFlush.getEstimatedSize();
+                    accumulatorToFlush.flush();
+                    memorySize += accumulatorToFlush.getEstimatedSize();
+                } while (memorySize > maxPartialMemory);
+            }
+            systemMemoryContext.setBytes(memorySize);
         }
     }
 

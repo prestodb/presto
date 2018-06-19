@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -89,7 +90,8 @@ public class HandTpchQuery6
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(new GeneralInternalAccumulatorFactory(doubleSum.bind(ImmutableList.of(0), Optional.empty()))),
-                ImmutableList.of(new AggregationInputChannel(new Symbol("input"), 0, DOUBLE)));
+                ImmutableList.of(new AggregationInputChannel(new Symbol("input"), 0, DOUBLE)),
+                new DataSize(16, MEGABYTE));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }

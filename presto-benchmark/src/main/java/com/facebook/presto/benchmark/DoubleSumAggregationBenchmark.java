@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +36,7 @@ import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.mapWithIndex;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class DoubleSumAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -57,7 +59,8 @@ public class DoubleSumAggregationBenchmark
                 Step.SINGLE,
                 ImmutableList.of(new GeneralInternalAccumulatorFactory(doubleSum.bind(ImmutableList.of(0), Optional.empty()))),
                 mapWithIndex(ordersTableTypes.stream(), (type, channel) -> new AggregationInputChannel(new Symbol("i" + channel), (int) channel, type))
-                    .collect(toImmutableList()));
+                    .collect(toImmutableList()),
+                new DataSize(16, MEGABYTE));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 
