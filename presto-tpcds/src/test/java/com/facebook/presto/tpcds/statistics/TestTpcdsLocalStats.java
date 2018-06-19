@@ -32,7 +32,6 @@ import static java.util.Collections.emptyMap;
 
 public class TestTpcdsLocalStats
 {
-    private LocalQueryRunner queryRunner;
     private StatisticsAssertion statisticsAssertion;
 
     @BeforeClass
@@ -43,7 +42,7 @@ public class TestTpcdsLocalStats
                 .setSchema("sf1")
                 .build();
 
-        queryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
         queryRunner.createCatalog("tpcds", new TpcdsConnectorFactory(), emptyMap());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
@@ -51,11 +50,8 @@ public class TestTpcdsLocalStats
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        statisticsAssertion.close();
         statisticsAssertion = null;
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
     }
 
     @Test
