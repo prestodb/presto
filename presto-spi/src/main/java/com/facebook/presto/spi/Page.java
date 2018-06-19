@@ -288,6 +288,11 @@ public class Page
         return new Page(positionCount, result);
     }
 
+    public Page selectChannels(List<Integer> channels)
+    {
+        return new Page(positionCount, channels.stream().map(channel -> blocks[channel]).toArray(Block[]::new));
+    }
+
     private void updateRetainedSize()
     {
         long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);

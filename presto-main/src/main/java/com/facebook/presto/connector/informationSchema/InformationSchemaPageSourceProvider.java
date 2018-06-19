@@ -29,7 +29,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -82,11 +81,7 @@ public class InformationSchemaPageSourceProvider
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (Page page : table.getPages()) {
-            Block[] blocks = new Block[channels.size()];
-            for (int index = 0; index < blocks.length; index++) {
-                blocks[index] = page.getBlock(channels.get(index));
-            }
-            pages.add(new Page(page.getPositionCount(), blocks));
+            pages.add(page.selectChannels(channels));
         }
         return new FixedPageSource(pages.build());
     }

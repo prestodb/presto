@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -133,13 +132,7 @@ public class MemoryPagesStore
 
     private static Page getColumns(Page page, List<Integer> columnIndexes)
     {
-        Block[] outputBlocks = new Block[columnIndexes.size()];
-
-        for (int i = 0; i < columnIndexes.size(); i++) {
-            outputBlocks[i] = page.getBlock(columnIndexes.get(i));
-        }
-
-        return new Page(page.getPositionCount(), outputBlocks);
+        return page.selectChannels(columnIndexes);
     }
 
     private static final class TableData
