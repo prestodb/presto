@@ -108,6 +108,11 @@ public class OrcOutputBuffer
         return compressedOutputStream.size();
     }
 
+    public long estimateOutputDataSize()
+    {
+        return compressedOutputStream.size() + bufferPosition;
+    }
+
     public int writeDataTo(SliceOutput outputStream)
     {
         checkState(bufferPosition == 0, "Buffer must be closed before writeDataTo can be called");

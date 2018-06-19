@@ -86,7 +86,7 @@ public class LongOutputStreamDwrf
     @Override
     public long getBufferedBytes()
     {
-        return buffer.size();
+        return buffer.estimateOutputDataSize();
     }
 
     @Override

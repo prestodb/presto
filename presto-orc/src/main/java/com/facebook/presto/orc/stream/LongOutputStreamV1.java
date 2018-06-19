@@ -196,7 +196,7 @@ public class LongOutputStreamV1
     @Override
     public long getBufferedBytes()
     {
-        return buffer.size() + (Long.BYTES * size);
+        return buffer.estimateOutputDataSize() + (Long.BYTES * size);
     }
 
     @Override
