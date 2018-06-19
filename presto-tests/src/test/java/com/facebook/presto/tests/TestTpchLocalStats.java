@@ -38,7 +38,6 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestTpchLocalStats
 {
-    private LocalQueryRunner queryRunner;
     private StatisticsAssertion statisticsAssertion;
 
     @BeforeClass
@@ -49,7 +48,7 @@ public class TestTpchLocalStats
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        queryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
         queryRunner.createCatalog(
                 "tpch",
                 new TpchConnectorFactory(1),
@@ -60,11 +59,8 @@ public class TestTpchLocalStats
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        statisticsAssertion.close();
         statisticsAssertion = null;
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
     }
 
     @Test
