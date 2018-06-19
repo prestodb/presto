@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -51,6 +52,7 @@ public final class AggregationNode
     private final Optional<Symbol> rowTypeSymbol;
     private final List<Symbol> outputSymbols;
     private final Set<Symbol> inputSymbols;
+    private final List<Symbol> passThroughSymbols;
 
     @JsonCreator
     public AggregationNode(
@@ -83,6 +85,19 @@ public final class AggregationNode
         this.rowTypeSymbol = requireNonNull(rowTypeSymbol, "rowTypeSymbol is null");
         checkArgument(step.isOutputPartial() || !rowTypeSymbol.isPresent(), "rowTypeSymbol is required with partial output");
 
+        if (step.isOutputPartial() && getGroupingKeys().isEmpty()) {
+            this.passThroughSymbols = aggregations.stream()
+                    .map(Aggregation::getCall)
+                    .filter(FunctionCall::isDistinct)
+                    .map(SymbolsExtractor::extractUnique)
+                    .flatMap(Collection::stream)
+                    .distinct()
+                    .collect(toImmutableList());
+        }
+        else {
+            this.passThroughSymbols = ImmutableList.of();
+        }
+
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         if (step.isOutputPartial() && getGroupingKeys().isEmpty()) {
             rowTypeSymbol.ifPresent(outputSymbols::add);
@@ -92,6 +107,7 @@ public final class AggregationNode
         aggregations.stream()
                 .map(Aggregation::getOutputSymbol)
                 .forEach(outputSymbols::add);
+        outputSymbols.addAll(passThroughSymbols);
         this.outputSymbols = outputSymbols.build();
 
         ImmutableSet.Builder<Symbol> inputSymbols = ImmutableSet.builder();
@@ -152,6 +168,11 @@ public final class AggregationNode
     public Set<Symbol> getInputSymbols()
     {
         return inputSymbols;
+    }
+
+    public List<Symbol> getPassThroughSymbols()
+    {
+        return passThroughSymbols;
     }
 
     @JsonProperty

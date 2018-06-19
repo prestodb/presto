@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -201,11 +202,23 @@ public class PushPartialAggregationThroughExchange
             partialAggregations.add(new AggregationNode.Aggregation(intermediateSymbol, originalAggregation.getCall(), signature, originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
+            List<Expression> finalAggregationArguments;
+            Optional<Symbol> finalAggregationMask;
+            if (originalAggregation.getCall().isDistinct()) {
+                // the partial for a distinct aggregation outputs a mask that marks the input row as
+                // distinct for the function, and then all input symbols are passed through as is
+                finalAggregationArguments = originalAggregation.getCall().getArguments();
+                finalAggregationMask = Optional.of(intermediateSymbol);
+            }
+            else {
+                finalAggregationArguments = ImmutableList.of(intermediateSymbol.toSymbolReference());
+                finalAggregationMask = Optional.empty();
+            }
             finalAggregations.add(new AggregationNode.Aggregation(
                     originalAggregation.getOutputSymbol(),
-                    new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
+                    new FunctionCall(QualifiedName.of(signature.getName()), finalAggregationArguments),
                     signature,
-                    Optional.empty()));
+                    finalAggregationMask));
         }
 
         PlanNode partial = new AggregationNode(

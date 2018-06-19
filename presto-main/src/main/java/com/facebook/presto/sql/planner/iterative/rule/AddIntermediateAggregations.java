@@ -117,7 +117,7 @@ public class AddIntermediateAggregations
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    inputsAsOutputs(aggregation.getAggregations()),
+                    createIntermediateAggregationsForFinals(aggregation.getAggregations()),
                     aggregation.getGroupingSets(),
                     AggregationNode.Step.INTERMEDIATE,
                     aggregation.getHashSymbol(),
@@ -132,7 +132,7 @@ public class AddIntermediateAggregations
     /**
      * Recurse through a series of preceding ExchangeNodes and ProjectNodes to find the preceding PARTIAL aggregation
      */
-    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    private static Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL) {
             return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator, symbolAllocator));
@@ -153,14 +153,14 @@ public class AddIntermediateAggregations
         return Optional.of(node.replaceChildren(builder.build()));
     }
 
-    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    private static PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
         ExchangeNode gatheringExchange = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, aggregation);
         return new AggregationNode(
                 idAllocator.getNextId(),
                 gatheringExchange,
-                outputsAsInputs(aggregation.getAggregations()),
+                createIntermediateAggregationsForPartials(aggregation.getAggregations()),
                 aggregation.getGroupingSets(),
                 AggregationNode.Step.INTERMEDIATE,
                 aggregation.getHashSymbol(),
@@ -169,36 +169,48 @@ public class AddIntermediateAggregations
     }
 
     /**
-     * Rewrite assignments so that inputs are in terms of the output symbols.
+     * Creates intermediate aggregations for the partial aggregation calls.
      * <p>
-     * Example:
+     * For non-distinct calls, the output of the partial becomes the single input argument to the intermediate function.
      * 'a' := sum('b') => 'a' := sum('a')
      * 'a' := count(*) => 'a' := count('a')
+     * <p>
+     * For distinct calls, the output becomes the mask, and the rest of the call is unchanged.
+     * 'input_is_distinct' := sum('x') => 'input_is_distinct' := sum('x') MASK ('input_is_distinct')
      */
-    private static List<AggregationNode.Aggregation> outputsAsInputs(List<AggregationNode.Aggregation> assignments)
+    private static List<AggregationNode.Aggregation> createIntermediateAggregationsForPartials(List<AggregationNode.Aggregation> assignments)
     {
         ImmutableList.Builder<AggregationNode.Aggregation> builder = ImmutableList.builder();
         for (AggregationNode.Aggregation aggregation : assignments) {
             Symbol output = aggregation.getOutputSymbol();
             checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
-            builder.add(new AggregationNode.Aggregation(
-                    output,
-                    new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
-                    aggregation.getSignature(),
-                    Optional.empty()));  // No mask for INTERMEDIATE
+            if (aggregation.getCall().isDistinct()) {
+                builder.add(new AggregationNode.Aggregation(
+                        output,
+                        aggregation.getCall(),
+                        aggregation.getSignature(),
+                        Optional.of(output)));  // Mask is the output of the partial for DISTINCT
+            }
+            else {
+                builder.add(new AggregationNode.Aggregation(
+                        output,
+                        new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
+                        aggregation.getSignature(),
+                        Optional.empty()));  // No mask for INTERMEDIATE
+            }
         }
         return builder.build();
     }
 
     /**
-     * Rewrite assignments so that outputs are in terms of the input symbols.
-     * This operation only reliably applies to aggregation steps that take partial inputs (e.g. INTERMEDIATE and split FINALs),
-     * which are guaranteed to have exactly one input and one output.
+     * Creates intermediate aggregations for the final aggregation calls.
+     *
+     * This rewrites assignments so that outputs are in terms of the input symbols.
      * <p>
      * Example:
      * 'a' := sum('b') => 'b' := sum('b')
      */
-    private static List<Aggregation> inputsAsOutputs(List<AggregationNode.Aggregation> assignments)
+    private static List<Aggregation> createIntermediateAggregationsForFinals(List<AggregationNode.Aggregation> assignments)
     {
         ImmutableList.Builder<AggregationNode.Aggregation> builder = ImmutableList.builder();
         for (Aggregation aggregation : assignments) {
