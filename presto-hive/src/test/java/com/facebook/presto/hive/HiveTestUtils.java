@@ -74,7 +74,7 @@ public final class HiveTestUtils
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
                 .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
                 .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
-                .add(new ParquetPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
                 .build();
     }
 
@@ -82,7 +82,7 @@ public final class HiveTestUtils
     {
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment, new FileFormatDataSourceStats()))
+                .add(new ParquetRecordCursorProvider(testHdfsEnvironment, new FileFormatDataSourceStats()))
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }
