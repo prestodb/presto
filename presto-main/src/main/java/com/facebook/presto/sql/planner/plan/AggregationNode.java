@@ -17,10 +17,12 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
@@ -28,6 +30,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -46,6 +49,7 @@ public final class AggregationNode
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputSymbols;
+    private final Set<Symbol> inputSymbols;
 
     @JsonCreator
     public AggregationNode(
@@ -82,6 +86,14 @@ public final class AggregationNode
                 .map(Aggregation::getOutputSymbol)
                 .forEach(outputSymbols::add);
         this.outputSymbols = outputSymbols.build();
+
+        ImmutableSet.Builder<Symbol> inputSymbols = ImmutableSet.builder();
+        inputSymbols.addAll(getGroupingKeys());
+        hashSymbol.ifPresent(inputSymbols::add);
+        aggregations.stream()
+                .map(Aggregation::getInputSymbols)
+                .forEach(inputSymbols::addAll);
+        this.inputSymbols = inputSymbols.build();
     }
 
     public List<Symbol> getGroupingKeys()
@@ -128,6 +140,11 @@ public final class AggregationNode
     public List<Symbol> getOutputSymbols()
     {
         return outputSymbols;
+    }
+
+    public Set<Symbol> getInputSymbols()
+    {
+        return inputSymbols;
     }
 
     @JsonProperty
@@ -273,6 +290,7 @@ public final class AggregationNode
         private final FunctionCall call;
         private final Signature signature;
         private final Optional<Symbol> mask;
+        private final Set<Symbol> inputSymbols;
 
         @JsonCreator
         public Aggregation(
@@ -285,6 +303,11 @@ public final class AggregationNode
             this.call = requireNonNull(call, "call is null");
             this.signature = requireNonNull(signature, "signature is null");
             this.mask = requireNonNull(mask, "mask is null");
+
+            ImmutableSet.Builder<Symbol> inputSymbols = ImmutableSet.builder();
+            inputSymbols.addAll(SymbolsExtractor.extractUnique(call));
+            mask.ifPresent(inputSymbols::add);
+            this.inputSymbols = inputSymbols.build();
         }
 
         @JsonProperty
@@ -309,6 +332,11 @@ public final class AggregationNode
         public Optional<Symbol> getMask()
         {
             return mask;
+        }
+
+        public Set<Symbol> getInputSymbols()
+        {
+            return inputSymbols;
         }
     }
 }

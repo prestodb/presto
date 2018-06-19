@@ -28,19 +28,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 
@@ -96,7 +95,10 @@ public class PushPartialAggregationThroughJoin
 
     private boolean allAggregationsOn(List<AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
     {
-        Set<Symbol> inputs = extractUnique(aggregations.stream().map(AggregationNode.Aggregation::getCall).collect(toImmutableList()));
+        Set<Symbol> inputs = aggregations.stream()
+                .map(AggregationNode.Aggregation::getInputSymbols)
+                .flatMap(Collection::stream)
+                .collect(toImmutableSet());
         return symbols.containsAll(inputs);
     }
 

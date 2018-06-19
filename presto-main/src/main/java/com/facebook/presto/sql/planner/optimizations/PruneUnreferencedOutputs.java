@@ -306,8 +306,7 @@ public class PruneUnreferencedOutputs
             ImmutableList.Builder<Aggregation> aggregations = ImmutableList.builder();
             for (Aggregation aggregation : node.getAggregations()) {
                 if (context.get().contains(aggregation.getOutputSymbol())) {
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall()));
-                    aggregation.getMask().ifPresent(expectedInputs::add);
+                    expectedInputs.addAll(aggregation.getInputSymbols());
                     aggregations.add(aggregation);
                 }
             }

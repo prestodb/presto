@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -199,7 +198,7 @@ public class AddIntermediateAggregations
         ImmutableList.Builder<AggregationNode.Aggregation> builder = ImmutableList.builder();
         for (Aggregation aggregation : assignments) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(aggregation.getCall()));
+            Symbol input = getOnlyElement(aggregation.getInputSymbols());
             builder.add(new Aggregation(
                     input,
                     aggregation.getCall(),

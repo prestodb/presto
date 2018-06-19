@@ -15,18 +15,11 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.google.common.collect.Streams;
-
-import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneAggregationSourceColumns
         implements Rule<AggregationNode>
@@ -42,22 +35,8 @@ public class PruneAggregationSourceColumns
     @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        Set<Symbol> requiredInputs = Streams.concat(
-                aggregationNode.getGroupingKeys().stream(),
-                aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),
-                aggregationNode.getAggregations().stream()
-                        .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
-                .collect(toImmutableSet());
-
-        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
+        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, aggregationNode.getInputSymbols())
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
-    }
-
-    private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)
-    {
-        return Streams.concat(
-                SymbolsExtractor.extractUnique(aggregation.getCall()).stream(),
-                aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }
