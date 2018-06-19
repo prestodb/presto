@@ -156,11 +156,9 @@ public class TestTypeSignature
                 "row(time time with time zone,array(interval day to seconds))");
 
         // preserve base name case
-        assertSignature(
+        assertRowSignature(
                 "RoW(a bigint,b varchar)",
-                "RoW",
-                ImmutableList.of("a bigint", "b varchar"),
-                "row(a bigint,b varchar)");
+                rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
 
         // field type canonicalization
         assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));

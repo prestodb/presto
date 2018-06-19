@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static java.lang.Character.isAlphabetic;
 import static java.lang.Character.isDigit;
@@ -329,46 +328,24 @@ public class TypeSignature
     @JsonValue
     public String toString()
     {
-        // TODO: remove these hacks
-        if (base.equalsIgnoreCase(StandardTypes.ROW)) {
-            return rowToString();
+        if (parameters.isEmpty()) {
+            return base;
         }
-        else if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
+
+        if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
                 (parameters.size() == 1) &&
                 parameters.get(0).isLongLiteral() &&
                 parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
             return base;
         }
-        else {
-            StringBuilder typeName = new StringBuilder(base);
-            if (!parameters.isEmpty()) {
-                typeName.append("(");
-                boolean first = true;
-                for (TypeSignatureParameter parameter : parameters) {
-                    if (!first) {
-                        typeName.append(",");
-                    }
-                    first = false;
-                    typeName.append(parameter.toString());
-                }
-                typeName.append(")");
-            }
-            return typeName.toString();
+
+        StringBuilder typeName = new StringBuilder(base);
+        typeName.append("(").append(parameters.get(0));
+        for (int i = 1; i < parameters.size(); i++) {
+            typeName.append(",").append(parameters.get(i));
         }
-    }
-
-    @Deprecated
-    private String rowToString()
-    {
-        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
-                format("Incorrect parameters for row type %s", parameters));
-
-        String fields = parameters.stream()
-                .map(TypeSignatureParameter::getNamedTypeSignature)
-                .map(NamedTypeSignature::toString)
-                .collect(Collectors.joining(","));
-
-        return format("row(%s)", fields);
+        typeName.append(")");
+        return typeName.toString();
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)
