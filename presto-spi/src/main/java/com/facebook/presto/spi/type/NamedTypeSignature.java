@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class NamedTypeSignature
 {
@@ -31,8 +32,8 @@ public class NamedTypeSignature
             @JsonProperty("name") Optional<String> name,
             @JsonProperty("typeSignature") TypeSignature typeSignature)
     {
-        this.name = name;
-        this.typeSignature = typeSignature;
+        this.name = requireNonNull(name, "name is null");
+        this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
     }
 
     public NamedTypeSignature(String name, TypeSignature typeSignature)
