@@ -81,6 +81,7 @@ public class TestManySegments
             throws Exception
     {
         embeddedKafka.close();
+        embeddedKafka = null;
     }
 
     @BeforeMethod
@@ -99,6 +100,7 @@ public class TestManySegments
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

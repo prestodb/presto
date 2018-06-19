@@ -65,6 +65,7 @@ public class TestMinimalFunctionality
     public void stopRedis()
     {
         embeddedRedis.close();
+        embeddedRedis = null;
     }
 
     @BeforeMethod
@@ -81,10 +82,11 @@ public class TestMinimalFunctionality
                         .build());
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     private void populateData(int count)

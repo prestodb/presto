@@ -46,6 +46,7 @@ public class TestRaptorFileBasedSecurity
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
