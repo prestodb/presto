@@ -230,13 +230,13 @@ public class TypeSignature
                     }
                     else if (c == ')') {
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
-                        fields.add(parseTypeOrUnnamedType(signature.substring(tokenStart, i).trim(), literalParameters));
+                        fields.add(parseTypeOrNamedType(signature.substring(tokenStart, i).trim(), literalParameters));
                         tokenStart = -1;
                         state = RowTypeSignatureParsingState.FINISHED;
                     }
                     else if (c == ',' && bracketLevel == 1) {
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
-                        fields.add(parseTypeOrUnnamedType(signature.substring(tokenStart, i).trim(), literalParameters));
+                        fields.add(parseTypeOrNamedType(signature.substring(tokenStart, i).trim(), literalParameters));
                         tokenStart = -1;
                         state = RowTypeSignatureParsingState.START_OF_FIELD;
                     }
@@ -283,26 +283,26 @@ public class TypeSignature
         return new TypeSignature(signature.substring(0, StandardTypes.ROW.length()), fields);
     }
 
-    private static TypeSignatureParameter parseTypeOrUnnamedType(String typeOrUnnamedTyped, Set<String> literalParameters)
+    private static TypeSignatureParameter parseTypeOrNamedType(String typeOrNamedType, Set<String> literalParameters)
     {
-        int split = typeOrUnnamedTyped.indexOf(' ');
+        int split = typeOrNamedType.indexOf(' ');
 
         // Type without space or simple type with spaces
-        if (split == -1 || SIMPLE_TYPE_WITH_SPACES.contains(typeOrUnnamedTyped)) {
-            return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrUnnamedTyped, literalParameters)));
+        if (split == -1 || SIMPLE_TYPE_WITH_SPACES.contains(typeOrNamedType)) {
+            return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
         }
 
         // Assume the first part of a structured type always has non-alphabetical character.
         // If the first part is a valid identifier, parameter is a named field.
-        String firstPart = typeOrUnnamedTyped.substring(0, split);
+        String firstPart = typeOrNamedType.substring(0, split);
         if (IDENTIFIER_PATTERN.matcher(firstPart).matches()) {
             return TypeSignatureParameter.of(new NamedTypeSignature(
                     Optional.of(new RowFieldName(firstPart, false)),
-                    parseTypeSignature(typeOrUnnamedTyped.substring(split + 1).trim(), literalParameters)));
+                    parseTypeSignature(typeOrNamedType.substring(split + 1).trim(), literalParameters)));
         }
 
         // Structured type composed from types with spaces. i.e. array(timestamp with time zone)
-        return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrUnnamedTyped, literalParameters)));
+        return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
     }
 
     private static TypeSignatureParameter parseTypeSignatureParameter(
