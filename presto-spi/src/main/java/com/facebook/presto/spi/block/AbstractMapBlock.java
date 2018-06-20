@@ -53,7 +53,7 @@ public abstract class AbstractMapBlock
 
     /**
      * offset is entry-based, not position-based. In other words,
-     * if offset[1] is 6, it means the first map has 6 key-value pairs,
+     * if offset[0] is 6, it means the first map has 6 key-value pairs,
      * not 6 key/values (which would be 3 pairs).
      */
     protected abstract int[] getOffsets();
