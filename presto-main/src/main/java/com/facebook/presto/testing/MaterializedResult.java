@@ -44,6 +44,7 @@ import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -273,8 +274,13 @@ public class MaterializedResult
             type.writeLong(blockBuilder, days);
         }
         else if (TIME.equals(type)) {
-            long millisUtc = ((SqlTime) value).getMillisUtc();
-            type.writeLong(blockBuilder, millisUtc);
+            SqlTime time = (SqlTime) value;
+            if (time.isLegacyTimestamp()) {
+                type.writeLong(blockBuilder, time.getMillisUtc());
+            }
+            else {
+                type.writeLong(blockBuilder, time.getMillis());
+            }
         }
         else if (TIME_WITH_TIME_ZONE.equals(type)) {
             long millisUtc = ((SqlTimeWithTimeZone) value).getMillisUtc();
@@ -350,7 +356,7 @@ public class MaterializedResult
                 convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
             }
             else if (prestoValue instanceof SqlTime) {
-                convertedValue = LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(((SqlTime) prestoValue).getMillisUtc()));
+                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(prestoValue.toString(), LocalTime::from);
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
                 // Political timezone cannot be represented in OffsetTime and there isn't any better representation.

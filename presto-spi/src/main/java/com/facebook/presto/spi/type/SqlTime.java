@@ -26,25 +26,33 @@ public final class SqlTime
 {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
-    private final long millisUtc;
+    private final long millis;
     private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
-    public SqlTime(long millisUtc)
+    public SqlTime(long millis)
     {
-        this.millisUtc = millisUtc;
+        this.millis = millis;
         this.sessionTimeZoneKey = Optional.empty();
     }
 
     @Deprecated
     public SqlTime(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
-        this.millisUtc = millisUtc;
+        this.millis = millisUtc;
         this.sessionTimeZoneKey = Optional.of(sessionTimeZoneKey);
     }
 
+    public long getMillis()
+    {
+        checkState(!isLegacyTimestamp(), "getMillis() can be called in new timestamp semantics only");
+        return millis;
+    }
+
+    @Deprecated
     public long getMillisUtc()
     {
-        return millisUtc;
+        checkState(isLegacyTimestamp(), "getMillisUtc() can be called in legacy timestamp semantics only");
+        return millis;
     }
 
     @Deprecated
@@ -54,7 +62,7 @@ public final class SqlTime
     }
 
     @Deprecated
-    private boolean isLegacyTimestamp()
+    public boolean isLegacyTimestamp()
     {
         return sessionTimeZoneKey.isPresent();
     }
@@ -62,7 +70,7 @@ public final class SqlTime
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisUtc, sessionTimeZoneKey);
+        return Objects.hash(millis, sessionTimeZoneKey);
     }
 
     @Override
@@ -75,7 +83,7 @@ public final class SqlTime
             return false;
         }
         SqlTime other = (SqlTime) obj;
-        return Objects.equals(this.millisUtc, other.millisUtc) &&
+        return Objects.equals(this.millis, other.millis) &&
                 Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
     }
 
@@ -84,10 +92,17 @@ public final class SqlTime
     public String toString()
     {
         if (isLegacyTimestamp()) {
-            return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
+            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
         }
         else {
-            return Instant.ofEpochMilli(millisUtc).atZone(ZoneOffset.UTC).format(formatter);
+            return Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).format(formatter);
+        }
+    }
+
+    private static void checkState(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalStateException(message);
         }
     }
 }
