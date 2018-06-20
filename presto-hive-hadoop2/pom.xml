@@ -23,6 +23,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
             <scope>runtime</scope>
@@ -110,7 +115,10 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups>hive,hive-s3</excludedGroups>
+                            <excludes>
+                                <exclude>**/TestHiveClient.java</exclude>
+                                <exclude>**/TestHiveClientS3.java</exclude>
+                            </excludes>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -124,7 +132,9 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <groups>hive</groups>
+                            <includes>
+                                <include>**/TestHiveClient.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -138,7 +148,9 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <groups>hive-s3</groups>
+                            <includes>
+                                <include>**/TestHiveClientS3.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>

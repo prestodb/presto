@@ -1,4 +1,4 @@
-CREATE EXTERNAL TABLE presto_test_s3 (
+CREATE EXTERNAL TABLE presto_test_external_fs(
   t_bigint BIGINT,
   t_string STRING
 )
@@ -8,6 +8,6 @@ STORED AS TEXTFILE
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
-ALTER TABLE presto_test_s3
-SET LOCATION 's3://presto-test-hive/presto_test_s3'
+ALTER TABLE presto_test_external_fs
+SET LOCATION 's3://presto-test-hive/presto_test_external_fs'
 ;

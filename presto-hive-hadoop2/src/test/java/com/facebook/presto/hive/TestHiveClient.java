@@ -16,10 +16,8 @@ package com.facebook.presto.hive;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
 import org.xbill.DNS.Lookup;
 
-@Test(groups = "hive")
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
