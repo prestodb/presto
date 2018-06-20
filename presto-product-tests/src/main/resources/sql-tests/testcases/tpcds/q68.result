@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|DECIMAL|DECIMAL|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|VARCHAR|VARCHAR|BIGINT|DECIMAL|DECIMAL|DECIMAL
 Aaron                         |Guy                 |Lakeside|Mount Pleasant|210815|24704.66|678.88|45673.18|
 Abbott                        |Joseph              |Greenfield|Midway|62751|37795.50|1086.40|53385.17|
 Abbott                        |Harriet             |Wesley|Forest Hills|84405|23666.36|1274.86|45689.64|

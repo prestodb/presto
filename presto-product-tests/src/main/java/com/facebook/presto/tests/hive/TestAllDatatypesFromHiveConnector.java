@@ -28,7 +28,6 @@ import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.Date;
 
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
@@ -44,15 +43,12 @@ import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.onHive;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.populateDataToHiveTable;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestodb.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.String.format;
@@ -63,8 +59,6 @@ import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DECIMAL;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
-import static java.sql.JDBCType.LONGNVARCHAR;
-import static java.sql.JDBCType.LONGVARBINARY;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
@@ -261,39 +255,20 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_binary", "varbinary"));
 
         QueryResult queryResult = query("SELECT * FROM " + tableName);
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    INTEGER,
-                    BIGINT,
-                    REAL,
-                    DOUBLE,
-                    DECIMAL,
-                    DECIMAL,
-                    TIMESTAMP,
-                    DATE,
-                    LONGNVARCHAR,
-                    LONGNVARCHAR,
-                    CHAR,
-                    BOOLEAN,
-                    LONGVARBINARY);
-        }
-        else if (usingTeradataJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    INTEGER,
-                    BIGINT,
-                    REAL,
-                    DOUBLE,
-                    DECIMAL,
-                    DECIMAL,
-                    TIMESTAMP,
-                    DATE,
-                    VARCHAR,
-                    VARCHAR,
-                    CHAR,
-                    BOOLEAN,
-                    VARBINARY);
-        }
+        assertThat(queryResult).hasColumns(
+                INTEGER,
+                BIGINT,
+                REAL,
+                DOUBLE,
+                DECIMAL,
+                DECIMAL,
+                TIMESTAMP,
+                DATE,
+                VARCHAR,
+                VARCHAR,
+                CHAR,
+                BOOLEAN,
+                VARBINARY);
 
         assertThat(queryResult).containsOnly(
                 row(
@@ -334,88 +309,41 @@ public class TestAllDatatypesFromHiveConnector
 
     private void assertColumnTypes(QueryResult queryResult)
     {
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    TINYINT,
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    REAL,
-                    DOUBLE,
-                    DECIMAL,
-                    DECIMAL,
-                    TIMESTAMP,
-                    DATE,
-                    LONGNVARCHAR,
-                    LONGNVARCHAR,
-                    CHAR,
-                    BOOLEAN,
-                    LONGVARBINARY);
-        }
-        else if (usingTeradataJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    TINYINT,
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    REAL,
-                    DOUBLE,
-                    DECIMAL,
-                    DECIMAL,
-                    TIMESTAMP,
-                    DATE,
-                    VARCHAR,
-                    VARCHAR,
-                    CHAR,
-                    BOOLEAN,
-                    VARBINARY);
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertThat(queryResult).hasColumns(
+                TINYINT,
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                REAL,
+                DOUBLE,
+                DECIMAL,
+                DECIMAL,
+                TIMESTAMP,
+                DATE,
+                VARCHAR,
+                VARCHAR,
+                CHAR,
+                BOOLEAN,
+                VARBINARY);
     }
 
     private void assertColumnTypesParquet(QueryResult queryResult)
     {
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    TINYINT,
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    REAL,
-                    DOUBLE,
-                    DECIMAL,
-                    DECIMAL,
-                    TIMESTAMP,
-                    LONGNVARCHAR,
-                    LONGNVARCHAR,
-                    CHAR,
-                    BOOLEAN,
-                    LONGVARBINARY);
-        }
-        else if (usingTeradataJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    TINYINT,
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    REAL,
-                    DOUBLE,
-                    DECIMAL,
-                    DECIMAL,
-                    TIMESTAMP,
-                    VARCHAR,
-                    VARCHAR,
-                    CHAR,
-                    BOOLEAN,
-                    VARBINARY);
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertThat(queryResult).hasColumns(
+                TINYINT,
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                REAL,
+                DOUBLE,
+                DECIMAL,
+                DECIMAL,
+                TIMESTAMP,
+                VARCHAR,
+                VARCHAR,
+                CHAR,
+                BOOLEAN,
+                VARBINARY);
     }
 
     @Requires(ParquetRequirements.class)

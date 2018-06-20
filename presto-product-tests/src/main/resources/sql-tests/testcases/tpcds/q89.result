@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|INTEGER|DECIMAL|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|CHAR|VARCHAR|VARCHAR|INTEGER|DECIMAL|DECIMAL
 Men                                               |shirts                                            |importoimporto #1                                 |ese|Unknown|3|2070.65|5492.82|
 Men                                               |shirts                                            |importoimporto #1                                 |ought|Unknown|6|2152.15|5045.76|
 Men                                               |shirts                                            |importoimporto #1                                 |able|Unknown|2|2333.43|5194.82|

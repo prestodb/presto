@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|LONGNVARCHAR|BIGINT|DECIMAL|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|VARCHAR|BIGINT|DECIMAL|DECIMAL
 Aaron                         |Guy                 |Midway|30633|8423.48|-7612.67|
 Abbott                        |James               |Midway|19069|11829.58|-14596.44|
 Abbott                        |Robert              |Midway|108183|2094.22|-11543.20|

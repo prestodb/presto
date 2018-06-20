@@ -176,15 +176,15 @@ public class TestJdbcPreparedStatement
         assertSetNull(Types.NUMERIC, Types.DECIMAL);
         assertSetNull(Types.CHAR);
         assertSetNull(Types.NCHAR, Types.CHAR);
-        assertSetNull(Types.VARCHAR, Types.LONGNVARCHAR);
-        assertSetNull(Types.NVARCHAR, Types.LONGNVARCHAR);
-        assertSetNull(Types.LONGVARCHAR, Types.LONGNVARCHAR);
-        assertSetNull(Types.LONGNVARCHAR, Types.LONGNVARCHAR);
-        assertSetNull(Types.CLOB, Types.LONGNVARCHAR);
-        assertSetNull(Types.NCLOB, Types.LONGNVARCHAR);
-        assertSetNull(Types.VARBINARY, Types.LONGVARBINARY);
-        assertSetNull(Types.LONGVARBINARY);
-        assertSetNull(Types.BLOB, Types.LONGVARBINARY);
+        assertSetNull(Types.VARCHAR, Types.VARCHAR);
+        assertSetNull(Types.NVARCHAR, Types.VARCHAR);
+        assertSetNull(Types.LONGVARCHAR, Types.VARCHAR);
+        assertSetNull(Types.VARCHAR, Types.VARCHAR);
+        assertSetNull(Types.CLOB, Types.VARCHAR);
+        assertSetNull(Types.NCLOB, Types.VARCHAR);
+        assertSetNull(Types.VARBINARY, Types.VARBINARY);
+        assertSetNull(Types.VARBINARY);
+        assertSetNull(Types.BLOB, Types.VARBINARY);
         assertSetNull(Types.DATE);
         assertSetNull(Types.TIME);
         assertSetNull(Types.TIMESTAMP);
@@ -387,26 +387,26 @@ public class TestJdbcPreparedStatement
     public void testConvertVarchar()
             throws SQLException
     {
-        assertParameter("hello", Types.LONGNVARCHAR, (ps, i) -> ps.setString(i, "hello"));
-        assertParameter("hello", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, "hello"));
+        assertParameter("hello", Types.VARCHAR, (ps, i) -> ps.setString(i, "hello"));
+        assertParameter("hello", Types.VARCHAR, (ps, i) -> ps.setObject(i, "hello"));
 
         String unicodeAndNull = "abc'xyz\0\u2603\uD835\uDCABtest";
-        assertParameter(unicodeAndNull, Types.LONGNVARCHAR, (ps, i) -> ps.setString(i, unicodeAndNull));
+        assertParameter(unicodeAndNull, Types.VARCHAR, (ps, i) -> ps.setString(i, unicodeAndNull));
 
         for (int type : asList(Types.CHAR, Types.NCHAR, Types.VARCHAR, Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR)) {
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, (byte) 123, type));
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, (byte) 123, type));
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, (short) 123, type));
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, 123, type));
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, 123L, type));
-            assertParameter("123.9", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, 123.9f, type));
-            assertParameter("123.9", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, 123.9d, type));
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type));
-            assertParameter("123", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type));
-            assertParameter("123.9", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type));
-            assertParameter("hello", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, "hello", type));
-            assertParameter("true", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, true, type));
-            assertParameter("false", Types.LONGNVARCHAR, (ps, i) -> ps.setObject(i, false, type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, (byte) 123, type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, (byte) 123, type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, (short) 123, type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123, type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123L, type));
+            assertParameter("123.9", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123.9f, type));
+            assertParameter("123.9", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123.9d, type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type));
+            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type));
+            assertParameter("123.9", Types.VARCHAR, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type));
+            assertParameter("hello", Types.VARCHAR, (ps, i) -> ps.setObject(i, "hello", type));
+            assertParameter("true", Types.VARCHAR, (ps, i) -> ps.setObject(i, true, type));
+            assertParameter("false", Types.VARCHAR, (ps, i) -> ps.setObject(i, false, type));
         }
     }
 
@@ -417,12 +417,12 @@ public class TestJdbcPreparedStatement
         String value = "abc\0xyz";
         byte[] bytes = value.getBytes(UTF_8);
 
-        assertParameter(bytes, Types.LONGVARBINARY, (ps, i) -> ps.setBytes(i, bytes));
-        assertParameter(bytes, Types.LONGVARBINARY, (ps, i) -> ps.setObject(i, bytes));
+        assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setBytes(i, bytes));
+        assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setObject(i, bytes));
 
         for (int type : asList(Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY)) {
-            assertParameter(bytes, Types.LONGVARBINARY, (ps, i) -> ps.setObject(i, bytes, type));
-            assertParameter(bytes, Types.LONGVARBINARY, (ps, i) -> ps.setObject(i, value, type));
+            assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setObject(i, bytes, type));
+            assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setObject(i, value, type));
         }
     }
 

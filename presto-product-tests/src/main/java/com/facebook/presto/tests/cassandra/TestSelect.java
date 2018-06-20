@@ -44,10 +44,10 @@ import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
-import static java.sql.JDBCType.LONGNVARCHAR;
-import static java.sql.JDBCType.LONGVARBINARY;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.VARBINARY;
+import static java.sql.JDBCType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestSelect
@@ -173,9 +173,9 @@ public class TestSelect
                 CONNECTOR_NAME, KEY_SPACE, CASSANDRA_ALL_TYPES.getName()));
 
         assertThat(query)
-                .hasColumns(LONGNVARCHAR, BIGINT, LONGVARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, LONGNVARCHAR, LONGNVARCHAR,
-                        INTEGER, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, TIMESTAMP, LONGNVARCHAR, LONGNVARCHAR,
-                        LONGNVARCHAR, LONGNVARCHAR)
+                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TIMESTAMP, VARCHAR, VARCHAR,
+                        VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE,
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
@@ -254,9 +254,9 @@ public class TestSelect
                 CONNECTOR_NAME, KEY_SPACE, materializedViewName));
 
         assertThat(query)
-                .hasColumns(LONGNVARCHAR, BIGINT, LONGVARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, LONGNVARCHAR, LONGNVARCHAR,
-                        INTEGER, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, TIMESTAMP, LONGNVARCHAR, LONGNVARCHAR,
-                        LONGNVARCHAR, LONGNVARCHAR)
+                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TIMESTAMP, VARCHAR, VARCHAR,
+                        VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE,
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",

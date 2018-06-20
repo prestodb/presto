@@ -45,11 +45,11 @@ import static java.sql.JDBCType.CHAR;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
-import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
+import static java.sql.JDBCType.VARCHAR;
 
 public class TestSelect
         extends ProductTest
@@ -136,8 +136,8 @@ public class TestSelect
                 .executeQuery(sql);
 
         assertThat(queryResult)
-                .hasColumns(BIGINT, SMALLINT, INTEGER, TINYINT, DOUBLE, REAL, CHAR, LONGNVARCHAR, LONGNVARCHAR,
-                        CHAR, LONGNVARCHAR, LONGNVARCHAR, DATE, TIMESTAMP, TIMESTAMP, TIMESTAMP, DOUBLE, REAL)
+                .hasColumns(BIGINT, SMALLINT, INTEGER, TINYINT, DOUBLE, REAL, CHAR, VARCHAR, VARCHAR,
+                        CHAR, VARCHAR, VARCHAR, DATE, TIMESTAMP, TIMESTAMP, TIMESTAMP, DOUBLE, REAL)
                 .containsOnly(
                         row(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE, Double.MIN_VALUE,
                                 Float.valueOf("-3.40E+38"), "\0   ", "\0", "\0", "\0    ", "\0", "\0",
