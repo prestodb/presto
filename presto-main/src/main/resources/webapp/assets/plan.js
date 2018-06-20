@@ -51,6 +51,7 @@ function flattenNode(stages, nodeInfo, result)
     const sources = allSources[0];
     const remoteSources = allSources[1];
     const extraInfo = computeExtraInfo(nodeInfo);
+    const tableName = computeTableName(nodeInfo);
 
     result.set(nodeInfo.id, {
         id: nodeInfo.id,
@@ -58,7 +59,8 @@ function flattenNode(stages, nodeInfo, result)
         sources: sources.map(function(node) { return node.id }),
         remoteSources: remoteSources,
         stats: {},
-        extraInfo: extraInfo
+        extraInfo: extraInfo,
+        tableName: tableName
     });
 
     sources.forEach(function(child) {
@@ -208,8 +210,16 @@ let LivePlan = React.createClass({
     },
     getNodeLabelSvg: function(node) {
         var svgLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        svgLabel.setAttribute("y", "1em");
 
         svgLabel.appendChild(buildSvgElement('tspan', node.type));
+
+        if (node.tableName !== '') {
+            var tableName = buildSvgElement('tspan', "↳ " + node.tableName);
+            tableName.setAttribute("dy", "1.2em");
+            svgLabel.appendChild(tableName);
+        }
+
         if (node.extraInfo !== '') {
             svgLabel.appendChild(buildSvgElement('title', node.extraInfo));
         }
