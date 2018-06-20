@@ -34,10 +34,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
- * Pushes AssignUniqueId node up through the remote exchange to avoid
- * loosing partitioned_on(unique) and grouped(unique) stream properties.
+ * Pushes RemoteExchange node down through the AssignUniqueId to preserve
+ * partitioned_on(unique) and grouped(unique) properties for the output of
+ * the AssignUniqueId.
  */
-public final class PushUpAssignUniqueIdThroughRemoteExchange
+public final class PushRemoteExchangeThroughAssignUniqueId
         implements Rule<ExchangeNode>
 {
     private static final Capture<AssignUniqueId> ASSIGN_UNIQUE_ID = newCapture();
