@@ -694,7 +694,7 @@ public final class GeoFunctions
     public static Slice stExteriorRing(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-        validateType("ST_ExteriorRing", geometry, EnumSet.of(POLYGON, MULTI_POLYGON));
+        validateType("ST_ExteriorRing", geometry, EnumSet.of(POLYGON));
         if (geometry.isEmpty()) {
             return null;
         }
