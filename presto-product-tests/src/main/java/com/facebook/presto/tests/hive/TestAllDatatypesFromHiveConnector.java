@@ -229,20 +229,20 @@ public class TestAllDatatypesFromHiveConnector
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
 
         onHive().executeQuery(format("INSERT INTO %s VALUES(" +
-                "2147483647," +
-                "9223372036854775807," +
-                "123.345," +
-                "234.567," +
-                "346," +
-                "345.67800," +
-                "'" + parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE).toString() + "'," +
-                "'" + Date.valueOf("2015-05-10") + "'," +
-                "'ala ma kota'," +
-                "'ala ma kot'," +
-                "'ala ma    '," +
-                "true," +
-                "'kot binarny'" +
-                ")",
+                        "2147483647," +
+                        "9223372036854775807," +
+                        "123.345," +
+                        "234.567," +
+                        "346," +
+                        "345.67800," +
+                        "'" + parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE).toString() + "'," +
+                        "'" + Date.valueOf("2015-05-10") + "'," +
+                        "'ala ma kota'," +
+                        "'ala ma kot'," +
+                        "'ala ma    '," +
+                        "true," +
+                        "'kot binarny'" +
+                        ")",
                 tableName));
 
         assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
