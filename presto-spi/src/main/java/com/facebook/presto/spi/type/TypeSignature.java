@@ -28,7 +28,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
-import static java.lang.Character.isAlphabetic;
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -193,7 +192,7 @@ public class TypeSignature
                         state = RowTypeSignatureParsingState.DELIMITED_NAME;
                         tokenStart = i;
                     }
-                    else if (isAlphabetic(c)) {
+                    else if (isValidStartOfIdentifier(c)) {
                         state = RowTypeSignatureParsingState.TYPE_OR_NAMED_TYPE;
                         tokenStart = i;
                     }
@@ -322,6 +321,13 @@ public class TypeSignature
         else {
             return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
         }
+    }
+
+    private static boolean isValidStartOfIdentifier(char c)
+    {
+        return (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                c == '_';
     }
 
     @Override

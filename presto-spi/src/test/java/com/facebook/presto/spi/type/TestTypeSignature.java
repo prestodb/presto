@@ -52,6 +52,9 @@ public class TestTypeSignature
                 "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
         assertRowSignature(
+                "row(__a__ bigint,_b@_: _varchar)",
+                rowSignature(namedParameter("__a__", false, signature("bigint")), namedParameter("_b@_:", false, signature("_varchar"))));
+        assertRowSignature(
                 "row(a bigint,b array(bigint),c row(a bigint))",
                 rowSignature(
                         namedParameter("a", false, signature("bigint")),
