@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.List;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
@@ -40,8 +42,10 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.IntStream.range;
 
 public class StatusPrinter
 {
@@ -87,6 +91,7 @@ Peak Memory: 1.97GB
     {
         long lastPrint = System.nanoTime();
         try {
+            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
             while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
@@ -103,7 +108,7 @@ Peak Memory: 1.97GB
                         client.cancelLeafStage();
                     }
                     else if (key == CTRL_C) {
-                        updateScreen();
+                        updateScreen(warningsPrinter);
                         update = false;
                         client.close();
                     }
@@ -115,7 +120,7 @@ Peak Memory: 1.97GB
 
                     // update screen
                     if (update) {
-                        updateScreen();
+                        updateScreen(warningsPrinter);
                         lastPrint = System.nanoTime();
                     }
 
@@ -135,10 +140,10 @@ Peak Memory: 1.97GB
         }
     }
 
-    private void updateScreen()
+    private void updateScreen(WarningsPrinter warningsPrinter)
     {
         console.repositionCursor();
-        printQueryInfo(client.currentStatusInfo());
+        printQueryInfo(client.currentStatusInfo(), warningsPrinter);
     }
 
     public void printFinalInfo()
@@ -215,7 +220,7 @@ Peak Memory: 1.97GB
         out.println();
     }
 
-    private void printQueryInfo(QueryStatusInfo results)
+    private void printQueryInfo(QueryStatusInfo results, WarningsPrinter warningsPrinter)
     {
         StatementStats stats = results.getStats();
         Duration wallTime = nanosSince(start);
@@ -365,6 +370,7 @@ Peak Memory: 1.97GB
                     stats.getCompletedSplits());
             reprintLine(querySummary);
         }
+        warningsPrinter.print(results.getWarnings(), false, false);
     }
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
@@ -439,5 +445,36 @@ Peak Memory: 1.97GB
             return 0;
         }
         return min(100, (count * 100.0) / total);
+    }
+
+    private static class ConsoleWarningsPrinter
+            extends AbstractWarningsPrinter
+    {
+        private static final int DISPLAYED_WARNINGS = 5;
+        private final ConsolePrinter console;
+
+        ConsoleWarningsPrinter(ConsolePrinter console)
+        {
+            super(OptionalInt.of(DISPLAYED_WARNINGS));
+            this.console = requireNonNull(console, "console is null");
+        }
+
+        @Override
+        protected void print(List<String> warnings)
+        {
+            console.reprintLine("");
+            warnings.stream()
+                    .forEach(console::reprintLine);
+
+            // Remove warnings from previous screen
+            range(0, DISPLAYED_WARNINGS - warnings.size())
+                    .forEach(line -> console.reprintLine(""));
+        }
+
+        @Override
+        protected void printSeparator()
+        {
+            console.reprintLine("");
+        }
     }
 }
