@@ -40,6 +40,7 @@ import io.airlift.slice.Slices;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
@@ -367,9 +368,7 @@ public class MaterializedResult
                         zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = Instant.ofEpochMilli(((SqlTimestamp) prestoValue).getMillisUtc())
-                        .atZone(ZoneOffset.UTC)
-                        .toLocalDateTime();
+                convertedValue = SqlTimestamp.JSON_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
                 convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
