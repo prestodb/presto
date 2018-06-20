@@ -27,27 +27,35 @@ public final class SqlTimestamp
 {
     // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
     public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS";
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(JSON_FORMAT);
+    public static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern(JSON_FORMAT);
 
-    private final long millisUtc;
+    private final long millis;
     private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
-    public SqlTimestamp(long millisUtc)
+    public SqlTimestamp(long millis)
     {
-        this.millisUtc = millisUtc;
+        this.millis = millis;
         sessionTimeZoneKey = Optional.empty();
     }
 
     @Deprecated
     public SqlTimestamp(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
-        this.millisUtc = millisUtc;
+        this.millis = millisUtc;
         this.sessionTimeZoneKey = Optional.of(sessionTimeZoneKey);
     }
 
+    public long getMillis()
+    {
+        checkState(!isLegacyTimestamp(), "getMillis() can be called in new timestamp semantics only");
+        return millis;
+    }
+
+    @Deprecated
     public long getMillisUtc()
     {
-        return millisUtc;
+        checkState(isLegacyTimestamp(), "getMillisUtc() can be called in legacy timestamp semantics only");
+        return millis;
     }
 
     @Deprecated
@@ -57,7 +65,7 @@ public final class SqlTimestamp
     }
 
     @Deprecated
-    private boolean isLegacyTimestamp()
+    public boolean isLegacyTimestamp()
     {
         return sessionTimeZoneKey.isPresent();
     }
@@ -65,7 +73,7 @@ public final class SqlTimestamp
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisUtc, sessionTimeZoneKey);
+        return Objects.hash(millis, sessionTimeZoneKey);
     }
 
     @Override
@@ -78,7 +86,7 @@ public final class SqlTimestamp
             return false;
         }
         SqlTimestamp other = (SqlTimestamp) obj;
-        return Objects.equals(this.millisUtc, other.millisUtc) &&
+        return Objects.equals(this.millis, other.millis) &&
                 Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
     }
 
@@ -87,10 +95,17 @@ public final class SqlTimestamp
     public String toString()
     {
         if (isLegacyTimestamp()) {
-            return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
+            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(JSON_FORMATTER);
         }
         else {
-            return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(UTC_KEY.getId())).format(formatter);
+            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(UTC_KEY.getId())).format(JSON_FORMATTER);
+        }
+    }
+
+    private static void checkState(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalStateException(message);
         }
     }
 }
