@@ -441,6 +441,58 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testSplitToMultimap()
+    {
+        MapType expectedType = mapType(VARCHAR, new ArrayType(VARCHAR));
+
+        assertFunction("SPLIT_TO_MULTIMAP('', ',', '=')", expectedType, ImmutableMap.of());
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')",
+                expectedType,
+                ImmutableMap.of(
+                        "a", ImmutableList.of("123"),
+                        "b", ImmutableList.of(".4"),
+                        "c", ImmutableList.of(""),
+                        "", ImmutableList.of("d")));
+        assertFunction("SPLIT_TO_MULTIMAP('=', ',', '=')", expectedType, ImmutableMap.of("", ImmutableList.of("")));
+
+        // Test multiple values of the same key preserve the order as they appear in input
+        assertFunction("SPLIT_TO_MULTIMAP('a=123,a=.4,a=5.67', ',', '=')", expectedType, ImmutableMap.of("a", ImmutableList.of("123", ".4", "5.67")));
+
+        // Test multi-character delimiters
+        assertFunction("SPLIT_TO_MULTIMAP('key=>value,key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", ImmutableList.of("value", "value")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('key => value, key => value', ',', '=>')",
+                expectedType,
+                ImmutableMap.of(
+                        "key ", ImmutableList.of(" value"),
+                        " key ", ImmutableList.of(" value")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('key => value, key => value', ', ', '=>')",
+                expectedType,
+                ImmutableMap.of(
+                        "key ", ImmutableList.of(" value", " value")));
+
+        // Test non-ASCII
+        assertFunction("SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')",
+                expectedType,
+                ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1", "\u4EB1")));
+
+        // Entry delimiter and key-value delimiter must not be the same.
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('', '\u4EFF', '\u4EFF')", "entryDelimiter and keyValueDelimiter must not be the same");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
+
+        // Key-value delimiter must appear exactly once in each entry.
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key==value");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key=va=lue");
+
+        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')");
+    }
+
+    @Test
     public void testSplitPart()
     {
         assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 1)", createVarcharType(15), "abc");
