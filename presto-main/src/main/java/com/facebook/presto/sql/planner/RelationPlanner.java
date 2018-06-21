@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -549,7 +551,17 @@ class RelationPlanner
             Type type = analysis.getType(expression);
             Symbol inputSymbol = translations.get(expression);
             if (type instanceof ArrayType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                Type elementType = ((ArrayType) type).getElementType();
+                if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
+                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                    for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
+                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
+                    }
+                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
+                }
+                else {
+                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                }
             }
             else if (type instanceof MapType) {
                 unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
@@ -640,7 +652,17 @@ class RelationPlanner
             Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
             argumentSymbols.add(inputSymbol);
             if (type instanceof ArrayType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                Type elementType = ((ArrayType) type).getElementType();
+                if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
+                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                    for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
+                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
+                    }
+                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
+                }
+                else {
+                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                }
             }
             else if (type instanceof MapType) {
                 unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));

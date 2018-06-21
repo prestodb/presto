@@ -119,6 +119,7 @@ public class FeaturesConfig
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
+    private boolean legacyUnnestArrayRows;
 
     public enum JoinReorderingStrategy
     {
@@ -844,6 +845,18 @@ public class FeaturesConfig
     public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
     {
         this.maxGroupingSets = maxGroupingSets;
+        return this;
+    }
+
+    public boolean isLegacyUnnestArrayRows()
+    {
+        return legacyUnnestArrayRows;
+    }
+
+    @Config("deprecated.legacy-unnest-array-rows")
+    public FeaturesConfig setLegacyUnnestArrayRows(boolean legacyUnnestArrayRows)
+    {
+        this.legacyUnnestArrayRows = legacyUnnestArrayRows;
         return this;
     }
 }

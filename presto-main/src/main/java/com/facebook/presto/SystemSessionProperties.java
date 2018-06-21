@@ -104,6 +104,7 @@ public final class SystemSessionProperties
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
+    public static final String LEGACY_UNNEST = "legacy_unnest";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -478,7 +479,12 @@ public final class SystemSessionProperties
                         MAX_GROUPING_SETS,
                         "Maximum number of grouping sets in a GROUP BY",
                         featuresConfig.getMaxGroupingSets(),
-                        true));
+                        true),
+                booleanProperty(
+                        LEGACY_UNNEST,
+                        "Using legacy unnest semantic, where unnest(array(row)) will create one column of type row",
+                        featuresConfig.isLegacyUnnestArrayRows(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -778,6 +784,11 @@ public final class SystemSessionProperties
     public static int getMaxGroupingSets(Session session)
     {
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
+    }
+
+    public static boolean isLegacyUnnest(Session session)
+    {
+        return session.getSystemProperty(LEGACY_UNNEST, Boolean.class);
     }
 
     private static int validateValueIsPowerOfTwo(Object value, String property)

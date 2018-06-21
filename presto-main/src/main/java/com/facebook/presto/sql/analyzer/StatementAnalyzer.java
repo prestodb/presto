@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -697,7 +698,15 @@ class StatementAnalyzer
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((ArrayType) expressionType).getElementType()));
+                    Type elementType = ((ArrayType) expressionType).getElementType();
+                    if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
+                        elementType.getTypeParameters().stream()
+                                .map(type -> Field.newUnqualified(Optional.empty(), type))
+                                .forEach(outputFields::add);
+                    }
+                    else {
+                        outputFields.add(Field.newUnqualified(Optional.empty(), elementType));
+                    }
                 }
                 else if (expressionType instanceof MapType) {
                     outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
