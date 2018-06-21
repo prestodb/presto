@@ -20,6 +20,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
@@ -1166,8 +1167,12 @@ public class TestDomainTranslator
     }
 
     @Test
-    public void testVarcharComparedToCharExpression()
+    public void testLegacyCharComparedToVarcharExpression()
     {
+        metadata = createTestMetadataManager(new FeaturesConfig().setLegacyCharToVarcharCoercion(true));
+        literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        domainTranslator = new DomainTranslator(literalEncoder);
+
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
 
         // greater than or equal
@@ -1206,6 +1211,18 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Domain.all(createCharType(10)));
+    }
+
+    @Test
+    public void testCharComparedToVarcharExpression()
+    {
+        Type charType = createCharType(10);
+        // varchar literal is coerced to column (char) type
+        testSimpleComparison(equal(C_CHAR, cast(stringLiteral("abc"), charType)), C_CHAR, Range.equal(charType, Slices.utf8Slice("abc")));
+
+        // both sides got coerced to char(11)
+        charType = createCharType(11);
+        assertUnsupportedPredicate(equal(cast(C_CHAR, charType), cast(stringLiteral("abc12345678"), charType)));
     }
 
     private void assertPredicateIsAlwaysTrue(Expression expression)

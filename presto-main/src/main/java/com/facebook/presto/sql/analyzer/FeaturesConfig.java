@@ -82,6 +82,7 @@ public class FeaturesConfig
     private boolean legacyRoundNBigint;
     private boolean legacyJoinUsing;
     private boolean legacyRowFieldOrdinalAccess;
+    private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
@@ -201,6 +202,18 @@ public class FeaturesConfig
     public boolean isLegacyRowFieldOrdinalAccess()
     {
         return legacyRowFieldOrdinalAccess;
+    }
+
+    @Config("deprecated.legacy-char-to-varchar-coercion")
+    public FeaturesConfig setLegacyCharToVarcharCoercion(boolean value)
+    {
+        this.legacyCharToVarcharCoercion = value;
+        return this;
+    }
+
+    public boolean isLegacyCharToVarcharCoercion()
+    {
+        return legacyCharToVarcharCoercion;
     }
 
     @Config("deprecated.legacy-array-agg")
