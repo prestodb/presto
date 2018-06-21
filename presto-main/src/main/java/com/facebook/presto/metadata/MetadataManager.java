@@ -177,7 +177,7 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig)
     {
-        TypeManager typeManager = new TypeRegistry();
+        TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig);
         return new MetadataManager(
                 featuresConfig,
                 typeManager,
