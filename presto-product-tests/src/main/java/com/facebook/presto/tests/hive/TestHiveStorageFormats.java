@@ -27,6 +27,7 @@ import java.util.Map;
 
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -206,6 +207,33 @@ public class TestHiveStorageFormats
 
         // DROP TABLE
         query(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testSnappyCompressedParquetTableCreatedInHive()
+    {
+        String tableName = "table_created_in_hive_parquet";
+
+        // DROP TABLE
+        query("DROP TABLE IF EXISTS " + tableName);
+
+        // CREATE TABLE
+        onHive().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "   c_bigint BIGINT," +
+                        "   c_varchar VARCHAR(255))" +
+                        "STORED AS PARQUET " +
+                        "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")",
+                tableName));
+
+        // INSERT INTO TABLE
+        onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
+
+        // SELECT FROM TABLE
+        assertThat(query("SELECT * FROM " + tableName)).containsExactly(row(1, "test data"));
+
+        // DROP TABLE
+        query("DROP TABLE " + tableName);
     }
 
     private static void assertSelect(String query, String tableName)
