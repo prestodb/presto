@@ -407,7 +407,7 @@ public class PageFunctionCompiler
 
         return () -> {
             try {
-                return functionClass.newInstance();
+                return functionClass.getConstructor().newInstance();
             }
             catch (ReflectiveOperationException e) {
                 throw new PrestoException(COMPILER_ERROR, e);

@@ -172,9 +172,9 @@ public class StateCompiler
 
         Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
-            return (AccumulatorStateSerializer<T>) serializerClass.newInstance();
+            return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
         }
-        catch (InstantiationException | IllegalAccessException e) {
+        catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
     }
@@ -400,9 +400,9 @@ public class StateCompiler
 
         Class<? extends AccumulatorStateFactory> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
-            return (AccumulatorStateFactory<T>) factoryClass.newInstance();
+            return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
         }
-        catch (InstantiationException | IllegalAccessException e) {
+        catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
     }

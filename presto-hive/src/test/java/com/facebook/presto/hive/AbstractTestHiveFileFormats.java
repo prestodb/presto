@@ -615,7 +615,7 @@ public abstract class AbstractTestHiveFileFormats
     private static <T> T newInstance(String className, Class<T> superType)
             throws ReflectiveOperationException
     {
-        return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).newInstance();
+        return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).getConstructor().newInstance();
     }
 
     public static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
