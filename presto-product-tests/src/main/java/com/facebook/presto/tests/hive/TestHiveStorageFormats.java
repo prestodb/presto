@@ -68,10 +68,8 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase();
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE
         String createTable = format(
                 "CREATE TABLE %s(" +
                         "   orderkey      BIGINT," +
@@ -92,7 +90,6 @@ public class TestHiveStorageFormats
                 storageFormat.getName());
         query(createTable);
 
-        // INSERT INTO TABLE
         String insertInto = format("INSERT INTO %s " +
                 "SELECT " +
                 "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
@@ -100,10 +97,8 @@ public class TestHiveStorageFormats
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
         query(insertInto);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(tax), sum(discount), sum(linenumber) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -114,10 +109,8 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase();
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE AS SELECT
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (format='%s') AS " +
                         "SELECT " +
@@ -128,10 +121,8 @@ public class TestHiveStorageFormats
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(extendedprice), sum(suppkey), count(partkey) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -142,10 +133,8 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase();
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE
         String createTable = format(
                 "CREATE TABLE %s(" +
                         "   orderkey      BIGINT," +
@@ -166,7 +155,6 @@ public class TestHiveStorageFormats
                 storageFormat.getName());
         query(createTable);
 
-        // INSERT INTO TABLE
         String insertInto = format("INSERT INTO %s " +
                 "SELECT " +
                 "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
@@ -174,10 +162,8 @@ public class TestHiveStorageFormats
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
         query(insertInto);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -188,10 +174,8 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase();
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE AS SELECT
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (format='%s', partitioned_by = ARRAY['returnflag']) AS " +
                         "SELECT " +
@@ -202,10 +186,8 @@ public class TestHiveStorageFormats
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -214,10 +196,8 @@ public class TestHiveStorageFormats
     {
         String tableName = "table_created_in_hive_parquet";
 
-        // DROP TABLE
         query("DROP TABLE IF EXISTS " + tableName);
 
-        // CREATE TABLE
         onHive().executeQuery(format(
                 "CREATE TABLE %s (" +
                         "   c_bigint BIGINT," +
@@ -226,13 +206,10 @@ public class TestHiveStorageFormats
                         "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")",
                 tableName));
 
-        // INSERT INTO TABLE
         onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
 
-        // SELECT FROM TABLE
         assertThat(query("SELECT * FROM " + tableName)).containsExactly(row(1, "test data"));
 
-        // DROP TABLE
         query("DROP TABLE " + tableName);
     }
 
