@@ -45,7 +45,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
-import static com.facebook.presto.util.DateTimeUtils.parseTime;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -148,10 +148,10 @@ public final class LiteralInterpreter
         protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
         {
             if (session.isLegacyTimestamp()) {
-                return parseTime(session.getTimeZoneKey(), node.getValue());
+                return parseTimeLiteral(session.getTimeZoneKey(), node.getValue());
             }
             else {
-                return parseTime(node.getValue());
+                return parseTimeLiteral(node.getValue());
             }
         }
 

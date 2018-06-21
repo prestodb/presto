@@ -227,7 +227,7 @@ public final class DateTimeUtils
         TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timeWithTimeZonePrinter, timeWithTimeZoneParser).toFormatter().withOffsetParsed();
     }
 
-    public static long parseTime(String value)
+    public static long parseTimeLiteral(String value)
     {
         try {
             return parseTimeWithTimeZone(value);
@@ -238,7 +238,7 @@ public final class DateTimeUtils
     }
 
     @Deprecated
-    public static long parseTime(TimeZoneKey timeZoneKey, String value)
+    public static long parseTimeLiteral(TimeZoneKey timeZoneKey, String value)
     {
         try {
             return parseTimeWithTimeZone(value);

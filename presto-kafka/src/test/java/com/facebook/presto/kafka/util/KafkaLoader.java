@@ -45,7 +45,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.util.DateTimeUtils.parseTime;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkState;
@@ -143,7 +143,7 @@ public class KafkaLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTime(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseTimeLiteral(timeZoneKey, (String) value));
             }
             if (TIMESTAMP.equals(type)) {
                 return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
