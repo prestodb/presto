@@ -45,6 +45,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -95,10 +97,6 @@ import static org.testng.Assert.fail;
 
 public class TestDomainTranslator
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
-    private static final DomainTranslator DOMAIN_TRANSLATOR = new DomainTranslator(LITERAL_ENCODER);
-
     private static final Symbol C_BIGINT = new Symbol("c_bigint");
     private static final Symbol C_DOUBLE = new Symbol("c_double");
     private static final Symbol C_VARCHAR = new Symbol("c_varchar");
@@ -155,6 +153,26 @@ public class TestDomainTranslator
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
+
+    private Metadata metadata;
+    private LiteralEncoder literalEncoder;
+    private DomainTranslator domainTranslator;
+
+    @BeforeClass
+    public void setup()
+    {
+        metadata = createTestMetadataManager();
+        literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        domainTranslator = new DomainTranslator(literalEncoder);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        metadata = null;
+        literalEncoder = null;
+        domainTranslator = null;
+    }
 
     @Test
     public void testNoneRoundTrip()
@@ -1051,7 +1069,7 @@ public class TestDomainTranslator
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
-        Type superType = METADATA.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("uncompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = metadata.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("uncompatible types in test (" + columnType + ", " + literalType + ")"));
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);
@@ -1216,14 +1234,14 @@ public class TestDomainTranslator
         assertEquals(result.getTupleDomain(), tupleDomain);
     }
 
-    private static ExtractionResult fromPredicate(Expression originalPredicate)
+    private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.fromPredicate(METADATA, TEST_SESSION, originalPredicate, TYPES);
+        return DomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
     }
 
-    private static Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return DOMAIN_TRANSLATOR.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1286,7 +1304,7 @@ public class TestDomainTranslator
         return new IsNullPredicate(symbol.toSymbolReference());
     }
 
-    private static InPredicate in(Symbol symbol, List<?> values)
+    private InPredicate in(Symbol symbol, List<?> values)
     {
         return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
     }
@@ -1306,10 +1324,10 @@ public class TestDomainTranslator
         return new IsNullPredicate(expression);
     }
 
-    private static InPredicate in(Expression expression, Type expressisonType, List<?> values)
+    private InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
         List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = LITERAL_ENCODER.toExpressions(values, types);
+        List<Expression> expressions = literalEncoder.toExpressions(values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }
 
@@ -1411,7 +1429,7 @@ public class TestDomainTranslator
         return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
     }
 
-    private static Expression varbinaryLiteral(Slice value)
+    private Expression varbinaryLiteral(Slice value)
     {
         return toExpression(value, VARBINARY);
     }
@@ -1436,12 +1454,12 @@ public class TestDomainTranslator
         return (long) Float.floatToIntBits(value);
     }
 
-    private static void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
+    private void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
     {
         testSimpleComparison(expression, symbol, Domain.create(ValueSet.ofRanges(expectedDomainRange), false));
     }
 
-    private static void testSimpleComparison(Expression expression, Symbol symbol, Domain domain)
+    private void testSimpleComparison(Expression expression, Symbol symbol, Domain domain)
     {
         ExtractionResult result = fromPredicate(expression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
@@ -1452,14 +1470,14 @@ public class TestDomainTranslator
         }
     }
 
-    private static Expression toExpression(Object object, Type type)
+    private Expression toExpression(Object object, Type type)
     {
-        return LITERAL_ENCODER.toExpression(object, type);
+        return literalEncoder.toExpression(object, type);
     }
 
-    private static List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
+    private List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
     {
-        return LITERAL_ENCODER.toExpressions(objects, types);
+        return literalEncoder.toExpressions(objects, types);
     }
 
     private static class NumericValues<T>
