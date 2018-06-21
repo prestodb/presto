@@ -841,13 +841,13 @@ public class TestDomainTranslator
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
 
         assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertPredicateIsAlwaysFalse(in(C_BIGINT, Arrays.asList(new Long[]{null})));
-        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+        assertPredicateIsAlwaysFalse(in(C_BIGINT, Arrays.asList(new Long[] {null})));
+        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
 
         assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
         assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
-        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
+        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
     }
 
     @Test
