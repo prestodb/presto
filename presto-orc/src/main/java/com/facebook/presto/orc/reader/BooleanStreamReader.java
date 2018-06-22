@@ -29,10 +29,12 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanStreamReader
@@ -98,20 +100,23 @@ public class BooleanStreamReader
             dataStream.getSetBits(type, nextBatchSize, builder);
         }
         else {
-            if (nullVector.length < nextBatchSize) {
-                nullVector = new boolean[nextBatchSize];
-            }
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
-            if (nullValues != nextBatchSize) {
-                if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            assureVectorSize();
+
+            while (nextBatchSize > 0) {
+                int subBatchSize = min(nextBatchSize, MAX_BATCH_SIZE);
+                int nullValues = presentStream.getUnsetBits(subBatchSize, nullVector);
+                if (nullValues != subBatchSize) {
+                    if (dataStream == null) {
+                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                    }
+                    dataStream.getSetBits(type, subBatchSize, builder, nullVector);
                 }
-                dataStream.getSetBits(type, nextBatchSize, builder, nullVector);
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    builder.appendNull();
+                else {
+                    for (int i = 0; i < subBatchSize; i++) {
+                        builder.appendNull();
+                    }
                 }
+                nextBatchSize -= subBatchSize;
             }
         }
 
@@ -119,6 +124,14 @@ public class BooleanStreamReader
         nextBatchSize = 0;
 
         return builder.build();
+    }
+
+    private void assureVectorSize()
+    {
+        int requiredVectorLength = min(nextBatchSize, MAX_BATCH_SIZE);
+        if (nullVector.length < requiredVectorLength) {
+            nullVector = new boolean[requiredVectorLength];
+        }
     }
 
     private void openRowGroup()
