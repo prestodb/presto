@@ -201,10 +201,9 @@ class ColumnInfo
 
     private static int getType(TypeSignature type)
     {
-        if (type.getBase().equals("array")) {
-            return Types.ARRAY;
-        }
         switch (type.getBase()) {
+            case "array":
+                return Types.ARRAY;
             case "boolean":
                 return Types.BOOLEAN;
             case "bigint":
