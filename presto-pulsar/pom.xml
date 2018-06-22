@@ -17,6 +17,8 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.fail-checkstyle>false</air.check.fail-checkstyle>
         <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
+        <air.check.skip-dependency>true</air.check.skip-dependency>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
     <dependencies>
@@ -60,12 +62,41 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
+        <!--<dependency>-->
+            <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+            <!--<artifactId>jackson-databind</artifactId>-->
+        <!--</dependency>-->
+
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.pulsar</groupId>
+            <artifactId>pulsar-client-admin</artifactId>
+            <version>2.1.0-incubating-SNAPSHOT</version>
+        </dependency>
 
+        <dependency>
+            <groupId>org.apache.pulsar</groupId>
+            <artifactId>managed-ledger</artifactId>
+            <version>2.1.0-incubating-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.zookeeper</groupId>
+                    <artifactId>zookeeper</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -31,16 +30,16 @@ import static java.util.Objects.requireNonNull;
 
 public class PulsarRecordSetProvider implements ConnectorRecordSetProvider {
 
+    private final PulsarConnectorConfig pulsarConnectorConfig;
+
+    @Inject
+    public PulsarRecordSetProvider(PulsarConnectorConfig pulsarConnectorConfig)
+    {
+        this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
+    }
+
     private static final Logger log = Logger.get(PulsarRecordSetProvider.class);
 
-
-    //    private final String connectorId;
-//
-//    @Inject
-//    public PulsarRecordSetProvider(PulsarConnectorId connectorId)
-//    {
-//        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-//    }
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns) {
         log.info("getRecordSet: %s - %s", split, columns);
@@ -54,6 +53,6 @@ public class PulsarRecordSetProvider implements ConnectorRecordSetProvider {
         }
 
 
-        return new PulsarRecordSet(pulsarSplit, handles.build());
+        return new PulsarRecordSet(pulsarSplit, handles.build(), this.pulsarConnectorConfig);
     }
 }

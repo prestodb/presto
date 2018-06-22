@@ -14,12 +14,16 @@
 package com.facebook.presto.pulsar;
 
 import io.airlift.configuration.Config;
+import org.apache.pulsar.client.admin.PulsarAdmin;
+import org.apache.pulsar.client.api.PulsarClientException;
 
 import javax.validation.constraints.NotNull;
 
-public class PulsarConnectorConfig {
+public class PulsarConnectorConfig implements AutoCloseable {
 
-    private String brokerServiceUrl = "foo";
+    private String brokerServiceUrl = "http://localhost:8080";
+    private String zookeeperUri = "localhost:2181";
+    private PulsarAdmin pulsarAdmin;
 
     @NotNull
     public String getBrokerServiceUrl() {
@@ -30,5 +34,36 @@ public class PulsarConnectorConfig {
     public PulsarConnectorConfig setBrokerServiceUrl(String brokerServiceUrl) {
         this.brokerServiceUrl = brokerServiceUrl;
         return this;
+    }
+
+    @NotNull
+    public String getZookeeperUri() {
+        return this.zookeeperUri;
+    }
+
+    @Config("pulsar.zookeeper-uri")
+    public PulsarConnectorConfig setZookeeperUri(String zookeeperUri) {
+        this.zookeeperUri = zookeeperUri;
+        return this;
+    }
+
+    @NotNull
+    public PulsarAdmin getPulsarAdmin() throws PulsarClientException {
+        if (this.pulsarAdmin == null) {
+            this.pulsarAdmin = PulsarAdmin.builder().serviceHttpUrl(getBrokerServiceUrl()).build();
+        }
+        return this.pulsarAdmin;
+    }
+
+    @Override
+    public void close() throws Exception {
+        this.pulsarAdmin.close();
+    }
+
+    @Override
+    public String toString() {
+        return "PulsarConnectorConfig{" +
+                "brokerServiceUrl='" + brokerServiceUrl + '\'' +
+                '}';
     }
 }

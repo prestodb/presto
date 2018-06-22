@@ -19,26 +19,39 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import java.net.URI;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class PulsarSplit implements ConnectorSplit {
 
+    private final long splitId;
     private final String connectorId;
     private final String schemaName;
     private final String tableName;
+    private final long splitSize;
+    private final String schema;
 
     @JsonCreator
     public PulsarSplit(
+            @JsonProperty("splitId") long splitId,
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("splitSize") long splitSize,
+            @JsonProperty("schema") String schema)
     {
+        this.splitId = splitId;
         this.schemaName = requireNonNull(schemaName, "schema name is null");
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.tableName = requireNonNull(tableName, "table name is null");
+        this.splitSize = splitSize;
+        this.schema = schema;
+    }
+
+    @JsonProperty
+    public long getSplitId() {
+        return splitId;
     }
 
     @JsonProperty
@@ -57,6 +70,16 @@ public class PulsarSplit implements ConnectorSplit {
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public long getSplitSize() {
+        return splitSize;
+    }
+
+    @JsonProperty
+    public String getSchema() {
+        return schema;
     }
 
     @Override

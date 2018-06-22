@@ -17,10 +17,14 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Logger;
+import org.apache.pulsar.client.admin.PulsarAdmin;
+import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.common.schema.SchemaInfo;
 
 import java.util.Map;
 
@@ -28,6 +32,9 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarConnectorFactory implements ConnectorFactory {
+
+    private static final Logger log = Logger.get(PulsarConnectorFactory.class);
+
     @Override
     public String getName() {
         return "pulsar";
@@ -41,16 +48,13 @@ public class PulsarConnectorFactory implements ConnectorFactory {
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context) {
         requireNonNull(config, "requiredConfig is null");
+        log.info("create connector... %s", config);
         try {
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new PulsarConnectorModule(connectorId, context.getTypeManager())
-//                    binder -> {
-//                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-////                        binder.bind(PulsarConnectorId.class).toInstance(new PulsarConnectorId(connectorId));
-//                    }
-                    );
+            );
 
             Injector injector = app
                     .strictConfig()

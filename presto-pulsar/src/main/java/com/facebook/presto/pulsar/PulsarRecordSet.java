@@ -17,9 +17,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Resources;
 
-import java.net.MalformedURLException;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -28,8 +26,11 @@ public class PulsarRecordSet implements RecordSet {
 
     private final List<PulsarColumnHandle> columnHandles;
     private final List<Type> columnTypes;
+    private final PulsarSplit pulsarSplit;
+    private final PulsarConnectorConfig pulsarConnectorConfig;
     
-    public PulsarRecordSet (PulsarSplit split, List<PulsarColumnHandle> columnHandles) {
+    public PulsarRecordSet(PulsarSplit split, List<PulsarColumnHandle> columnHandles, PulsarConnectorConfig
+            pulsarConnectorConfig) {
         requireNonNull(split, "split is null");
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
@@ -37,6 +38,10 @@ public class PulsarRecordSet implements RecordSet {
             types.add(column.getType());
         }
         this.columnTypes = types.build();
+
+        this.pulsarSplit = split;
+
+        this.pulsarConnectorConfig = pulsarConnectorConfig;
     }
 
 
@@ -47,6 +52,6 @@ public class PulsarRecordSet implements RecordSet {
 
     @Override
     public RecordCursor cursor() {
-        return new PulsarRecordCursor(this.columnHandles);
+        return new PulsarRecordCursor(this.columnHandles, this.pulsarSplit, this.pulsarConnectorConfig);
     }
 }

@@ -37,20 +37,21 @@ public class PulsarConnector implements Connector {
     private final PulsarMetadata metadata;
     private final PulsarSplitManager splitManager;
     private final PulsarRecordSetProvider recordSetProvider;
+    private final PulsarConnectorConfig pulsarConnectorConfig;
 
     @Inject
     public PulsarConnector (
             LifeCycleManager lifeCycleManager,
             PulsarMetadata metadata,
             PulsarSplitManager splitManager,
-            PulsarRecordSetProvider recordSetProvider
-
+            PulsarRecordSetProvider recordSetProvider,
+            PulsarConnectorConfig pulsarConnectorConfig
     ) {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-
+        this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
     }
 
     @Override
@@ -80,6 +81,12 @@ public class PulsarConnector implements Connector {
     @Override
     public final void shutdown()
     {
+//        log.info("Shutting down Pulsar Connector");
+//        try {
+//            this.pulsarConnectorConfig.close();
+//        } catch (Exception e) {
+//            log.error(e, "Failed to close pulsar connector");
+//        }
         try {
             lifeCycleManager.stop();
         }
