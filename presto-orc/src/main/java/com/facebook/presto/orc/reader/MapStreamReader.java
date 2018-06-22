@@ -101,17 +101,16 @@ public class MapStreamReader
             }
         }
 
-        // The length vector could be reused, but this simplifies the code below by
-        // taking advantage of null entries being initialized to zero.  The vector
-        // could be reinitialized for each loop, but that is likely just as expensive
-        // as allocating a new array
-        int[] lengthVector = new int[nextBatchSize];
+        // We will use the offsetVector as the buffer to read the length values from lengthStream,
+        // and the length values will be converted in-place to an offset vector.
+        int[] offsetVector = new int[nextBatchSize + 1];
         boolean[] nullVector = new boolean[nextBatchSize];
+
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, lengthVector);
+            lengthStream.nextIntVector(nextBatchSize, offsetVector);
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
@@ -119,7 +118,7 @@ public class MapStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
+                lengthStream.nextIntVector(nextBatchSize, offsetVector, nullVector);
             }
         }
 
@@ -127,9 +126,10 @@ public class MapStreamReader
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
 
+        // Calculate the entryCount. Note that the values in the offsetVector are still length values now.
         int entryCount = 0;
-        for (int length : lengthVector) {
-            entryCount += length;
+        for (int i = 0; i < offsetVector.length - 1; i++) {
+            entryCount += offsetVector[i];
         }
 
         Block keys;
@@ -145,19 +145,21 @@ public class MapStreamReader
             values = valueType.createBlockBuilder(null, 1).build();
         }
 
-        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, lengthVector);
+        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);
 
-        // convert lengths into offsets into the keyValueBlock (e.g., two positions per entry)
-        int[] offsets = new int[nextBatchSize + 1];
-        for (int i = 1; i < offsets.length; i++) {
-            int length = lengthVector[i - 1];
-            offsets[i] = offsets[i - 1] + length;
+        // Convert the length values in the offsetVector to offset values in-place
+        int currentLength = offsetVector[0];
+        offsetVector[0] = 0;
+        for (int i = 1; i < offsetVector.length; i++) {
+            int lastLength = offsetVector[i];
+            offsetVector[i] = offsetVector[i - 1] + currentLength;
+            currentLength = lastLength;
         }
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(nullVector, offsets, keyValueBlock[0], keyValueBlock[1]);
+        return mapType.createBlockFromKeyValue(nullVector, offsetVector, keyValueBlock[0], keyValueBlock[1]);
     }
 
     private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)

@@ -28,7 +28,13 @@ public interface LongInputStream
     void nextIntVector(int items, int[] vector)
             throws IOException;
 
+    void nextIntVector(int items, int[] vector, int offset)
+            throws IOException;
+
     void nextIntVector(int items, int[] vector, boolean[] isNull)
+            throws IOException;
+
+    void nextIntVector(int items, int[] vector, int vectorOffset, boolean[] isNull)
             throws IOException;
 
     void nextLongVector(int items, long[] vector)

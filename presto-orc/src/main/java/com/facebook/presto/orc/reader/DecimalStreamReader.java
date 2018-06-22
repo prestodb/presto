@@ -30,14 +30,15 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class DecimalStreamReader
@@ -91,57 +92,67 @@ public class DecimalStreamReader
         }
 
         seekToOffset();
-        allocateVectors();
+        assureVectorSize();
 
         BlockBuilder builder = decimalType.createBlockBuilder(null, nextBatchSize);
-        if (presentStream == null) {
-            if (decimalStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is not present");
-            }
-            if (scaleStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is not present");
-            }
-
-            Arrays.fill(nullVector, false);
-            scaleStream.nextLongVector(nextBatchSize, scaleVector);
-
-            if (decimalType.isShort()) {
-                decimalStream.nextShortDecimalVector(nextBatchSize, builder, decimalType, scaleVector);
-            }
-            else {
-                decimalStream.nextLongDecimalVector(nextBatchSize, builder, decimalType, scaleVector);
-            }
-        }
-        else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
-            if (nullValues != nextBatchSize) {
+        while (nextBatchSize > 0) {
+            int subBatchSize = min(nextBatchSize, MAX_BATCH_SIZE);
+            if (presentStream == null) {
                 if (decimalStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is not present");
                 }
                 if (scaleStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is not present");
                 }
-
-                scaleStream.nextLongVector(nextBatchSize, scaleVector, nullVector);
-
+                scaleStream.nextLongVector(subBatchSize, scaleVector);
                 if (decimalType.isShort()) {
-                    decimalStream.nextShortDecimalVector(nextBatchSize, builder, decimalType, scaleVector, nullVector);
+                    decimalStream.nextShortDecimalVector(subBatchSize, builder, decimalType, scaleVector);
                 }
                 else {
-                    decimalStream.nextLongDecimalVector(nextBatchSize, builder, decimalType, scaleVector, nullVector);
+                    decimalStream.nextLongDecimalVector(subBatchSize, builder, decimalType, scaleVector);
                 }
             }
             else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    builder.appendNull();
+                int nullValues = presentStream.getUnsetBits(subBatchSize, nullVector);
+                if (nullValues != subBatchSize) {
+                    if (decimalStream == null) {
+                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is not present");
+                    }
+                    if (scaleStream == null) {
+                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is not present");
+                    }
+
+                    scaleStream.nextLongVector(subBatchSize, scaleVector, nullVector);
+
+                    if (decimalType.isShort()) {
+                        decimalStream.nextShortDecimalVector(subBatchSize, builder, decimalType, scaleVector, nullVector);
+                    }
+                    else {
+                        decimalStream.nextLongDecimalVector(subBatchSize, builder, decimalType, scaleVector, nullVector);
+                    }
+                }
+                else {
+                    for (int i = 0; i < subBatchSize; i++) {
+                        builder.appendNull();
+                    }
                 }
             }
+            nextBatchSize -= subBatchSize;
         }
 
         readOffset = 0;
         nextBatchSize = 0;
 
         return builder.build();
+    }
+
+    private void assureVectorSize()
+    {
+        int requiredVectorLength = min(nextBatchSize, MAX_BATCH_SIZE);
+        if (nullVector.length < requiredVectorLength) {
+            nullVector = new boolean[requiredVectorLength];
+            scaleVector = new long[requiredVectorLength];
+        }
     }
 
     private void openRowGroup()
@@ -173,14 +184,6 @@ public class DecimalStreamReader
                 decimalStream.skip(readOffset);
                 scaleStream.skip(readOffset);
             }
-        }
-    }
-
-    private void allocateVectors()
-    {
-        if (nullVector.length < nextBatchSize) {
-            nullVector = new boolean[nextBatchSize];
-            scaleVector = new long[nextBatchSize];
         }
     }
 

@@ -97,17 +97,15 @@ public class ListStreamReader
             }
         }
 
-        // The length vector could be reused, but this simplifies the code below by
-        // taking advantage of null entries being initialized to zero.  The vector
-        // could be reinitialized for each loop, but that is likely just as expensive
-        // as allocating a new array
-        int[] lengthVector = new int[nextBatchSize];
+        // We will use the offsetVector as the buffer to read the length values from lengthStream,
+        // and the length values will be converted in-place to an offset vector.
+        int[] offsetVector = new int[nextBatchSize + 1];
         boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, lengthVector);
+            lengthStream.nextIntVector(nextBatchSize, offsetVector);
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
@@ -115,17 +113,21 @@ public class ListStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
+                lengthStream.nextIntVector(nextBatchSize, offsetVector, nullVector);
             }
         }
-        int[] offsets = new int[nextBatchSize + 1];
-        for (int i = 1; i < offsets.length; i++) {
-            int length = lengthVector[i - 1];
-            offsets[i] = offsets[i - 1] + length;
+
+        // Convert the length values in the offsetVector to offset values in place
+        int currentLength = offsetVector[0];
+        offsetVector[0] = 0;
+        for (int i = 1; i < offsetVector.length; i++) {
+            int nextLength = offsetVector[i];
+            offsetVector[i] = offsetVector[i - 1] + currentLength;
+            currentLength = nextLength;
         }
 
         Type elementType = type.getTypeParameters().get(0);
-        int elementCount = offsets[offsets.length - 1];
+        int elementCount = offsetVector[offsetVector.length - 1];
 
         Block elements;
         if (elementCount > 0) {
@@ -135,7 +137,7 @@ public class ListStreamReader
         else {
             elements = elementType.createBlockBuilder(null, 0).build();
         }
-        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, nullVector, offsets, elements);
+        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, nullVector, offsetVector, elements);
 
         readOffset = 0;
         nextBatchSize = 0;

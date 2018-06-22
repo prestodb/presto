@@ -43,6 +43,7 @@ import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedL
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -69,7 +70,6 @@ public class SliceDirectStreamReader
     private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream lengthStream;
-    private int[] lengthVector = new int[0];
 
     @Nonnull
     private InputStreamSource<ByteArrayInputStream> dataByteSource = missingStreamSource(ByteArrayInputStream.class);
@@ -120,18 +120,16 @@ public class SliceDirectStreamReader
 
         // create new isNullVector and offsetVector for VariableWidthBlock
         boolean[] isNullVector = null;
-        int[] offsetVector = new int[nextBatchSize + 1];
 
-        // lengthVector is reused across calls
-        if (lengthVector.length < nextBatchSize) {
-            lengthVector = new int[nextBatchSize];
-        }
+        // We will use the offsetVector as the buffer to read the length values from lengthStream,
+        // and the length values will be converted in-place to an offset vector.
+        int[] offsetVector = new int[nextBatchSize + 1];
 
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, lengthVector);
+            lengthStream.nextIntVector(nextBatchSize, offsetVector);
         }
         else {
             isNullVector = new boolean[nextBatchSize];
@@ -143,18 +141,19 @@ public class SliceDirectStreamReader
 
                 if (nullValues == 0) {
                     isNullVector = null;
-                    lengthStream.nextIntVector(nextBatchSize, lengthVector);
+                    lengthStream.nextIntVector(nextBatchSize, offsetVector);
                 }
                 else {
-                    lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
+                    lengthStream.nextIntVector(nextBatchSize, offsetVector, isNullVector);
                 }
             }
         }
 
+        // Calculate the total length for all entries. Note that the values in the offsetVector are still length values now.
         long totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
             if (isNullVector == null || !isNullVector[i]) {
-                totalLength += lengthVector[i];
+                totalLength += offsetVector[i];
             }
         }
 
@@ -176,23 +175,30 @@ public class SliceDirectStreamReader
         byte[] data = new byte[toIntExact(totalLength)];
         Slice slice = Slices.wrappedBuffer(data);
 
-        // truncate string and update offsets
+        // We do the following operations together in the for loop:
+        // * truncate strings
+        // * convert original length values in offsetVector into truncated offset values
+        int currentLength = offsetVector[0];
         offsetVector[0] = 0;
-        for (int i = 0; i < currentBatchSize; i++) {
-            if (isNullVector != null && isNullVector[i]) {
-                offsetVector[i + 1] = offsetVector[i];
+        for (int i = 1; i <= currentBatchSize; i++) {
+            int nextLength = offsetVector[i];
+            if (isNullVector != null && isNullVector[i - 1]) {
+                checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
+                offsetVector[i] = offsetVector[i - 1];
+                currentLength = nextLength;
                 continue;
             }
-            int offset = offsetVector[i];
-            int length = lengthVector[i];
+            int offset = offsetVector[i - 1];
 
             // read data without truncation
-            dataStream.next(data, offset, offset + length);
+            dataStream.next(data, offset, offset + currentLength);
 
-            // adjust offsets with truncated length
-            int truncatedLength = computeTruncatedLength(slice, offset, length, type);
+            // adjust offsetVector with truncated length
+            int truncatedLength = computeTruncatedLength(slice, offset, currentLength, type);
             verify(truncatedLength >= 0);
-            offsetVector[i + 1] = offsetVector[i] + truncatedLength;
+            offsetVector[i] = offset + truncatedLength;
+
+            currentLength = nextLength;
         }
 
         // this can lead to over-retention but unlikely to happen given truncation rarely happens
