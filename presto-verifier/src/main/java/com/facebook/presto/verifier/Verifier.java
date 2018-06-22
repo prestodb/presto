@@ -77,7 +77,7 @@ public class Verifier
         ExecutorService executor = newFixedThreadPool(threadCount);
         CompletionService<Validator> completionService = new ExecutorCompletionService<>(executor);
 
-        int totalQueries = queries.size() * config.getSuiteRepetitions();
+        int totalQueries = queries.size() * config.getSuiteRepetitions() * config.getQueryRepetitions();
         log.info("Total Queries:     %d", totalQueries);
 
         log.info("Whitelisted Queries: %s", Joiner.on(',').join(whitelist));

@@ -50,6 +50,7 @@ public class VerifierConfig
     private String runId = new DateTime().toString("yyyy-MM-dd");
     private Set<String> eventClients = ImmutableSet.of("human-readable");
     private int threadCount = 10;
+    private int queryRewriteThreadCount = Math.max(1, Runtime.getRuntime().availableProcessors() * 2);
     private String queryDatabase;
     private String controlGateway;
     private String testGateway;
@@ -249,6 +250,20 @@ public class VerifierConfig
     public VerifierConfig setThreadCount(int threadCount)
     {
         this.threadCount = threadCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getQueryRewriteThreadCount()
+    {
+        return queryRewriteThreadCount;
+    }
+
+    @ConfigDescription("The concurrency level of the query rewriting phase")
+    @Config("query-rewrite-thread-count")
+    public VerifierConfig setQueryRewriteThreadCount(int threadCount)
+    {
+        this.queryRewriteThreadCount = threadCount;
         return this;
     }
 

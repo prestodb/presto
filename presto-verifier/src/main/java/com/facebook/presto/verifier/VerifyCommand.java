@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -67,6 +68,10 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.QueryType.CREATE;
@@ -75,6 +80,7 @@ import static com.facebook.presto.verifier.QueryType.READ;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 @Command(name = "verify", description = "verify")
 public class VerifyCommand
@@ -233,7 +239,8 @@ public class VerifyCommand
         return queries;
     }
 
-    private static List<QueryPair> rewriteQueries(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
+    @VisibleForTesting
+    static List<QueryPair> rewriteQueries(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
     {
         QueryRewriter testRewriter = new QueryRewriter(
                 parser,
@@ -257,17 +264,29 @@ public class VerifyCommand
                 config.getDoublePrecision(),
                 config.getControlTimeout());
 
+        LOG.info(String.format("Rewriting queries in %d threads", config.getQueryRewriteThreadCount()));
+        ExecutorService executor = newFixedThreadPool(config.getQueryRewriteThreadCount());
+        CompletionService<QueryPair> completionService = new ExecutorCompletionService<>(executor);
+
         ImmutableList.Builder<QueryPair> builder = ImmutableList.builder();
         for (QueryPair pair : queries) {
+            completionService.submit(() -> new QueryPair(
+                    pair.getSuite(),
+                    pair.getName(),
+                    testRewriter.shadowQuery(pair.getTest()),
+                    controlRewriter.shadowQuery(pair.getControl())));
+        }
+
+        for (QueryPair pair : queries) {
             try {
-                Query testQuery = testRewriter.shadowQuery(pair.getTest());
-                Query controlQuery = controlRewriter.shadowQuery(pair.getControl());
-                builder.add(new QueryPair(pair.getSuite(), pair.getName(), testQuery, controlQuery));
+                QueryPair rewrittenPair = completionService.take().get();
+                builder.add(rewrittenPair);
             }
-            catch (SQLException | QueryRewriter.QueryRewriteException e) {
+            catch (InterruptedException | ExecutionException e) {
                 LOG.warn(e, "Failed to rewrite %s for shadowing. Skipping.", pair.getName());
             }
         }
+
         return builder.build();
     }
 
