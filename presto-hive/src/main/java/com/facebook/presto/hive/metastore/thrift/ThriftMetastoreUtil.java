@@ -88,6 +88,9 @@ import static java.util.stream.Collectors.toSet;
 
 public final class ThriftMetastoreUtil
 {
+    private static final String PUBLIC_ROLE_NAME = "public";
+    private static final String ADMIN_ROLE_NAME = "admin";
+
     private ThriftMetastoreUtil() {}
 
     public static org.apache.hadoop.hive.metastore.api.Database toMetastoreApiDatabase(Database database)
@@ -222,7 +225,7 @@ public final class ThriftMetastoreUtil
         Optional<SelectedRole> role = identity.getRole();
 
         if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
-            return ImmutableSet.of("public");
+            return ImmutableSet.of(PUBLIC_ROLE_NAME);
         }
 
         PrestoPrincipal principal;
@@ -239,9 +242,9 @@ public final class ThriftMetastoreUtil
                 .collect(toSet());
 
         // The admin role must be enabled explicitly. If it is, will be re-added below.
-        roles.remove("admin");
+        roles.remove(ADMIN_ROLE_NAME);
 
-        roles.add("public");
+        roles.add(PUBLIC_ROLE_NAME);
 
         if (principal.getType() == ROLE) {
             roles.add(principal.getName());
