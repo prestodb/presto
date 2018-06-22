@@ -201,6 +201,13 @@ Accessors
     Returns the length of a linestring or multi-linestring using Euclidean measurement on a
     two dimensional plane (based on spatial ref) in projected units.
 
+.. function:: ST_PointN(LineString, index) -> Point
+
+    Returns the vertex of a linestring at a given index (indices start at 1).
+    If the given index is less than 1 or greater than the total number of elements in the collection,
+    returns ``NULL``.
+    Use :func:``ST_NumPoints`` to find out the total number of elements.
+
 .. function:: ST_XMax(Geometry) -> double
 
     Returns X maxima of a bounding box of a geometry.
@@ -220,6 +227,7 @@ Accessors
 .. function:: ST_StartPoint(Geometry) -> point
 
     Returns the first point of a LineString geometry as a Point.
+    This is a shortcut for ST_PointN(geometry, 1).
 
 .. function:: simplify_geometry(Geometry, double) -> Geometry
 
@@ -229,6 +237,7 @@ Accessors
 .. function:: ST_EndPoint(Geometry) -> point
 
     Returns the last point of a LineString geometry as a Point.
+    This is a shortcut for ST_PointN(geometry, ST_NumPoints(geometry)).
 
 .. function:: ST_X(Point) -> double
 
