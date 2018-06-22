@@ -236,6 +236,28 @@ public final class ThriftMetastoreUtil
         return ImmutableSet.copyOf(result);
     }
 
+    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal, String role)
+    {
+        if (principal.getType() == ROLE && principal.getName().equals(role)) {
+            return true;
+        }
+        Set<String> seenRoles = new HashSet<>();
+        Queue<PrestoPrincipal> queue = new ArrayDeque<>();
+        queue.add(principal);
+        while (!queue.isEmpty()) {
+            Set<RoleGrant> grants = metastore.listRoleGrants(queue.poll());
+            for (RoleGrant grant : grants) {
+                if (grant.getRoleName().equals(role)) {
+                    return true;
+                }
+                if (seenRoles.add(grant.getRoleName())) {
+                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+                }
+            }
+        }
+        return false;
+    }
+
     public static Set<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
     {
         return listApplicableRoles(principal, metastore::listRoleGrants)
@@ -274,6 +296,50 @@ public final class ThriftMetastoreUtil
             result.addAll(metastore.listTablePrivileges(databaseName, tableName, current));
         }
         return result.build();
+    }
+
+    public static boolean isRoleEnabled(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants, String role)
+    {
+        if (role.equals(PUBLIC_ROLE_NAME)) {
+            return true;
+        }
+
+        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+            return false;
+        }
+
+        PrestoPrincipal principal;
+        if (!identity.getRole().isPresent() || identity.getRole().get().getType() == SelectedRole.Type.ALL) {
+            principal = new PrestoPrincipal(USER, identity.getUser());
+        }
+        else {
+            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+        }
+
+        if (principal.getType() == ROLE && principal.getName().equals(role)) {
+            return true;
+        }
+
+        if (role.equals(ADMIN_ROLE_NAME)) {
+            // The admin role must be enabled explicitly, and so it should checked above
+            return false;
+        }
+
+        Set<String> seenRoles = new HashSet<>();
+        Queue<PrestoPrincipal> queue = new ArrayDeque<>();
+        queue.add(principal);
+        while (!queue.isEmpty()) {
+            Set<RoleGrant> grants = listRoleGrants.apply(queue.poll());
+            for (RoleGrant grant : grants) {
+                if (grant.getRoleName().equals(role)) {
+                    return true;
+                }
+                if (seenRoles.add(grant.getRoleName())) {
+                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+                }
+            }
+        }
+        return false;
     }
 
     public static Set<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
