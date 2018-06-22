@@ -105,7 +105,7 @@ public class ListStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector);
+            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
@@ -113,7 +113,7 @@ public class ListStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, offsetVector, nullVector);
+                lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, nullVector);
             }
         }
 

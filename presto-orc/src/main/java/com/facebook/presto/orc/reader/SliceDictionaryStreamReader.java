@@ -241,7 +241,7 @@ public class SliceDictionaryStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is not present");
                 }
-                lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength);
+                lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength, 0);
 
                 long dataLength = 0;
                 for (int i = 0; i < stripeDictionarySize; i++) {
@@ -275,7 +275,7 @@ public class SliceDictionaryStreamReader
             }
 
             // read the lengths
-            dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
+            dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength, 0);
             long dataLength = 0;
             for (int i = 0; i < rowGroupDictionarySize; i++) {
                 dataLength += rowGroupDictionaryLength[i];
