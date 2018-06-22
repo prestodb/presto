@@ -84,6 +84,7 @@ import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static java.lang.Math.sqrt;
+import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
@@ -519,6 +520,22 @@ public final class GeoFunctions
         }
         OGCGeometry ogcGeometry = geometryCollection.geometryN((int) index - 1);
         return serialize(ogcGeometry);
+    }
+
+    @SqlNullable
+    @Description("Returns the vertex of a linestring at the specified index (indices started with 1) ")
+    @ScalarFunction("ST_PointN")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stPointN(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(INTEGER) long index)
+    {
+        OGCGeometry geometry = deserialize(input);
+        validateType("ST_PointN", geometry, EnumSet.of(LINE_STRING));
+
+        OGCLineString linestring = (OGCLineString) geometry;
+        if (index < 1 || index > linestring.numPoints()) {
+            return null;
+        }
+        return serialize(linestring.pointN(toIntExact(index) - 1));
     }
 
     @Description("Returns the number of points in a Geometry")

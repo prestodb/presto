@@ -823,6 +823,34 @@ public class TestGeoFunctions
         assertFunction("ST_ASText(ST_GeometryN(ST_GeometryFromText('" + wkt + "')," + index + "))", VARCHAR, expected);
     }
 
+    @Test
+    public void testSTPointN()
+    {
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 1, "POINT (1 2)");
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 3, "POINT (5 6)");
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 10, null);
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 0, null);
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", -1, null);
+
+        assertInvalidPointN("POINT (1 2)", "POINT");
+        assertInvalidPointN("MULTIPOINT (1 1, 2 2)", "MULTI_POINT");
+        assertInvalidPointN("MULTILINESTRING ((1 1, 2 2), (3 3, 4 4))", "MULTI_LINE_STRING");
+        assertInvalidPointN("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "POLYGON");
+        assertInvalidPointN("MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))", "MULTI_POLYGON");
+        assertInvalidPointN("GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6, 7 10))", "GEOMETRY_COLLECTION");
+    }
+
+    private void assertPointN(String wkt, int index, String expected)
+    {
+        assertFunction(format("ST_ASText(ST_PointN(ST_GeometryFromText('%s'), %d))", wkt, index), VARCHAR, expected);
+    }
+
+    private void assertInvalidPointN(String wkt, String type)
+    {
+        String message = format("ST_PointN only applies to LINE_STRING. Input type is: %s", type);
+        assertInvalidFunction(format("ST_PointN(ST_GeometryFromText('%s'), 1)", wkt), message);
+    }
+
     public void testSTGeometryType()
     {
         assertFunction("ST_GeometryType(ST_Point(1, 4))", VARCHAR, "ST_Point");
