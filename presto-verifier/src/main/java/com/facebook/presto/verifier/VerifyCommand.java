@@ -35,6 +35,9 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.QueryRewriter.QueryRewriteException;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -62,10 +65,16 @@ import java.nio.file.Paths;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.QueryType.CREATE;
@@ -74,6 +83,7 @@ import static com.facebook.presto.verifier.QueryType.READ;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 @Command(name = "verify", description = "verify")
 public class VerifyCommand
@@ -232,7 +242,8 @@ public class VerifyCommand
         return queries;
     }
 
-    private static List<QueryPair> rewriteQueries(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
+    @VisibleForTesting
+    static List<QueryPair> rewriteQueries(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
     {
         QueryRewriter testRewriter = new QueryRewriter(
                 parser,
@@ -256,18 +267,51 @@ public class VerifyCommand
                 config.getDoublePrecision(),
                 config.getControlTimeout());
 
-        ImmutableList.Builder<QueryPair> builder = ImmutableList.builder();
+        LOG.info("Rewriting %s queries using %s threads", queries.size(), config.getThreadCount());
+        ExecutorService executor = newFixedThreadPool(config.getThreadCount());
+        CompletionService<Optional<QueryPair>> completionService = new ExecutorCompletionService<>(executor);
+
+        List<QueryPair> rewritten = new ArrayList<>();
         for (QueryPair pair : queries) {
-            try {
-                Query testQuery = testRewriter.shadowQuery(pair.getTest());
-                Query controlQuery = controlRewriter.shadowQuery(pair.getControl());
-                builder.add(new QueryPair(pair.getSuite(), pair.getName(), testQuery, controlQuery));
-            }
-            catch (SQLException | QueryRewriter.QueryRewriteException e) {
-                LOG.warn(e, "Failed to rewrite %s for shadowing. Skipping.", pair.getName());
+            completionService.submit(() -> {
+                try {
+                    return Optional.of(new QueryPair(
+                            pair.getSuite(),
+                            pair.getName(),
+                            testRewriter.shadowQuery(pair.getTest()),
+                            controlRewriter.shadowQuery(pair.getControl())));
+                }
+                catch (QueryRewriteException | SQLException e) {
+                    if (!config.isQuiet()) {
+                        LOG.warn(e, "Failed to rewrite %s for shadowing. Skipping.", pair.getName());
+                    }
+                    return Optional.empty();
+                }
+            });
+        }
+
+        executor.shutdown();
+
+        try {
+            Stopwatch stopwatch = Stopwatch.createStarted();
+            for (int n = 1; n <= queries.size(); n++) {
+                completionService.take().get().ifPresent(rewritten::add);
+
+                if (!config.isQuiet() && (stopwatch.elapsed(TimeUnit.MILLISECONDS) > 0)) {
+                    stopwatch.reset().start();
+                    LOG.info("Rewrite progress: %s valid, %s skipped, %.2f%% done",
+                            rewritten.size(),
+                            n - rewritten.size(),
+                            (((double) n) / queries.size()) * 100);
+                }
             }
         }
-        return builder.build();
+        catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("Query rewriting failed", e);
+        }
+
+        LOG.info("Rewrote %s queries into %s queries", queries.size(), rewritten.size());
+        return rewritten;
     }
 
     private static List<QueryPair> filterQueryTypes(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
