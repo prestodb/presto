@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.DurationFieldType;
+import org.joda.time.LocalDateTime;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.ReadWritablePeriod;
@@ -35,6 +36,9 @@ import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -123,6 +127,20 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
+    /** {@link LocalDateTime#getLocalMillis()} */
+    private static final MethodHandle getLocalMillis;
+
+    static {
+        try {
+            Method getLocalMillisMethod = LocalDateTime.class.getDeclaredMethod("getLocalMillis");
+            getLocalMillisMethod.setAccessible(true);
+            getLocalMillis = MethodHandles.lookup().unreflect(getLocalMillisMethod);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Parse a string (optionally containing a zone) as a value of either TIMESTAMP or TIMESTAMP WITH TIME ZONE type.
      * <p>
@@ -139,7 +157,7 @@ public final class DateTimeUtils
             return packDateTimeWithZone(dateTime);
         }
         catch (Exception e) {
-            return parseTimestampWithoutTimeZone(value);
+            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
         }
     }
 
@@ -178,16 +196,23 @@ public final class DateTimeUtils
     }
 
     /**
-     * Parse a string (without a zone) as a value of TIMESTAMP type.
+     * Parse a string (optionally containing a zone) as a value of TIMESTAMP type.
+     * If the string specifies a zone, the zone is discarded.
      * <p>
      * For example: {@code "2000-01-01 01:23:00"} is parsed to TIMESTAMP {@code 2000-01-01T01:23:00}
-     * and {@code "2000-01-01 01:23:00 +01:23"} is rejected.
+     * and {@code "2000-01-01 01:23:00 +01:23"} is also parsed to TIMESTAMP {@code 2000-01-01T01:23:00.000}.
      *
      * @return stack representation of TIMESTAMP type
      */
     public static long parseTimestampWithoutTimeZone(String value)
     {
-        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+        LocalDateTime localDateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.parseLocalDateTime(value);
+        try {
+            return (long) getLocalMillis.invokeExact(localDateTime);
+        }
+        catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
