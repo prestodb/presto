@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
@@ -55,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -62,6 +64,7 @@ import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableList;
@@ -82,7 +85,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
-    private final Map<Identity, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -384,7 +387,7 @@ public class Analysis
 
     public Scope getScope(Node node)
     {
-        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException(String.format("Analysis does not contain information for node: %s", node)));
+        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException(format("Analysis does not contain information for node: %s", node)));
     }
 
     public Optional<Scope> tryGetScope(Node node)
@@ -614,22 +617,23 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.putIfAbsent(identity, new LinkedHashMap<>());
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
-    public void addEmptyColumnReferencesForTable(Identity identity, QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
     {
-        tableColumnReferences.putIfAbsent(identity, new LinkedHashMap<>());
-        tableColumnReferences.get(identity).putIfAbsent(table, new HashSet<>());
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
-    public Map<QualifiedObjectName, Set<String>> getTableColumnReferences(Identity identity)
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
-        return tableColumnReferences.getOrDefault(identity, ImmutableMap.of());
+        return tableColumnReferences;
     }
 
     @Immutable
@@ -691,6 +695,55 @@ public class Analysis
         public List<Integer> getOtherRightFields()
         {
             return otherRightFields;
+        }
+    }
+
+    public static final class AccessControlInfo
+    {
+        private final AccessControl accessControl;
+        private final Identity identity;
+
+        public AccessControlInfo(AccessControl accessControl, Identity identity)
+        {
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        public AccessControl getAccessControl()
+        {
+            return accessControl;
+        }
+
+        public Identity getIdentity()
+        {
+            return identity;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            AccessControlInfo that = (AccessControlInfo) o;
+            return Objects.equals(accessControl, that.accessControl) &&
+                    Objects.equals(identity, that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(accessControl, identity);
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
         }
     }
 }

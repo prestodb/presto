@@ -62,6 +62,7 @@ public class FeaturesConfig
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
+    private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private boolean reorderJoins = true;
@@ -279,6 +280,21 @@ public class FeaturesConfig
     public FeaturesConfig setGroupedExecutionForAggregationEnabled(boolean groupedExecutionForAggregationEnabled)
     {
         this.groupedExecutionForAggregationEnabled = groupedExecutionForAggregationEnabled;
+        return this;
+    }
+
+    public int getConcurrentLifespansPerTask()
+    {
+        return concurrentLifespansPerTask;
+    }
+
+    @Config("concurrent-lifespans-per-task")
+    @Min(0)
+    @ConfigDescription("Experimental: Default number of lifespans that run in parallel on each task when grouped execution is enabled")
+    // When set to zero, a limit is not imposed on the number of lifespans that run in parallel
+    public FeaturesConfig setConcurrentLifespansPerTask(int concurrentLifespansPerTask)
+    {
+        this.concurrentLifespansPerTask = concurrentLifespansPerTask;
         return this;
     }
 

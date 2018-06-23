@@ -15,6 +15,7 @@ package com.facebook.presto.client;
 
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParameterKind;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -29,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -81,7 +83,9 @@ public class ClientTypeSignature
                 for (int i = 0; i < typeArguments.size(); i++) {
                     Object value = literalArguments.get(i);
                     checkArgument(value instanceof String, "Expected literalArgument %d in %s to be a string", i, literalArguments);
-                    convertedArguments.add(new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature((String) value, toTypeSignature(typeArguments.get(i))))));
+                    convertedArguments.add(new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(
+                            Optional.of(new RowFieldName((String) value, false)),
+                            toTypeSignature(typeArguments.get(i))))));
                 }
             }
             else {

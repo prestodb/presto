@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColu
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
@@ -291,7 +292,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_TABLE)) {
-            denySelectTable(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
@@ -302,7 +303,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         if (shouldDenyPrivilege(identity.getUser(), viewName.getObjectName(), CREATE_VIEW_WITH_SELECT_VIEW)) {
-            denySelectView(viewName.toString());
+            denyCreateViewWithSelect(viewName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
@@ -313,7 +314,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
-            denySelectView(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);

@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|DECIMAL|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|VARCHAR|VARCHAR|BIGINT|DECIMAL|DECIMAL
 Aaron                         |Charles             |Jamestown|Red Hill|183217|2067.37|-8054.03|
 Aaron                         |Genevieve           |Lakeside|Springtown|185247|1739.84|-1337.44|
 Aaron                         |Guy                 |Lakeside|Mount Pleasant|210815|1849.59|-11333.00|

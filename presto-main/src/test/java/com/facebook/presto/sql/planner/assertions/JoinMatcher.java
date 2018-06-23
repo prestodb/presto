@@ -106,6 +106,7 @@ final class JoinMatcher
     {
         return toStringHelper(this)
                 .omitNullValues()
+                .add("type", joinType)
                 .add("equiCriteria", equiCriteria)
                 .add("filter", filter.orElse(null))
                 .add("distributionType", distributionType.orElse(null))

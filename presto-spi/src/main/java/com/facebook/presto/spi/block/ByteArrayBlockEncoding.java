@@ -50,15 +50,15 @@ public class ByteArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         byte[] values = new byte[positionCount];
         for (int position = 0; position < positionCount; position++) {
-            if (!valueIsNull[position]) {
+            if (valueIsNull == null || !valueIsNull[position]) {
                 values[position] = sliceInput.readByte();
             }
         }
 
-        return new ByteArrayBlock(positionCount, valueIsNull, values);
+        return new ByteArrayBlock(0, positionCount, valueIsNull, values);
     }
 }

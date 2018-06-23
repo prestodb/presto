@@ -67,6 +67,7 @@ public class PushPartialAggregationThroughExchange
     private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(node -> !node.isStreamable())
             .with(source().matching(exchange().capturedAs(EXCHANGE_NODE)));
 
     @Override
@@ -215,6 +216,7 @@ public class PushPartialAggregationThroughExchange
                 node.getSource(),
                 intermediateAggregation,
                 node.getGroupingSets(),
+                ImmutableList.of(),
                 PARTIAL,
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());
@@ -224,6 +226,7 @@ public class PushPartialAggregationThroughExchange
                 partial,
                 finalAggregation,
                 node.getGroupingSets(),
+                ImmutableList.of(),
                 FINAL,
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());

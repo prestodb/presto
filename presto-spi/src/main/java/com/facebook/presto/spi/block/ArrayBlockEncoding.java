@@ -18,6 +18,8 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
+import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
+import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 
 public class ArrayBlockEncoding
         implements BlockEncoding
@@ -49,7 +51,7 @@ public class ArrayBlockEncoding
         for (int position = 0; position < positionCount + 1; position++) {
             sliceOutput.writeInt(offsets[offsetBase + position] - valuesStartOffset);
         }
-        EncoderUtil.encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, block);
     }
 
     @Override
@@ -60,7 +62,7 @@ public class ArrayBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(Slices.wrappedIntArray(offsets));
-        boolean[] valueIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
         return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }
 }

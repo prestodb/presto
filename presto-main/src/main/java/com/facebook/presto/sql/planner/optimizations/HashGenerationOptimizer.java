@@ -160,7 +160,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
-            if (!canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
                 groupByHash = computeHash(node.getGroupingKeys());
             }
 
@@ -176,6 +176,7 @@ public class HashGenerationOptimizer
                             child.getNode(),
                             node.getAggregations(),
                             node.getGroupingSets(),
+                            node.getPreGroupedSymbols(),
                             node.getStep(),
                             hashSymbol,
                             node.getGroupIdSymbol()),
@@ -669,7 +670,16 @@ public class HashGenerationOptimizer
 
             boolean preferenceSatisfied;
             if (pruneExtraHashSymbols) {
-                preferenceSatisfied = result.getHashSymbols().keySet().equals(requiredHashes.getHashes());
+                // Make sure that
+                // (1) result has all required hashes
+                // (2) any extra hashes are preferred hashes (e.g. no pruning is needed)
+                Set<HashComputation> resultHashes = result.getHashSymbols().keySet();
+                Set<HashComputation> requiredAndPreferredHashes = ImmutableSet.<HashComputation>builder()
+                        .addAll(requiredHashes.getHashes())
+                        .addAll(preferredHashes.getHashes())
+                        .build();
+                preferenceSatisfied = resultHashes.containsAll(requiredHashes.getHashes())
+                    && requiredAndPreferredHashes.containsAll(resultHashes);
             }
             else {
                 preferenceSatisfied = result.getHashSymbols().keySet().containsAll(requiredHashes.getHashes());

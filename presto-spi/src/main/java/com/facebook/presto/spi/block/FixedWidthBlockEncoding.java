@@ -37,7 +37,7 @@ public class FixedWidthBlockEncoding
     {
         AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
 
-        sliceOutput.appendInt(fixedWidthBlock.fixedSize);
+        sliceOutput.appendInt(fixedWidthBlock.getFixedSize());
         sliceOutput.appendInt(fixedWidthBlock.getPositionCount());
 
         // write null bits 8 at a time
@@ -55,11 +55,13 @@ public class FixedWidthBlockEncoding
         int fixedSize = sliceInput.readInt();
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
+        Slice valueIsNull = decodeNullBits(sliceInput, positionCount)
+                .map(Slices::wrappedBooleanArray)
+                .orElse(null);
 
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new FixedWidthBlock(fixedSize, positionCount, slice, Slices.wrappedBooleanArray(valueIsNull));
+        return new FixedWidthBlock(fixedSize, positionCount, slice, valueIsNull);
     }
 }

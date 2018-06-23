@@ -79,9 +79,8 @@ public class TestQueuesDb
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        queryManager.getAllQueryInfo().forEach(queryInfo -> queryManager.cancelQuery(queryInfo.getQueryId()));
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test(timeOut = 60_000)

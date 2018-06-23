@@ -82,11 +82,6 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
-    }
-
-    @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
@@ -103,21 +98,6 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-    }
-
-    @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 

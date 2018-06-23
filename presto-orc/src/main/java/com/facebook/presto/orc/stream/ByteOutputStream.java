@@ -155,7 +155,7 @@ public class ByteOutputStream
     @Override
     public long getBufferedBytes()
     {
-        return buffer.size() + size;
+        return buffer.estimateOutputDataSize() + size;
     }
 
     @Override

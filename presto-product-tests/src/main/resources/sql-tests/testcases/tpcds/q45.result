@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|LONGNVARCHAR|DECIMAL
+-- delimiter: |; types: CHAR|VARCHAR|DECIMAL
 10150     |Bunker Hill|20.25|
 16098     |Five Points|18.05|
 28048     |Salem|9.81|

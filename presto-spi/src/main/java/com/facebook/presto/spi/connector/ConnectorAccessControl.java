@@ -17,7 +17,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 
-import java.util.Collections;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
@@ -37,11 +36,10 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
 {
@@ -94,7 +92,7 @@ public interface ConnectorAccessControl
      */
     default Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -146,7 +144,7 @@ public interface ConnectorAccessControl
      */
     default Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -194,10 +192,12 @@ public interface ConnectorAccessControl
      * Check if identity is allowed to select from the specified table in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @deprecated Use {@link #checkCanSelectFromColumns} instead
      */
+    @Deprecated
     default void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
-        denySelectTable(tableName.toString());
+        checkCanSelectFromColumns(transactionHandle, identity, tableName, emptySet());
     }
 
     /**
@@ -244,30 +244,36 @@ public interface ConnectorAccessControl
      * Check if identity is allowed to select from the specified view in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @deprecated Use {@link #checkCanSelectFromColumns} instead
      */
+    @Deprecated
     default void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
-        denySelectView(viewName.toString());
+        checkCanSelectFromColumns(transactionHandle, identity, viewName, emptySet());
     }
 
     /**
      * Check if identity is allowed to create the specified view that selects from the specified table in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @deprecated Use {@link #checkCanCreateViewWithSelectFromColumns} instead
      */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
-        denyCreateViewWithSelect(tableName.toString());
+        checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, tableName, emptySet());
     }
 
     /**
      * Check if identity is allowed to create a view that selects from the specified view in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @deprecated Use {@link #checkCanCreateViewWithSelectFromColumns} instead
      */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
-        denyCreateViewWithSelect(viewName.toString());
+        checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, viewName, emptySet());
     }
 
     /**
@@ -277,7 +283,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        denyCreateViewWithSelect(tableName.toString());
+        denyCreateViewWithSelect(tableName.toString(), identity);
     }
 
     /**

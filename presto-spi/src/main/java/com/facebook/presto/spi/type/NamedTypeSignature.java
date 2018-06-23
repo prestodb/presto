@@ -20,36 +20,37 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class NamedTypeSignature
 {
-    private final Optional<String> name;
+    private final Optional<RowFieldName> fieldName;
     private final TypeSignature typeSignature;
 
     @JsonCreator
     public NamedTypeSignature(
-            @JsonProperty("name") Optional<String> name,
+            @JsonProperty("fieldName") Optional<RowFieldName> fieldName,
             @JsonProperty("typeSignature") TypeSignature typeSignature)
     {
-        this.name = name;
-        this.typeSignature = typeSignature;
-    }
-
-    public NamedTypeSignature(String name, TypeSignature typeSignature)
-    {
-        this(Optional.of(name), typeSignature);
+        this.fieldName = requireNonNull(fieldName, "fieldName is null");
+        this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
     }
 
     @JsonProperty
-    public Optional<String> getName()
+    public Optional<RowFieldName> getFieldName()
     {
-        return name;
+        return fieldName;
     }
 
     @JsonProperty
     public TypeSignature getTypeSignature()
     {
         return typeSignature;
+    }
+
+    public Optional<String> getName()
+    {
+        return getFieldName().map(RowFieldName::getName);
     }
 
     @Override
@@ -64,15 +65,15 @@ public class NamedTypeSignature
 
         NamedTypeSignature other = (NamedTypeSignature) o;
 
-        return Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.fieldName, other.fieldName) &&
                 Objects.equals(this.typeSignature, other.typeSignature);
     }
 
     @Override
     public String toString()
     {
-        if (name.isPresent()) {
-            return format("%s %s", name.get(), typeSignature);
+        if (fieldName.isPresent()) {
+            return format("%s %s", fieldName.get(), typeSignature);
         }
         return typeSignature.toString();
     }
@@ -80,6 +81,6 @@ public class NamedTypeSignature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeSignature);
+        return Objects.hash(fieldName, typeSignature);
     }
 }

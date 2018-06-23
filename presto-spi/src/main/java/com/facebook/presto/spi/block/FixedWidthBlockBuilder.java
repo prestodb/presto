@@ -47,6 +47,7 @@ public class FixedWidthBlockBuilder
 
     private SliceOutput sliceOutput = new DynamicSliceOutput(0);
     private SliceOutput valueIsNull = new DynamicSliceOutput(0);
+    private boolean hasNullValue;
     private int positionCount;
 
     private int currentEntrySize;
@@ -115,15 +116,20 @@ public class FixedWidthBlockBuilder
         checkArrayRange(positions, offset, length);
 
         SliceOutput newSlice = Slices.allocate(length * fixedSize).getOutput();
-        SliceOutput newValueIsNull = Slices.allocate(length).getOutput();
+        SliceOutput newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = Slices.allocate(length).getOutput();
+        }
 
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
             checkValidPosition(position, positionCount);
-            newValueIsNull.appendByte(valueIsNull.getUnderlyingSlice().getByte(position));
+            if (hasNullValue) {
+                newValueIsNull.appendByte(valueIsNull.getUnderlyingSlice().getByte(position));
+            }
             newSlice.appendBytes(getRawSlice().getBytes(position * fixedSize, fixedSize));
         }
-        return new FixedWidthBlock(fixedSize, length, newSlice.slice(), newValueIsNull.slice());
+        return new FixedWidthBlock(fixedSize, length, newSlice.slice(), newValueIsNull == null ? null : newValueIsNull.slice());
     }
 
     @Override
@@ -195,6 +201,8 @@ public class FixedWidthBlockBuilder
 
         checkCapacity();
 
+        hasNullValue = true;
+
         // fixed width is always written regardless of null flag
         sliceOutput.writeZero(fixedSize);
 
@@ -237,6 +245,12 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
     protected boolean isEntryNull(int position)
     {
         return valueIsNull.getUnderlyingSlice().getByte(position) != 0;
@@ -249,7 +263,10 @@ public class FixedWidthBlockBuilder
         checkValidRegion(positionCount, positionOffset, length);
 
         Slice newSlice = sliceOutput.slice().slice(positionOffset * fixedSize, length * fixedSize);
-        Slice newValueIsNull = valueIsNull.slice().slice(positionOffset, length);
+        Slice newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = valueIsNull.slice().slice(positionOffset, length);
+        }
         return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 
@@ -260,7 +277,10 @@ public class FixedWidthBlockBuilder
         checkValidRegion(positionCount, positionOffset, length);
 
         Slice newSlice = Slices.copyOf(sliceOutput.getUnderlyingSlice(), positionOffset * fixedSize, length * fixedSize);
-        Slice newValueIsNull = Slices.copyOf(valueIsNull.getUnderlyingSlice(), positionOffset, length);
+        Slice newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = Slices.copyOf(valueIsNull.getUnderlyingSlice(), positionOffset, length);
+        }
         return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 
@@ -270,7 +290,7 @@ public class FixedWidthBlockBuilder
         if (currentEntrySize > 0) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return new FixedWidthBlock(fixedSize, positionCount, sliceOutput.slice(), valueIsNull.slice());
+        return new FixedWidthBlock(fixedSize, positionCount, sliceOutput.slice(), hasNullValue ? valueIsNull.slice() : null);
     }
 
     @Override

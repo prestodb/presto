@@ -51,7 +51,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -146,12 +145,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        // allow - Column level privileges not yet implemented
-    }
-
-    @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
+        // TODO: Implement column level permissions
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
@@ -190,39 +184,15 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        if (!checkTablePermission(identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
+        // TODO: implement column level permissions
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
         if (!checkTablePermission(identity, tableName, GRANT_SELECT)) {
-            denyCreateViewWithSelect(tableName.toString());
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-        if (!checkTablePermission(identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-        if (!checkTablePermission(identity, viewName, GRANT_SELECT)) {
-            denyCreateViewWithSelect(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
-    {
-        // allow - Column level privileges not yet implemented
     }
 
     @Override

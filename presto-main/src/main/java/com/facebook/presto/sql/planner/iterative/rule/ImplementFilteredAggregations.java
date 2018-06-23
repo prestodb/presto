@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -110,6 +111,7 @@ public class ImplementFilteredAggregations
                                 newAssignments.build()),
                         aggregations.build(),
                         aggregation.getGroupingSets(),
+                        ImmutableList.of(),
                         aggregation.getStep(),
                         aggregation.getHashSymbol(),
                         aggregation.getGroupIdSymbol()));

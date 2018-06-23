@@ -19,6 +19,7 @@ import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenCustomHashMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
@@ -186,6 +187,6 @@ public class TestBlockRetainedSizeBreakdown
             dynamicSliceOutput.writeByte(i);
             offsets[i + 1] = dynamicSliceOutput.size();
         }
-        return new VariableWidthBlock(entries, dynamicSliceOutput.slice(), offsets, new boolean[entries]);
+        return new VariableWidthBlock(entries, dynamicSliceOutput.slice(), offsets, Optional.empty());
     }
 }

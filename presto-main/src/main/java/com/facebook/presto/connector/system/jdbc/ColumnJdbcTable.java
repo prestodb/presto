@@ -193,13 +193,13 @@ public class ColumnJdbcTable
             return Types.DECIMAL;
         }
         if (isVarcharType(type)) {
-            return Types.LONGNVARCHAR;
+            return Types.VARCHAR;
         }
         if (isCharType(type)) {
             return Types.CHAR;
         }
         if (type.equals(VARBINARY)) {
-            return Types.LONGVARBINARY;
+            return Types.VARBINARY;
         }
         if (type.equals(TIME)) {
             return Types.TIME;

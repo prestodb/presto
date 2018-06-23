@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.booleanData;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.doubleData;
@@ -80,7 +81,7 @@ public final class PrestoThriftDouble
         }
         return new LongArrayBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.ofNullable(nulls),
                 longs);
     }
 

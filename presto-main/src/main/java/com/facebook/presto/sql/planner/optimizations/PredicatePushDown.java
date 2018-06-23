@@ -1006,6 +1006,7 @@ public class PredicatePushDown
                         rewrittenSource,
                         node.getAggregations(),
                         node.getGroupingSets(),
+                        ImmutableList.of(),
                         node.getStep(),
                         node.getHashSymbol(),
                         node.getGroupIdSymbol());

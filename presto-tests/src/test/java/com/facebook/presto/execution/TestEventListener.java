@@ -80,6 +80,7 @@ public class TestEventListener
     private void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)

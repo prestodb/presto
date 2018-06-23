@@ -177,6 +177,7 @@ public class OptimizeMixedDistinctAggregations
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
+                    ImmutableList.of(),
                     node.getStep(),
                     Optional.empty(),
                     node.getGroupIdSymbol());
@@ -420,6 +421,7 @@ public class OptimizeMixedDistinctAggregations
                     groupIdNode,
                     aggregations.build(),
                     ImmutableList.of(ImmutableList.copyOf(groupByKeys)),
+                    ImmutableList.of(),
                     SINGLE,
                     originalNode.getHashSymbol(),
                     Optional.empty());

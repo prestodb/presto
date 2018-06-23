@@ -32,7 +32,6 @@ import io.prestodb.tempto.query.QueryExecutor;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -43,8 +42,6 @@ import java.util.Optional;
 import static com.facebook.presto.tests.TestGroups.HIVE_COERCION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -52,7 +49,6 @@ import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestodb.tempto.fulfillment.table.TableHandle.tableHandle;
-import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
@@ -60,7 +56,6 @@ import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.JAVA_OBJECT;
-import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.stream.Collectors.toList;
@@ -337,40 +332,19 @@ public class TestHiveCoercion
 
     private void assertColumnTypes(QueryResult queryResult)
     {
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    INTEGER,
-                    BIGINT,
-                    BIGINT,
-                    LONGNVARCHAR,
-                    DOUBLE,
-                    JAVA_OBJECT,
-                    ARRAY,
-                    JAVA_OBJECT,
-                    BIGINT);
-        }
-        else if (usingTeradataJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    INTEGER,
-                    BIGINT,
-                    BIGINT,
-                    VARCHAR,
-                    DOUBLE,
-                    JAVA_OBJECT,
-                    ARRAY,
-                    JAVA_OBJECT,
-                    BIGINT);
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertThat(queryResult).hasColumns(
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                INTEGER,
+                BIGINT,
+                BIGINT,
+                VARCHAR,
+                DOUBLE,
+                JAVA_OBJECT,
+                ARRAY,
+                JAVA_OBJECT,
+                BIGINT);
     }
 
     private static void alterTableColumnTypes(String tableName)

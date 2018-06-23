@@ -147,7 +147,7 @@ public class TestAccessControlManager
                 });
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table schema.table")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from columns \\[\\] in table or view schema.table")
     public void testDenyCatalogAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -271,7 +271,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+                public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
                 {
                     if (table.getCatalogName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
@@ -290,12 +290,6 @@ public class TestAccessControlManager
     private static class DenyConnectorAccessControl
             implements ConnectorAccessControl
     {
-        @Override
-        public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-        {
-            denySelectTable(tableName.toString());
-        }
-
         @Override
         public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
         {
@@ -376,24 +370,6 @@ public class TestAccessControlManager
 
         @Override
         public void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }

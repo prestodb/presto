@@ -171,6 +171,7 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getSource(),
                         aggregations.build(),
                         aggregationNode.getGroupingSets(),
+                        aggregationNode.getPreGroupedSymbols(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
                         aggregationNode.getGroupIdSymbol()));

@@ -813,6 +813,7 @@ class RelationPlanner
                 node,
                 ImmutableMap.of(),
                 ImmutableList.of(node.getOutputSymbols()),
+                ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());

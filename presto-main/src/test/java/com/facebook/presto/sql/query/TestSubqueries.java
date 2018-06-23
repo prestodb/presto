@@ -26,6 +26,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.function.Consumer;
+
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -34,6 +36,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static org.testng.Assert.assertEquals;
@@ -54,6 +58,7 @@ public class TestSubqueries
     public void teardown()
     {
         assertions.close();
+        assertions = null;
     }
 
     @Test
@@ -200,40 +205,45 @@ public class TestSubqueries
                                 anyTree(
                                         node(ValuesNode.class)),
                                 anyTree(
-                                        // FINAL
-                                        aggregation(ImmutableMap.of(),
+                                        aggregation(ImmutableMap.of(), FINAL,
                                                 exchange(LOCAL, REPARTITION,
-                                                        // PARTIAL
-                                                        aggregation(ImmutableMap.of(),
+                                                        aggregation(ImmutableMap.of(), PARTIAL,
                                                                 anyTree(source))))))),
                 plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 2 : 1));
     }
 
     private void assertExistsRewrittenToAggregationAboveJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
+        Consumer<Plan> singleStreamingAggregationValidator = plan -> assertEquals(countSingleStreamingAggregations(plan), 1);
+        Consumer<Plan> finalAggregationValidator = plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 1 : 0);
+
         assertions.assertQueryAndPlan(actual, expected,
                 anyTree(
-                        // FINAL
-                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PARTIAL"))),
-                                exchange(LOCAL, REPARTITION,
-                                        // PARTIAL
-                                        aggregation(ImmutableMap.of("COUNT_PARTIAL", functionCall("count", ImmutableList.of("NON_NULL"))),
-                                                anyTree(
-                                                        node(JoinNode.class,
-                                                                anyTree(
-                                                                        node(ValuesNode.class)),
-                                                                anyTree(
-                                                                        node(ProjectNode.class,
-                                                                                anyTree(
-                                                                                        node(ValuesNode.class)))
-                                                                                .withAlias("NON_NULL", expression("true"))))))))),
-                plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 2 : 1));
+                        aggregation(
+                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                SINGLE,
+                                node(JoinNode.class,
+                                        anyTree(
+                                                node(ValuesNode.class)),
+                                        anyTree(
+                                                node(ProjectNode.class,
+                                                        anyTree(
+                                                                node(ValuesNode.class)))
+                                                        .withAlias("NON_NULL", expression("true")))))),
+                singleStreamingAggregationValidator.andThen(finalAggregationValidator));
     }
 
     private static int countFinalAggregationNodes(Plan plan)
     {
         return searchFrom(plan.getRoot())
                 .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == FINAL)
+                .count();
+    }
+
+    private static int countSingleStreamingAggregations(Plan plan)
+    {
+        return searchFrom(plan.getRoot())
+                .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == SINGLE && ((AggregationNode) node).isStreamable())
                 .count();
     }
 }

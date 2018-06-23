@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.ParametricType;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
@@ -50,11 +54,16 @@ public final class RowParametricType
                 "Expected only named types as a parameters, got %s",
                 parameters);
 
-        List<RowType.Field> fields = parameters.stream()
+        List<TypeSignatureParameter> typeSignatureParameters = parameters.stream()
                 .map(TypeParameter::getNamedType)
-                .map(parameter -> new RowType.Field(parameter.getName(), parameter.getType()))
+                .map(parameter -> TypeSignatureParameter.of(new NamedTypeSignature(parameter.getName(), parameter.getType().getTypeSignature())))
                 .collect(toList());
 
-        return RowType.from(fields);
+        List<RowType.Field> fields = parameters.stream()
+                .map(TypeParameter::getNamedType)
+                .map(parameter -> new RowType.Field(parameter.getName().map(RowFieldName::getName), parameter.getType()))
+                .collect(toList());
+
+        return RowType.createWithTypeSignature(new TypeSignature(StandardTypes.ROW, typeSignatureParameters), fields);
     }
 }

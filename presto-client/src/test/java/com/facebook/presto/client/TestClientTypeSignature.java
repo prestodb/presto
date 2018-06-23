@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -22,6 +23,8 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
@@ -50,8 +53,8 @@ public class TestClientTypeSignature
         assertJsonRoundTrip(new ClientTypeSignature(
                 "row",
                 ImmutableList.of(
-                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature("foo", bigint))),
-                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature("bar", bigint))))));
+                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("foo", false)), bigint))),
+                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("bar", false)), bigint))))));
     }
 
     @Test

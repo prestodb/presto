@@ -19,6 +19,8 @@ import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.slice.Slices;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -61,7 +63,7 @@ public class EnforceSingleRowOperator
         }
     }
 
-    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Slices.wrappedBooleanArray(true)));
+    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Optional.of(Slices.wrappedBooleanArray(true))));
 
     private final OperatorContext operatorContext;
     private boolean finishing;

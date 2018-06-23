@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|DECIMAL
+-- delimiter: |; types: VARCHAR|DECIMAL
 able|-9767751.88|
 ation|-10546549.93|
 bar|-10133672.06|

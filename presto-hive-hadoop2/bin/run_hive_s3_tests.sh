@@ -2,24 +2,24 @@
 
 set -euo pipefail -x
 
-# http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
-function absolutepath() {
-    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
-}
-
-SCRIPT_DIR=$(dirname $(absolutepath "$0"))
-. ${SCRIPT_DIR}/common.sh
+. "${BASH_SOURCE%/*}/common.sh"
 
 cleanup_docker_containers
 start_docker_containers
 
 # insert AWS credentials
 exec_in_hadoop_master_container cp /etc/hadoop/conf/core-site.xml.s3-template /etc/hadoop/conf/core-site.xml
-exec_in_hadoop_master_container sed -i -e "s|%AWS_ACCESS_KEY%|${AWS_ACCESS_KEY_ID}|g" -e "s|%AWS_SECRET_KEY%|${AWS_SECRET_ACCESS_KEY}|g" -e "s|%S3_BUCKET_ENDPOINT%|${S3_BUCKET_ENDPOINT}|g" \
+exec_in_hadoop_master_container sed -i \
+  -e "s|%AWS_ACCESS_KEY%|${AWS_ACCESS_KEY_ID}|g" \
+  -e "s|%AWS_SECRET_KEY%|${AWS_SECRET_ACCESS_KEY}|g" \
+  -e "s|%S3_BUCKET_ENDPOINT%|${S3_BUCKET_ENDPOINT}|g" \
  /etc/hadoop/conf/core-site.xml
 
 # create test table
-exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_s3(t_bigint bigint) LOCATION 's3a://${S3_BUCKET}/presto_test_s3/'"
+table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services
 

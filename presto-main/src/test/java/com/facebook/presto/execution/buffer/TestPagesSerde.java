@@ -67,7 +67,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 47); // page overhead ideally 35 but since a 0 sized block will be a RLEBlock we have an overhead of 12
+        assertEquals(pageSize, 48); // page overhead ideally 35 but since a 0 sized block will be a RLEBlock we have an overhead of 13
 
         // page with one value
         BIGINT.writeLong(builder, 123);
@@ -91,13 +91,13 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 43); // page overhead
+        assertEquals(pageSize, 44); // page overhead
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertEquals(firstValueSize, 4 + 5 + 1); // length + "alice" + null
+        assertEquals(firstValueSize, 4 + 5); // length + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");

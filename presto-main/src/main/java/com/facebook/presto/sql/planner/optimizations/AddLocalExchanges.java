@@ -255,7 +255,7 @@ public class AddLocalExchanges
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getGroupingKeys());
+            List<Symbol> groupingKeys = node.getGroupingKeys();
             if (node.hasDefaultOutput()) {
                 checkState(node.isDecomposable(metadata.getFunctionRegistry()));
 
@@ -267,13 +267,36 @@ public class AddLocalExchanges
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 child.getNode(),
-                                node.getGroupingKeys(),
+                                groupingKeys,
                                 Optional.empty()),
                         child.getProperties());
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputSymbols())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(groupingKeys);
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            List<Symbol> preGroupedSymbols = ImmutableList.of();
+            if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isPresent()) {
+                // !isPresent() indicates the property was satisfied completely
+                preGroupedSymbols = groupingKeys;
+            }
+
+            AggregationNode result = new AggregationNode(
+                    node.getId(),
+                    child.getNode(),
+                    node.getAggregations(),
+                    node.getGroupingSets(),
+                    preGroupedSymbols,
+                    node.getStep(),
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
+
+            return deriveProperties(result, child.getProperties());
         }
 
         @Override

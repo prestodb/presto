@@ -242,6 +242,7 @@ public class ImplementIntersectAndExceptAsUnion
                     sourceNode,
                     aggregations.build(),
                     ImmutableList.of(originalColumns),
+                    ImmutableList.of(),
                     Step.SINGLE,
                     Optional.empty(),
                     Optional.empty());

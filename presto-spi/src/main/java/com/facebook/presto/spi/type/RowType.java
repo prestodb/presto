@@ -39,9 +39,9 @@ public class RowType
     private final List<Field> fields;
     private final List<Type> fieldTypes;
 
-    private RowType(List<Field> fields)
+    private RowType(TypeSignature typeSignature, List<Field> fields)
     {
-        super(makeSignature(fields), Block.class);
+        super(typeSignature, Block.class);
 
         this.fields = fields;
         this.fieldTypes = fields.stream()
@@ -51,7 +51,7 @@ public class RowType
 
     public static RowType from(List<Field> fields)
     {
-        return new RowType(fields);
+        return new RowType(makeSignature(fields), fields);
     }
 
     public static RowType anonymous(List<Type> types)
@@ -60,7 +60,13 @@ public class RowType
                 .map(type -> new Field(Optional.empty(), type))
                 .collect(Collectors.toList());
 
-        return new RowType(fields);
+        return new RowType(makeSignature(fields), fields);
+    }
+
+    // Only RowParametricType.createType should call this method
+    public static RowType createWithTypeSignature(TypeSignature typeSignature, List<Field> fields)
+    {
+        return new RowType(typeSignature, fields);
     }
 
     public static Field field(String name, Type type)
@@ -81,7 +87,7 @@ public class RowType
         }
 
         List<TypeSignatureParameter> parameters = fields.stream()
-                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName(), field.getType().getTypeSignature())))
+                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, false)), field.getType().getTypeSignature())))
                 .collect(Collectors.toList());
 
         return new TypeSignature(ROW, parameters);

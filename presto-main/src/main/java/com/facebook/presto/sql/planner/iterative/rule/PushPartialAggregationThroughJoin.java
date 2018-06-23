@@ -56,6 +56,11 @@ public class PushPartialAggregationThroughJoin
 
     private static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
     {
+        // Don't split streaming aggregations
+        if (aggregationNode.isStreamable()) {
+            return false;
+        }
+
         if (aggregationNode.getHashSymbol().isPresent()) {
             // TODO: add support for hash symbol in aggregation node
             return false;
@@ -156,6 +161,7 @@ public class PushPartialAggregationThroughJoin
                 source,
                 aggregation.getAggregations(),
                 ImmutableList.of(groupingSet),
+                ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());

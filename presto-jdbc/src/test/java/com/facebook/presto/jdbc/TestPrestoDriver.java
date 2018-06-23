@@ -187,7 +187,7 @@ public class TestPrestoDriver
                     assertEquals(metadata.getColumnType(2), Types.BIGINT);
 
                     assertEquals(metadata.getColumnLabel(3), "_varchar");
-                    assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
+                    assertEquals(metadata.getColumnType(3), Types.VARCHAR);
 
                     assertEquals(metadata.getColumnLabel(4), "_double");
                     assertEquals(metadata.getColumnType(4), Types.DOUBLE);
@@ -196,7 +196,7 @@ public class TestPrestoDriver
                     assertEquals(metadata.getColumnType(5), Types.BOOLEAN);
 
                     assertEquals(metadata.getColumnLabel(6), "_varbinary");
-                    assertEquals(metadata.getColumnType(6), Types.LONGVARBINARY);
+                    assertEquals(metadata.getColumnType(6), Types.VARBINARY);
 
                     assertEquals(metadata.getColumnLabel(7), "_decimal_short");
                     assertEquals(metadata.getColumnType(7), Types.DECIMAL);
@@ -381,7 +381,7 @@ public class TestPrestoDriver
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
                 assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
-                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+                assertEquals(metadata.getColumnType(1), Types.VARCHAR);
             }
         }
     }
@@ -514,10 +514,10 @@ public class TestPrestoDriver
         assertEquals(metadata.getColumnCount(), 2);
 
         assertEquals(metadata.getColumnLabel(1), "TABLE_SCHEM");
-        assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(1), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(2), "TABLE_CATALOG");
-        assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(2), Types.VARCHAR);
     }
 
     @Test
@@ -703,34 +703,34 @@ public class TestPrestoDriver
         assertEquals(metadata.getColumnCount(), 10);
 
         assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
-        assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(1), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
-        assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(2), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
-        assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(3), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(4), "TABLE_TYPE");
-        assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(4), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(5), "REMARKS");
-        assertEquals(metadata.getColumnType(5), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(5), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(6), "TYPE_CAT");
-        assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(6), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(7), "TYPE_SCHEM");
-        assertEquals(metadata.getColumnType(7), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(7), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(8), "TYPE_NAME");
-        assertEquals(metadata.getColumnType(8), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(8), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(9), "SELF_REFERENCING_COL_NAME");
-        assertEquals(metadata.getColumnType(9), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(9), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(10), "REF_GENERATION");
-        assertEquals(metadata.getColumnType(10), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(10), Types.VARCHAR);
     }
 
     @Test
@@ -746,7 +746,7 @@ public class TestPrestoDriver
                 assertEquals(metadata.getColumnCount(), 1);
 
                 assertEquals(metadata.getColumnLabel(1), "TABLE_TYPE");
-                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+                assertEquals(metadata.getColumnType(1), Types.VARCHAR);
             }
         }
     }
@@ -763,7 +763,7 @@ public class TestPrestoDriver
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertEquals(rs.getString("TABLE_NAME"), "tables");
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
-                assertEquals(rs.getInt("DATA_TYPE"), Types.LONGNVARCHAR);
+                assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
                 assertTrue(rs.next());
                 assertEquals(rs.getString("TABLE_CAT"), "system");
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
@@ -858,10 +858,10 @@ public class TestPrestoDriver
                 assertColumnSpec(rs, Types.TINYINT, 3L, 10L, null, null, TinyintType.TINYINT);
                 assertColumnSpec(rs, Types.REAL, 24L, 2L, null, null, RealType.REAL);
                 assertColumnSpec(rs, Types.DOUBLE, 53L, 2L, null, null, DoubleType.DOUBLE);
-                assertColumnSpec(rs, Types.LONGNVARCHAR, 1234L, null, null, 1234L, createVarcharType(1234));
-                assertColumnSpec(rs, Types.LONGNVARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
+                assertColumnSpec(rs, Types.VARCHAR, 1234L, null, null, 1234L, createVarcharType(1234));
+                assertColumnSpec(rs, Types.VARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
                 assertColumnSpec(rs, Types.CHAR, 345L, null, null, 345L, createCharType(345));
-                assertColumnSpec(rs, Types.LONGVARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
+                assertColumnSpec(rs, Types.VARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
                 assertColumnSpec(rs, Types.TIME, 8L, null, null, null, TimeType.TIME);
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
                 assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, null, null, TimestampType.TIMESTAMP);
@@ -895,22 +895,22 @@ public class TestPrestoDriver
         assertEquals(metadata.getColumnCount(), 24);
 
         assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
-        assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(1), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
-        assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(2), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
-        assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(3), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(4), "COLUMN_NAME");
-        assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(4), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(5), "DATA_TYPE");
         assertEquals(metadata.getColumnType(5), Types.BIGINT);
 
         assertEquals(metadata.getColumnLabel(6), "TYPE_NAME");
-        assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(6), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(7), "COLUMN_SIZE");
         assertEquals(metadata.getColumnType(7), Types.BIGINT);
@@ -928,10 +928,10 @@ public class TestPrestoDriver
         assertEquals(metadata.getColumnType(11), Types.BIGINT);
 
         assertEquals(metadata.getColumnLabel(12), "REMARKS");
-        assertEquals(metadata.getColumnType(12), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(12), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(13), "COLUMN_DEF");
-        assertEquals(metadata.getColumnType(13), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(13), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(14), "SQL_DATA_TYPE");
         assertEquals(metadata.getColumnType(14), Types.BIGINT);
@@ -946,25 +946,25 @@ public class TestPrestoDriver
         assertEquals(metadata.getColumnType(17), Types.BIGINT);
 
         assertEquals(metadata.getColumnLabel(18), "IS_NULLABLE");
-        assertEquals(metadata.getColumnType(18), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(18), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(19), "SCOPE_CATALOG");
-        assertEquals(metadata.getColumnType(19), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(19), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(20), "SCOPE_SCHEMA");
-        assertEquals(metadata.getColumnType(20), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(20), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(21), "SCOPE_TABLE");
-        assertEquals(metadata.getColumnType(21), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(21), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(22), "SOURCE_DATA_TYPE");
         assertEquals(metadata.getColumnType(22), Types.BIGINT);
 
         assertEquals(metadata.getColumnLabel(23), "IS_AUTOINCREMENT");
-        assertEquals(metadata.getColumnType(23), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(23), Types.VARCHAR);
 
         assertEquals(metadata.getColumnLabel(24), "IS_GENERATEDCOLUMN");
-        assertEquals(metadata.getColumnType(24), Types.LONGNVARCHAR);
+        assertEquals(metadata.getColumnType(24), Types.VARCHAR);
     }
 
     @Test

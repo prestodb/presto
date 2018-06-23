@@ -549,7 +549,8 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('POLYGON EMPTY')))", VARCHAR, null);
         assertFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 1))')))", VARCHAR, "LINESTRING (1 1, 4 1, 1 4, 1 1)");
         assertFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))')))", VARCHAR, "LINESTRING (0 0, 5 0, 5 5, 0 5, 0 0)");
-        assertInvalidFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)')))", "ST_ExteriorRing only applies to POLYGON or MULTI_POLYGON. Input type is: LINE_STRING");
+        assertInvalidFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)')))", "ST_ExteriorRing only applies to POLYGON. Input type is: LINE_STRING");
+        assertInvalidFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('MULTIPOLYGON (((1 1, 2 2, 1 3, 1 1)), ((4 4, 5 5, 4 6, 4 4)))')))", "ST_ExteriorRing only applies to POLYGON. Input type is: MULTI_POLYGON");
     }
 
     @Test

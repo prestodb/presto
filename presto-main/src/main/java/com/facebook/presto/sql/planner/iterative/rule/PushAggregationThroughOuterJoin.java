@@ -129,6 +129,7 @@ public class PushAggregationThroughOuterJoin
                 getInnerTable(join),
                 aggregation.getAggregations(),
                 ImmutableList.of(groupingKeys),
+                ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());
@@ -287,6 +288,7 @@ public class PushAggregationThroughOuterJoin
                 nullRow,
                 aggregationsOverNullBuilder.build(),
                 ImmutableList.of(ImmutableList.of()),
+                ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());

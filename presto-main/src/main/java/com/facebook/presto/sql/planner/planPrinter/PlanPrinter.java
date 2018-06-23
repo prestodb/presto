@@ -723,6 +723,9 @@ public class PlanPrinter
             if (node.getStep() != AggregationNode.Step.SINGLE) {
                 type = format("(%s)", node.getStep().toString());
             }
+            if (node.isStreamable()) {
+                type = format("%s(STREAMING)", type);
+            }
             String key = "";
             if (!node.getGroupingKeys().isEmpty()) {
                 key = node.getGroupingKeys().toString();

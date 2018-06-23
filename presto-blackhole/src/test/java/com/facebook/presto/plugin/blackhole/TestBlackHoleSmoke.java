@@ -57,11 +57,12 @@ public class TestBlackHoleSmoke
         queryRunner = createQueryRunner();
     }
 
-    @AfterTest
+    @AfterTest(alwaysRun = true)
     public void tearDown()
     {
         assertThatNoBlackHoleTableIsCreated();
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

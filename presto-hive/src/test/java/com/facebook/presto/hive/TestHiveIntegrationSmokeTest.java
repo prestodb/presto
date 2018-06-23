@@ -2208,7 +2208,7 @@ public class TestHiveIntegrationSmokeTest
             Session colocatedAllGroupsAtOnce = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "-1")
+                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .build();
             // Co-located JOIN, 1 group per worker at a time
             Session colocatedOneGroupAtATime = Session.builder(getSession())

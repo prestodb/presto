@@ -42,6 +42,7 @@ public class TestAtopSecurity
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

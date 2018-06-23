@@ -36,6 +36,7 @@ public class TestLegacyJoinUsing
     public void teardown()
     {
         assertions.close();
+        assertions = null;
     }
 
     @Test

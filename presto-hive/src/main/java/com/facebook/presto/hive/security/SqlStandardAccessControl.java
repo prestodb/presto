@@ -54,7 +54,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static java.util.Objects.requireNonNull;
 
@@ -177,14 +176,9 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        // TODO
-    }
-
-    @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
+        // TODO: Implement column level access control
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
@@ -223,39 +217,15 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
+        // TODO implement column level access control
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-        else if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
-            denyCreateViewWithSelect(tableName.toString());
+        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, viewName)) {
-            denyCreateViewWithSelect(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, Set<String> columnNames)
-    {
-        // TODO
     }
 
     @Override

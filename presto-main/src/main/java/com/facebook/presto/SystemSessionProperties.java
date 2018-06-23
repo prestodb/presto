@@ -51,6 +51,7 @@ public final class SystemSessionProperties
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
+    public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
@@ -226,6 +227,15 @@ public final class SystemSessionProperties
                         true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_TOTAL_MEMORY,
+                        "Maximum amount of distributed total memory a query can use",
+                        VARCHAR,
+                        DataSize.class,
+                        memoryManagerConfig.getMaxQueryTotalMemory(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanSessionProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
@@ -288,7 +298,7 @@ public final class SystemSessionProperties
                 integerSessionProperty(
                         CONCURRENT_LIFESPANS_PER_NODE,
                         "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
-                        -1,
+                        featuresConfig.getConcurrentLifespansPerTask(),
                         false),
                 new PropertyMetadata<>(
                         SPILL_ENABLED,
@@ -511,6 +521,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_MEMORY, DataSize.class);
     }
 
+    public static DataSize getQueryMaxTotalMemory(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY, DataSize.class);
+    }
+
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_RUN_TIME, Duration.class);
@@ -554,11 +569,11 @@ public final class SystemSessionProperties
     public static OptionalInt getConcurrentLifespansPerNode(Session session)
     {
         Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
-        if (result == -1) {
+        if (result == 0) {
             return OptionalInt.empty();
         }
         else {
-            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set");
+            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set to non-zero");
             return OptionalInt.of(result);
         }
     }

@@ -66,6 +66,7 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
+import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
@@ -2363,26 +2364,41 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
-            Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
-
             Map<Symbol, Integer> mappings = outputMappings.build();
-            OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
-                    context.getNextOperatorId(),
-                    node.getId(),
-                    groupByTypes,
-                    groupByChannels,
-                    globalAggregationGroupIds.build(),
-                    node.getStep(),
-                    node.hasDefaultOutput(),
-                    accumulatorFactories,
-                    hashChannel,
-                    node.getGroupIdSymbol().map(mappings::get),
-                    10_000,
-                    maxPartialAggregationMemorySize,
-                    spillEnabled,
-                    unspillMemoryLimit,
-                    spillerFactory,
-                    joinCompiler);
+
+            OperatorFactory operatorFactory;
+
+            if (node.isStreamable()) {
+                operatorFactory = new StreamingAggregationOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        source.getTypes(),
+                        groupByTypes,
+                        groupByChannels,
+                        node.getStep(),
+                        accumulatorFactories,
+                        joinCompiler);
+            }
+            else {
+                Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
+                operatorFactory = new HashAggregationOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        groupByTypes,
+                        groupByChannels,
+                        globalAggregationGroupIds.build(),
+                        node.getStep(),
+                        node.hasDefaultOutput(),
+                        accumulatorFactories,
+                        hashChannel,
+                        node.getGroupIdSymbol().map(mappings::get),
+                        10_000,
+                        maxPartialAggregationMemorySize,
+                        spillEnabled,
+                        unspillMemoryLimit,
+                        spillerFactory,
+                        joinCompiler);
+            }
 
             return new PhysicalOperation(operatorFactory, mappings, context, source);
         }

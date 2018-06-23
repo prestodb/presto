@@ -60,7 +60,7 @@ public class TypeParameter
             case NAMED_TYPE: {
                 Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
                 return of(new NamedType(
-                        parameter.getNamedTypeSignature().getName(),
+                        parameter.getNamedTypeSignature().getFieldName(),
                         type));
             }
             case VARIABLE:

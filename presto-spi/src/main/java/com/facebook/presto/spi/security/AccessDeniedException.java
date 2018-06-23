@@ -199,14 +199,14 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyCreateViewWithSelect(String sourceName)
+    public static void denyCreateViewWithSelect(String sourceName, Identity identity)
     {
-        denyCreateViewWithSelect(sourceName, null);
+        denyCreateViewWithSelect(sourceName, identity, null);
     }
 
-    public static void denyCreateViewWithSelect(String sourceName, String extraInfo)
+    public static void denyCreateViewWithSelect(String sourceName, Identity identity, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot create view that selects from %s%s", sourceName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)

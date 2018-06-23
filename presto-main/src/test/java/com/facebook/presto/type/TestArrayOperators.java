@@ -946,6 +946,7 @@ public class TestArrayOperators
 
         // Test for BIGINT-optimized implementation
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
+        assertFunction("ARRAY_DISTINCT(ARRAY [CAST(100 AS BIGINT), NULL, CAST(100 AS BIGINT), NULL, 0, -2, 0])", new ArrayType(BIGINT), asList(100L, null, 0L, -2L));
 
         assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.3, 2.3, 2.2])",
@@ -955,6 +956,11 @@ public class TestArrayOperators
                 "ARRAY_DISTINCT(ARRAY [2.330, 1.900, 2.330])",
                 new ArrayType(createDecimalType(4, 3)),
                 ImmutableList.of(decimal("2.330"), decimal("1.900")));
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[2, 3, 4, 1, 2])");
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])");
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[true, true, false, true, false])");
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY['cat', 'dog', 'dog', 'coffee', 'apple'])");
     }
 
     @Test

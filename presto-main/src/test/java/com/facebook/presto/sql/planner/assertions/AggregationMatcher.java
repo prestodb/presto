@@ -38,13 +38,15 @@ public class AggregationMatcher
 {
     private final Map<Symbol, Symbol> masks;
     private final List<List<String>> groupingSets;
+    private final List<String> preGroupedSymbols;
     private final Optional<Symbol> groupId;
     private final Step step;
 
-    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
+    public AggregationMatcher(List<List<String>> groupingSets, List<String> preGroupedSymbols, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
         this.masks = masks;
         this.groupingSets = groupingSets;
+        this.preGroupedSymbols = preGroupedSymbols;
         this.groupId = groupId;
         this.step = step;
     }
@@ -96,6 +98,10 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
+        if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedSymbols(), symbolAliases)) {
+            return NO_MATCH;
+        }
+
         return match();
     }
 
@@ -122,6 +128,7 @@ public class AggregationMatcher
     {
         return toStringHelper(this)
                 .add("groupingSets", groupingSets)
+                .add("preGroupedSymbols", preGroupedSymbols)
                 .add("masks", masks)
                 .add("groudId", groupId)
                 .add("step", step)

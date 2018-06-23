@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.timestampData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromLongBasedBlock;
@@ -79,7 +80,7 @@ public final class PrestoThriftTimestamp
         int numberOfRecords = numberOfRecords();
         return new LongArrayBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.ofNullable(nulls),
                 timestamps == null ? new long[numberOfRecords] : timestamps);
     }
 

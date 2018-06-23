@@ -108,7 +108,10 @@ public abstract class AbstractTestBlock
                 field.setAccessible(true);
 
                 if (type == Slice.class) {
-                    retainedSize += ((Slice) field.get(block)).getRetainedSize();
+                    Slice slice = (Slice) field.get(block);
+                    if (slice != null) {
+                        retainedSize += slice.getRetainedSize();
+                    }
                 }
                 else if (type == BlockBuilderStatus.class) {
                     if (field.get(block) != null) {

@@ -23,6 +23,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -30,7 +31,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "query.low-memory-killer.enabled"})
 public class MemoryManagerConfig
 {
+    // enforced against user memory allocations
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
+    // enforced against user + system memory allocations (default is maxQueryMemory * 2)
+    private DataSize maxQueryTotalMemory;
     private String lowMemoryKillerPolicy = LowMemoryKillerPolicy.NONE;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -71,6 +75,22 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setMaxQueryMemory(DataSize maxQueryMemory)
     {
         this.maxQueryMemory = maxQueryMemory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxQueryTotalMemory()
+    {
+        if (maxQueryTotalMemory == null) {
+            return succinctBytes(maxQueryMemory.toBytes() * 2);
+        }
+        return maxQueryTotalMemory;
+    }
+
+    @Config("query.max-total-memory")
+    public MemoryManagerConfig setMaxQueryTotalMemory(DataSize maxQueryTotalMemory)
+    {
+        this.maxQueryTotalMemory = maxQueryTotalMemory;
         return this;
     }
 

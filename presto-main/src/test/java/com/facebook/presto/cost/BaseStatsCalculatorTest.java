@@ -26,7 +26,7 @@ public abstract class BaseStatsCalculatorTest
         tester = new StatsCalculatorTester();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         tester.close();

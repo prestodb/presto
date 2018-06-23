@@ -90,7 +90,7 @@ public class OrderingCompiler
         PagesIndexComparator comparator;
         try {
             Class<? extends PagesIndexComparator> pagesHashStrategyClass = compilePagesIndexComparator(sortTypes, sortChannels, sortOrders);
-            comparator = pagesHashStrategyClass.newInstance();
+            comparator = pagesHashStrategyClass.getConstructor().newInstance();
         }
         catch (Throwable e) {
             log.error(e, "Error compiling comparator for channels %s with order %s", sortChannels, sortChannels);

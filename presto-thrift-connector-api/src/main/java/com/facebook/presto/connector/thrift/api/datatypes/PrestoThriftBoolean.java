@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.booleanData;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -72,7 +73,7 @@ public final class PrestoThriftBoolean
         int numberOfRecords = numberOfRecords();
         return new ByteArrayBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.ofNullable(nulls),
                 booleans == null ? new byte[numberOfRecords] : toByteArray(booleans));
     }
 

@@ -240,6 +240,15 @@ public interface Block
     Block copyRegion(int position, int length);
 
     /**
+     * Is it possible the block may have a null value?  If false, the block can not contain
+     * a null, but if true, the block may or may not have a null.
+     */
+    default boolean mayHaveNull()
+    {
+        return true;
+    }
+
+    /**
      * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid

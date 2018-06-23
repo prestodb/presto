@@ -47,10 +47,10 @@ import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
@@ -154,7 +154,7 @@ public class TestExpressionCompiler
     private FunctionAssertions functionAssertions;
     private List<ListenableFuture<?>> futures;
 
-    @BeforeSuite
+    @BeforeClass
     public void setupClass()
     {
         Logging.initialize();
@@ -167,7 +167,7 @@ public class TestExpressionCompiler
         functionAssertions = new FunctionAssertions();
     }
 
-    @AfterSuite
+    @AfterClass(alwaysRun = true)
     public void tearDownClass()
     {
         if (executor != null) {

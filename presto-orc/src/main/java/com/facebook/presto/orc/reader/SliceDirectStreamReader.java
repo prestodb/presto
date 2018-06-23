@@ -33,8 +33,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -119,7 +119,7 @@ public class SliceDirectStreamReader
         }
 
         // create new isNullVector and offsetVector for VariableWidthBlock
-        boolean[] isNullVector = new boolean[nextBatchSize];
+        boolean[] isNullVector = null;
         int[] offsetVector = new int[nextBatchSize + 1];
 
         // lengthVector is reused across calls
@@ -131,22 +131,29 @@ public class SliceDirectStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
             }
-            Arrays.fill(isNullVector, false);
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
+            isNullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
+
+                if (nullValues == 0) {
+                    isNullVector = null;
+                    lengthStream.nextIntVector(nextBatchSize, lengthVector);
+                }
+                else {
+                    lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
+                }
             }
         }
 
         long totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
+            if (isNullVector == null || !isNullVector[i]) {
                 totalLength += lengthVector[i];
             }
         }
@@ -155,7 +162,7 @@ public class SliceDirectStreamReader
         readOffset = 0;
         nextBatchSize = 0;
         if (totalLength == 0) {
-            return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, isNullVector);
+            return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, Optional.ofNullable(isNullVector));
         }
         if (totalLength > ONE_GIGABYTE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR,
@@ -172,7 +179,7 @@ public class SliceDirectStreamReader
         // truncate string and update offsets
         offsetVector[0] = 0;
         for (int i = 0; i < currentBatchSize; i++) {
-            if (isNullVector[i]) {
+            if (isNullVector != null && isNullVector[i]) {
                 offsetVector[i + 1] = offsetVector[i];
                 continue;
             }
@@ -189,7 +196,7 @@ public class SliceDirectStreamReader
         }
 
         // this can lead to over-retention but unlikely to happen given truncation rarely happens
-        return new VariableWidthBlock(currentBatchSize, slice, offsetVector, isNullVector);
+        return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(isNullVector));
     }
 
     private void openRowGroup()

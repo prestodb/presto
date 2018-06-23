@@ -45,6 +45,7 @@ public class AggregationNode
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;
     private final List<List<Symbol>> groupingSets;
+    private final List<Symbol> preGroupedSymbols;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
@@ -56,6 +57,7 @@ public class AggregationNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
+            @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
@@ -77,6 +79,10 @@ public class AggregationNode
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
+        checkArgument(preGroupedSymbols.isEmpty() || getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
+        this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         outputs.addAll(getGroupingKeys());
@@ -144,6 +150,12 @@ public class AggregationNode
         return groupingSets;
     }
 
+    @JsonProperty("preGroupedSymbols")
+    public List<Symbol> getPreGroupedSymbols()
+    {
+        return preGroupedSymbols;
+    }
+
     @JsonProperty("source")
     public PlanNode getSource()
     {
@@ -185,7 +197,7 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
     }
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
@@ -220,6 +232,11 @@ public class AggregationNode
         //
         // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
         return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
+    }
+
+    public boolean isStreamable()
+    {
+        return !preGroupedSymbols.isEmpty() && groupingSets.size() == 1 && !Iterables.getOnlyElement(groupingSets).isEmpty();
     }
 
     public enum Step
