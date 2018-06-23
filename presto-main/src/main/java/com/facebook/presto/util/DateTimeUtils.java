@@ -123,6 +123,15 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
+    /**
+     * Parse a string (optionally containing a zone) as a value of either TIMESTAMP or TIMESTAMP WITH TIME ZONE type.
+     * <p>
+     * For example: {@code "2000-01-01 01:23:00"} is parsed to TIMESTAMP {@code 2000-01-01T01:23:00}
+     * and {@code "2000-01-01 01:23:00 +01:23"} is parsed to TIMESTAMP WITH TIME ZONE
+     * {@code 2000-01-01T01:23:00.000+01:23}.
+     *
+     * @return stack representation of TIMESTAMP or TIMESTAMP WITH TIME ZONE type, depending on input
+     */
     public static long parseTimestampLiteral(String value)
     {
         try {
@@ -134,6 +143,12 @@ public final class DateTimeUtils
         }
     }
 
+    /**
+     * Parse a string (optionally containing a zone) as a value of either TIMESTAMP or TIMESTAMP WITH TIME ZONE type.
+     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
+     *
+     * @return stack representation of legacy TIMESTAMP or TIMESTAMP WITH TIME ZONE type, depending on input
+     */
     @Deprecated
     public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
     {
@@ -146,17 +161,41 @@ public final class DateTimeUtils
         }
     }
 
+    /**
+     * Parse a string (optionally containing a zone) as a value of TIMESTAMP WITH TIME ZONE type.
+     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
+     * <p>
+     * For example: {@code "2000-01-01 01:23:00"} is parsed to TIMESTAMP WITH TIME ZONE
+     * {@code 2000-01-01T01:23:00 <provided zone>} and {@code "2000-01-01 01:23:00 +01:23"}
+     * is parsed to TIMESTAMP WITH TIME ZONE {@code 2000-01-01T01:23:00.000+01:23}.
+     *
+     * @return stack representation of TIMESTAMP WITH TIME ZONE type
+     */
     public static long parseTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
     {
         DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
         return packDateTimeWithZone(dateTime);
     }
 
+    /**
+     * Parse a string (without a zone) as a value of TIMESTAMP type.
+     * <p>
+     * For example: {@code "2000-01-01 01:23:00"} is parsed to TIMESTAMP {@code 2000-01-01T01:23:00}
+     * and {@code "2000-01-01 01:23:00 +01:23"} is rejected.
+     *
+     * @return stack representation of TIMESTAMP type
+     */
     public static long parseTimestampWithoutTimeZone(String value)
     {
         return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
     }
 
+    /**
+     * Parse a string (optionally containing a zone) as a value of TIMESTAMP type.
+     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
+     *
+     * @return stack representation of legacy TIMESTAMP type
+     */
     @Deprecated
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
@@ -227,6 +266,15 @@ public final class DateTimeUtils
         TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timeWithTimeZonePrinter, timeWithTimeZoneParser).toFormatter().withOffsetParsed();
     }
 
+    /**
+     * Parse a string (optionally containing a zone) as a value of either TIME or TIME WITH TIME ZONE type.
+     * <p>
+     * For example: {@code "01:23:00"} is parsed to TIME {@code 01:23:00}
+     * and {@code "01:23:00 +01:23"} is parsed to TIME WITH TIME ZONE
+     * {@code 01:23:00+01:23}.
+     *
+     * @return stack representation of TIME or TIME WITH TIME ZONE type, depending on input
+     */
     public static long parseTimeLiteral(String value)
     {
         try {
@@ -237,6 +285,12 @@ public final class DateTimeUtils
         }
     }
 
+    /**
+     * Parse a string (optionally containing a zone) as a value of either TIME or TIME WITH TIME ZONE type.
+     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
+     *
+     * @return stack representation of legacy TIME or TIME WITH TIME ZONE type, depending on input
+     */
     @Deprecated
     public static long parseTimeLiteral(TimeZoneKey timeZoneKey, String value)
     {
@@ -248,17 +302,38 @@ public final class DateTimeUtils
         }
     }
 
+    /**
+     * Parse a string containing a zone as a value of TIME WITH TIME ZONE type.
+     * <p>
+     * For example: {@code "01:23:00 +01:23"} is parsed to TIME WITH TIME ZONE
+     * {@code 01:23:00+01:23} and {@code "01:23:00"} is rejected.
+     *
+     * @return stack representation of TIME WITH TIME ZONE type
+     */
     public static long parseTimeWithTimeZone(String timeWithTimeZone)
     {
         DateTime dateTime = TIME_WITH_TIME_ZONE_FORMATTER.parseDateTime(timeWithTimeZone);
         return packDateTimeWithZone(dateTime);
     }
 
+    /**
+     * Parse a string (without a zone) as a value of TIME type.
+     * <p>
+     * For example: {@code "01:23:00"} is parsed to TIME {@code 01:23:00}
+     * and {@code "01:23:00 +01:23"} is rejected.
+     *
+     * @return stack representation of TIME type
+     */
     public static long parseTimeWithoutTimeZone(String value)
     {
         return TIME_FORMATTER.parseMillis(value);
     }
 
+    /**
+     * Parse a string (without a zone) as a value of TIME type, interpreted in {@code timeZoneKey} zone.
+     *
+     * @return stack representation of legacy TIME type
+     */
     @Deprecated
     public static long parseTimeWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
