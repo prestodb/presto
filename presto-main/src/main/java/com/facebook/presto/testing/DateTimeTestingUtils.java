@@ -21,6 +21,11 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import java.time.LocalDateTime;
+
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 public final class DateTimeTestingUtils
 {
     private DateTimeTestingUtils() {}
@@ -58,6 +63,14 @@ public final class DateTimeTestingUtils
         else {
             return new SqlTimestamp(new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, DateTimeZone.UTC).getMillis());
         }
+    }
+
+    /**
+     * Constructs standard (non-legacy) TIMESTAMP value corresponding to argument
+     */
+    public static SqlTimestamp sqlTimestampOf(LocalDateTime dateTime)
+    {
+        return new SqlTimestamp(DAYS.toMillis(dateTime.toLocalDate().toEpochDay()) + NANOSECONDS.toMillis(dateTime.toLocalTime().toNanoOfDay()));
     }
 
     public static SqlTimestamp sqlTimestampOf(DateTime dateTime, Session session)
