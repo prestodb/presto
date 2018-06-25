@@ -49,8 +49,8 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest
 {
-    private static final ImmutableList<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of());
-    private static final ImmutableList<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(), ImmutableList.of());
+    private static final ImmutableList<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of(new LongLiteral("1")));
+    private static final ImmutableList<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(new LongLiteral("1")), ImmutableList.of(new LongLiteral("2")));
 
     private Rule rule = new TransformCorrelatedScalarSubquery();
 
@@ -101,7 +101,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         ensureScalarSubquery(),
                                         markDistinct(
                                                 "is_distinct",
-                                                ImmutableList.of("unique"),
+                                                ImmutableList.of("corr", "unique"),
                                                 lateral(
                                                         ImmutableList.of("corr"),
                                                         assignUniqueId(
@@ -131,7 +131,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         ensureScalarSubquery(),
                                         markDistinct(
                                                 "is_distinct",
-                                                ImmutableList.of("unique"),
+                                                ImmutableList.of("corr", "unique"),
                                                 lateral(
                                                         ImmutableList.of("corr"),
                                                         assignUniqueId(
@@ -163,7 +163,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         ensureScalarSubquery(),
                                         markDistinct(
                                                 "is_distinct",
-                                                ImmutableList.of("unique"),
+                                                ImmutableList.of("corr", "unique"),
                                                 lateral(
                                                         ImmutableList.of("corr"),
                                                         assignUniqueId(
