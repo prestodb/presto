@@ -255,6 +255,11 @@ Accessors
     for single geometries returns 1,
     for empty geometries returns 0.
 
+.. function:: ST_Geometries(Geometry) -> Geometry
+
+   Returns an array of geometries in the specified collection. Returns a one-element array
+   if the input geometry is not a multi-geometry. Returns null if input geometry is empty.
+
 .. function:: ST_NumPoints(Geometry) -> bigint
 
     Returns the number of points in a geometry. This is an extension to the SQL/MM

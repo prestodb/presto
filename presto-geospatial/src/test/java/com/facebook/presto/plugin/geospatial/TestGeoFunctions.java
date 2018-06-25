@@ -851,6 +851,25 @@ public class TestGeoFunctions
         assertInvalidFunction(format("ST_PointN(ST_GeometryFromText('%s'), 1)", wkt), message);
     }
 
+    @Test
+    public void testSTGeometries()
+    {
+        assertFunction("ST_Geometries(ST_GeometryFromText('POINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTGeometries("POINT (1 5)", "POINT (1 5)");
+        assertSTGeometries("LINESTRING (77.29 29.07, 77.42 29.26, 77.27 29.31, 77.29 29.07)", "LINESTRING (77.29 29.07, 77.42 29.26, 77.27 29.31, 77.29 29.07)");
+        assertSTGeometries("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))");
+        assertSTGeometries("MULTIPOINT (1 2, 4 8, 16 32)", "POINT (1 2)", "POINT (4 8)", "POINT (16 32)");
+        assertSTGeometries("MULTILINESTRING ((1 1, 2 2))", "LINESTRING (1 1, 2 2)");
+        assertSTGeometries("MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)), ((1 1, 3 1, 3 3, 1 3, 1 1)))",
+                "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))");
+        assertSTGeometries("GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 3, 3 4))", "POINT (2 3)", "LINESTRING (2 3, 3 4)");
+    }
+
+    private void assertSTGeometries(String wkt, String... expected)
+    {
+        assertFunction(String.format("transform(ST_Geometries(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt), new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
+    }
+
     public void testSTGeometryType()
     {
         assertFunction("ST_GeometryType(ST_Point(1, 4))", VARCHAR, "ST_Point");

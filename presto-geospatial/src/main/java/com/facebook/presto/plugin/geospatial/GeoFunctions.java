@@ -538,6 +538,34 @@ public final class GeoFunctions
         return serialize(linestring.pointN(toIntExact(index) - 1));
     }
 
+    @SqlNullable
+    @Description("Returns an array of geometries in the specified collection")
+    @ScalarFunction("ST_Geometries")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block stGeometries(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+
+        if (geometry.isEmpty()) {
+            return null;
+        }
+
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (!type.isMultitype()) {
+            BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 1);
+            GEOMETRY.writeSlice(blockBuilder, serialize(geometry));
+            return blockBuilder.build();
+        }
+
+        OGCGeometryCollection collection = (OGCGeometryCollection) geometry;
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, collection.numGeometries());
+        for (int i = 0; i < collection.numGeometries(); i++) {
+            GEOMETRY.writeSlice(blockBuilder, serialize(collection.geometryN(i)));
+        }
+
+        return blockBuilder.build();
+    }
+
     @Description("Returns the number of points in a Geometry")
     @ScalarFunction("ST_NumPoints")
     @SqlType(StandardTypes.BIGINT)
