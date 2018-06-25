@@ -46,6 +46,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
@@ -64,6 +65,7 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_SOURCE, "testSource")
                     .put(PRESTO_CATALOG, "testCatalog")
                     .put(PRESTO_SCHEMA, "testSchema")
+                    .put(PRESTO_PATH, "testPath")
                     .put(PRESTO_LANGUAGE, "zh-TW")
                     .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                     .put(PRESTO_CLIENT_INFO, "client-info")
@@ -93,6 +95,7 @@ public class TestQuerySessionSupplier
         assertEquals(session.getSource().get(), "testSource");
         assertEquals(session.getCatalog().get(), "testCatalog");
         assertEquals(session.getSchema().get(), "testSchema");
+        assertEquals(session.getPath().getRawPath().get(), "testPath");
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");

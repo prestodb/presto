@@ -29,6 +29,7 @@ import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
@@ -48,6 +49,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_SOURCE, "testSource")
                         .put(PRESTO_CATALOG, "testCatalog")
                         .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_PATH, "testPath")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                         .put(PRESTO_CLIENT_INFO, "client-info")
@@ -61,6 +63,7 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
+        assertEquals(context.getPath(), "testPath");
         assertEquals(context.getIdentity(), new Identity("testUser", Optional.empty()));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
@@ -78,6 +81,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_SOURCE, "testSource")
                         .put(PRESTO_CATALOG, "testCatalog")
                         .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_PATH, "testPath")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                         .put(PRESTO_CLIENT_INFO, "null")

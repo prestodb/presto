@@ -146,6 +146,7 @@ public class TestQueryStateInfo
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),
