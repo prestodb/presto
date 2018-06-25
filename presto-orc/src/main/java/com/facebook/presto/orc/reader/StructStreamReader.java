@@ -20,6 +20,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RowBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -27,12 +28,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class StructStreamReader
@@ -96,18 +99,28 @@ public class StructStreamReader
         Block[] blocks = new Block[typeParameters.size()];
         if (presentStream == null) {
             for (int i = 0; i < typeParameters.size(); i++) {
-                StreamReader structField = structFields[i];
-                structField.prepareNextRead(nextBatchSize);
-                blocks[i] = structField.readBlock(typeParameters.get(i));
+                if (i < structFields.length) {
+                    StreamReader structField = structFields[i];
+                    structField.prepareNextRead(nextBatchSize);
+                    blocks[i] = structField.readBlock(typeParameters.get(i));
+                }
+                else {
+                    blocks[i] = getNullBlock(typeParameters.get(i), nextBatchSize);
+                }
             }
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 for (int i = 0; i < typeParameters.size(); i++) {
-                    StreamReader structField = structFields[i];
-                    structField.prepareNextRead(nextBatchSize - nullValues);
-                    blocks[i] = structField.readBlock(typeParameters.get(i));
+                    if (i < structFields.length) {
+                        StreamReader structField = structFields[i];
+                        structField.prepareNextRead(nextBatchSize - nullValues);
+                        blocks[i] = structField.readBlock(typeParameters.get(i));
+                    }
+                    else {
+                        blocks[i] = getNullBlock(typeParameters.get(i), nextBatchSize - nullValues);
+                    }
                 }
             }
             else {
@@ -116,6 +129,11 @@ public class StructStreamReader
                 }
             }
         }
+
+        verify(Arrays.stream(blocks)
+                .mapToInt(Block::getPositionCount)
+                .distinct()
+                .count() == 1);
 
         // Struct is represented as a row block
         Block rowBlock = RowBlock.fromFieldBlocks(nullVector, blocks);
@@ -176,5 +194,13 @@ public class StructStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    private static Block getNullBlock(Type type, int positionCount)
+    {
+        Block nullValueBlock = type.createBlockBuilder(null, 1)
+                .appendNull()
+                .build();
+        return new RunLengthEncodedBlock(nullValueBlock, positionCount);
     }
 }
