@@ -121,7 +121,7 @@ public class BenchmarkOrcDecimalReader
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
-                    DateTimeZone.forID("Asia/Katmandu"),
+                    DateTimeZone.UTC, // arbitrary
                     newSimpleAggregatedMemoryContext());
         }
 
