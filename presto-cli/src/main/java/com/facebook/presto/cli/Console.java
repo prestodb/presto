@@ -320,6 +320,13 @@ public class Console
                 schemaChanged.run();
             }
 
+            // update path if present
+            if (query.getSetPath().isPresent()) {
+                session = ClientSession.builder(session)
+                        .withPath(query.getSetPath().get())
+                        .build();
+            }
+
             // update session properties if present
             if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
                 Map<String, String> sessionProperties = new HashMap<>(session.getProperties());

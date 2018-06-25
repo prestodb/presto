@@ -53,11 +53,13 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -94,6 +96,7 @@ class StatementClientV1
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
+    private final AtomicReference<String> setPath = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
@@ -157,6 +160,9 @@ class StatementClientV1
         }
         if (session.getSchema() != null) {
             builder.addHeader(PRESTO_SCHEMA, session.getSchema());
+        }
+        if (session.getPath() != null) {
+            builder.addHeader(PRESTO_PATH, session.getPath());
         }
         builder.addHeader(PRESTO_TIME_ZONE, session.getTimeZone().getId());
         if (session.getLocale() != null) {
@@ -252,6 +258,12 @@ class StatementClientV1
     public Optional<String> getSetSchema()
     {
         return Optional.ofNullable(setSchema.get());
+    }
+
+    @Override
+    public Optional<String> getSetPath()
+    {
+        return Optional.ofNullable(setPath.get());
     }
 
     @Override
@@ -372,6 +384,7 @@ class StatementClientV1
     {
         setCatalog.set(headers.get(PRESTO_SET_CATALOG));
         setSchema.set(headers.get(PRESTO_SET_SCHEMA));
+        setPath.set(headers.get(PRESTO_SET_PATH));
 
         for (String setSession : headers.values(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);

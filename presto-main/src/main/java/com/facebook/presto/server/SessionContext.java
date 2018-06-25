@@ -34,6 +34,9 @@ public interface SessionContext
     String getSchema();
 
     @Nullable
+    String getPath();
+
+    @Nullable
     String getSource();
 
     String getRemoteUserAddress();

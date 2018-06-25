@@ -57,6 +57,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public String getPath()
+    {
+        return session.getPath().toString();
+    }
+
+    @Override
     public String getSource()
     {
         return session.getSource().orElse(null);

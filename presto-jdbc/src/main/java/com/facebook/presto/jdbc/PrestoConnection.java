@@ -73,6 +73,7 @@ public class PrestoConnection
     private final AtomicBoolean readOnly = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
+    private final AtomicReference<String> path = new AtomicReference<>();
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
@@ -669,6 +670,7 @@ public class PrestoConnection
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
+                path.get(),
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.of(),
@@ -690,6 +692,7 @@ public class PrestoConnection
 
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);
+        client.getSetPath().ifPresent(path::set);
 
         if (client.getStartedTransactionId() != null) {
             transactionId.set(client.getStartedTransactionId());

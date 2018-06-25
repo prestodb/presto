@@ -140,6 +140,10 @@ public class QuerySessionSupplier
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates());
 
+        if (context.getPath() != null) {
+            sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
+        }
+
         if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
         }

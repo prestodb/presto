@@ -64,6 +64,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
@@ -193,9 +194,9 @@ public class StatementResource
     {
         ResponseBuilder response = Response.ok(queryResults);
 
-        // add set catalog and schema
         query.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
         query.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
+        query.getSetPath().ifPresent(path -> response.header(PRESTO_SET_PATH, path));
 
         // add set session properties
         query.getSetSessionProperties().entrySet()
