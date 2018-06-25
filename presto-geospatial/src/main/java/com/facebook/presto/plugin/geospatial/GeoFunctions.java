@@ -481,6 +481,26 @@ public final class GeoFunctions
         return Long.valueOf(((OGCPolygon) geometry).numInteriorRing());
     }
 
+    @SqlNullable
+    @Description("Returns an array of interior rings of a polygon")
+    @ScalarFunction("ST_InteriorRings")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block stInteriorRings(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        validateType("ST_InteriorRings", geometry, EnumSet.of(POLYGON));
+        if (geometry.isEmpty()) {
+            return null;
+        }
+
+        OGCPolygon polygon = (OGCPolygon) geometry;
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, polygon.numInteriorRing());
+        for (int i = 0; i < polygon.numInteriorRing(); i++) {
+            GEOMETRY.writeSlice(blockBuilder, serialize(polygon.interiorRingN(i)));
+        }
+        return blockBuilder.build();
+    }
+
     @Description("Returns the cardinality of the geometry collection")
     @ScalarFunction("ST_NumGeometries")
     @SqlType(StandardTypes.INTEGER)
@@ -545,7 +565,6 @@ public final class GeoFunctions
     public static Block stGeometries(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-
         if (geometry.isEmpty()) {
             return null;
         }
@@ -562,8 +581,23 @@ public final class GeoFunctions
         for (int i = 0; i < collection.numGeometries(); i++) {
             GEOMETRY.writeSlice(blockBuilder, serialize(collection.geometryN(i)));
         }
-
         return blockBuilder.build();
+    }
+
+    @SqlNullable
+    @Description("Returns the interior ring element at the specified index (indices start at 1)")
+    @ScalarFunction("ST_InteriorRingN")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stInteriorRingN(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(INTEGER) long index)
+    {
+        OGCGeometry geometry = deserialize(input);
+        validateType("ST_InteriorRingN", geometry, EnumSet.of(POLYGON));
+        OGCPolygon polygon = (OGCPolygon) geometry;
+        if (index < 1 || index > polygon.numInteriorRing()) {
+            return null;
+        }
+        OGCGeometry interiorRing = polygon.interiorRingN(toIntExact(index) - 1);
+        return serialize(interiorRing);
     }
 
     @Description("Returns the number of points in a Geometry")

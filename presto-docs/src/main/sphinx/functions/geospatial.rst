@@ -171,6 +171,14 @@ Accessors
     Singular geometries (e.g., POINT, LINESTRING, POLYGON), are treated as collections of one element.
     Empty geometries are treated as empty collections.
 
+.. function:: ST_InteriorRingN(Geometry, index) -> Geometry
+
+   Returns the interior ring element at the specified index (indices start at 1). If
+   the given index is less than 1 or greater than the total number of interior rings
+   in the input geometry, returns ``NULL``. Throws an error if the input geometry is
+   not a polygon.
+   Use :func:``ST_NumInteriorRing`` to find out the total number of elements.
+
 .. function:: ST_GeometryType(Geometry) -> varchar
 
     Returns the type of the geometry.
@@ -246,6 +254,12 @@ Accessors
 .. function:: ST_Y(Point) -> double
 
     Return the Y coordinate of the point.
+
+.. function:: ST_InteriorRings(Geometry) -> Geometry
+
+   Returns an array of all interior rings found in the input geometry, or an empty
+   array if the polygon has no interior rings. Returns null if the input geometry
+   is empty. Throws an error if the input geometry is not a polygon.
 
 .. function:: ST_NumGeometries(Geometry) -> bigint
 
