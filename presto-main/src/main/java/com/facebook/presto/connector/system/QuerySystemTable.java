@@ -49,7 +49,7 @@ public class QuerySystemTable
             .column("user", createUnboundedVarcharType())
             .column("source", createUnboundedVarcharType())
             .column("query", createUnboundedVarcharType())
-
+            .column("resource_group", createUnboundedVarcharType())
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
             .column("distributed_planning_time_ms", BIGINT)
@@ -95,6 +95,7 @@ public class QuerySystemTable
                     queryInfo.getSession().getUser(),
                     queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
+                    queryInfo.getResourceGroupName().orElse(null),
 
                     toMillis(queryStats.getQueuedTime()),
                     toMillis(queryStats.getAnalysisTime()),
