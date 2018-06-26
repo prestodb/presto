@@ -81,6 +81,7 @@ public class TestManySegments
             throws Exception
     {
         embeddedKafka.close();
+        embeddedKafka = null;
     }
 
     @BeforeMethod
@@ -97,14 +98,13 @@ public class TestManySegments
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
     public void testManySegments()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT count(_message) from " + topicName);
 

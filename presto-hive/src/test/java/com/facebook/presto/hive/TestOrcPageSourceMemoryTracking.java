@@ -40,7 +40,6 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -77,7 +76,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -162,7 +160,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         tempFile.delete();
     }
@@ -250,7 +247,7 @@ public class TestOrcPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveClientConfig config = new HiveClientConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces
@@ -303,7 +300,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testTableScanOperator()
-            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
@@ -366,7 +362,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testScanFilterAndProjectOperator()
-            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
@@ -474,7 +469,8 @@ public class TestOrcPageSourceMemoryTracking
                     partitionKeys,
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
-                    ImmutableMap.of())
+                    ImmutableMap.of(),
+                    Optional.empty())
                     .get();
         }
 
@@ -485,7 +481,6 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    types,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -599,12 +594,11 @@ public class TestOrcPageSourceMemoryTracking
             flushStripe.invoke(writer);
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
     private static RecordWriter createRecordWriter(Path target, Configuration conf)
-            throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
             WriterOptions options = new OrcWriterOptions(conf)
@@ -631,7 +625,7 @@ public class TestOrcPageSourceMemoryTracking
             return constructor;
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

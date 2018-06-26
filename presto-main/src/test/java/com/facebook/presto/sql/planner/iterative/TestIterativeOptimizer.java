@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.StatsRecorder;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -63,13 +63,18 @@ public class TestIterativeOptimizer
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
     }
 
     @Test(timeOut = 1000)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
-        PlanOptimizer optimizer = new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new NonConvergingRule()));
+        PlanOptimizer optimizer = new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                queryRunner.getStatsCalculator(),
+                queryRunner.getCostCalculator(),
+                ImmutableSet.of(new NonConvergingRule()));
 
         try {
             queryRunner.inTransaction(transactionSession -> {

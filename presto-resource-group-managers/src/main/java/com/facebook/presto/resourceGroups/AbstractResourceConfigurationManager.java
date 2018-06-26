@@ -18,7 +18,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -35,7 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -43,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
-        implements ResourceGroupConfigurationManager
+        implements ResourceGroupConfigurationManager<VariableMap>
 {
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
@@ -59,7 +57,8 @@ public abstract class AbstractResourceConfigurationManager
         Queue<ResourceGroupSpec> groups = new LinkedList<>(managerSpec.getRootGroups());
         while (!groups.isEmpty()) {
             ResourceGroupSpec group = groups.poll();
-            groups.addAll(group.getSubGroups());
+            List<ResourceGroupSpec> subGroups = group.getSubGroups();
+            groups.addAll(subGroups);
             if (group.getSoftCpuLimit().isPresent() || group.getHardCpuLimit().isPresent()) {
                 checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use cpu limits on group: %s", group.getName());
             }
@@ -68,15 +67,22 @@ public abstract class AbstractResourceConfigurationManager
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
             }
             if (group.getSchedulingPolicy().isPresent()) {
-                if (group.getSchedulingPolicy().get() == WEIGHTED) {
-                    for (ResourceGroupSpec subGroup : group.getSubGroups()) {
-                        checkArgument(subGroup.getSchedulingWeight().isPresent(), "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
-                    }
-                }
-                else {
-                    for (ResourceGroupSpec subGroup : group.getSubGroups()) {
-                        checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use \"weighted\" scheduling policy when using scheduling weight");
-                    }
+                switch (group.getSchedulingPolicy().get()) {
+                    case WEIGHTED:
+                    case WEIGHTED_FAIR:
+                        checkArgument(
+                                subGroups.stream().allMatch(t -> t.getSchedulingWeight().isPresent()) || subGroups.stream().noneMatch(t -> t.getSchedulingWeight().isPresent()),
+                                format("Must specify scheduling weight for all sub-groups of '%s' or none of them", group.getName()));
+                        break;
+                    case QUERY_PRIORITY:
+                    case FAIR:
+                        for (ResourceGroupSpec subGroup : subGroups) {
+                            checkArgument(!subGroup.getSchedulingWeight().isPresent(),
+                                    String.format("Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName()));
+                        }
+                        break;
+                    default:
+                        throw new UnsupportedOperationException();
                 }
             }
         }
@@ -87,7 +93,13 @@ public abstract class AbstractResourceConfigurationManager
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
             validateSelectors(managerSpec.getRootGroups(), spec);
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getClientTags(), spec.getQueryType(), spec.getGroup()));
+            selectors.add(new StaticSelector(
+                    spec.getUserRegex(),
+                    spec.getSourceRegex(),
+                    spec.getClientTags(),
+                    spec.getResourceEstimate(),
+                    spec.getQueryType(),
+                    spec.getGroup()));
         }
         return selectors.build();
     }
@@ -141,7 +153,7 @@ public abstract class AbstractResourceConfigurationManager
         });
     }
 
-    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext context)
+    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext<VariableMap> context)
     {
         List<ResourceGroupSpec> candidates = getRootGroups();
         List<String> segments = group.getId().getSegments();
@@ -151,7 +163,7 @@ public abstract class AbstractResourceConfigurationManager
             List<ResourceGroupSpec> nextCandidates = null;
             ResourceGroupSpec nextCandidatesParent = null;
             for (ResourceGroupSpec candidate : candidates) {
-                if (candidate.getName().expandTemplate(context).equals(segments.get(i))) {
+                if (candidate.getName().expandTemplate(context.getContext()).equals(segments.get(i))) {
                     templateId.add(candidate.getName());
                     if (i == segments.size() - 1) {
                         if (match != null) {

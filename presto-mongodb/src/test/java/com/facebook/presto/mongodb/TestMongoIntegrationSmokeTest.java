@@ -16,18 +16,20 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import org.joda.time.DateTime;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -45,7 +47,6 @@ public class TestMongoIntegrationSmokeTest
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
     }
@@ -59,7 +60,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void createTableWithEveryType()
-            throws Exception
     {
         String query = "" +
                 "CREATE TABLE test_types_table AS " +
@@ -75,7 +75,7 @@ public class TestMongoIntegrationSmokeTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -83,16 +83,60 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(2), 1L);
         assertEquals(row.getField(3), 3.14);
         assertEquals(row.getField(4), true);
-        assertEquals(row.getField(5), new Date(new DateTime(1980, 5, 7, 0, 0, 0, UTC).getMillis()));
-        assertEquals(row.getField(6), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
+        assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
+        assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
 
     @Test
-    public void testArrays()
+    public void testInsertWithEveryType()
             throws Exception
+    {
+        String createSql = "" +
+                "CREATE TABLE test_insert_types_table " +
+                "(" +
+                "  vc varchar" +
+                ", vb varbinary" +
+                ", bi bigint" +
+                ", d double" +
+                ", b boolean" +
+                ", dt  date" +
+                ", ts  timestamp" +
+                ", objid objectid" +
+                ")";
+        getQueryRunner().execute(getSession(), createSql);
+
+        String insertSql = "" +
+                "INSERT INTO test_insert_types_table " +
+                "SELECT" +
+                " 'foo' _varchar" +
+                ", cast('bar' as varbinary) _varbinary" +
+                ", cast(1 as bigint) _bigint" +
+                ", 3.14E0 _double" +
+                ", true _boolean" +
+                ", DATE '1980-05-07' _date" +
+                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", ObjectId('ffffffffffffffffffffffff') _objectid";
+        getQueryRunner().execute(getSession(), insertSql);
+
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_insert_types_table").toTestTypes();
+        assertEquals(results.getRowCount(), 1);
+        MaterializedRow row = results.getMaterializedRows().get(0);
+        assertEquals(row.getField(0), "foo");
+        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
+        assertEquals(row.getField(2), 1L);
+        assertEquals(row.getField(3), 3.14);
+        assertEquals(row.getField(4), true);
+        assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
+        assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertUpdate("DROP TABLE test_insert_types_table");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
+    }
+
+    @Test
+    public void testArrays()
     {
         assertUpdate("CREATE TABLE tmp_array1 AS SELECT ARRAY[1, 2, NULL] AS col", 1);
         assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
@@ -119,7 +163,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testTemporalArrays()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_array7 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array7");
@@ -129,7 +172,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testMaps()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
@@ -151,11 +193,36 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM tmp_map6");
         assertUpdate("CREATE TABLE tmp_map7 AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
+
+        assertUpdate("CREATE TABLE test.tmp_map8 (col MAP<VARCHAR, VARCHAR>)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map8").insertOne(new Document(
+                ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
+        assertQuery("SELECT col['key1'] FROM test.tmp_map8", "SELECT 'value1'");
+
+        assertUpdate("CREATE TABLE test.tmp_map9 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
+                ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
+        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{ \"key1\" : \"value1\", \"key2\" : \"value2\" }'");
+
+        assertUpdate("CREATE TABLE test.tmp_map10 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
+                ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
+                        new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
+        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{ \"key1\" : \"value1\", \"key2\" : \"value2\" }, { \"key3\" : \"value3\", \"key4\" : \"value4\" }]'");
+
+        assertUpdate("CREATE TABLE test.tmp_map11 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map11").insertOne(new Document(
+                ImmutableMap.of("col", 10)));
+        assertQuery("SELECT col FROM test.tmp_map11", "SELECT '10'");
+
+        assertUpdate("CREATE TABLE test.tmp_map12 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map12").insertOne(new Document(
+                ImmutableMap.of("col", Arrays.asList(10, null, 11))));
+        assertQuery("SELECT col FROM test.tmp_map12", "SELECT '[10, null, 11]'");
     }
 
     @Test
     public void testCollectionNameContainsDots()
-            throws Exception
     {
         assertUpdate("CREATE TABLE \"tmp.dot1\" AS SELECT 'foo' _varchar", 1);
         assertQuery("SELECT _varchar FROM \"tmp.dot1\"", "SELECT 'foo'");
@@ -164,7 +231,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testObjectIds()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_objectid AS SELECT ObjectId('ffffffffffffffffffffffff') AS id", 1);
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
@@ -172,7 +238,7 @@ public class TestMongoIntegrationSmokeTest
 
     private void assertOneNotNullResult(String query)
     {
-        MaterializedResult results = getQueryRunner().execute(getSession(), query).toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));

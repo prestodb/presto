@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -88,9 +89,7 @@ public class SymbolMapper
             aggregations.put(map(symbol), new Aggregation(
                     (FunctionCall) map(aggregation.getCall()),
                     aggregation.getSignature(),
-                    aggregation.getMask().map(this::map),
-                    aggregation.getOrderBy().stream().map(this::map).collect(toImmutableList()),
-                    aggregation.getOrdering()));
+                    aggregation.getMask().map(this::map)));
         }
 
         List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
@@ -102,6 +101,7 @@ public class SymbolMapper
                 source,
                 aggregations.build(),
                 groupingSets,
+                ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
@@ -111,13 +111,13 @@ public class SymbolMapper
     {
         ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderBy().size());
-        for (Symbol symbol : node.getOrderBy()) {
+        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderingScheme().getOrderBy().size());
+        for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
             Symbol canonical = map(symbol);
             if (seenCanonicals.add(canonical)) {
                 seenCanonicals.add(canonical);
                 symbols.add(canonical);
-                orderings.put(canonical, node.getOrderings().get(symbol));
+                orderings.put(canonical, node.getOrderingScheme().getOrdering(symbol));
             }
         }
 
@@ -125,8 +125,7 @@ public class SymbolMapper
                 newNodeId,
                 source,
                 node.getCount(),
-                symbols.build(),
-                orderings.build(),
+                new OrderingScheme(symbols.build(), orderings.build()),
                 node.getStep());
     }
 

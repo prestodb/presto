@@ -70,6 +70,15 @@ public class Analyzer
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         analyzer.analyze(rewrittenStatement, Optional.empty());
+
+        // check column access permissions for each table
+        analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
+                tableColumnReferences.forEach((tableName, columns) ->
+                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+                                session.getRequiredTransactionId(),
+                                accessControlInfo.getIdentity(),
+                                tableName,
+                                columns)));
         return analysis;
     }
 

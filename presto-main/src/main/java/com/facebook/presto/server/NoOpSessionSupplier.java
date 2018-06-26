@@ -15,7 +15,10 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+
+import java.util.Optional;
 
 /**
  * Used on workers.
@@ -24,7 +27,7 @@ public class NoOpSessionSupplier
         implements SessionSupplier
 {
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, SessionContext context, Optional<String> queryType, ResourceGroupId resourceGroupId)
     {
         throw new UnsupportedOperationException();
     }

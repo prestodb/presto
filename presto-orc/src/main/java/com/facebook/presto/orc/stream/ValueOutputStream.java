@@ -14,11 +14,8 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
-import com.facebook.presto.orc.metadata.Stream;
-import io.airlift.slice.SliceOutput;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface ValueOutputStream<C extends StreamCheckpoint>
 {
@@ -28,8 +25,12 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
-    Optional<Stream> writeDataStreams(int column, SliceOutput outputStream);
+    StreamDataOutput getStreamDataOutput(int column);
 
+    /**
+     * This method returns the size of the flushed data plus any unflushed data.
+     * If the output is compressed, flush data size is the size after compression.
+     */
     long getBufferedBytes();
 
     long getRetainedBytes();

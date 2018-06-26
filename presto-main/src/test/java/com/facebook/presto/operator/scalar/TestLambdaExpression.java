@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -57,7 +55,6 @@ public class TestLambdaExpression
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("apply(5, x -> x + 1)", INTEGER, 6);
         assertFunction("apply(5 + RANDOM(1), x -> x + 1)", INTEGER, 6);
@@ -65,7 +62,6 @@ public class TestLambdaExpression
 
     @Test
     public void testNull()
-            throws Exception
     {
         assertFunction("apply(3, x -> x + 1)", INTEGER, 4);
         assertFunction("apply(NULL, x -> x + 1)", INTEGER, null);
@@ -90,7 +86,6 @@ public class TestLambdaExpression
 
     @Test
     public void testSessionDependent()
-            throws Exception
     {
         assertFunction("apply('timezone: ', x -> x || current_timezone())", VARCHAR, "timezone: Pacific/Kiritimati");
     }
@@ -103,7 +98,6 @@ public class TestLambdaExpression
 
     @Test
     public void testNestedLambda()
-            throws Exception
     {
         assertFunction("apply(11, x -> apply(x + 7, y -> apply(y * 3, z -> z * 5) + 1) * 2)", INTEGER, 542);
         assertFunction("apply(11, x -> apply(x + 7, x -> apply(x * 3, x -> x * 5) + 1) * 2)", INTEGER, 542);
@@ -111,7 +105,6 @@ public class TestLambdaExpression
 
     @Test
     public void testRowAccess()
-            throws Exception
     {
         assertFunction("apply(CAST(ROW(1, 'a') AS ROW(x INTEGER, y VARCHAR)), r -> r.x)", INTEGER, 1);
         assertFunction("apply(CAST(ROW(1, 'a') AS ROW(x INTEGER, y VARCHAR)), r -> r.y)", VARCHAR, "a");
@@ -119,7 +112,6 @@ public class TestLambdaExpression
 
     @Test
     public void testBind()
-            throws Exception
     {
         assertFunction("apply(90, \"$internal$bind\"(9, (x, y) -> x + y))", INTEGER, 99);
         assertFunction("invoke(\"$internal$bind\"(8, x -> x + 1))", INTEGER, 9);
@@ -129,7 +121,6 @@ public class TestLambdaExpression
 
     @Test
     public void testCoercion()
-            throws Exception
     {
         assertFunction("apply(90, x -> x + 9.0E0)", DOUBLE, 99.0);
 
@@ -139,7 +130,6 @@ public class TestLambdaExpression
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction("apply(25, x -> x + 1)", INTEGER, 26);
         assertFunction("apply(25, x -> x + 1.0E0)", DOUBLE, 26.0);
@@ -165,7 +155,7 @@ public class TestLambdaExpression
         assertFunction("apply('abc', x -> x || x)", createUnboundedVarcharType(), "abcabc");
         assertFunction(
                 "apply('123', x -> ROW(x, CAST(x AS INTEGER), x > '0'))",
-                new RowType(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN), Optional.empty()),
+                RowType.anonymous(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN)),
                 ImmutableList.of("123", 123, true));
 
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> from_base(x[3], 10))", BIGINT, 123L);

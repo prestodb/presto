@@ -14,6 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -21,13 +22,13 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -54,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -149,7 +149,13 @@ public class MongoSession
     public MongoTable getTable(SchemaTableName tableName)
             throws TableNotFoundException
     {
-        return getCacheValue(tableCache, tableName, TableNotFoundException.class);
+        try {
+            return tableCache.getUnchecked(tableName);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
     }
 
     public void createTable(SchemaTableName name, List<MongoColumnHandle> columns)
@@ -217,21 +223,6 @@ public class MongoSession
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
-    private static <K, V, E extends Exception> V getCacheValue(LoadingCache<K, V> cache, K key, Class<E> exceptionClass)
-            throws E
-    {
-        try {
-            return cache.get(key);
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            Throwable t = e.getCause();
-            if (t != null) {
-                throwIfInstanceOf(t, exceptionClass);
-            }
-            throw Throwables.propagate(t);
-        }
-    }
-
     public MongoCursor<Document> execute(MongoSplit split, List<MongoColumnHandle> columns)
     {
         Document output = new Document();
@@ -277,17 +268,17 @@ public class MongoSession
         List<Document> disjuncts = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             if (range.isSingleValue()) {
-                singleValues.add(range.getSingleValue());
+                singleValues.add(translateValue(range.getSingleValue(), type));
             }
             else {
                 Document rangeConjuncts = new Document();
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.put(GT_OP, range.getLow().getValue());
+                            rangeConjuncts.put(GT_OP, translateValue(range.getLow().getValue(), type));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.put(GTE_OP, range.getLow().getValue());
+                            rangeConjuncts.put(GTE_OP, translateValue(range.getLow().getValue(), type));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
@@ -300,10 +291,10 @@ public class MongoSession
                         case ABOVE:
                             throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
                         case EXACTLY:
-                            rangeConjuncts.put(LTE_OP, range.getHigh().getValue());
+                            rangeConjuncts.put(LTE_OP, translateValue(range.getHigh().getValue(), type));
                             break;
                         case BELOW:
-                            rangeConjuncts.put(LT_OP, range.getHigh().getValue());
+                            rangeConjuncts.put(LT_OP, translateValue(range.getHigh().getValue(), type));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -317,12 +308,10 @@ public class MongoSession
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(documentOf(EQ_OP, translateValue(singleValues.get(0), type)));
+            disjuncts.add(documentOf(EQ_OP, singleValues.get(0)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(documentOf(IN_OP, singleValues.stream()
-                    .map(value -> translateValue(value, type))
-                    .collect(toList())));
+            disjuncts.add(documentOf(IN_OP, singleValues));
         }
 
         if (domain.isNullAllowed()) {
@@ -548,7 +537,7 @@ public class MongoSession
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
                                 .mapToObj(idx -> TypeSignatureParameter.of(
-                                        new NamedTypeSignature(String.format("%s%d", implicitPrefix, idx + 1), subTypes.get(idx).get())))
+                                        new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
                                 .collect(toList()));
             }
         }
@@ -561,7 +550,7 @@ public class MongoSession
                     return Optional.empty();
                 }
 
-                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(key, fieldType.get())));
+                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.get())));
             }
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }

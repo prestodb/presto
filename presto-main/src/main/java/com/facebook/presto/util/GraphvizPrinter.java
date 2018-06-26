@@ -241,7 +241,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.SORT));
+            printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderingScheme().getOrderBy())), NODE_COLORS.get(NodeType.SORT));
             return node.getSource().accept(this, context);
         }
 
@@ -255,7 +255,12 @@ public final class GraphvizPrinter
         @Override
         public Void visitWindow(WindowNode node, Void context)
         {
-            printNode(node, "Window", format("partition by = %s|order by = %s", Joiner.on(", ").join(node.getPartitionBy()), Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.WINDOW));
+            printNode(node, "Window", format("partition by = %s|order by = %s",
+                    Joiner.on(", ").join(node.getPartitionBy()),
+                    node.getOrderingScheme()
+                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.getOrderBy()))
+                            .orElse("")),
+                    NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
 
@@ -274,7 +279,9 @@ public final class GraphvizPrinter
         {
             printNode(node,
                     "TopNRowNumber",
-                    format("partition by = %s|order by = %s|n = %s", Joiner.on(", ").join(node.getPartitionBy()), Joiner.on(", ").join(node.getOrderBy()), node.getMaxRowCountPerPartition()),
+                    format("partition by = %s|order by = %s|n = %s",
+                            Joiner.on(", ").join(node.getPartitionBy()),
+                            Joiner.on(", ").join(node.getOrderingScheme().getOrderBy()), node.getMaxRowCountPerPartition()),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
@@ -385,7 +392,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTopN(final TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
+            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
             printNode(node, format("TopN[%s]", node.getCount()), Joiner.on(", ").join(keys), NODE_COLORS.get(NodeType.TOPN));
             return node.getSource().accept(this, context);
         }

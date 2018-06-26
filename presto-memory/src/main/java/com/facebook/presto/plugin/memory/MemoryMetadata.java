@@ -30,6 +30,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
@@ -164,11 +165,12 @@ public class MemoryMetadata
     @Override
     public synchronized void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        checkSchemaExists(newTableName.getSchemaName());
         checkTableNotExists(newTableName);
         MemoryTableHandle oldTableHandle = (MemoryTableHandle) tableHandle;
         MemoryTableHandle newTableHandle = new MemoryTableHandle(
                 oldTableHandle.getConnectorId(),
-                oldTableHandle.getSchemaName(),
+                newTableName.getSchemaName(),
                 newTableName.getTableName(),
                 oldTableHandle.getTableId(),
                 oldTableHandle.getColumnHandles());
@@ -188,6 +190,7 @@ public class MemoryMetadata
     @Override
     public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
         long nextId = nextTableId.getAndIncrement();
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
@@ -202,6 +205,13 @@ public class MemoryMetadata
         tableDataFragments.put(table.getTableId(), new HashMap<>());
 
         return new MemoryOutputTableHandle(table, ImmutableSet.copyOf(tableIds.values()));
+    }
+
+    private void checkSchemaExists(String schemaName)
+    {
+        if (!schemas.contains(schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
     }
 
     private void checkTableNotExists(SchemaTableName tableName)
@@ -246,6 +256,7 @@ public class MemoryMetadata
     @Override
     public synchronized void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
+        checkSchemaExists(viewName.getSchemaName());
         if (getTableHandle(session, viewName) != null) {
             throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
         }

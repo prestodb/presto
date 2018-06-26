@@ -20,13 +20,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,8 +41,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.resourceGroups.QueryType.DATA_DEFINITION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
@@ -89,6 +88,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public long getUserMemoryReservation()
+    {
+        return 0;
+    }
+
+    @Override
     public long getTotalMemoryReservation()
     {
         return 0;
@@ -130,13 +135,11 @@ public class DataDefinitionExecution<T extends Statement>
                 {
                     fail(throwable);
                 }
-            });
+            }, directExecutor());
         }
         catch (Throwable e) {
             fail(e);
-            if (!(e instanceof RuntimeException)) {
-                throw Throwables.propagate(e);
-            }
+            throwIfInstanceOf(e, Error.class);
         }
     }
 
@@ -162,12 +165,6 @@ public class DataDefinitionExecution<T extends Statement>
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
-    }
-
-    @Override
-    public Optional<QueryType> getQueryType()
-    {
-        return Optional.of(DATA_DEFINITION);
     }
 
     @Override

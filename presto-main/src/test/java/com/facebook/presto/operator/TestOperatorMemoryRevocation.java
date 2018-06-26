@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,7 +29,8 @@ public class TestOperatorMemoryRevocation
     {
         AtomicInteger counter = new AtomicInteger();
         OperatorContext operatorContext = TestingOperatorContext.create();
-        operatorContext.reserveRevocableMemory(1000);
+        LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
+        revocableMemoryContext.setBytes(1000);
         operatorContext.setMemoryRevocationRequestListener(() -> counter.incrementAndGet());
         operatorContext.requestMemoryRevoking();
         assertTrue(operatorContext.isMemoryRevokingRequested());
@@ -48,7 +50,8 @@ public class TestOperatorMemoryRevocation
     {
         AtomicInteger counter = new AtomicInteger();
         OperatorContext operatorContext = TestingOperatorContext.create();
-        operatorContext.reserveRevocableMemory(1000);
+        LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
+        revocableMemoryContext.setBytes(1000);
 
         // when memory revocation is already requested setting a listener should immediately execute it
         operatorContext.requestMemoryRevoking();

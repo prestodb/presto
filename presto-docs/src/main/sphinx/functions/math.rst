@@ -67,6 +67,12 @@ Mathematical Functions
     a real value and the standard deviation must be a real and positive value.
     The probability p must lie on the interval (0, 1).
 
+.. function:: normal_cdf(mean, sd, v) -> double
+
+    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
+    The mean and value v must be real values and the standard deviation must be a real
+    and positive value.
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
@@ -78,10 +84,6 @@ Mathematical Functions
 .. function:: log10(x) -> double
 
     Returns the base 10 logarithm of ``x``.
-
-.. function:: log(x, b) -> double
-
-    Returns the base ``b`` logarithm of ``x``.
 
 .. function:: mod(n, m) -> [same as input]
 
@@ -133,7 +135,7 @@ Mathematical Functions
 
     For double arguments, the function additionally returns:
 
-    * NaN if tha argument is NaN,
+    * NaN if the argument is NaN,
     * 1 if the argument is +Infinity,
     * -1 if the argument is -Infinity.
 
@@ -159,6 +161,19 @@ Mathematical Functions
     Returns the bin number of ``x`` according to the bins specified by the
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
+
+Statistical Functions
+-----------------------
+
+.. function:: wilson_interval_lower(successes, trials, z) -> double
+
+    Returns the lower bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
+
+.. function:: wilson_interval_upper(successes, trials, z) -> double
+
+    Returns the upper bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
 
 Trigonometric Functions
 -----------------------

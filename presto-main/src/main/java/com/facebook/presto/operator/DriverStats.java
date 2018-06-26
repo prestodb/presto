@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -35,6 +36,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class DriverStats
 {
+    private final Lifespan lifespan;
+
     private final DateTime createTime;
     private final DateTime startTime;
     private final DateTime endTime;
@@ -42,8 +45,7 @@ public class DriverStats
     private final Duration queuedTime;
     private final Duration elapsedTime;
 
-    private final DataSize memoryReservation;
-    private final DataSize peakMemoryReservation;
+    private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
 
@@ -64,18 +66,21 @@ public class DriverStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize physicalWrittenDataSize;
+
     private final List<OperatorStats> operatorStats;
 
     public DriverStats()
     {
+        this.lifespan = null;
+
         this.createTime = DateTime.now();
         this.startTime = null;
         this.endTime = null;
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
-        this.memoryReservation = new DataSize(0, BYTE);
-        this.peakMemoryReservation = new DataSize(0, BYTE);
+        this.userMemoryReservation = new DataSize(0, BYTE);
         this.revocableMemoryReservation = new DataSize(0, BYTE);
         this.systemMemoryReservation = new DataSize(0, BYTE);
 
@@ -96,19 +101,22 @@ public class DriverStats
         this.outputDataSize = new DataSize(0, BYTE);
         this.outputPositions = 0;
 
+        this.physicalWrittenDataSize = new DataSize(0, BYTE);
+
         this.operatorStats = ImmutableList.of();
     }
 
     @JsonCreator
     public DriverStats(
+            @JsonProperty("lifespan") Lifespan lifespan,
+
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("startTime") DateTime startTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
-            @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
@@ -129,16 +137,19 @@ public class DriverStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
             @JsonProperty("operatorStats") List<OperatorStats> operatorStats)
     {
+        this.lifespan = lifespan;
+
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.startTime = startTime;
         this.endTime = endTime;
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
-        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
-        this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
@@ -162,7 +173,15 @@ public class DriverStats
         Preconditions.checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
         this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
+    }
+
+    @JsonProperty
+    public Lifespan getLifespan()
+    {
+        return lifespan;
     }
 
     @JsonProperty
@@ -198,15 +217,9 @@ public class DriverStats
     }
 
     @JsonProperty
-    public DataSize getMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return memoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakMemoryReservation()
-    {
-        return peakMemoryReservation;
+        return userMemoryReservation;
     }
 
     @JsonProperty
@@ -297,6 +310,12 @@ public class DriverStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
     }
 
     @JsonProperty

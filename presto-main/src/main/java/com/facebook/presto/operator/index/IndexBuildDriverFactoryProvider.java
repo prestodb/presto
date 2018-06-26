@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,9 +40,16 @@ public class IndexBuildDriverFactoryProvider
     private final List<Type> outputTypes;
     private final Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory;
 
-    public IndexBuildDriverFactoryProvider(int pipelineId, int outputOperatorId, PlanNodeId planNodeId, boolean inputDriver, List<OperatorFactory> coreOperatorFactories, Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
+    public IndexBuildDriverFactoryProvider(int pipelineId,
+            int outputOperatorId,
+            PlanNodeId planNodeId,
+            boolean inputDriver,
+            List<Type> outputTypes,
+            List<OperatorFactory> coreOperatorFactories,
+            Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
     {
         requireNonNull(planNodeId, "planNodeId is null");
+        requireNonNull(outputTypes, "outputTypes is null");
         requireNonNull(coreOperatorFactories, "coreOperatorFactories is null");
         checkArgument(!coreOperatorFactories.isEmpty(), "coreOperatorFactories is empty");
         requireNonNull(dynamicTupleFilterFactory, "dynamicTupleFilterFactory is null");
@@ -51,7 +59,7 @@ public class IndexBuildDriverFactoryProvider
         this.planNodeId = planNodeId;
         this.inputDriver = inputDriver;
         this.coreOperatorFactories = ImmutableList.copyOf(coreOperatorFactories);
-        this.outputTypes = ImmutableList.copyOf(this.coreOperatorFactories.get(this.coreOperatorFactories.size() - 1).getTypes());
+        this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.dynamicTupleFilterFactory = dynamicTupleFilterFactory;
     }
 
@@ -76,7 +84,8 @@ public class IndexBuildDriverFactoryProvider
                         .addAll(coreOperatorFactories)
                         .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder))
                         .build(),
-                OptionalInt.empty());
+                OptionalInt.empty(),
+                UNGROUPED_EXECUTION);
     }
 
     public DriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
@@ -91,6 +100,6 @@ public class IndexBuildDriverFactoryProvider
 
         operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer));
 
-        return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty());
+        return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
     }
 }

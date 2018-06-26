@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.s3.S3FileSystemType;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -23,10 +24,12 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -39,6 +42,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
+        "hive.bucket-writing",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
@@ -57,6 +61,7 @@ public class HiveClientConfig
     private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
+    private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
 
@@ -86,13 +91,14 @@ public class HiveClientConfig
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private int maxPartitionsPerWriter = 100;
+    private int maxSortFilesPerBucket = 100;
     private int writeValidationThreads = 16;
 
     private List<String> resourceConfigFiles;
 
     private boolean useParquetColumnNames;
-    private boolean parquetOptimizedReaderEnabled;
-    private boolean parquetPredicatePushdownEnabled;
+    private boolean parquetOptimizedReaderEnabled = true;
+    private boolean parquetPredicatePushdownEnabled = true;
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -101,10 +107,13 @@ public class HiveClientConfig
     private double orcDefaultBloomFilterFpp = 0.05;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
     private boolean orcOptimizedWriterEnabled;
+    private double orcWriterValidationPercentage = 100.0;
+    private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -116,11 +125,13 @@ public class HiveClientConfig
     private boolean skipDeletionForAlter;
 
     private boolean bucketExecutionEnabled = true;
-    private boolean bucketWritingEnabled = true;
+    private boolean sortedWritingEnabled = true;
 
     private int fileSystemMaxCacheSize = 1000;
 
     private boolean writesToNonManagedTablesEnabled;
+    private boolean createsOfNonManagedTablesEnabled = true;
+
     private boolean tableStatisticsEnabled = true;
 
     public int getMaxInitialSplits()
@@ -174,6 +185,20 @@ public class HiveClientConfig
     public HiveClientConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    @MaxDataSize("1GB")
+    public DataSize getWriterSortBufferSize()
+    {
+        return writerSortBufferSize;
+    }
+
+    @Config("hive.writer-sort-buffer-size")
+    public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
+    {
+        this.writerSortBufferSize = writerSortBufferSize;
         return this;
     }
 
@@ -570,6 +595,21 @@ public class HiveClientConfig
         return this;
     }
 
+    @Min(1)
+    @Max(1000)
+    public int getMaxSortFilesPerBucket()
+    {
+        return maxSortFilesPerBucket;
+    }
+
+    @Config("hive.max-sort-files-per-bucket")
+    @ConfigDescription("Maximum number of writer temporary files per sorted bucket")
+    public HiveClientConfig setMaxSortFilesPerBucket(int maxSortFilesPerBucket)
+    {
+        this.maxSortFilesPerBucket = maxSortFilesPerBucket;
+        return this;
+    }
+
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
@@ -702,6 +742,19 @@ public class HiveClientConfig
     }
 
     @NotNull
+    public DataSize getOrcTinyStripeThreshold()
+    {
+        return orcTinyStripeThreshold;
+    }
+
+    @Config("hive.orc.tiny-stripe-threshold")
+    public HiveClientConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
+    {
+        this.orcTinyStripeThreshold = orcTinyStripeThreshold;
+        return this;
+    }
+
+    @NotNull
     public DataSize getOrcMaxReadBlockSize()
     {
         return orcMaxReadBlockSize;
@@ -766,6 +819,33 @@ public class HiveClientConfig
     public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
     {
         this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
+        return this;
+    }
+
+    public double getOrcWriterValidationPercentage()
+    {
+        return orcWriterValidationPercentage;
+    }
+
+    @Config("hive.orc.writer.validation-percentage")
+    @ConfigDescription("Percentage of ORC files to validate after write by re-reading the whole file")
+    public HiveClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
+    {
+        this.orcWriterValidationPercentage = orcWriterValidationPercentage;
+        return this;
+    }
+
+    @NotNull
+    public OrcWriteValidationMode getOrcWriterValidationMode()
+    {
+        return orcWriterValidationMode;
+    }
+
+    @Config("hive.orc.writer.validation-mode")
+    @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
+    public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
+    {
+        this.orcWriterValidationMode = orcWriterValidationMode;
         return this;
     }
 
@@ -900,16 +980,16 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isBucketWritingEnabled()
+    public boolean isSortedWritingEnabled()
     {
-        return bucketWritingEnabled;
+        return sortedWritingEnabled;
     }
 
-    @Config("hive.bucket-writing")
-    @ConfigDescription("Enable writing to bucketed tables")
-    public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
+    @Config("hive.sorted-writing")
+    @ConfigDescription("Enable writing to bucketed sorted tables")
+    public HiveClientConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
-        this.bucketWritingEnabled = bucketWritingEnabled;
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 
@@ -937,6 +1017,19 @@ public class HiveClientConfig
     public boolean getWritesToNonManagedTablesEnabled()
     {
         return writesToNonManagedTablesEnabled;
+    }
+
+    @Config("hive.non-managed-table-creates-enabled")
+    @ConfigDescription("Enable non-managed (external) table creates")
+    public HiveClientConfig setCreatesOfNonManagedTablesEnabled(boolean createsOfNonManagedTablesEnabled)
+    {
+        this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        return this;
+    }
+
+    public boolean getCreatesOfNonManagedTablesEnabled()
+    {
+        return createsOfNonManagedTablesEnabled;
     }
 
     @Config("hive.table-statistics-enabled")

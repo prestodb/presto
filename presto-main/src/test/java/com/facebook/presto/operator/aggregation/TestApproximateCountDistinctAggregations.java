@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.standardErrorToBuckets;
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -25,7 +25,6 @@ public class TestApproximateCountDistinctAggregations
 {
     @Test
     public void testStandardErrorToBuckets()
-            throws Exception
     {
         assertEquals(standardErrorToBuckets(0.0326), 1024);
         assertEquals(standardErrorToBuckets(0.0325), 1024);
@@ -51,7 +50,6 @@ public class TestApproximateCountDistinctAggregations
 
     @Test
     public void testStandardErrorToBucketsBounds()
-            throws Exception
     {
         try {
             // Lower bound

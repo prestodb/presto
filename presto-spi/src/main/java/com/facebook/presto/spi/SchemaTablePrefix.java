@@ -66,6 +66,14 @@ public class SchemaTablePrefix
         return tableName == null || tableName.equals(schemaTableName.getTableName());
     }
 
+    public SchemaTableName toSchemaTableName()
+    {
+        if (schemaName == null || tableName == null) {
+            throw new IllegalStateException("both schemaName and tableName must be set");
+        }
+        return new SchemaTableName(schemaName, tableName);
+    }
+
     @Override
     public int hashCode()
     {

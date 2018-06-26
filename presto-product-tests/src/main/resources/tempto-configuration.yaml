@@ -30,7 +30,7 @@ databases:
     host: localhost
     port: 8080
     server_address: http://${databases.presto.host}:${databases.presto.port}
-    jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
+    jdbc_driver_class: ${PRESTO_JDBC_DRIVER_CLASS:-com.facebook.presto.jdbc.PrestoDriver}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hdfs
     jdbc_password: "***empty***"
@@ -38,7 +38,7 @@ databases:
 
   presto_tpcds:
     host: localhost
-    jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/tpcds
     jdbc_user: hdfs
     jdbc_password: "***empty***"
@@ -63,6 +63,18 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: bob
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
+
+  charlie@presto:
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: ${databases.presto.jdbc_url}
+    jdbc_user: charlie
     jdbc_password: "***empty***"
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}

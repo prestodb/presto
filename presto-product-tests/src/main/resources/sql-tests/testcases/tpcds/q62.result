@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|CHAR|LONGNVARCHAR|BIGINT|BIGINT|BIGINT|BIGINT|BIGINT
+-- delimiter: |; types: VARCHAR|CHAR|VARCHAR|BIGINT|BIGINT|BIGINT|BIGINT|BIGINT
 Bad cards must make.|EXPRESS                       |site_0|251|248|268|277|0|
 Bad cards must make.|EXPRESS                       |site_1|262|304|290|267|0|
 Bad cards must make.|EXPRESS                       |site_2|287|290|293|286|0|

@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
-import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
 import java.math.BigInteger;
 
 public class ParquetLongDecimalColumnReader
-        extends ParquetColumnReader
+        extends ParquetPrimitiveColumnReader
 {
-    ParquetLongDecimalColumnReader(ColumnDescriptor descriptor)
+    ParquetLongDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
@@ -36,7 +36,7 @@ public class ParquetLongDecimalColumnReader
             Binary value = valuesReader.readBytes();
             type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
         }
-        else {
+        else if (isValueNull()) {
             blockBuilder.appendNull();
         }
     }

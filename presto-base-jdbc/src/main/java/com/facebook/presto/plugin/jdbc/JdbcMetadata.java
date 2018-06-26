@@ -61,6 +61,12 @@ public class JdbcMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return jdbcClient.schemaExists(schemaName);
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.copyOf(jdbcClient.getSchemaNames());
@@ -92,7 +98,7 @@ public class JdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(handle)) {
+        for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
@@ -110,7 +116,7 @@ public class JdbcMetadata
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(jdbcTableHandle)) {
+        for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
         }
         return columnHandles.build();

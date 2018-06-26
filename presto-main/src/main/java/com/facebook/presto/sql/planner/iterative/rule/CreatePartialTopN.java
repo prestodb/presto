@@ -43,16 +43,14 @@ public class CreatePartialTopN
                 context.getIdAllocator().getNextId(),
                 single.getSource(),
                 single.getCount(),
-                single.getOrderBy(),
-                single.getOrderings(),
+                single.getOrderingScheme(),
                 PARTIAL);
 
         return Result.ofPlanNode(new TopNNode(
                 context.getIdAllocator().getNextId(),
                 partial,
                 single.getCount(),
-                single.getOrderBy(),
-                single.getOrderings(),
+                single.getOrderingScheme(),
                 FINAL));
     }
 }

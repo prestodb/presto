@@ -18,7 +18,6 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -30,17 +29,16 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/queryState")
@@ -70,24 +68,22 @@ public class QueryStateInfoResource
                     .collect(toImmutableList());
         }
 
-        queryInfos = queryInfos.stream()
-                .filter(queryInfo -> !queryInfo.getState().isDone())
-                .collect(toImmutableList());
-
-        Map<ResourceGroupId, ResourceGroupInfo> rootResourceGroupInfos = queryInfos.stream()
-                .map(queryInfo -> queryManager.getQueryResourceGroup(queryInfo.getQueryId()))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(ResourceGroupId::getRoot)
-                .distinct()
-                .collect(toImmutableMap(identity(), resourceGroupManager::getResourceGroupInfo));
-
         return queryInfos.stream()
-                .map(queryInfo -> createQueryStateInfo(
-                        queryInfo,
-                        queryManager.getQueryResourceGroup(queryInfo.getQueryId()),
-                        queryManager.getQueryResourceGroup(queryInfo.getQueryId()).map(ResourceGroupId::getRoot).map(rootResourceGroupInfos::get)))
+                .filter(queryInfo -> !queryInfo.getState().isDone())
+                .map(this::getQueryStateInfo)
                 .collect(toImmutableList());
+    }
+
+    private QueryStateInfo getQueryStateInfo(QueryInfo queryInfo)
+    {
+        Optional<ResourceGroupId> groupId = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
+        if (queryInfo.getState() == QUEUED) {
+            return createQueuedQueryStateInfo(
+                    queryInfo,
+                    groupId,
+                    groupId.map(resourceGroupManager::getPathToRoot));
+        }
+        return createQueryStateInfo(queryInfo, groupId);
     }
 
     @GET
@@ -97,12 +93,7 @@ public class QueryStateInfoResource
             throws WebApplicationException
     {
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(new QueryId(queryId));
-            Optional<ResourceGroupId> resourceGroup = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
-            return createQueryStateInfo(
-                    queryInfo,
-                    resourceGroup,
-                    resourceGroup.map(ResourceGroupId::getRoot).map(resourceGroupManager::getResourceGroupInfo));
+            return getQueryStateInfo(queryManager.getQueryInfo(new QueryId(queryId)));
         }
         catch (NoSuchElementException e) {
             throw new WebApplicationException(NOT_FOUND);

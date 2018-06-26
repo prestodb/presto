@@ -30,7 +30,6 @@ public class TestRealOperators
 {
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("REAL'12.2'", REAL, 12.2f);
         assertFunction("REAL'-17.76'", REAL, -17.76f);
@@ -41,7 +40,6 @@ public class TestRealOperators
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("REAL'12.34' + REAL'56.78'", REAL, 12.34f + 56.78f);
         assertFunction("REAL'-17.34' + REAL'-22.891'", REAL, -17.34f + -22.891f);
@@ -51,7 +49,6 @@ public class TestRealOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("REAL'12.34' - REAL'56.78'", REAL, 12.34f - 56.78f);
         assertFunction("REAL'-17.34' - REAL'-22.891'", REAL, -17.34f - -22.891f);
@@ -61,7 +58,6 @@ public class TestRealOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("REAL'12.34' * REAL'56.78'", REAL, 12.34f * 56.78f);
         assertFunction("REAL'-17.34' * REAL'-22.891'", REAL, -17.34f * -22.891f);
@@ -72,7 +68,6 @@ public class TestRealOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("REAL'12.34' / REAL'56.78'", REAL, 12.34f / 56.78f);
         assertFunction("REAL'-17.34' / REAL'-22.891'", REAL, -17.34f / -22.891f);
@@ -83,7 +78,6 @@ public class TestRealOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         assertFunction("REAL'12.34' % REAL'56.78'", REAL, 12.34f % 56.78f);
         assertFunction("REAL'-17.34' % REAL'-22.891'", REAL, -17.34f % -22.891f);
@@ -94,7 +88,6 @@ public class TestRealOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("-REAL'12.34'", REAL, -12.34f);
         assertFunction("-REAL'-17.34'", REAL, 17.34f);
@@ -103,7 +96,6 @@ public class TestRealOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("REAL'12.34' = REAL'12.34'", BOOLEAN, true);
         assertFunction("REAL'12.340' = REAL'12.34'", BOOLEAN, true);
@@ -114,7 +106,6 @@ public class TestRealOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("REAL'12.34' <> REAL'12.34'", BOOLEAN, false);
         assertFunction("REAL'12.34' <> REAL'12.340'", BOOLEAN, false);
@@ -125,7 +116,6 @@ public class TestRealOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("REAL'12.34' < REAL'754.123'", BOOLEAN, true);
         assertFunction("REAL'-17.34' < REAL'-16.34'", BOOLEAN, true);
@@ -135,7 +125,6 @@ public class TestRealOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("REAL'12.34' <= REAL'754.123'", BOOLEAN, true);
         assertFunction("REAL'-17.34' <= REAL'-17.34'", BOOLEAN, true);
@@ -145,7 +134,6 @@ public class TestRealOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("REAL'12.34' > REAL'754.123'", BOOLEAN, false);
         assertFunction("REAL'-17.34' > REAL'-17.34'", BOOLEAN, false);
@@ -155,7 +143,6 @@ public class TestRealOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("REAL'12.34' >= REAL'754.123'", BOOLEAN, false);
         assertFunction("REAL'-17.34' >= REAL'-17.34'", BOOLEAN, true);
@@ -165,7 +152,6 @@ public class TestRealOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("REAL'12.34' BETWEEN REAL'9.12' AND REAL'25.89'", BOOLEAN, true);
         assertFunction("REAL'-17.34' BETWEEN REAL'-17.34' AND REAL'-16.57'", BOOLEAN, true);
@@ -177,7 +163,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("CAST(REAL'754.1985' as VARCHAR)", VARCHAR, "754.1985");
         assertFunction("CAST(REAL'-754.2008' as VARCHAR)", VARCHAR, "-754.2008");
@@ -187,7 +172,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToBigInt()
-            throws Exception
     {
         assertFunction("CAST(REAL'754.1985' as BIGINT)", BIGINT, 754L);
         assertFunction("CAST(REAL'-754.2008' as BIGINT)", BIGINT, -754L);
@@ -197,7 +181,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToInteger()
-            throws Exception
     {
         assertFunction("CAST(REAL'754.2008' AS INTEGER)", INTEGER, 754);
         assertFunction("CAST(REAL'-754.1985' AS INTEGER)", INTEGER, -754);
@@ -207,7 +190,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToSmallint()
-            throws Exception
     {
         assertFunction("CAST(REAL'754.2008' AS SMALLINT)", SMALLINT, (short) 754);
         assertFunction("CAST(REAL'-754.1985' AS SMALLINT)", SMALLINT, (short) -754);
@@ -217,7 +199,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToTinyint()
-            throws Exception
     {
         assertFunction("CAST(REAL'127.45' AS TINYINT)", TINYINT, (byte) 127);
         assertFunction("CAST(REAL'-128.234' AS TINYINT)", TINYINT, (byte) -128);
@@ -227,7 +208,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("CAST(REAL'754.1985' AS DOUBLE)", DOUBLE, (double) 754.1985f);
         assertFunction("CAST(REAL'-754.2008' AS DOUBLE)", DOUBLE, (double) -754.2008f);
@@ -238,7 +218,6 @@ public class TestRealOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("CAST(REAL'754.1985' AS BOOLEAN)", BOOLEAN, true);
         assertFunction("CAST(REAL'0.0' AS BOOLEAN)", BOOLEAN, false);
@@ -247,12 +226,12 @@ public class TestRealOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS REAL) IS DISTINCT FROM CAST(NULL AS REAL)", BOOLEAN, false);
         assertFunction("REAL'37.7' IS DISTINCT FROM REAL'37.7'", BOOLEAN, false);
         assertFunction("REAL'37.7' IS DISTINCT FROM REAL'37.8'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM REAL'37.7'", BOOLEAN, true);
         assertFunction("REAL'37.7' IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("CAST(nan() AS REAL) IS DISTINCT FROM CAST(nan() AS REAL)", BOOLEAN, false);
     }
 }

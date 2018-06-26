@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.prestodb.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   "sum"("ws_net_paid") "total_sum"
 , "i_category"
@@ -15,4 +15,3 @@ WHERE ("d1"."d_month_seq" BETWEEN 1200 AND (1200 + 11))
 GROUP BY ROLLUP (i_category, i_class)
 ORDER BY "lochierarchy" DESC, (CASE WHEN ("lochierarchy" = 0) THEN "i_category" END) ASC, "rank_within_parent" ASC
 LIMIT 100
-;

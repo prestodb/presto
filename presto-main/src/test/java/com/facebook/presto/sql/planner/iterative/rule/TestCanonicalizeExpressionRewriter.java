@@ -41,7 +41,6 @@ public class TestCanonicalizeExpressionRewriter
 
     @Test
     public void testRewriteYearExtract()
-            throws Exception
     {
         assertRewritten("EXTRACT(YEAR FROM '2017-07-20')", "year('2017-07-20')");
     }

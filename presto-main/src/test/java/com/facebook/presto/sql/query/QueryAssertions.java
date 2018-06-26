@@ -14,6 +14,9 @@
 package com.facebook.presto.sql.query;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.assertions.PlanAssert;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -22,9 +25,12 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -35,12 +41,40 @@ class QueryAssertions
 
     public QueryAssertions()
     {
-        Session defaultSession = testSessionBuilder()
+        this(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("default")
-                .build();
+                .build());
+    }
 
-        runner = new LocalQueryRunner(defaultSession);
+    public QueryAssertions(Session session)
+    {
+        runner = new LocalQueryRunner(session);
+    }
+
+    public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        try {
+            runner.execute(runner.getDefaultSession(), sql).toTestTypes();
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException exception) {
+            if (!nullToEmpty(exception.getMessage()).matches(expectedMessageRegExp)) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), expectedMessageRegExp, sql), exception);
+            }
+        }
+    }
+
+    public void assertQueryAndPlan(
+            @Language("SQL") String actual,
+            @Language("SQL") String expected,
+            PlanMatchPattern pattern,
+            Consumer<Plan> planValidator)
+    {
+        assertQuery(actual, expected);
+        Plan plan = runner.createPlan(runner.getDefaultSession(), actual);
+        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
+        planValidator.accept(plan);
     }
 
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -52,7 +86,7 @@ class QueryAssertions
     {
         MaterializedResult actualResults = null;
         try {
-            actualResults = runner.execute(runner.getDefaultSession(), actual).toJdbcTypes();
+            actualResults = runner.execute(runner.getDefaultSession(), actual).toTestTypes();
         }
         catch (RuntimeException ex) {
             fail("Execution of 'actual' query failed: " + actual, ex);
@@ -60,11 +94,13 @@ class QueryAssertions
 
         MaterializedResult expectedResults = null;
         try {
-            expectedResults = runner.execute(runner.getDefaultSession(), expected).toJdbcTypes();
+            expectedResults = runner.execute(runner.getDefaultSession(), expected).toTestTypes();
         }
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
         }
+
+        assertEquals(actualResults.getTypes(), expectedResults.getTypes(), "Types mismatch for query: \n " + actual + "\n:");
 
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
@@ -79,6 +115,7 @@ class QueryAssertions
         }
     }
 
+    @Override
     public void close()
     {
         runner.close();

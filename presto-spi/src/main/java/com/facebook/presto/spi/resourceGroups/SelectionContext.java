@@ -13,58 +13,26 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
-import java.util.Optional;
-import java.util.Set;
-
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
-public final class SelectionContext
+public final class SelectionContext<T>
 {
-    private final boolean authenticated;
-    private final String user;
-    private final Optional<String> source;
-    private final Set<String> clientTags;
-    private final int queryPriority;
-    private final Optional<String> queryType;
+    private final ResourceGroupId resourceGroupId;
+    private final T context;
 
-    public SelectionContext(boolean authenticated, String user, Optional<String> source, Set<String> clientTags, int queryPriority, Optional<String> queryType)
+    public SelectionContext(ResourceGroupId resourceGroupId, T context)
     {
-        this.authenticated = authenticated;
-        this.user = requireNonNull(user, "user is null");
-        this.source = requireNonNull(source, "source is null");
-        this.clientTags = unmodifiableSet(requireNonNull(clientTags, "tags is null"));
-        this.queryPriority = queryPriority;
-        this.queryType = requireNonNull(queryType, "queryType is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+        this.context = requireNonNull(context, "context is null");
     }
 
-    public boolean isAuthenticated()
+    public ResourceGroupId getResourceGroupId()
     {
-        return authenticated;
+        return resourceGroupId;
     }
 
-    public String getUser()
+    public T getContext()
     {
-        return user;
-    }
-
-    public Optional<String> getSource()
-    {
-        return source;
-    }
-
-    public Set<String> getTags()
-    {
-        return clientTags;
-    }
-
-    public int getQueryPriority()
-    {
-        return queryPriority;
-    }
-
-    public Optional<String> getQueryType()
-    {
-        return queryType;
+        return context;
     }
 }

@@ -33,7 +33,6 @@ public class TestPushProjectionThroughUnion
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
@@ -45,7 +44,6 @@ public class TestPushProjectionThroughUnion
 
     @Test
     public void test()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p -> {

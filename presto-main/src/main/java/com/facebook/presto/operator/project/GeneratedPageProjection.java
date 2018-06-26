@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 
@@ -44,7 +43,7 @@ public class GeneratedPageProjection
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
-        this.blockBuilder = projection.getType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        this.blockBuilder = projection.getType().createBlockBuilder(null, 1);
     }
 
     @Override
@@ -68,7 +67,7 @@ public class GeneratedPageProjection
     @Override
     public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
         try {
             return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, yieldSignal, page, selectedPositions);
         }

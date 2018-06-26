@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
@@ -33,7 +32,6 @@ import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,7 +84,7 @@ public final class StructuralTestUtil
 
     public static Block arrayBlockOf(Type elementType, Object... values)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, 1024);
         for (Object value : values) {
             appendToBlockBuilder(elementType, value, blockBuilder);
         }
@@ -96,7 +94,7 @@ public final class StructuralTestUtil
     public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
     {
         MapType mapType = mapType(keyType, valueType);
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 10);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
         BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
         appendToBlockBuilder(keyType, key, singleMapBlockWriter);
         appendToBlockBuilder(valueType, value, singleMapBlockWriter);
@@ -108,7 +106,7 @@ public final class StructuralTestUtil
     {
         checkArgument(keys.length == values.length, "keys/values must have the same length");
         MapType mapType = mapType(keyType, valueType);
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 10);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
         BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < keys.length; i++) {
             Object key = keys[i];
@@ -122,8 +120,8 @@ public final class StructuralTestUtil
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
-        RowType rowType = new RowType(parameterTypes, Optional.empty());
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        RowType rowType = RowType.anonymous(parameterTypes);
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
         BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {
             appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);

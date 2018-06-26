@@ -32,7 +32,6 @@ public class TestListBasedRecordSet
 {
     @Test
     public void testEmptyCursor()
-            throws Exception
     {
         ListBasedRecordSet recordSet = new ListBasedRecordSet(ImmutableList.of(), ImmutableList.of(BIGINT, INTEGER));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, INTEGER));
@@ -42,7 +41,6 @@ public class TestListBasedRecordSet
 
     @Test
     public void testCursor()
-            throws Exception
     {
         ListBasedRecordSet recordSet = new ListBasedRecordSet(
                 ImmutableList.of(

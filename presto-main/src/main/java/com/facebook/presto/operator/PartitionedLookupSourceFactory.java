@@ -46,7 +46,6 @@ import static com.facebook.presto.operator.PartitionedLookupSource.createPartiti
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Collections.emptyList;
@@ -79,7 +78,7 @@ public final class PartitionedLookupSourceFactory
     private SpillingInfo spillingInfo = new SpillingInfo(0, ImmutableSet.of());
 
     @GuardedBy("lock")
-    private Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
+    private final Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
 
     @GuardedBy("lock")
     private TrackingLookupSourceSupplier lookupSourceSupplier;
@@ -94,7 +93,7 @@ public final class PartitionedLookupSourceFactory
     private OptionalInt partitionedConsumptionParticipants = OptionalInt.empty();
 
     @GuardedBy("lock")
-    private SettableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption = SettableFuture.create();
+    private final SettableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption = SettableFuture.create();
 
     /**
      * Cached LookupSource on behalf of LookupJoinOperator (represented by SpillAwareLookupSourceProvider). LookupSource instantiation has non-negligible cost.
@@ -105,19 +104,17 @@ public final class PartitionedLookupSourceFactory
      */
     private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
+        checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
+
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
+        this.hashChannelTypes = ImmutableList.copyOf(hashChannelTypes);
         this.layout = ImmutableMap.copyOf(layout);
         checkArgument(partitionCount > 0);
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
-
-        hashChannelTypes = hashChannels.stream()
-                .map(types::get)
-                .collect(toImmutableList());
-
         spilledLookupSource = new SpilledLookupSource(outputTypes.size());
     }
 
@@ -139,6 +136,8 @@ public final class PartitionedLookupSourceFactory
         return layout;
     }
 
+    // partitions is final, so we don't need a lock to read its length here
+    @SuppressWarnings("FieldAccessNotGuarded")
     @Override
     public int partitions()
     {
@@ -163,6 +162,7 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    @Override
     public ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
@@ -192,6 +192,7 @@ public final class PartitionedLookupSourceFactory
         return partitionsNoLongerNeeded;
     }
 
+    @Override
     public void setPartitionSpilledLookupSourceHandle(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
     {
         requireNonNull(spilledLookupSourceHandle, "spilledLookupSourceHandle is null");
@@ -254,6 +255,10 @@ public final class PartitionedLookupSourceFactory
         try {
             checkState(partitionsSet == partitions.length, "Not all set yet");
             checkState(this.lookupSourceSupplier == null, "Already supplied");
+
+            if (partitionsNoLongerNeeded.isDone()) {
+                return;
+            }
 
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
@@ -406,6 +411,8 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    @SuppressWarnings("FieldAccessNotGuarded")
+    @Override
     public ListenableFuture<?> isDestroyed()
     {
         return nonCancellationPropagating(destroyed);
@@ -491,6 +498,12 @@ public final class PartitionedLookupSourceFactory
         public SpilledLookupSource(int channelCount)
         {
             this.channelCount = channelCount;
+        }
+
+        @Override
+        public boolean isEmpty()
+        {
+            return false;
         }
 
         @Override

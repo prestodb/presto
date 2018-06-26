@@ -26,7 +26,7 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
-import com.google.common.base.Throwables;
+import com.google.common.base.VerifyException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -43,16 +43,22 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
 
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_RETRY_TIME;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_ACCESS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SIGNER_TYPE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRECTORY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -73,8 +79,8 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration();
-        config.set(PrestoS3FileSystem.S3_ACCESS_KEY, "test_secret_access_key");
-        config.set(PrestoS3FileSystem.S3_SECRET_KEY, "test_access_key_id");
+        config.set(S3_ACCESS_KEY, "test_secret_access_key");
+        config.set(S3_SECRET_KEY, "test_access_key_id");
         // the static credentials should be preferred
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
@@ -88,15 +94,27 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration();
-        config.set(PrestoS3FileSystem.S3_ACCESS_KEY, "test_secret_access_key");
-        config.set(PrestoS3FileSystem.S3_SECRET_KEY, "test_access_key_id");
-        config.set(PrestoS3FileSystem.S3_ENDPOINT, "test.example.endpoint.com");
-        config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, "S3SignerType");
+        config.set(S3_ACCESS_KEY, "test_secret_access_key");
+        config.set(S3_SECRET_KEY, "test_access_key_id");
+        config.set(S3_ENDPOINT, "test.example.endpoint.com");
+        config.set(S3_SIGNER_TYPE, "S3SignerType");
         // the static credentials should be preferred
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3a://test-bucket/"), config);
             assertInstanceOf(getAwsCredentialsProvider(fs), AWSStaticCredentialsProvider.class);
+        }
+    }
+
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region")
+    public void testEndpointWithPinToCurrentRegionConfiguration()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_ENDPOINT, "test.example.endpoint.com");
+        config.set(S3_PIN_CLIENT_TO_CURRENT_REGION, "true");
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/"), config);
         }
     }
 
@@ -250,7 +268,7 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             Configuration conf = new Configuration();
-            conf.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, staging.toString());
+            conf.set(S3_STAGING_DIRECTORY, staging.toString());
             fs.initialize(new URI("s3n://test-bucket/"), conf);
             fs.setS3Client(s3);
             FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
@@ -272,7 +290,7 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             Configuration conf = new Configuration();
-            conf.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, staging.toString());
+            conf.set(S3_STAGING_DIRECTORY, staging.toString());
             fs.initialize(new URI("s3n://test-bucket/"), conf);
             fs.setS3Client(s3);
             fs.create(new Path("s3n://test-bucket/test"));
@@ -302,7 +320,7 @@ public class TestPrestoS3FileSystem
             try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
                 MockAmazonS3 s3 = new MockAmazonS3();
                 Configuration conf = new Configuration();
-                conf.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, link.toString());
+                conf.set(S3_STAGING_DIRECTORY, link.toString());
                 fs.initialize(new URI("s3n://test-bucket/"), conf);
                 fs.setS3Client(s3);
                 FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
@@ -385,7 +403,6 @@ public class TestPrestoS3FileSystem
 
     @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
     public void testUnrecoverableS3ExceptionMessage()
-            throws Exception
     {
         throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
     }
@@ -467,7 +484,7 @@ public class TestPrestoS3FileSystem
             return (T) field.get(instance);
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

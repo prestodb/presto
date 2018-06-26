@@ -13,20 +13,19 @@
  */
 package com.facebook.presto.spi.block;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
-import static java.lang.String.format;
+import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
         implements Block
 {
     protected final int numFields;
 
-    protected abstract Block[] getFieldBlocks();
+    protected abstract Block[] getRawFieldBlocks();
 
     protected abstract int[] getFieldBlockOffsets();
 
@@ -49,25 +48,22 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public RowBlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        BlockEncoding[] fieldBlockEncodings = new BlockEncoding[numFields];
-        for (int i = 0; i < numFields; i++) {
-            fieldBlockEncodings[i] = getFieldBlocks()[i].getEncoding();
-        }
-        return new RowBlockEncoding(fieldBlockEncodings);
+        return RowBlockEncoding.NAME;
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int newPositionCount = positions.size();
-        int[] newOffsets = new int[newPositionCount + 1];
-        boolean[] newRowIsNull = new boolean[newPositionCount];
+        checkArrayRange(positions, offset, length);
 
-        List<Integer> fieldBlockPositions = new ArrayList<>(newPositionCount);
-        for (int i = 0; i < newPositionCount; i++) {
-            int position = positions.get(i);
+        int[] newOffsets = new int[length + 1];
+        boolean[] newRowIsNull = new boolean[length];
+
+        IntArrayList fieldBlockPositions = new IntArrayList(length);
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             if (isNull(position)) {
                 newRowIsNull[i] = true;
                 newOffsets[i + 1] = newOffsets[i];
@@ -80,33 +76,25 @@ public abstract class AbstractRowBlock
 
         Block[] newBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
-            newBlocks[i] = getFieldBlocks()[i].copyPositions(fieldBlockPositions);
+            newBlocks[i] = getRawFieldBlocks()[i].copyPositions(fieldBlockPositions.elements(), 0, fieldBlockPositions.size());
         }
-        return new RowBlock(0, positions.size(), newRowIsNull, newOffsets, newBlocks);
+        return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override
     public Block getRegion(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
-        if (position == 0 && length == positionCount) {
-            return this;
-        }
-
-        return new RowBlock(position + getOffsetBase(), length, getRowIsNull(), getFieldBlockOffsets(), getFieldBlocks());
+        return createRowBlockInternal(position + getOffsetBase(), length, getRowIsNull(), getFieldBlockOffsets(), getRawFieldBlocks());
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         int startFieldBlockOffset = getFieldBlockOffset(position);
         int endFieldBlockOffset = getFieldBlockOffset(position + length);
@@ -114,7 +102,7 @@ public abstract class AbstractRowBlock
 
         long regionSizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) length;
         for (int i = 0; i < numFields; i++) {
-            regionSizeInBytes += getFieldBlocks()[i].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
+            regionSizeInBytes += getRawFieldBlocks()[i].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
         }
         return regionSizeInBytes;
     }
@@ -123,25 +111,23 @@ public abstract class AbstractRowBlock
     public Block copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         int startFieldBlockOffset = getFieldBlockOffset(position);
         int endFieldBlockOffset = getFieldBlockOffset(position + length);
         int fieldBlockLength = endFieldBlockOffset - startFieldBlockOffset;
         Block[] newBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
-            newBlocks[i] = getFieldBlocks()[i].copyRegion(startFieldBlockOffset, fieldBlockLength);
+            newBlocks[i] = getRawFieldBlocks()[i].copyRegion(startFieldBlockOffset, fieldBlockLength);
         }
 
         int[] newOffsets = compactOffsets(getFieldBlockOffsets(), position + getOffsetBase(), length);
         boolean[] newRowIsNull = compactArray(getRowIsNull(), position + getOffsetBase(), length);
 
-        if (arraySame(newBlocks, getFieldBlocks()) && newOffsets == getFieldBlockOffsets() && newRowIsNull == getRowIsNull()) {
+        if (arraySame(newBlocks, getRawFieldBlocks()) && newOffsets == getFieldBlockOffsets() && newRowIsNull == getRowIsNull()) {
             return this;
         }
-        return new RowBlock(0, length, newRowIsNull, newOffsets, newBlocks);
+        return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override
@@ -152,24 +138,14 @@ public abstract class AbstractRowBlock
         }
         checkReadablePosition(position);
 
-        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position) * numFields, getFieldBlocks()));
+        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), getRawFieldBlocks()));
     }
 
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        int fieldBlockOffset = getFieldBlockOffset(position);
-        for (int i = 0; i < numFields; i++) {
-            if (getFieldBlocks()[i].isNull(fieldBlockOffset)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                getFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
-                entryBuilder.closeEntry();
-            }
-        }
+        blockBuilder.appendStructureInternal(this, position);
     }
 
     @Override
@@ -182,12 +158,12 @@ public abstract class AbstractRowBlock
         int fieldBlockLength = endFieldBlockOffset - startFieldBlockOffset;
         Block[] newBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
-            newBlocks[i] = getFieldBlocks()[i].copyRegion(startFieldBlockOffset, fieldBlockLength);
+            newBlocks[i] = getRawFieldBlocks()[i].copyRegion(startFieldBlockOffset, fieldBlockLength);
         }
         boolean[] newRowIsNull = new boolean[] {isNull(position)};
         int[] newOffsets = new int[] {0, fieldBlockLength};
 
-        return new RowBlock(0, 1, newRowIsNull, newOffsets, newBlocks);
+        return createRowBlockInternal(0, 1, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override

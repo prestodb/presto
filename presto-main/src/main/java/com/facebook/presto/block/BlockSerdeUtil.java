@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -39,22 +38,11 @@ public final class BlockSerdeUtil
 
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
     {
-        BlockEncoding blockEncoding = blockEncodingSerde.readBlockEncoding(input);
-        return blockEncoding.readBlock(input);
+        return blockEncodingSerde.readBlock(input);
     }
 
     public static void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput output, Block block)
     {
-        BlockEncoding encoding = block.getEncoding();
-        blockEncodingSerde.writeBlockEncoding(output, encoding);
-        encoding.writeBlock(output, block);
-    }
-
-    // This class is only used in LiteralInterpreter for magic literal. Most likely, you shouldn't use it from anywhere else.
-    public static void writeBlock(SliceOutput output, Block block)
-    {
-        BlockEncoding encoding = block.getEncoding();
-        BlockEncodingManager.writeBlockEncodingInternal(output, encoding);
-        encoding.writeBlock(output, block);
+        blockEncodingSerde.writeBlock(output, block);
     }
 }

@@ -87,42 +87,42 @@ public class PrestoS3ConfigurationUpdater
         config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
 
         if (awsAccessKey != null) {
-            config.set(PrestoS3FileSystem.S3_ACCESS_KEY, awsAccessKey);
+            config.set(S3_ACCESS_KEY, awsAccessKey);
         }
         if (awsSecretKey != null) {
-            config.set(PrestoS3FileSystem.S3_SECRET_KEY, awsSecretKey);
+            config.set(S3_SECRET_KEY, awsSecretKey);
         }
         if (endpoint != null) {
-            config.set(PrestoS3FileSystem.S3_ENDPOINT, endpoint);
+            config.set(S3_ENDPOINT, endpoint);
         }
         if (signerType != null) {
-            config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, signerType.name());
+            config.set(S3_SIGNER_TYPE, signerType.name());
         }
-        config.setBoolean(PrestoS3FileSystem.S3_PATH_STYLE_ACCESS, pathStyleAccess);
-        config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
-        config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, sslEnabled);
-        config.setBoolean(PrestoS3FileSystem.S3_SSE_ENABLED, sseEnabled);
-        config.set(PrestoS3FileSystem.S3_SSE_TYPE, sseType.name());
+        config.setBoolean(S3_PATH_STYLE_ACCESS, pathStyleAccess);
+        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
+        config.setBoolean(S3_SSL_ENABLED, sslEnabled);
+        config.setBoolean(S3_SSE_ENABLED, sseEnabled);
+        config.set(S3_SSE_TYPE, sseType.name());
         if (encryptionMaterialsProvider != null) {
-            config.set(PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER, encryptionMaterialsProvider);
+            config.set(S3_ENCRYPTION_MATERIALS_PROVIDER, encryptionMaterialsProvider);
         }
         if (kmsKeyId != null) {
-            config.set(PrestoS3FileSystem.S3_KMS_KEY_ID, kmsKeyId);
+            config.set(S3_KMS_KEY_ID, kmsKeyId);
         }
         if (sseKmsKeyId != null) {
-            config.set(PrestoS3FileSystem.S3_SSE_KMS_KEY_ID, sseKmsKeyId);
+            config.set(S3_SSE_KMS_KEY_ID, sseKmsKeyId);
         }
-        config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, maxClientRetries);
-        config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, maxErrorRetries);
-        config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, maxBackoffTime.toString());
-        config.set(PrestoS3FileSystem.S3_MAX_RETRY_TIME, maxRetryTime.toString());
-        config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, connectTimeout.toString());
-        config.set(PrestoS3FileSystem.S3_SOCKET_TIMEOUT, socketTimeout.toString());
-        config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, stagingDirectory.toString());
-        config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, maxConnections);
-        config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, multipartMinFileSize.toBytes());
-        config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, multipartMinPartSize.toBytes());
-        config.setBoolean(PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION, pinClientToCurrentRegion);
-        config.set(PrestoS3FileSystem.S3_USER_AGENT_PREFIX, userAgentPrefix);
+        config.setInt(S3_MAX_CLIENT_RETRIES, maxClientRetries);
+        config.setInt(S3_MAX_ERROR_RETRIES, maxErrorRetries);
+        config.set(S3_MAX_BACKOFF_TIME, maxBackoffTime.toString());
+        config.set(S3_MAX_RETRY_TIME, maxRetryTime.toString());
+        config.set(S3_CONNECT_TIMEOUT, connectTimeout.toString());
+        config.set(S3_SOCKET_TIMEOUT, socketTimeout.toString());
+        config.set(S3_STAGING_DIRECTORY, stagingDirectory.toString());
+        config.setInt(S3_MAX_CONNECTIONS, maxConnections);
+        config.setLong(S3_MULTIPART_MIN_FILE_SIZE, multipartMinFileSize.toBytes());
+        config.setLong(S3_MULTIPART_MIN_PART_SIZE, multipartMinPartSize.toBytes());
+        config.setBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, pinClientToCurrentRegion);
+        config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
     }
 }

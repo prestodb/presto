@@ -50,15 +50,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
-import static com.facebook.presto.verifier.PrestoVerifier.statementToQueryType;
 import static com.facebook.presto.verifier.QueryType.READ;
+import static com.facebook.presto.verifier.VerifyCommand.statementToQueryType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class QueryRewriter
 {
@@ -210,7 +212,8 @@ public class QueryRewriter
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         try (java.sql.Statement jdbcStatement = connection.createStatement()) {
-            TimeLimiter limiter = new SimpleTimeLimiter();
+            ExecutorService executor = newSingleThreadExecutor();
+            TimeLimiter limiter = SimpleTimeLimiter.create(executor);
             java.sql.Statement limitedStatement = limiter.newProxy(jdbcStatement, java.sql.Statement.class, timeout.toMillis(), TimeUnit.MILLISECONDS);
             try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery, Optional.empty()))) {
                 ResultSetMetaData metaData = resultSet.getMetaData();
@@ -220,13 +223,16 @@ public class QueryRewriter
                     columns.add(new Column(name, APPROXIMATE_TYPES.contains(type)));
                 }
             }
+            finally {
+                executor.shutdownNow();
+            }
         }
 
         return columns.build();
     }
 
     private String checksumSql(List<Column> columns, QualifiedName table)
-            throws SQLException, QueryRewriteException
+            throws QueryRewriteException
     {
         if (columns.isEmpty()) {
             throw new QueryRewriteException("Table " + table + " has no columns");

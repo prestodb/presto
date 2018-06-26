@@ -14,7 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -153,6 +153,9 @@ public class FileSingleStreamSpillerFactory
                 roundRobinIndex = (roundRobinIndex + i + 1) % spillPathsCount;
                 return path;
             }
+        }
+        if (spillPaths.isEmpty()) {
+            throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
         }
         throw new PrestoException(OUT_OF_SPILL_SPACE, "No free space available for spill");
     }

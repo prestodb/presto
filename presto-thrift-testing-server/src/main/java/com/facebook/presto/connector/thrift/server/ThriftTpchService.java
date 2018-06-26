@@ -31,24 +31,23 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
 import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
@@ -66,7 +65,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 
 public class ThriftTpchService
-        implements PrestoThriftService
+        implements PrestoThriftService, Closeable
 {
     private static final int DEFAULT_NUMBER_OF_SPLITS = 3;
     private static final List<String> SCHEMAS = ImmutableList.of("tiny", "sf1");
@@ -104,7 +103,7 @@ public class ThriftTpchService
         TpchTable<?> tpchTable = TpchTable.getTable(schemaTableName.getTableName());
         List<PrestoThriftColumnMetadata> columns = new ArrayList<>();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column.getType()), null, false));
+            columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column), null, false));
         }
         List<Set<String>> indexableKeys = getIndexableKeys(schemaName, tableName);
         return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null));
@@ -122,7 +121,6 @@ public class ThriftTpchService
             PrestoThriftTupleDomain outputConstraint,
             int maxSplitCount,
             PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
     {
         return executor.submit(() -> getSplitsSync(schemaTableName, maxSplitCount, nextToken));
     }
@@ -131,7 +129,6 @@ public class ThriftTpchService
             PrestoThriftSchemaTableName schemaTableName,
             int maxSplitCount,
             PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
     {
         int totalParts = DEFAULT_NUMBER_OF_SPLITS;
         // last sent part
@@ -161,7 +158,6 @@ public class ThriftTpchService
             PrestoThriftTupleDomain outputConstraint,
             int maxSplitCount,
             PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
     {
         return executor.submit(() -> getIndexSplitsSync(schemaTableName, indexColumnNames, keys, maxSplitCount, nextToken));
     }
@@ -222,7 +218,7 @@ public class ThriftTpchService
     public static List<Type> types(String tableName, List<String> columnNames)
     {
         TpchTable<?> table = TpchTable.getTable(tableName);
-        return columnNames.stream().map(name -> getPrestoType(table.getColumn(name).getType())).collect(toList());
+        return columnNames.stream().map(name -> getPrestoType(table.getColumn(name))).collect(toList());
     }
 
     public static double schemaNameToScaleFactor(String schemaName)
@@ -304,7 +300,7 @@ public class ThriftTpchService
                 schemaNameToScaleFactor(splitInfo.getSchemaName()),
                 splitInfo.getPartNumber(),
                 splitInfo.getTotalParts(),
-                Optional.empty()));
+                TupleDomain.all()));
     }
 
     private static List<String> getSchemaNames(String schemaNameOrNull)
@@ -320,8 +316,8 @@ public class ThriftTpchService
         }
     }
 
-    private static String getTypeString(TpchColumnType tpchType)
+    private static String getTypeString(TpchColumn<?> column)
     {
-        return TpchMetadata.getPrestoType(tpchType).getTypeSignature().toString();
+        return getPrestoType(column).getTypeSignature().toString();
     }
 }

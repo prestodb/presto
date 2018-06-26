@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
+
+import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -26,6 +33,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
@@ -55,19 +63,20 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class Memo
 {
+    private static final int ROOT_GROUP_REF = 0;
+
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
 
-    private final Map<Integer, PlanNode> membership = new HashMap<>();
-    private final Map<Integer, Integer> referenceCounts = new HashMap<>();
+    private final Map<Integer, Group> groups = new HashMap<>();
 
-    private int nextGroupId;
+    private int nextGroupId = ROOT_GROUP_REF + 1;
 
     public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan)
     {
         this.idAllocator = idAllocator;
         rootGroup = insertRecursive(plan);
-        referenceCounts.put(rootGroup, 1);
+        groups.get(rootGroup).incomingReferences.add(ROOT_GROUP_REF);
     }
 
     public int getRootGroup()
@@ -75,10 +84,15 @@ public class Memo
         return rootGroup;
     }
 
+    private Group getGroup(int group)
+    {
+        checkArgument(groups.containsKey(group), "Invalid group: %s", group);
+        return groups.get(group);
+    }
+
     public PlanNode getNode(int group)
     {
-        checkArgument(membership.containsKey(group), "Invalid group: %s", group);
-        return membership.get(group);
+        return getGroup(group).membership;
     }
 
     public PlanNode resolve(GroupReference groupReference)
@@ -98,7 +112,7 @@ public class Memo
 
     public PlanNode replace(int group, PlanNode node, String reason)
     {
-        PlanNode old = membership.get(group);
+        PlanNode old = getGroup(group).membership;
 
         checkArgument(new HashSet<>(old.getOutputSymbols()).equals(new HashSet<>(node.getOutputSymbols())),
                 "%s: transformed expression doesn't produce same outputs: %s vs %s",
@@ -113,34 +127,68 @@ public class Memo
             node = insertChildrenAndRewrite(node);
         }
 
-        incrementReferenceCounts(node);
-        membership.put(group, node);
-        decrementReferenceCounts(old);
+        incrementReferenceCounts(node, group);
+        getGroup(group).membership = node;
+        decrementReferenceCounts(old, group);
+        evictStatisticsAndCost(group);
 
         return node;
     }
 
-    private void incrementReferenceCounts(PlanNode node)
+    private void evictStatisticsAndCost(int group)
     {
-        Set<Integer> references = getAllReferences(node);
-
-        for (int group : references) {
-            referenceCounts.compute(group, (g, count) -> count + 1);
+        getGroup(group).stats = null;
+        getGroup(group).cumulativeCost = null;
+        for (int parentGroup : getGroup(group).incomingReferences.elementSet()) {
+            if (parentGroup != ROOT_GROUP_REF) {
+                evictStatisticsAndCost(parentGroup);
+            }
         }
     }
 
-    private void decrementReferenceCounts(PlanNode node)
+    public Optional<PlanNodeStatsEstimate> getStats(int group)
     {
-        Set<Integer> references = getAllReferences(node);
+        return Optional.ofNullable(getGroup(group).stats);
+    }
+
+    public void storeStats(int groupId, PlanNodeStatsEstimate stats)
+    {
+        Group group = getGroup(groupId);
+        if (group.stats != null) {
+            evictStatisticsAndCost(groupId); // cost is derived from stats, also needs eviction
+        }
+        group.stats = requireNonNull(stats, "stats is null");
+    }
+
+    public Optional<PlanNodeCostEstimate> getCumulativeCost(int group)
+    {
+        return Optional.ofNullable(getGroup(group).cumulativeCost);
+    }
+
+    public void storeCumulativeCost(int group, PlanNodeCostEstimate cost)
+    {
+        getGroup(group).cumulativeCost = requireNonNull(cost, "cost is null");
+    }
+
+    private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)
+    {
+        Set<Integer> references = getAllReferences(fromNode);
 
         for (int group : references) {
-            int newCount = referenceCounts.compute(group, (g, count) -> count - 1);
-            checkState(newCount >= 0, "Reference count became negative");
+            groups.get(group).incomingReferences.add(fromGroup);
+        }
+    }
 
-            if (newCount == 0) {
-                PlanNode child = membership.get(group);
+    private void decrementReferenceCounts(PlanNode fromNode, int fromGroup)
+    {
+        Set<Integer> references = getAllReferences(fromNode);
+
+        for (int group : references) {
+            Group childGroup = groups.get(group);
+            checkState(childGroup.incomingReferences.remove(fromGroup), "Reference to remove not found");
+
+            if (childGroup.incomingReferences.isEmpty()) {
                 deleteGroup(group);
-                decrementReferenceCounts(child);
             }
         }
     }
@@ -155,8 +203,9 @@ public class Memo
 
     private void deleteGroup(int group)
     {
-        membership.remove(group);
-        referenceCounts.remove(group);
+        checkArgument(getGroup(group).incomingReferences.isEmpty(), "Cannot delete group that has incoming references");
+        PlanNode deletedNode = groups.remove(group).membership;
+        decrementReferenceCounts(deletedNode, group);
     }
 
     private PlanNode insertChildrenAndRewrite(PlanNode node)
@@ -179,9 +228,8 @@ public class Memo
         int group = nextGroupId();
         PlanNode rewritten = insertChildrenAndRewrite(node);
 
-        membership.put(group, rewritten);
-        referenceCounts.put(group, 0);
-        incrementReferenceCounts(rewritten);
+        groups.put(group, Group.withMember(rewritten));
+        incrementReferenceCounts(rewritten, group);
 
         return group;
     }
@@ -193,6 +241,26 @@ public class Memo
 
     public int getGroupCount()
     {
-        return membership.size();
+        return groups.size();
+    }
+
+    private static final class Group
+    {
+        static Group withMember(PlanNode member)
+        {
+            return new Group(member);
+        }
+
+        private PlanNode membership;
+        private Multiset<Integer> incomingReferences = HashMultiset.create();
+        @Nullable
+        private PlanNodeStatsEstimate stats;
+        @Nullable
+        private PlanNodeCostEstimate cumulativeCost;
+
+        private Group(PlanNode member)
+        {
+            this.membership = requireNonNull(member, "member is null");
+        }
     }
 }

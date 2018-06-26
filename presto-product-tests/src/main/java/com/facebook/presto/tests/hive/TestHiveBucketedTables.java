@@ -13,30 +13,26 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.Requirements;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
-import com.teradata.tempto.fulfillment.table.TableDefinitionsRepository;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
-import com.teradata.tempto.query.QueryExecutor;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.Requirements;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-import java.util.Optional;
-
+import static com.facebook.presto.tests.TestGroups.BIG_QUERY;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class TestHiveBucketedTables
@@ -52,7 +48,7 @@ public class TestHiveBucketedTables
                     "n_comment       STRING) " +
                     "PARTITIONED BY (part_key STRING) " +
                     "CLUSTERED BY (n_regionkey) " +
-                    "INTO 4 BUCKETS " +
+                    "INTO 2 BUCKETS " +
                     "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
             .setNoData()
             .build();
@@ -65,26 +61,22 @@ public class TestHiveBucketedTables
                 immutableTable(NATION));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test(groups = {HIVE_CONNECTOR, BIG_QUERY})
     public void testIgnorePartitionBucketingIfNotBucketed()
-            throws SQLException
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
-        populateDataToHiveTable(tableName, NATION.getName(), Optional.of("part_key = 'insert_1'"));
-        populateDataToHiveTable(tableName, NATION.getName(), Optional.of("part_key = 'insert_2'"));
+        populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_1'");
+        populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_2'");
 
-        testContext().getDependency(QueryExecutor.class, "hive").executeQuery(format("ALTER TABLE %s NOT CLUSTERED", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s NOT CLUSTERED", tableName));
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
                 .containsExactly(row(2));
     }
 
-    private static void populateDataToHiveTable(String destination, String source, Optional<String> partition)
+    private static void populateHivePartitionedTable(String destination, String source, String partition)
     {
-        String queryStatement = format("INSERT INTO TABLE %s" +
-                        (partition.isPresent() ? format(" PARTITION (%s) ", partition.get()) : " ") +
-                        "SELECT * FROM %s",
-                destination, source);
+        String queryStatement = format("INSERT INTO TABLE %s PARTITION (%s) SELECT * FROM %s", destination, partition, source);
 
         onHive().executeQuery("set hive.enforce.bucketing = true");
         onHive().executeQuery("set hive.enforce.sorting = true");

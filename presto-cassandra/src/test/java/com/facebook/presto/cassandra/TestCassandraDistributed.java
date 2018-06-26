@@ -28,7 +28,6 @@ public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
 {
     public TestCassandraDistributed()
-            throws Exception
     {
         super(CassandraQueryRunner::createCassandraQueryRunner);
     }
@@ -41,18 +40,6 @@ public class TestCassandraDistributed
 
     @Override
     public void testJoinWithLessThanOnDatesInJoinClause()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndColumn()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndOrdinal()
     {
         // Cassandra does not support DATE
     }
@@ -84,17 +71,11 @@ public class TestCassandraDistributed
     @Override
     public void testInsert()
     {
-        // Cassandra connector currently does not support insert
+        // TODO Cassandra connector supports inserts, but the test would fail
     }
 
     @Override
     public void testCreateTable()
-    {
-        // Cassandra connector currently does not support create table
-    }
-
-    @Override
-    public void testCreateTableAsSelect()
     {
         // Cassandra connector currently does not support create table
     }
@@ -140,6 +121,6 @@ public class TestCassandraDistributed
     @Override
     public void testWrittenStats()
     {
-        // Cassandra connector currently does not support create table nor insert
+        // TODO Cassandra connector supports CTAS and inserts, but the test would fail
     }
 }

@@ -14,16 +14,21 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import java.util.List;
+
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroupIntegration
 {
@@ -31,13 +36,33 @@ public class TestResourceGroupIntegration
     public void testMemoryFraction()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
 
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             waitForGlobalResourceGroup(queryRunner);
+        }
+    }
+
+    @Test
+    public void testPathToRoot()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
+            manager.setConfigurationManager("file", ImmutableMap.of(
+                    "resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+
+            queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+            List<ResourceGroupInfo> path = manager.getPathToRoot(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user"));
+            assertEquals(path.size(), 3);
+            assertTrue(path.get(1).getSubGroups() != null);
+            assertEquals(path.get(2).getId(), new ResourceGroupId("global"));
+            assertEquals(path.get(2).getHardConcurrencyLimit(), 100);
+            assertEquals(path.get(2).getRunningQueries(), null);
         }
     }
 
@@ -60,7 +85,7 @@ public class TestResourceGroupIntegration
         }
     }
 
-    private static InternalResourceGroupManager getResourceGroupManager(DistributedQueryRunner queryRunner)
+    private static InternalResourceGroupManager<?> getResourceGroupManager(DistributedQueryRunner queryRunner)
     {
         return queryRunner.getCoordinator().getResourceGroupManager()
                 .orElseThrow(() -> new IllegalArgumentException("no resource group manager"));

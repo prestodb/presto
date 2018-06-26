@@ -43,7 +43,7 @@ public class ExistsPredicate
         this.subquery = subquery;
     }
 
-    public Node getSubquery()
+    public Expression getSubquery()
     {
         return subquery;
     }

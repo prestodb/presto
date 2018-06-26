@@ -31,7 +31,7 @@ public class CachingKerberosHadoopAuthentication
 
     private final Object lock = new Object();
     @GuardedBy("lock")
-    private UserGroupInformation userGroupInformation = null;
+    private UserGroupInformation userGroupInformation;
     @GuardedBy("lock")
     private long nextRefreshTime = Long.MIN_VALUE;
 
@@ -47,22 +47,24 @@ public class CachingKerberosHadoopAuthentication
             if (refreshIsNeeded()) {
                 refreshUgi();
             }
+            return userGroupInformation;
         }
-        return userGroupInformation;
     }
 
+    @GuardedBy("lock")
     private void refreshUgi()
     {
         userGroupInformation = delegate.getUserGroupInformation();
         nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
     }
 
+    @GuardedBy("lock")
     private boolean refreshIsNeeded()
     {
         return nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null;
     }
 
-    private long calculateNextRefreshTime(UserGroupInformation userGroupInformation)
+    private static long calculateNextRefreshTime(UserGroupInformation userGroupInformation)
     {
         Subject subject = getSubject(userGroupInformation);
         checkArgument(subject != null, "subject must be present in kerberos based UGI");

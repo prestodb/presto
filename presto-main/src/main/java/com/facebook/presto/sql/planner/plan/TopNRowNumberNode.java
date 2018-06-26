@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.WindowNode.Specification;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,6 +55,7 @@ public final class TopNRowNumberNode
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
+        checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
         requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
         requireNonNull(hashSymbol, "hashSymbol is null");
@@ -100,14 +100,9 @@ public final class TopNRowNumberNode
         return specification.getPartitionBy();
     }
 
-    public List<Symbol> getOrderBy()
+    public OrderingScheme getOrderingScheme()
     {
-        return specification.getOrderBy();
-    }
-
-    public Map<Symbol, SortOrder> getOrderings()
-    {
-        return specification.getOrderings();
+        return specification.getOrderingScheme().get();
     }
 
     @JsonProperty

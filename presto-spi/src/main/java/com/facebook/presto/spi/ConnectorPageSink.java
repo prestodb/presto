@@ -23,10 +23,19 @@ public interface ConnectorPageSink
     CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
-     * Get the total memory that needs to be reserved in the system memory pool.
+     * Gets the number of output bytes written by this page source so far.
+     * If size is not available, this method should return zero.
+     */
+    default long getCompletedBytes()
+    {
+        return 0;
+    }
+
+    /**
+     * Get the total memory that needs to be reserved in the general memory pool.
      * This memory should include any buffers, etc. that are used for reading data.
      *
-     * @return the system memory used so far in table read
+     * @return the memory used so far in table read
      */
     default long getSystemMemoryUsage()
     {

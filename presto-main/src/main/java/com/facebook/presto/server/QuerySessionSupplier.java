@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
@@ -24,6 +26,7 @@ import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactor
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -54,6 +57,7 @@ public class QuerySessionSupplier
     private static final File SESSION_PROPERTY_CONFIGURATION = new File("etc/session-property-config.properties");
     private static final String SESSION_PROPERTY_MANAGER_NAME = "session-property-config.configuration-manager";
 
+    private final SessionPropertyConfigurationManagerContext configurationManagerContext;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
@@ -62,10 +66,12 @@ public class QuerySessionSupplier
 
     @Inject
     public QuerySessionSupplier(
+            NodeInfo nodeInfo,
             TransactionManager transactionManager,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager)
     {
+        this.configurationManagerContext = new SessionPropertyConfigurationManagerContextInstance(nodeInfo.getEnvironment());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -105,12 +111,12 @@ public class QuerySessionSupplier
         SessionPropertyConfigurationManagerFactory factory = sessionPropertyConfigurationManagerFactories.get(name);
         checkState(factory != null, "Session property configuration manager %s is not registered");
 
-        SessionPropertyConfigurationManager manager = factory.create(properties);
+        SessionPropertyConfigurationManager manager = factory.create(properties, configurationManagerContext);
         checkState(sessionPropertyConfigurationManager.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, SessionContext context, Optional<String> queryType, ResourceGroupId resourceGroupId)
     {
         Identity identity = context.getIdentity();
         accessControl.checkCanSetUser(identity.getPrincipal().orElse(null), identity.getUser());
@@ -124,7 +130,9 @@ public class QuerySessionSupplier
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
-                .setClientTags(context.getClientTags());
+                .setClientTags(context.getClientTags())
+                .setTraceToken(context.getTraceToken())
+                .setResourceEstimates(context.getResourceEstimates());
 
         if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
@@ -138,7 +146,9 @@ public class QuerySessionSupplier
             SessionConfigurationContext configContext = new SessionConfigurationContext(
                     context.getIdentity().getUser(),
                     Optional.ofNullable(context.getSource()),
-                    context.getClientTags());
+                    context.getClientTags(),
+                    queryType,
+                    resourceGroupId);
             for (Entry<String, String> entry : sessionPropertyConfigurationManager.get().getSystemSessionProperties(configContext).entrySet()) {
                 sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
             }

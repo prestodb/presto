@@ -24,7 +24,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -61,6 +60,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -167,9 +167,8 @@ public class ShardRecoveryManager
         try {
             for (ShardMetadata shard : getMissingShards()) {
                 stats.incrementBackgroundShardRecovery();
-                Futures.addCallback(
-                        shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false)),
-                        failureCallback(t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid())));
+                ListenableFuture<?> future = shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false));
+                addExceptionCallback(future, t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid()));
             }
         }
         catch (Throwable t) {

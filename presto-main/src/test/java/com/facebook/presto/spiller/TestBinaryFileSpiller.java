@@ -17,10 +17,9 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -37,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -63,7 +63,6 @@ public class TestBinaryFileSpiller
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
         spillerStats = new SpillerStats();
@@ -74,7 +73,7 @@ public class TestBinaryFileSpiller
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
         pagesSerde = pagesSerdeFactory.createPagesSerde();
-        memoryContext = new AggregatedMemoryContext();
+        memoryContext = newSimpleAggregatedMemoryContext();
     }
 
     @AfterMethod
@@ -100,9 +99,9 @@ public class TestBinaryFileSpiller
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
-        BlockBuilder col1 = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder col2 = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder col3 = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
         col1.writeLong(42).closeEntry();
         col2.writeLong(doubleToLongBits(43.0)).closeEntry();
@@ -147,11 +146,12 @@ public class TestBinaryFileSpiller
             spiller.spill(spill.iterator()).get();
         }
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
-        assertEquals(memoryContext.getBytes(), 0);
+        // At this point, the buffers should still be accounted for in the memory context, because
+        // the spiller (FileSingleStreamSpiller) doesn't release its memory reservation until it's closed.
+        assertEquals(memoryContext.getBytes(), spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertEquals(actualSpills.size(), spills.length);
-        assertEquals(memoryContext.getBytes(), spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
 
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));

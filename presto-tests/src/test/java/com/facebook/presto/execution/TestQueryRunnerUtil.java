@@ -15,17 +15,15 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TestQueryRunnerUtil
@@ -34,7 +32,10 @@ public final class TestQueryRunnerUtil
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
-        return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionContext(session), sql).getQueryId();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        QueryId queryId = queryManager.createQueryId();
+        getFutureValue(queryManager.createQuery(queryId, new TestingSessionContext(session), sql));
+        return queryId;
     }
 
     public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)
@@ -64,10 +65,12 @@ public final class TestQueryRunnerUtil
         while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState()));
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> properties)
+    public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, ImmutableMap.of(), properties, new SqlParserOptions());
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+                .setNodeCount(2)
+                .build();
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

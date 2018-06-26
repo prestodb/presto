@@ -17,8 +17,8 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -51,7 +52,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -80,7 +80,7 @@ public class ArbitraryOutputBuffer
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
-            SystemMemoryUsageListener systemMemoryUsageListener,
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -89,7 +89,7 @@ public class ArbitraryOutputBuffer
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.memoryManager = new OutputBufferMemoryManager(
                 maxBufferSize.toBytes(),
-                requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null"),
+                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.masterBuffer = new MasterBuffer();
     }
@@ -110,6 +110,12 @@ public class ArbitraryOutputBuffer
     public double getUtilization()
     {
         return memoryManager.getUtilization();
+    }
+
+    @Override
+    public boolean isOverutilized()
+    {
+        return (memoryManager.getUtilization() >= 0.5) || !state.get().canAddPages();
     }
 
     @Override
@@ -187,7 +193,13 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
+    public ListenableFuture<?> isFull()
+    {
+        return memoryManager.getBufferBlockedFuture();
+    }
+
+    @Override
+    public void enqueue(List<SerializedPage> pages)
     {
         checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
         requireNonNull(pages, "page is null");
@@ -195,7 +207,7 @@ public class ArbitraryOutputBuffer
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
         if (!state.get().canAddPages()) {
-            return immediateFuture(true);
+            return;
         }
 
         // reserve memory
@@ -222,15 +234,13 @@ public class ArbitraryOutputBuffer
             }
             clientBuffer.loadPagesIfNecessary(masterBuffer);
         }
-
-        return memoryManager.getNotFullFuture();
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partition, List<SerializedPage> pages)
+    public void enqueue(int partition, List<SerializedPage> pages)
     {
         checkState(partition == 0, "Expected partition number to be zero");
-        return enqueue(pages);
+        enqueue(pages);
     }
 
     @Override
@@ -241,6 +251,15 @@ public class ArbitraryOutputBuffer
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         return getBuffer(bufferId).getPages(startingSequenceId, maxSize, Optional.of(masterBuffer));
+    }
+
+    @Override
+    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    {
+        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        requireNonNull(bufferId, "bufferId is null");
+
+        getBuffer(bufferId).acknowledgePages(sequenceId);
     }
 
     @Override
@@ -299,6 +318,12 @@ public class ArbitraryOutputBuffer
         }
     }
 
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
     {
         ClientBuffer buffer = buffers.get(id);
@@ -341,12 +366,14 @@ public class ArbitraryOutputBuffer
     @GuardedBy("this")
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
-            return;
-        }
-
-        if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
-            destroy();
+        // This buffer type assigns each page to a single, arbitrary reader,
+        // so we don't need to wait for no-more-buffers to finish the buffer.
+        // Any readers added after finish will simply receive no data.
+        BufferState state = this.state.get();
+        if ((state == FLUSHING) || ((state == NO_MORE_PAGES) && masterBuffer.isEmpty())) {
+            if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
+                destroy();
+            }
         }
     }
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.project.MergingPageOutput;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
@@ -32,7 +32,6 @@ public class FilterAndProjectOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private final LocalMemoryContext outputMemoryContext;
 
     private final PageProcessor processor;
@@ -41,14 +40,12 @@ public class FilterAndProjectOperator
 
     public FilterAndProjectOperator(
             OperatorContext operatorContext,
-            Iterable<? extends Type> types,
             PageProcessor processor,
             MergingPageOutput mergingOutput)
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.outputMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
     }
 
@@ -56,12 +53,6 @@ public class FilterAndProjectOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public final List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -132,19 +123,12 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
             return new FilterAndProjectOperator(
                     operatorContext,
-                    types,
                     processor.get(),
                     new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }

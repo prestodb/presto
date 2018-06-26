@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
@@ -39,7 +40,6 @@ public class OrderByOperator
         private final int expectedPositions;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
-        private final List<Type> types;
         private boolean closed;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -61,14 +61,7 @@ public class OrderByOperator
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
-            this.types = toTypes(sourceTypes, outputChannels);
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -111,7 +104,7 @@ public class OrderByOperator
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrder;
     private final int[] outputChannels;
-    private final List<Type> types;
+    private final LocalMemoryContext localUserMemoryContext;
 
     private final PagesIndex pageIndex;
 
@@ -133,25 +126,19 @@ public class OrderByOperator
 
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
-        this.types = toTypes(sourceTypes, outputChannels);
         this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
 
-        this.pageBuilder = new PageBuilder(this.types);
+        this.pageBuilder = new PageBuilder(toTypes(sourceTypes, outputChannels));
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -185,11 +172,10 @@ public class OrderByOperator
 
         pageIndex.addPage(page);
 
-        if (!operatorContext.trySetMemoryReservation(pageIndex.getEstimatedSize().toBytes())) {
+        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
             pageIndex.compact();
+            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
         }
-
-        operatorContext.setMemoryReservation(pageIndex.getEstimatedSize().toBytes());
     }
 
     @Override
@@ -216,6 +202,12 @@ public class OrderByOperator
 
         Page page = pageBuilder.build();
         return page;
+    }
+
+    @Override
+    public void close()
+    {
+        pageIndex.clear();
     }
 
     private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)

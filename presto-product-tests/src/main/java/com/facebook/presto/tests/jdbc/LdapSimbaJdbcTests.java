@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.tests.jdbc;
 
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -30,7 +29,7 @@ import static com.facebook.presto.tests.TestGroups.LDAP;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.TestGroups.SIMBA_JDBC;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -59,14 +58,13 @@ public class LdapSimbaJdbcTests
     @Requires(ImmutableNationTable.class)
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunQueryWithLdap()
-            throws InterruptedException, SQLException
+            throws SQLException
     {
         assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
     }
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInChildGroup()
-            throws InterruptedException
     {
         String name = CHILD_GROUP_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
@@ -74,7 +72,6 @@ public class LdapSimbaJdbcTests
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInParentGroup()
-            throws InterruptedException
     {
         String name = PARENT_GROUP_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
@@ -82,7 +79,6 @@ public class LdapSimbaJdbcTests
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForOrphanLdapUser()
-            throws InterruptedException
     {
         String name = ORPHAN_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
@@ -90,35 +86,30 @@ public class LdapSimbaJdbcTests
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapPassword()
-            throws IOException, InterruptedException
     {
         expectQueryToFail(ldapUserName, "wrong_password", INVALID_CREDENTIALS_ERROR);
     }
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapUser()
-            throws IOException, InterruptedException
     {
         expectQueryToFail("invalid_user", ldapUserPassword, INVALID_CREDENTIALS_ERROR);
     }
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForEmptyUser()
-            throws IOException, InterruptedException
     {
         expectQueryToFail("", ldapUserPassword, MALFORMED_CREDENTIALS_ERROR);
     }
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutPassword()
-            throws IOException, InterruptedException
     {
         expectQueryToFail(ldapUserName, "", MALFORMED_CREDENTIALS_ERROR);
     }
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutSsl()
-            throws IOException, InterruptedException
     {
         try {
             DriverManager.getConnection(getLdapUrl() + ";SSL=0", ldapUserName, ldapUserPassword);
@@ -131,7 +122,6 @@ public class LdapSimbaJdbcTests
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForIncorrectTrustStore()
-            throws IOException, InterruptedException
     {
         try {
             String url = String.format(JDBC_URL_FORMAT, prestoServer(), ldapTruststorePath, "wrong_password");
@@ -147,7 +137,6 @@ public class LdapSimbaJdbcTests
 
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForUserWithColon()
-            throws SQLException, InterruptedException
     {
         expectQueryToFail("UserWith:Colon", ldapUserPassword, MALFORMED_CREDENTIALS_ERROR);
     }

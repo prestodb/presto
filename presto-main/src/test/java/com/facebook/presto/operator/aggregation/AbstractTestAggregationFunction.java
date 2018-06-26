@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -95,7 +94,6 @@ public abstract class AbstractTestAggregationFunction
 
     @Test
     public void testAllPositionsNull()
-            throws Exception
     {
         // if there are no parameters skip this test
         List<Type> parameterTypes = getFunction().getParameterTypes();
@@ -104,10 +102,7 @@ public abstract class AbstractTestAggregationFunction
         }
         Block[] blocks = new Block[parameterTypes.size()];
         for (int i = 0; i < parameterTypes.size(); i++) {
-            Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(new BlockBuilderStatus(), 1)
-                    .appendNull()
-                    .build();
-            blocks[i] = new RunLengthEncodedBlock(nullValueBlock, 10);
+            blocks[i] = RunLengthEncodedBlock.create(parameterTypes.get(0), null, 10);
         }
 
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), blocks);
@@ -144,7 +139,7 @@ public abstract class AbstractTestAggregationFunction
         for (int i = 0; i < sequenceBlocks.length; i++) {
             int positionCount = sequenceBlocks[i].getPositionCount();
             Type type = types.get(i);
-            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // append null
                 blockBuilder.appendNull();

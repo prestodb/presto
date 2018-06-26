@@ -13,17 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -33,36 +22,28 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
-import com.facebook.presto.util.Reflection;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.ParameterizedType;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.bytecode.Access.FINAL;
-import static com.facebook.presto.bytecode.Access.PRIVATE;
-import static com.facebook.presto.bytecode.Access.PUBLIC;
-import static com.facebook.presto.bytecode.Access.STATIC;
-import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.Parameter.arg;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
@@ -70,6 +51,12 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessar
 import static com.facebook.presto.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Type.getMethodType;
 import static org.objectweb.asm.Type.getType;
@@ -85,7 +72,7 @@ public class LambdaBytecodeGenerator
      */
     public static CompiledLambda preGenerateLambdaExpression(
             LambdaDefinitionExpression lambdaExpression,
-            String fieldName,
+            String methodName,
             ClassDefinition classDefinition,
             PreGeneratedExpressions preGeneratedExpressions,
             CallSiteBinder callSiteBinder,
@@ -111,24 +98,24 @@ public class LambdaBytecodeGenerator
                 functionRegistry,
                 preGeneratedExpressions);
 
-        return defineLambdaMethodAndField(
+        return defineLambdaMethod(
                 innerExpressionCompiler,
                 classDefinition,
-                fieldName,
+                methodName,
                 parameters.build(),
                 lambdaExpression);
     }
 
-    private static CompiledLambda defineLambdaMethodAndField(
+    private static CompiledLambda defineLambdaMethod(
             RowExpressionCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
-            String fieldAndMethodName,
+            String methodName,
             List<Parameter> inputParameters,
             LambdaDefinitionExpression lambda)
     {
         checkCondition(inputParameters.size() <= 254, NOT_SUPPORTED, "Too many arguments for lambda expression");
         Class<?> returnType = Primitives.wrap(lambda.getBody().getType().getJavaType());
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), fieldAndMethodName, type(returnType), inputParameters);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
 
         Scope scope = method.getScope();
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
@@ -139,37 +126,17 @@ public class LambdaBytecodeGenerator
                 .append(boxPrimitiveIfNecessary(scope, returnType))
                 .ret(returnType);
 
-        FieldDefinition staticField = classDefinition.declareField(a(PRIVATE, STATIC, FINAL), fieldAndMethodName, type(MethodHandle.class));
-        FieldDefinition instanceField = classDefinition.declareField(a(PRIVATE, FINAL), "binded_" + fieldAndMethodName, type(MethodHandle.class));
-
-        classDefinition.getClassInitializer().getBody()
-                .append(setStatic(
-                        staticField,
-                        invokeStatic(
-                                Reflection.class,
-                                "methodHandle",
-                                MethodHandle.class,
-                                constantClass(classDefinition.getType()),
-                                constantString(fieldAndMethodName),
-                                newArray(
-                                        type(Class[].class),
-                                        inputParameters.stream()
-                                                .map(Parameter::getType)
-                                                .map(BytecodeExpressions::constantClass)
-                                                .collect(toImmutableList())))));
-
         Handle lambdaAsmHandle = new Handle(
                 Opcodes.H_INVOKEVIRTUAL,
                 method.getThis().getType().getClassName(),
                 method.getName(),
-                method.getMethodDescriptor());
+                method.getMethodDescriptor(),
+                false);
 
         return new CompiledLambda(
                 lambdaAsmHandle,
                 method.getReturnType(),
-                method.getParameterTypes(),
-                staticField,
-                instanceField);
+                method.getParameterTypes());
     }
 
     public static BytecodeNode generateLambda(
@@ -280,10 +247,6 @@ public class LambdaBytecodeGenerator
 
     static class CompiledLambda
     {
-        private final FieldDefinition staticField;
-        // the instance field will be binded to "this" in constructor
-        private final FieldDefinition instanceField;
-
         // lambda method information
         private final Handle lambdaAsmHandle;
         private final ParameterizedType returnType;
@@ -292,12 +255,8 @@ public class LambdaBytecodeGenerator
         public CompiledLambda(
                 Handle lambdaAsmHandle,
                 ParameterizedType returnType,
-                List<ParameterizedType> parameterTypes,
-                FieldDefinition staticField,
-                FieldDefinition instanceField)
+                List<ParameterizedType> parameterTypes)
         {
-            this.staticField = requireNonNull(staticField, "staticField is null");
-            this.instanceField = requireNonNull(instanceField, "instanceField is null");
             this.lambdaAsmHandle = requireNonNull(lambdaAsmHandle, "lambdaMethodAsmHandle is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
             this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "returnType is null"));
@@ -316,19 +275,6 @@ public class LambdaBytecodeGenerator
         public List<ParameterizedType> getParameterTypes()
         {
             return parameterTypes;
-        }
-
-        public FieldDefinition getInstanceField()
-        {
-            return instanceField;
-        }
-
-        public void generateInitialization(Variable thisVariable, BytecodeBlock block)
-        {
-            block.append(
-                    thisVariable.setField(
-                            instanceField,
-                            getStatic(staticField).invoke("bindTo", MethodHandle.class, thisVariable.cast(Object.class))));
         }
     }
 }

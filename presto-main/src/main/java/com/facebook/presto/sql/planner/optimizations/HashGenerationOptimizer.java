@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -70,7 +72,6 @@ import java.util.function.Function;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -159,7 +160,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
-            if (!canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
                 groupByHash = computeHash(node.getGroupingKeys());
             }
 
@@ -171,10 +172,11 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new AggregationNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getAggregations(),
                             node.getGroupingSets(),
+                            node.getPreGroupedSymbols(),
                             node.getStep(),
                             hashSymbol,
                             node.getGroupIdSymbol()),
@@ -211,7 +213,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
+                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -232,7 +234,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new MarkDistinctNode(idAllocator.getNextId(), child.getNode(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
+                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -253,7 +255,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new RowNumberNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
                             node.getRowNumberSymbol(),
@@ -279,7 +281,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new TopNRowNumberNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getSpecification(),
                             node.getRowNumberSymbol(),
@@ -350,7 +352,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new JoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             left.getNode(),
                             right.getNode(),
@@ -381,7 +383,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new SemiJoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             source.getNode(),
                             filteringSource.getNode(),
                             node.getSourceJoinSymbol(),
@@ -422,7 +424,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new IndexJoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             probe.getNode(),
                             index.getNode(),
@@ -450,7 +452,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new WindowNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getSpecification(),
                             node.getWindowFunctions(),
@@ -528,7 +530,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new ExchangeNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             node.getScope(),
                             partitioningScheme,
@@ -574,7 +576,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnionNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             newSources.build(),
                             newSymbolMapping.build(),
                             ImmutableList.copyOf(newSymbolMapping.build().keySet())),
@@ -608,7 +610,7 @@ public class HashGenerationOptimizer
                 allHashSymbols.put(hashComputation, hashSymbol);
             }
 
-            return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), child.getNode(), newAssignments.build()), allHashSymbols);
+            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build()), allHashSymbols);
         }
 
         @Override
@@ -622,7 +624,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnnestNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             ImmutableList.<Symbol>builder()
                                     .addAll(node.getReplicateSymbols())
@@ -668,7 +670,16 @@ public class HashGenerationOptimizer
 
             boolean preferenceSatisfied;
             if (pruneExtraHashSymbols) {
-                preferenceSatisfied = result.getHashSymbols().keySet().equals(requiredHashes.getHashes());
+                // Make sure that
+                // (1) result has all required hashes
+                // (2) any extra hashes are preferred hashes (e.g. no pruning is needed)
+                Set<HashComputation> resultHashes = result.getHashSymbols().keySet();
+                Set<HashComputation> requiredAndPreferredHashes = ImmutableSet.<HashComputation>builder()
+                        .addAll(requiredHashes.getHashes())
+                        .addAll(preferredHashes.getHashes())
+                        .build();
+                preferenceSatisfied = resultHashes.containsAll(requiredHashes.getHashes())
+                    && requiredAndPreferredHashes.containsAll(resultHashes);
             }
             else {
                 preferenceSatisfied = result.getHashSymbols().keySet().containsAll(requiredHashes.getHashes());
@@ -859,7 +870,7 @@ public class HashGenerationOptimizer
 
         private Expression getHashExpression()
         {
-            Expression hashExpression = toExpression(INITIAL_HASH_VALUE, BIGINT);
+            Expression hashExpression = new GenericLiteral(StandardTypes.BIGINT, Integer.toString(INITIAL_HASH_VALUE));
             for (Symbol field : fields) {
                 hashExpression = getHashFunctionCall(hashExpression, field);
             }

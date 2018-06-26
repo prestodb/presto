@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterators.peekingIterator;
 
-final class LocalProperties
+public final class LocalProperties
 {
     private LocalProperties()
     {

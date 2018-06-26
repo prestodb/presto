@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -49,6 +50,7 @@ public class PlanFragment
     private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
+    private final PipelineExecutionStrategy pipelineExecutionStrategy;
 
     @JsonCreator
     public PlanFragment(
@@ -57,7 +59,8 @@ public class PlanFragment
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
-            @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme)
+            @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
+            @JsonProperty("pipelineExecutionStrategy") PipelineExecutionStrategy pipelineExecutionStrategy)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -65,6 +68,7 @@ public class PlanFragment
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
+        this.pipelineExecutionStrategy = pipelineExecutionStrategy;
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
@@ -124,6 +128,12 @@ public class PlanFragment
         return partitioningScheme;
     }
 
+    @JsonProperty
+    public PipelineExecutionStrategy getPipelineExecutionStrategy()
+    {
+        return pipelineExecutionStrategy;
+    }
+
     public List<Type> getTypes()
     {
         return types;
@@ -157,9 +167,9 @@ public class PlanFragment
             nodes.add(node);
         }
 
-        node.getSources().stream()
-                .flatMap(source -> findSources(source, nodeIds).stream())
-                .forEach(nodes::add);
+        for (PlanNode source : node.getSources()) {
+            nodes.addAll(findSources(source, nodeIds));
+        }
     }
 
     private static void findRemoteSourceNodes(PlanNode node, Builder<RemoteSourceNode> builder)
@@ -175,7 +185,12 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition));
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), pipelineExecutionStrategy);
+    }
+
+    public PlanFragment withGroupedExecution(PipelineExecutionStrategy pipelineExecutionStrategy)
+    {
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, pipelineExecutionStrategy);
     }
 
     @Override

@@ -18,10 +18,10 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-public class HiveColumnStatistics<T>
+public class HiveColumnStatistics
 {
-    private final Optional<T> lowValue;
-    private final Optional<T> highValue;
+    private final Optional<?> lowValue;
+    private final Optional<?> highValue;
     private final OptionalLong maxColumnLength;
     private final OptionalDouble averageColumnLength;
     private final OptionalLong trueCount;
@@ -30,8 +30,8 @@ public class HiveColumnStatistics<T>
     private final OptionalLong distinctValuesCount;
 
     public HiveColumnStatistics(
-            Optional<T> lowValue,
-            Optional<T> highValue,
+            Optional<?> lowValue,
+            Optional<?> highValue,
             OptionalLong maxColumnLength,
             OptionalDouble averageColumnLength,
             OptionalLong trueCount,
@@ -49,12 +49,12 @@ public class HiveColumnStatistics<T>
         this.distinctValuesCount = distinctValuesCount;
     }
 
-    public Optional<T> getLowValue()
+    public Optional<?> getLowValue()
     {
         return lowValue;
     }
 
-    public Optional<T> getHighValue()
+    public Optional<?> getHighValue()
     {
         return highValue;
     }

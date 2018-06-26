@@ -16,13 +16,16 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import com.facebook.presto.operator.JoinBridgeDataManager;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
@@ -35,13 +38,16 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
 {
-    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
+    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
 
     public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
@@ -52,33 +58,44 @@ public class HashBuildBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         // hash build
+        List<Type> ordersTypes = getColumnTypes("orders", "orderkey", "totalprice");
         OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
+        JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeDataManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+                ordersTypes,
+                ImmutableList.of(0, 1).stream()
+                        .map(ordersTypes::get)
+                        .collect(toImmutableList()),
+                Ints.asList(0).stream()
+                        .map(ordersTypes::get)
+                        .collect(toImmutableList()),
+                1,
+                requireNonNull(ImmutableMap.of(), "layout is null"),
+                false));
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                ordersTableScan.getTypes(),
+                lookupSourceFactoryManager,
                 ImmutableList.of(0, 1),
-                ImmutableMap.of(),
                 Ints.asList(0),
                 OptionalInt.empty(),
-                false,
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 1_500_000,
-                1,
                 new PagesIndex.TestingFactory(false),
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
-        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, true).addDriverContext());
         hashBuildDriverFactory.noMoreDrivers();
 
         // empty join so build finishes
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
-        joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of(BIGINT), ImmutableList.of()));
-        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(2, new PlanNodeId("test"),
-                hashBuilder.getLookupSourceFactory(),
+        joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of()));
+        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(
+                2,
+                new PlanNodeId("test"),
+                lookupSourceFactoryManager,
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
                 OptionalInt.empty(),
@@ -86,8 +103,8 @@ public class HashBuildBenchmark
                 OptionalInt.empty(),
                 unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
-        joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
-        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());
+        joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.noMoreDrivers();
 

@@ -40,12 +40,13 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
-    public static final ConnectionProperty<String> KERBEROS_REMOTE_SERICE_NAME = new KerberosRemoteServiceName();
+    public static final ConnectionProperty<String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
     public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
     public static final ConnectionProperty<String> KERBEROS_PRINCIPAL = new KerberosPrincipal();
     public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
+    public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -57,12 +58,13 @@ final class ConnectionProperties
             .add(SSL_KEY_STORE_PASSWORD)
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
-            .add(KERBEROS_REMOTE_SERICE_NAME)
+            .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
             .add(KERBEROS_PRINCIPAL)
             .add(KERBEROS_CONFIG_PATH)
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
+            .add(ACCESS_TOKEN)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -142,7 +144,7 @@ final class ConnectionProperties
     {
         public Ssl()
         {
-            super("SSL", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super("SSL", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -205,7 +207,7 @@ final class ConnectionProperties
 
     private static Predicate<Properties> isKerberosEnabled()
     {
-        return checkedPredicate(properties -> KERBEROS_REMOTE_SERICE_NAME.getValue(properties).isPresent());
+        return checkedPredicate(properties -> KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent());
     }
 
     private static class KerberosPrincipal
@@ -250,6 +252,15 @@ final class ConnectionProperties
         public KerberosCredentialCachePath()
         {
             super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+        }
+    }
+
+    private static class AccessToken
+            extends AbstractConnectionProperty<String>
+    {
+        public AccessToken()
+        {
+            super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 }

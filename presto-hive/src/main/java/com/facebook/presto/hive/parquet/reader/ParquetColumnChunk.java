@@ -104,7 +104,6 @@ public class ParquetColumnChunk
     }
 
     private ParquetDictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
-            throws IOException
     {
         DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
         return new ParquetDictionaryPage(
@@ -118,7 +117,6 @@ public class ParquetColumnChunk
             int uncompressedPageSize,
             int compressedPageSize,
             List<ParquetDataPage> pages)
-            throws IOException
     {
         DataPageHeader dataHeaderV1 = pageHeader.getData_page_header();
         pages.add(new ParquetDataPageV1(
@@ -138,7 +136,6 @@ public class ParquetColumnChunk
             int uncompressedPageSize,
             int compressedPageSize,
             List<ParquetDataPage> pages)
-            throws IOException
     {
         DataPageHeaderV2 dataHeaderV2 = pageHeader.getData_page_header_v2();
         int dataSize = compressedPageSize - dataHeaderV2.getRepetition_levels_byte_length() - dataHeaderV2.getDefinition_levels_byte_length();

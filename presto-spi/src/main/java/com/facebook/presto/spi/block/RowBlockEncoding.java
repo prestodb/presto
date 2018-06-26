@@ -14,25 +14,16 @@
 
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.Slices.wrappedIntArray;
-import static java.util.Objects.requireNonNull;
 
 public class RowBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<RowBlockEncoding> FACTORY = new RowBlockEncodingFactory();
-    private static final String NAME = "ROW";
-
-    private final BlockEncoding[] fieldBlockEncodings;
-
-    public RowBlockEncoding(BlockEncoding[] fieldBlockEncodings)
-    {
-        this.fieldBlockEncodings = requireNonNull(fieldBlockEncodings, "fieldBlockEncodings is null");
-    }
+    public static final String NAME = "ROW";
 
     @Override
     public String getName()
@@ -41,24 +32,21 @@ public class RowBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractRowBlock rowBlock = (AbstractRowBlock) block;
-
-        if (rowBlock.numFields != fieldBlockEncodings.length) {
-            throw new IllegalArgumentException(
-                    "argument block differs in length (" + rowBlock.numFields + ") with this encoding (" + fieldBlockEncodings.length + ")");
-        }
+        int numFields = rowBlock.numFields;
 
         int positionCount = rowBlock.getPositionCount();
 
         int offsetBase = rowBlock.getOffsetBase();
         int[] fieldBlockOffsets = rowBlock.getFieldBlockOffsets();
-
         int startFieldBlockOffset = fieldBlockOffsets[offsetBase];
         int endFieldBlockOffset = fieldBlockOffsets[offsetBase + positionCount];
-        for (int i = 0; i < fieldBlockEncodings.length; i++) {
-            fieldBlockEncodings[i].writeBlock(sliceOutput, rowBlock.getFieldBlocks()[i].getRegion(startFieldBlockOffset, endFieldBlockOffset - startFieldBlockOffset));
+
+        sliceOutput.appendInt(numFields);
+        for (int i = 0; i < numFields; i++) {
+            blockEncodingSerde.writeBlock(sliceOutput, rowBlock.getRawFieldBlocks()[i].getRegion(startFieldBlockOffset, endFieldBlockOffset - startFieldBlockOffset));
         }
 
         sliceOutput.appendInt(positionCount);
@@ -69,53 +57,18 @@ public class RowBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Block[] fieldBlocks = new Block[fieldBlockEncodings.length];
-        for (int i = 0; i < fieldBlockEncodings.length; i++) {
-            fieldBlocks[i] = fieldBlockEncodings[i].readBlock(sliceInput);
+        int numFields = sliceInput.readInt();
+        Block[] fieldBlocks = new Block[numFields];
+        for (int i = 0; i < numFields; i++) {
+            fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
         int positionCount = sliceInput.readInt();
         int[] fieldBlockOffsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(fieldBlockOffsets));
-        boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return new RowBlock(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public static class RowBlockEncodingFactory
-            implements BlockEncodingFactory<RowBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public RowBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde serde, SliceInput input)
-        {
-            int numFields = input.readInt();
-            BlockEncoding[] fieldBlockEncodings = new BlockEncoding[numFields];
-            for (int i = 0; i < numFields; i++) {
-                fieldBlockEncodings[i] = serde.readBlockEncoding(input);
-            }
-            return new RowBlockEncoding(fieldBlockEncodings);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, RowBlockEncoding blockEncoding)
-        {
-            output.appendInt(blockEncoding.fieldBlockEncodings.length);
-            for (BlockEncoding fieldBlockEncoding : blockEncoding.fieldBlockEncodings) {
-                serde.writeBlockEncoding(output, fieldBlockEncoding);
-            }
-        }
+        boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
+        return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 }

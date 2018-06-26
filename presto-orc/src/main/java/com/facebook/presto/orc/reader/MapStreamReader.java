@@ -21,7 +21,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -142,8 +141,8 @@ public class MapStreamReader
             values = valueStreamReader.readBlock(valueType);
         }
         else {
-            keys = keyType.createBlockBuilder(new BlockBuilderStatus(), 0).build();
-            values = valueType.createBlockBuilder(new BlockBuilderStatus(), 1).build();
+            keys = keyType.createBlockBuilder(null, 0).build();
+            values = valueType.createBlockBuilder(null, 1).build();
         }
 
         Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, lengthVector);
@@ -188,8 +187,8 @@ public class MapStreamReader
             }
         }
 
-        Block newKeys = keys.copyPositions(nonNullPositions);
-        Block newValues = values.copyPositions(nonNullPositions);
+        Block newKeys = keys.copyPositions(nonNullPositions.elements(), 0, nonNullPositions.size());
+        Block newValues = values.copyPositions(nonNullPositions.elements(), 0, nonNullPositions.size());
         return new Block[] {newKeys, newValues};
     }
 

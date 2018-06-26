@@ -15,6 +15,7 @@ package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
@@ -25,17 +26,15 @@ public class TestThriftIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     public TestThriftIntegrationSmokeTest()
-            throws Exception
     {
-        super(() -> createThriftQueryRunner(2, 2, false));
+        super(() -> createThriftQueryRunner(2, 2, false, ImmutableMap.of()));
     }
 
     @Override
     @Test
     public void testShowSchemas()
-            throws Exception
     {
-        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toJdbcTypes();
+        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("tiny")
                 .row("sf1");

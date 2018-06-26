@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -68,19 +68,17 @@ public class TestCassandraIntegrationSmokeTest
 
     private static final DateTime DATE_TIME_UTC = new DateTime(1970, 1, 1, 3, 4, 5, UTC);
     private static final Date DATE_LOCAL = new Date(DATE_TIME_UTC.getMillis());
-    private static final Timestamp TIMESTAMP_LOCAL = new Timestamp(DATE_TIME_UTC.getMillis());
+    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1970, 1, 1, 3, 4, 5);
 
     private CassandraSession session;
 
     public TestCassandraIntegrationSmokeTest()
-            throws Exception
     {
         super(CassandraQueryRunner::createCassandraQueryRunner);
     }
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         session = EmbeddedCassandra.getSession();
         createTestTables(session, KEYSPACE, DATE_LOCAL);
@@ -117,7 +115,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testSelect()
-            throws Exception
     {
         assertSelect(TABLE_ALL_TYPES, false);
         assertSelect(TABLE_ALL_TYPES_PARTITION_KEY, false);
@@ -125,7 +122,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testCreateTableAs()
-            throws Exception
     {
         execute("DROP TABLE IF EXISTS table_all_types_copy");
         execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + TABLE_ALL_TYPES);
@@ -135,7 +131,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testClusteringPredicates()
-            throws Exception
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one='clust_one'";
         assertEquals(execute(sql).getRowCount(), 1);
@@ -159,7 +154,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testMultiplePartitionClusteringPredicates()
-            throws Exception
     {
         String partitionInPredicates = " partition_one IN ('partition_one_1','partition_one_2') AND partition_two IN ('partition_two_1','partition_two_2') ";
         String sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one='clust_one'";
@@ -187,7 +181,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testClusteringKeyOnlyPushdown()
-            throws Exception
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one'";
         assertEquals(execute(sql).getRowCount(), 9);
@@ -227,7 +220,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testClusteringKeyPushdownInequality()
-            throws Exception
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one'";
         assertEquals(execute(sql).getRowCount(), 4);
@@ -255,7 +247,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testUpperCaseNameUnescapedInCassandra()
-            throws Exception
     {
         /*
          * If an identifier is not escaped with double quotes it is stored as lowercase in the Cassandra metadata
@@ -286,7 +277,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testUppercaseNameEscaped()
-            throws Exception
     {
         /*
          * If an identifier is escaped with double quotes it is stored verbatim
@@ -317,7 +307,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testKeyspaceNameAmbiguity()
-            throws Exception
     {
         // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
         // that have differences only in letters case.
@@ -342,7 +331,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testTableNameAmbiguity()
-            throws Exception
     {
         session.execute("CREATE KEYSPACE keyspace_4 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
@@ -374,7 +362,6 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testColumnNameAmbiguity()
-            throws Exception
     {
         session.execute("CREATE KEYSPACE keyspace_5 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
@@ -458,7 +445,7 @@ public class TestCassandraIntegrationSmokeTest
                 1,
                 1000L,
                 null,
-                Timestamp.valueOf("1970-01-01 14:04:05.0"),
+                LocalDateTime.of(1970, 1, 1, 8, 34, 5),
                 "ansi1",
                 true,
                 null,

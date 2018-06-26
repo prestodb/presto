@@ -24,38 +24,63 @@ import java.util.List;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionUpdate
 {
     private final String name;
-    private final boolean isNew;
+    private final UpdateMode updateMode;
     private final Path writePath;
     private final Path targetPath;
     private final List<String> fileNames;
+    private final long rowCount;
+    private final long inMemoryDataSizeInBytes;
+    private final long onDiskDataSizeInBytes;
 
     public PartitionUpdate(
             @JsonProperty("name") String name,
-            @JsonProperty("new") boolean isNew,
+            @JsonProperty("updateMode") UpdateMode updateMode,
             @JsonProperty("writePath") String writePath,
             @JsonProperty("targetPath") String targetPath,
-            @JsonProperty("fileNames") List<String> fileNames)
+            @JsonProperty("fileNames") List<String> fileNames,
+            @JsonProperty("rowCount") long rowCount,
+            @JsonProperty("inMemoryDataSizeInBytes") long inMemoryDataSizeInBytes,
+            @JsonProperty("onDiskDataSizeInBytes") long onDiskDataSizeInBytes)
     {
-        this.name = requireNonNull(name, "name is null");
-        this.isNew = isNew;
-        this.writePath = new Path(requireNonNull(writePath, "writePath is null"));
-        this.targetPath = new Path(requireNonNull(targetPath, "targetPath is null"));
-        this.fileNames = ImmutableList.copyOf(requireNonNull(fileNames, "fileNames is null"));
+        this(
+                name,
+                updateMode,
+                new Path(requireNonNull(writePath, "writePath is null")),
+                new Path(requireNonNull(targetPath, "targetPath is null")),
+                fileNames,
+                rowCount,
+                inMemoryDataSizeInBytes,
+                onDiskDataSizeInBytes);
     }
 
-    public PartitionUpdate(String name, boolean isNew, Path writePath, Path targetPath, List<String> fileNames)
+    public PartitionUpdate(
+            String name,
+            UpdateMode updateMode,
+            Path writePath,
+            Path targetPath,
+            List<String> fileNames,
+            long rowCount,
+            long inMemoryDataSizeInBytes,
+            long onDiskDataSizeInBytes)
     {
         this.name = requireNonNull(name, "name is null");
-        this.isNew = isNew;
+        this.updateMode = requireNonNull(updateMode, "updateMode is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.fileNames = ImmutableList.copyOf(requireNonNull(fileNames, "fileNames is null"));
+        checkArgument(rowCount >= 0, "rowCount is negative: %d", rowCount);
+        this.rowCount = rowCount;
+        checkArgument(inMemoryDataSizeInBytes >= 0, "inMemoryDataSizeInBytes is negative: %d", inMemoryDataSizeInBytes);
+        this.inMemoryDataSizeInBytes = inMemoryDataSizeInBytes;
+        checkArgument(onDiskDataSizeInBytes >= 0, "onDiskDataSizeInBytes is negative: %d", onDiskDataSizeInBytes);
+        this.onDiskDataSizeInBytes = onDiskDataSizeInBytes;
     }
 
     @JsonProperty
@@ -65,9 +90,9 @@ public class PartitionUpdate
     }
 
     @JsonProperty
-    public boolean isNew()
+    public UpdateMode getUpdateMode()
     {
-        return isNew;
+        return updateMode;
     }
 
     public Path getWritePath()
@@ -98,12 +123,42 @@ public class PartitionUpdate
         return writePath.toString();
     }
 
+    @JsonProperty
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
+    @JsonProperty
+    public long getInMemoryDataSizeInBytes()
+    {
+        return inMemoryDataSizeInBytes;
+    }
+
+    @JsonProperty
+    public long getOnDiskDataSizeInBytes()
+    {
+        return onDiskDataSizeInBytes;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("name", name)
+                .add("updateMode", updateMode)
+                .add("writePath", writePath)
+                .add("targetPath", targetPath)
+                .add("fileNames", fileNames)
+                .add("rowCount", rowCount)
+                .add("inMemoryDataSizeInBytes", inMemoryDataSizeInBytes)
+                .add("onDiskDataSizeInBytes", onDiskDataSizeInBytes)
                 .toString();
+    }
+
+    public HiveBasicStatistics getStatistics()
+    {
+        return new HiveBasicStatistics(fileNames.size(), rowCount, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
     public static List<PartitionUpdate> mergePartitionUpdates(Iterable<PartitionUpdate> unMergedUpdates)
@@ -113,23 +168,39 @@ public class PartitionUpdate
             PartitionUpdate firstPartition = partitionGroup.iterator().next();
 
             ImmutableList.Builder<String> allFileNames = ImmutableList.builder();
+            long totalRowCount = 0;
+            long totalInMemoryDataSizeInBytes = 0;
+            long totalOnDiskDataSizeInBytes = 0;
             for (PartitionUpdate partition : partitionGroup) {
                 // verify partitions have the same new flag, write path and target path
                 // this shouldn't happen but could if another user added a partition during the write
-                if (partition.isNew() != firstPartition.isNew() ||
+                if (partition.getUpdateMode() != firstPartition.getUpdateMode() ||
                         !partition.getWritePath().equals(firstPartition.getWritePath()) ||
                         !partition.getTargetPath().equals(firstPartition.getTargetPath())) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
                 }
                 allFileNames.addAll(partition.getFileNames());
+                totalRowCount += partition.getRowCount();
+                totalInMemoryDataSizeInBytes += partition.getInMemoryDataSizeInBytes();
+                totalOnDiskDataSizeInBytes += partition.getOnDiskDataSizeInBytes();
             }
 
             partitionUpdates.add(new PartitionUpdate(firstPartition.getName(),
-                    firstPartition.isNew(),
+                    firstPartition.getUpdateMode(),
                     firstPartition.getWritePath(),
                     firstPartition.getTargetPath(),
-                    allFileNames.build()));
+                    allFileNames.build(),
+                    totalRowCount,
+                    totalInMemoryDataSizeInBytes,
+                    totalOnDiskDataSizeInBytes));
         }
         return partitionUpdates.build();
+    }
+
+    public enum UpdateMode
+    {
+        NEW,
+        APPEND,
+        OVERWRITE,
     }
 }

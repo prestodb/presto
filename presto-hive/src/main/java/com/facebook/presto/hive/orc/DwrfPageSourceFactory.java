@@ -18,9 +18,9 @@ import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -33,13 +33,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
 
 public class DwrfPageSourceFactory
@@ -73,8 +76,12 @@ public class DwrfPageSourceFactory
             return Optional.empty();
         }
 
+        if (fileSize == 0) {
+            throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + path);
+        }
+
         return Optional.of(createOrcPageSource(
-                new DwrfMetadataReader(),
+                DWRF,
                 hdfsEnvironment,
                 session.getUser(),
                 configuration,
@@ -90,6 +97,7 @@ public class DwrfPageSourceFactory
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
+                getOrcTinyStripeThreshold(session),
                 getOrcMaxReadBlockSize(session),
                 getOrcLazyReadSmallRanges(session),
                 false,

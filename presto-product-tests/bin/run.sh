@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -e;
+set -euo pipefail
 
-source ${BASH_SOURCE%/*}/locations.sh
+source "${BASH_SOURCE%/*}/locations.sh"
 REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
 
 rm -rf "${REPORT_DIR}"
@@ -12,7 +12,7 @@ source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 
 set +e
 java "-Djava.util.logging.config.file=${PRODUCT_TESTS_ROOT}/conf/tempto/logging.properties" \
-    ${PRODUCT_TESTS_JVM_OPTIONS} \
+    ${PRODUCT_TESTS_JVM_OPTIONS:-} \
     -jar "${PRODUCT_TESTS_ROOT}/target/presto-product-tests-${PRESTO_VERSION}-executable.jar" \
     --report-dir "${REPORT_DIR}" "$@"
 EXIT_CODE=$?

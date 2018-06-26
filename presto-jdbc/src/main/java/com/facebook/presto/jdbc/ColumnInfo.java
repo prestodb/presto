@@ -220,11 +220,11 @@ class ColumnInfo
             case "double":
                 return Types.DOUBLE;
             case "varchar":
-                return Types.LONGNVARCHAR;
+                return Types.VARCHAR;
             case "char":
                 return Types.CHAR;
             case "varbinary":
-                return Types.LONGVARBINARY;
+                return Types.VARBINARY;
             case "time":
                 return Types.TIME;
             case "time with time zone":
@@ -237,6 +237,8 @@ class ColumnInfo
                 return Types.DATE;
             case "decimal":
                 return Types.DECIMAL;
+            case "unknown":
+                return Types.NULL;
             default:
                 return Types.JAVA_OBJECT;
         }

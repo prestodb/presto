@@ -25,6 +25,7 @@ public class ServerConfig
     private String dataSources;
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
+    private boolean enhancedErrorReporting = true;
 
     public boolean isCoordinator()
     {
@@ -85,6 +86,21 @@ public class ServerConfig
     public ServerConfig setGracePeriod(Duration gracePeriod)
     {
         this.gracePeriod = gracePeriod;
+        return this;
+    }
+
+    public boolean isEnhancedErrorReporting()
+    {
+        return enhancedErrorReporting;
+    }
+
+    // TODO: temporary kill switch until we're confident the new error handling logic is
+    // solid. Placed here for convenience and to avoid creating a new set of throwaway config objects
+    // and because the parser is instantiated in the module that wires up the server (ServerMainModule)
+    @Config("sql.parser.enhanced-error-reporting")
+    public ServerConfig setEnhancedErrorReporting(boolean value)
+    {
+        this.enhancedErrorReporting = value;
         return this;
     }
 }

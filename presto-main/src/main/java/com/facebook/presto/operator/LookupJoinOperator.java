@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
 import com.facebook.presto.operator.PartitionedConsumption.Partition;
@@ -38,11 +39,11 @@ import java.util.OptionalInt;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.isDictionaryProcessingJoinEnabled;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.lang.String.format;
@@ -53,10 +54,9 @@ public class LookupJoinOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<Type> allTypes;
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
-    private final Runnable onClose;
+    private final Runnable afterClose;
     private final OptionalInt lookupJoinsCount;
     private final HashGenerator hashGenerator;
     private final LookupSourceFactory lookupSourceFactory;
@@ -73,7 +73,6 @@ public class LookupJoinOperator
     private JoinProbe probe;
 
     private Page outputPage;
-    private boolean useDictionaryProcessing;
 
     private Optional<PartitioningSpiller> spiller = Optional.empty();
     private Optional<LocalPartitionGenerator> partitionGenerator = Optional.empty();
@@ -84,7 +83,7 @@ public class LookupJoinOperator
     private boolean unspilling;
     private boolean finished;
     private long joinPosition = -1;
-    private int joinSourcePositions = 0;
+    private int joinSourcePositions;
 
     private boolean currentProbePositionProducedRow;
 
@@ -99,19 +98,17 @@ public class LookupJoinOperator
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
-            List<Type> allTypes,
             List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
             LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
-            Runnable onClose,
+            Runnable afterClose,
             OptionalInt lookupJoinsCount,
             HashGenerator hashGenerator,
             PartitioningSpillerFactory partitioningSpillerFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.allTypes = ImmutableList.copyOf(requireNonNull(allTypes, "allTypes is null"));
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
 
         requireNonNull(joinType, "joinType is null");
@@ -119,7 +116,7 @@ public class LookupJoinOperator
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
 
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
-        this.onClose = requireNonNull(onClose, "onClose is null");
+        this.afterClose = requireNonNull(afterClose, "afterClose is null");
         this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
         this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
         this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
@@ -129,25 +126,13 @@ public class LookupJoinOperator
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
-        this.useDictionaryProcessing = isDictionaryProcessingJoinEnabled(operatorContext.getSession());
-        if (useDictionaryProcessing) {
-            this.pageBuilder = new DictionaryLookupJoinPageBuilder(buildOutputTypes);
-        }
-        else {
-            this.pageBuilder = new CopyPositionLookupJoinPageBuilder(allTypes, buildOutputTypes.size());
-        }
+        this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return allTypes;
     }
 
     @Override
@@ -187,6 +172,10 @@ public class LookupJoinOperator
         if (unspilledLookupSource.isPresent()) {
             // Unspilling can happen only after lookupSourceProviderFuture was done.
             return unspilledLookupSource.get();
+        }
+
+        if (finishing) {
+            return NOT_BLOCKED;
         }
 
         return lookupSourceProviderFuture;
@@ -255,7 +244,7 @@ public class LookupJoinOperator
                     probeTypes,
                     getPartitionGenerator(),
                     operatorContext.getSpillContext().newLocalSpillContext(),
-                    operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+                    operatorContext.newAggregateSystemMemoryContext()));
         }
 
         PartitioningSpillResult result = spiller.get().partitionAndSpill(page, spillMask);
@@ -290,7 +279,14 @@ public class LookupJoinOperator
         }
 
         if (!tryFetchLookupSourceProvider()) {
-            return null;
+            if (!finishing) {
+                return null;
+            }
+
+            verify(finishing);
+            // We are no longer interested in the build side (the lookupSourceProviderFuture's value).
+            addSuccessCallback(lookupSourceProviderFuture, LookupSourceProvider::close);
+            lookupSourceProvider = new StaticLookupSourceProvider(new EmptyLookupSource());
         }
 
         if (probe == null && finishing && !unspilling) {
@@ -322,13 +318,9 @@ public class LookupJoinOperator
             return output;
         }
 
-        // If useDictionaryProcessing is turned on, it is impossible to have probe == null && !pageBuilder.isEmpty(),
+        // It is impossible to have probe == null && !pageBuilder.isEmpty(),
         // because we will flush a page whenever we reach the probe end
-        if (!pageBuilder.isEmpty() && probe == null && finished && !useDictionaryProcessing) {
-            Page page = pageBuilder.build(null);
-            pageBuilder.reset();
-            return page;
-        }
+        verify(probe != null || pageBuilder.isEmpty());
         return null;
     }
 
@@ -518,10 +510,13 @@ public class LookupJoinOperator
         probe = null;
 
         try (Closer closer = Closer.create()) {
+            // `afterClose` must be run last.
+            // Closer is documented to mimic try-with-resource, which implies close will happen in reverse order.
+            closer.register(afterClose::run);
+
             closer.register(pageBuilder::reset);
             closer.register(() -> Optional.ofNullable(lookupSourceProvider).ifPresent(LookupSourceProvider::close));
             spiller.ifPresent(closer::register);
-            closer.register(onClose::run);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -688,10 +683,8 @@ public class LookupJoinOperator
 
     private void clearProbe()
     {
-        if (useDictionaryProcessing) {
-            // Before updating the probe flush the current page
-            buildPage();
-        }
+        // Before updating the probe flush the current page
+        buildPage();
         probe = null;
     }
 }

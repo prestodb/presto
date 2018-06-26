@@ -15,6 +15,7 @@ package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -34,6 +35,7 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -65,7 +67,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static java.util.Objects.requireNonNull;
@@ -116,12 +120,11 @@ public class StatementResource
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public void createQuery(
+    public Response createQuery(
             String statement,
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
-            throws InterruptedException
+            @Context UriInfo uriInfo)
     {
         if (isNullOrEmpty(statement)) {
             throw new WebApplicationException(Response
@@ -130,10 +133,13 @@ public class StatementResource
                     .entity("SQL statement is empty")
                     .build());
         }
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
         Query query = Query.create(
                 sessionContext,
                 statement,
@@ -145,7 +151,8 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, asyncResponse);
+        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto);
+        return toResponse(query, queryResults);
     }
 
     @GET
@@ -155,23 +162,26 @@ public class StatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
-            throws InterruptedException
     {
         Query query = queries.get(queryId);
         if (query == null) {
             asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
             return;
         }
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
 
-        asyncQueryResults(query, OptionalLong.of(token), maxWait, uriInfo, asyncResponse);
+        asyncQueryResults(query, OptionalLong.of(token), maxWait, uriInfo, proto, asyncResponse);
     }
 
-    private void asyncQueryResults(Query query, OptionalLong token, Duration maxWait, UriInfo uriInfo, AsyncResponse asyncResponse)
+    private void asyncQueryResults(Query query, OptionalLong token, Duration maxWait, UriInfo uriInfo, String scheme, AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait);
+        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults));
 

@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.WorkProcessor;
+import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.Transformation;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -24,8 +27,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
 import java.io.Closeable;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,7 +41,7 @@ public class MergingHashAggregationBuilder
     private final ImmutableList<Integer> groupByPartialChannels;
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
-    private final Iterator<Page> sortedPages;
+    private final WorkProcessor<Page> sortedPages;
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
     private final LocalMemoryContext systemMemoryContext;
@@ -55,7 +56,7 @@ public class MergingHashAggregationBuilder
             List<Type> groupByTypes,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
-            Iterator<Page> sortedPages,
+            WorkProcessor<Page> sortedPages,
             LocalMemoryContext systemMemoryContext,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
@@ -82,40 +83,44 @@ public class MergingHashAggregationBuilder
         rebuildHashAggregationBuilder();
     }
 
-    public Iterator<Page> buildResult()
+    public WorkProcessor<Page> buildResult()
     {
-        return new Iterator<Page>()
+        return sortedPages.flatTransform(new Transformation<Page, WorkProcessor<Page>>()
         {
-            private Iterator<Page> resultPages = Collections.emptyIterator();
+            boolean reset = true;
+            long memorySize;
 
-            @Override
-            public boolean hasNext()
+            public ProcessorState<WorkProcessor<Page>> process(Optional<Page> inputPageOptional)
             {
-                return sortedPages.hasNext() || resultPages.hasNext();
-            }
-
-            @Override
-            public Page next()
-            {
-                if (!resultPages.hasNext()) {
+                if (reset) {
                     rebuildHashAggregationBuilder();
-                    long memorySize = 0; // ensure that at least one merged page will be processed
-
-                    // we can produce output  after every page, because sortedPages does not have
-                    // hash values that span multiple pages (guaranteed by MergeHashSort)
-                    while (sortedPages.hasNext() && !shouldProduceOutput(memorySize)) {
-                        boolean done = hashAggregationBuilder.processPage(sortedPages.next()).process();
-                        // TODO: this class does not yield wrt memory limit; enable it
-                        verify(done);
-                        memorySize = hashAggregationBuilder.getSizeInMemory();
-                        systemMemoryContext.setBytes(memorySize);
-                    }
-                    resultPages = hashAggregationBuilder.buildResult();
+                    memorySize = 0;
+                    reset = false;
                 }
 
-                return resultPages.next();
+                boolean inputFinished = !inputPageOptional.isPresent();
+                if (inputFinished && memorySize == 0) {
+                    // no more pages and aggregation builder is empty
+                    return ProcessorState.finished();
+                }
+
+                if (!inputFinished) {
+                    Page inputPage = inputPageOptional.get();
+                    boolean done = hashAggregationBuilder.processPage(inputPage).process();
+                    // TODO: this class does not yield wrt memory limit; enable it
+                    verify(done);
+                    memorySize = hashAggregationBuilder.getSizeInMemory();
+                    systemMemoryContext.setBytes(memorySize);
+
+                    if (!shouldProduceOutput(memorySize)) {
+                        return ProcessorState.needsMoreData();
+                    }
+                }
+
+                reset = true;
+                return ProcessorState.ofResult(hashAggregationBuilder.buildResult(), !inputFinished);
             }
-        };
+        });
     }
 
     @Override

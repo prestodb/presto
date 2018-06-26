@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.prestodb.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   ("sum"("ss_net_profit") / "sum"("ss_ext_sales_price")) "gross_margin"
 , "i_category"
@@ -26,4 +26,3 @@ WHERE ("d1"."d_year" = 2001)
 GROUP BY ROLLUP (i_category, i_class)
 ORDER BY "lochierarchy" DESC, (CASE WHEN ("lochierarchy" = 0) THEN "i_category" END) ASC, "rank_within_parent" ASC, "i_category", "i_class"
 LIMIT 100
-;

@@ -13,11 +13,17 @@
  */
 package com.facebook.presto.hive.metastore.file;
 
+import com.facebook.presto.hive.HdfsConfiguration;
+import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -47,6 +53,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -99,6 +106,14 @@ public class FileHiveMetastore
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
     private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
+
+    public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+        return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
+    }
 
     @Inject
     public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
@@ -255,15 +270,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
-        return Optional.of(ImmutableMap.of());
+        return ImmutableMap.of();
     }
 
     @Override
-    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        return Optional.of(ImmutableMap.of());
+        return ImmutableMap.of();
     }
 
     private Table getRequiredTable(String databaseName, String tableName)
@@ -382,6 +397,24 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public synchronized void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
+    {
+        requireNonNull(databaseName, "databaseName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(update, "update is null");
+
+        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        TableMetadata table = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        Map<String, String> parameters = table.getParameters();
+        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
+        if (!parameters.equals(updatedParameters)) {
+            writeSchemaFile("table", tableMetadataDirectory, tableCodec, table.withParameters(updatedParameters), true);
         }
     }
 
@@ -582,6 +615,26 @@ public class FileHiveMetastore
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
         writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partition), true);
+    }
+
+    @Override
+    public synchronized void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
+    {
+        requireNonNull(databaseName, "databaseName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(partitionValues, "partitionValues is null");
+        requireNonNull(update, "update is null");
+
+        Table table = getRequiredTable(databaseName, tableName);
+        Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+        PartitionMetadata partition = readSchemaFile("partition", partitionDirectory, partitionCodec)
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+
+        Map<String, String> parameters = partition.getParameters();
+        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
+        if (!parameters.equals(updatedParameters)) {
+            writeSchemaFile("partition", partitionDirectory, partitionCodec, partition.withParameters(updatedParameters), true);
+        }
     }
 
     @Override

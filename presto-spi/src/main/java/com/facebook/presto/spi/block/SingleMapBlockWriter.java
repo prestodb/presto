@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
+import static java.lang.String.format;
+
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
@@ -47,13 +49,13 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    Block getKeyBlock()
+    Block getRawKeyBlock()
     {
         return keyBlockBuilder;
     }
 
     @Override
-    Block getValueBlock()
+    Block getRawValueBlock()
     {
         return valueBlockBuilder;
     }
@@ -139,14 +141,28 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
         if (writeToValueNext) {
-            valueBlockBuilder.writeObject(value);
+            valueBlockBuilder.appendStructure(block);
         }
         else {
-            keyBlockBuilder.writeObject(value);
+            keyBlockBuilder.appendStructure(block);
         }
+        entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (writeToValueNext) {
+            valueBlockBuilder.appendStructureInternal(block, position);
+        }
+        else {
+            keyBlockBuilder.appendStructureInternal(block, position);
+        }
+        entryAdded();
         return this;
     }
 
@@ -202,7 +218,7 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         throw new UnsupportedOperationException();
     }
@@ -222,9 +238,6 @@ public class SingleMapBlockWriter
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("SingleMapBlockWriter{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("SingleMapBlockWriter{positionCount=%d}", getPositionCount());
     }
 }

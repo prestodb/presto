@@ -15,24 +15,38 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
+import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -40,15 +54,25 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Collection;
+import java.util.Optional;
 
+import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.DateTimeUtils.parseDate;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static java.util.Locale.ENGLISH;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -77,18 +101,22 @@ public class TestRaptorConnector
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         ShardManager shardManager = createShardManager(dbi);
         StorageManager storageManager = createOrcStorageManager(dbi, dataDir);
-        StorageManagerConfig config = new StorageManagerConfig().setDataDirectory(dataDir);
+        StorageManagerConfig config = new StorageManagerConfig();
         connector = new RaptorConnector(
                 new LifeCycleManager(ImmutableList.of(), null),
                 new TestingNodeManager(),
                 new RaptorMetadataFactory(connectorId, dbi, shardManager),
                 new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
                 new RaptorPageSourceProvider(storageManager),
-                new RaptorPageSinkProvider(storageManager, new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)), config),
+                new RaptorPageSinkProvider(storageManager,
+                        new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),
+                        new TemporalFunction(DateTimeZone.forID("America/Los_Angeles")),
+                        config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
                 new RaptorTableProperties(typeRegistry),
                 ImmutableSet.of(),
+                new AllowAllAccessControl(),
                 dbi);
     }
 
@@ -154,7 +182,6 @@ public class TestRaptorConnector
 
     @Test
     public void testMaintenanceUnblockedOnStart()
-            throws Exception
     {
         long tableId = createTable("test");
 
@@ -167,12 +194,85 @@ public class TestRaptorConnector
         assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId));
     }
 
+    @Test
+    public void testTemporalShardSplit()
+            throws Exception
+    {
+        // Same date should be in same split
+        assertSplitShard(DATE, "2001-08-22", "2001-08-22", "UTC", 1);
+
+        // Date should not be affected by timezone
+        assertSplitShard(DATE, "2001-08-22", "2001-08-22", "America/Los_Angeles", 1);
+
+        // User timezone is UTC, while system shard split timezone is PST
+        assertSplitShard(TIMESTAMP, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", "UTC", 2);
+
+        // User timezone is PST, while system shard split timezone is PST
+        assertSplitShard(TIMESTAMP, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", "America/Los_Angeles", 1);
+    }
+
+    private void assertSplitShard(Type temporalType, String min, String max, String userTimeZone, int expectedSplits)
+            throws Exception
+    {
+        ConnectorSession session = new TestingConnectorSession(
+                "user",
+                Optional.of("test"),
+                Optional.empty(),
+                getTimeZoneKey(userTimeZone),
+                ENGLISH,
+                System.currentTimeMillis(),
+                new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(),
+                ImmutableMap.of(),
+                true);
+
+        ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);
+        connector.getMetadata(transaction).createTable(
+                SESSION,
+                new ConnectorTableMetadata(
+                        new SchemaTableName("test", "test"),
+                        ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType)),
+                        ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time")),
+                false);
+        connector.commit(transaction);
+
+        ConnectorTransactionHandle txn1 = connector.beginTransaction(READ_COMMITTED, false);
+        ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(txn1), "test");
+        ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(txn1).beginInsert(session, handle1);
+        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle);
+
+        Object timestamp1 = null;
+        Object timestamp2 = null;
+        if (temporalType.equals(TIMESTAMP)) {
+            timestamp1 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), min), getTimeZoneKey(userTimeZone));
+            timestamp2 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), max), getTimeZoneKey(userTimeZone));
+        }
+        else if (temporalType.equals(DATE)) {
+            timestamp1 = new SqlDate(parseDate(min));
+            timestamp2 = new SqlDate(parseDate(max));
+        }
+
+        Page inputPage = MaterializedResult.resultBuilder(session, ImmutableList.of(BIGINT, temporalType))
+                .row(1L, timestamp1)
+                .row(2L, timestamp2)
+                .build()
+                .toPage();
+
+        raptorPageSink.appendPage(inputPage);
+
+        Collection<Slice> shards = raptorPageSink.finish().get();
+        assertEquals(shards.size(), expectedSplits);
+        connector.getMetadata(txn1).dropTable(session, handle1);
+        connector.commit(txn1);
+    }
+
     private long createTable(String name)
     {
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);
-        connector.getMetadata(transaction).createTable(SESSION, new ConnectorTableMetadata(
-                new SchemaTableName("test", name),
-                ImmutableList.of(new ColumnMetadata("id", BIGINT))),
+        connector.getMetadata(transaction).createTable(
+                SESSION,
+                new ConnectorTableMetadata(
+                        new SchemaTableName("test", name),
+                        ImmutableList.of(new ColumnMetadata("id", BIGINT))),
                 false);
         connector.commit(transaction);
 

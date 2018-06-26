@@ -19,13 +19,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.joda.time.DateTime;
 
+import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 
 public class QueryProgressStats
 {
-    private final DateTime executionStartTime;
+    private final Optional<DateTime> executionStartTime;
     private final long elapsedTimeMillis;
     private final long queuedTimeMillis;
     private final long cpuTimeMillis;
@@ -40,7 +41,7 @@ public class QueryProgressStats
 
     @JsonCreator
     public QueryProgressStats(
-            @JsonProperty("executionStartTime") DateTime executionStartTime,
+            @JsonProperty("executionStartTime") Optional<DateTime> executionStartTime,
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
@@ -70,14 +71,14 @@ public class QueryProgressStats
     public static QueryProgressStats createQueryProgressStats(QueryStats queryStats)
     {
         return new QueryProgressStats(
-                queryStats.getExecutionStartTime(),
+                Optional.ofNullable(queryStats.getExecutionStartTime()),
                 queryStats.getElapsedTime().toMillis(),
                 queryStats.getQueuedTime().toMillis(),
                 queryStats.getTotalCpuTime().toMillis(),
                 queryStats.getTotalScheduledTime().toMillis(),
                 queryStats.getTotalBlockedTime().toMillis(),
-                queryStats.getTotalMemoryReservation().toBytes(),
-                queryStats.getPeakMemoryReservation().toBytes(),
+                queryStats.getUserMemoryReservation().toBytes(),
+                queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
@@ -85,7 +86,7 @@ public class QueryProgressStats
     }
 
     @JsonProperty
-    public DateTime getExecutionStartTime()
+    public Optional<DateTime> getExecutionStartTime()
     {
         return executionStartTime;
     }

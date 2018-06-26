@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi.session;
 
+import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
+
 import java.util.Map;
 
 public interface SessionPropertyConfigurationManagerFactory
 {
     String getName();
 
-    SessionPropertyConfigurationManager create(Map<String, String> config);
+    SessionPropertyConfigurationManager create(Map<String, String> config, SessionPropertyConfigurationManagerContext context);
 }

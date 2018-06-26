@@ -14,22 +14,24 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
-import com.facebook.presto.server.ResourceGroupStateInfo;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
  * Used on workers.
  */
 public final class NoOpResourceGroupManager
-        implements ResourceGroupManager
+        implements ResourceGroupManager<Void>
 {
     @Override
-    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
+    public void submit(Statement statement, QueryExecution queryExecution, SelectionContext<Void> selectionContext, Executor executor)
     {
         throw new UnsupportedOperationException();
     }
@@ -41,7 +43,7 @@ public final class NoOpResourceGroupManager
     }
 
     @Override
-    public ResourceGroupStateInfo getResourceGroupStateInfo(ResourceGroupId id)
+    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
     }
@@ -54,8 +56,13 @@ public final class NoOpResourceGroupManager
 
     @Override
     public void loadConfigurationManager()
-            throws Exception
     {
         // no-op
+    }
+
+    @Override
+    public SelectionContext<Void> selectGroup(SelectionCriteria criteria)
+    {
+        throw new UnsupportedOperationException();
     }
 }

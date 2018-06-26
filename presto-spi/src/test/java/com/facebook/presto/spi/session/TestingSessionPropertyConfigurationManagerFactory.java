@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.session;
 
+import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
+
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -36,7 +38,7 @@ public class TestingSessionPropertyConfigurationManagerFactory
     }
 
     @Override
-    public SessionPropertyConfigurationManager create(Map<String, String> config)
+    public SessionPropertyConfigurationManager create(Map<String, String> config, SessionPropertyConfigurationManagerContext context)
     {
         return new TestingSessionPropertyConfigurationManager(systemProperties, catalogProperties);
     }

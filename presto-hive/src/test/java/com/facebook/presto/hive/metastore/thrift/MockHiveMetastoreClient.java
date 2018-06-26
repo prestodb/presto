@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -70,7 +69,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> getAllDatabases()
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -81,7 +79,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> getAllTables(String dbName)
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -135,14 +132,12 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> columnNames, List<String> partitionValues)
-            throws TException
+    public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
     {
         throw new UnsupportedOperationException();
     }
@@ -155,7 +150,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> getPartitionNames(String dbName, String tableName)
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -211,7 +205,7 @@ public class MockHiveMetastoreClient
                 return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
             }
             catch (MetaException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         });
     }
@@ -266,7 +260,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public void alterPartition(String databaseName, String tableName, Partition partition)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -285,7 +278,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<HiveObjectPrivilege> listPrivileges(String principalName, PrincipalType principalType, HiveObjectRef hiveObjectRef)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -310,6 +302,12 @@ public class MockHiveMetastoreClient
 
     @Override
     public void close()
+    {
+        // No-op
+    }
+
+    @Override
+    public void setUGI(String userName)
     {
         // No-op
     }

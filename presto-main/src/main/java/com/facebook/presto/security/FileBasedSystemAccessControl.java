@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -46,10 +47,12 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
+    private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
 
-    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules)
+    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules, Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
     {
         this.catalogRules = catalogRules;
+        this.principalUserMatchRules = principalUserMatchRules;
     }
 
     public static class Factory
@@ -80,10 +83,11 @@ public class FileBasedSystemAccessControl
                 }
                 path.toFile().canRead();
 
+                FileBasedSystemAccessControlRules rules = jsonCodec(FileBasedSystemAccessControlRules.class)
+                        .fromJson(Files.readAllBytes(path));
+
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-                catalogRulesBuilder.addAll(jsonCodec(FileBasedSystemAccessControlRules.class)
-                        .fromJson(Files.readAllBytes(path))
-                        .getCatalogRules());
+                catalogRulesBuilder.addAll(rules.getCatalogRules());
 
                 // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
                 // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
@@ -92,7 +96,7 @@ public class FileBasedSystemAccessControl
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(Pattern.compile("system"))));
 
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build());
+                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
             }
             catch (SecurityException | IOException | InvalidPathException e) {
                 throw new RuntimeException(e);
@@ -103,6 +107,27 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
+        if (!principalUserMatchRules.isPresent()) {
+            return;
+        }
+
+        if (principal == null) {
+            denySetUser(principal, userName);
+        }
+
+        String principalName = principal.getName();
+
+        for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
+            Optional<Boolean> allowed = rule.match(principalName, userName);
+            if (allowed.isPresent()) {
+                if (allowed.get()) {
+                    return;
+                }
+                denySetUser(principal, userName);
+            }
+        }
+
+        denySetUser(principal, userName);
     }
 
     @Override
@@ -217,7 +242,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
@@ -242,17 +267,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 

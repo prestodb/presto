@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.Type;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +30,23 @@ public class DoubleStatisticsBuilder
     private boolean hasNan;
     private double minimum = Double.POSITIVE_INFINITY;
     private double maximum = Double.NEGATIVE_INFINITY;
+
+    @Override
+    public void addBlock(Type type, Block block)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                double value;
+                if (type == RealType.REAL) {
+                    value = Float.intBitsToFloat((int) type.getLong(block, position));
+                }
+                else {
+                    value = type.getDouble(block, position);
+                }
+                addValue(value);
+            }
+        }
+    }
 
     public void addValue(double value)
     {

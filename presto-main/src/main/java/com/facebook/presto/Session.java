@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
@@ -28,6 +29,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -59,7 +62,9 @@ public final class Session
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
+    private final Optional<String> traceToken;
     private final Set<String> clientTags;
+    private final ResourceEstimates resourceEstimates;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> connectorProperties;
@@ -75,12 +80,14 @@ public final class Session
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Optional<String> remoteUserAddress,
             Optional<String> userAgent,
             Optional<String> clientInfo,
             Set<String> clientTags,
+            ResourceEstimates resourceEstimates,
             long startTime,
             Map<String, String> systemProperties,
             Map<ConnectorId, Map<String, String>> connectorProperties,
@@ -95,12 +102,14 @@ public final class Session
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
+        this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -180,6 +189,16 @@ public final class Session
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
+
+    public ResourceEstimates getResourceEstimates()
+    {
+        return resourceEstimates;
     }
 
     public long getStartTime()
@@ -269,7 +288,7 @@ public final class Session
                 continue;
             }
             ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getConnectorId();
 
             for (Entry<String, String> property : catalogProperties.entrySet()) {
@@ -290,12 +309,14 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
                 userAgent,
                 clientInfo,
                 clientTags,
+                resourceEstimates,
                 startTime,
                 systemProperties,
                 connectorProperties.build(),
@@ -306,19 +327,14 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(queryId.toString(), identity, source, timeZoneKey, locale, startTime);
+        return new FullConnectorSession(this);
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
     {
         requireNonNull(connectorId, "connectorId is null");
         return new FullConnectorSession(
-                queryId.toString(),
-                identity,
-                source,
-                timeZoneKey,
-                locale,
-                startTime,
+                this,
                 connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
                 connectorId,
                 connectorId.getCatalogName(),
@@ -336,12 +352,14 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
                 userAgent,
                 clientInfo,
                 clientTags,
+                resourceEstimates,
                 startTime,
                 systemProperties,
                 connectorProperties,
@@ -359,12 +377,14 @@ public final class Session
                 .add("source", source.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
+                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
                 .add("userAgent", userAgent.orElse(null))
                 .add("clientInfo", clientInfo.orElse(null))
                 .add("clientTags", clientTags)
+                .add("resourceEstimates", resourceEstimates)
                 .add("startTime", startTime)
                 .omitNullValues()
                 .toString();
@@ -390,12 +410,14 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
+        private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();
         private String remoteUserAddress;
         private String userAgent;
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
+        private ResourceEstimates resourceEstimates;
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -419,6 +441,7 @@ public final class Session
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.schema = session.schema.orElse(null);
+            this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
             this.locale = session.locale;
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
@@ -480,6 +503,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setTraceToken(Optional<String> traceToken)
+        {
+            this.traceToken = requireNonNull(traceToken, "traceToken is null");
+            return this;
+        }
+
         public SessionBuilder setStartTime(long startTime)
         {
             this.startTime = startTime;
@@ -513,6 +542,12 @@ public final class Session
         public SessionBuilder setClientTags(Set<String> clientTags)
         {
             this.clientTags = ImmutableSet.copyOf(clientTags);
+            return this;
+        }
+
+        public SessionBuilder setResourceEstimates(ResourceEstimates resourceEstimates)
+        {
+            this.resourceEstimates = resourceEstimates;
             return this;
         }
 
@@ -553,18 +588,50 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
+                    traceToken,
                     timeZoneKey,
                     locale,
                     Optional.ofNullable(remoteUserAddress),
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),
                     clientTags,
+                    Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     startTime,
                     systemProperties,
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements);
+        }
+    }
+
+    public static class ResourceEstimateBuilder
+    {
+        private Optional<Duration> executionTime = Optional.empty();
+        private Optional<Duration> cpuTime = Optional.empty();
+        private Optional<DataSize> peakMemory = Optional.empty();
+
+        public ResourceEstimateBuilder setExecutionTime(Duration executionTime)
+        {
+            this.executionTime = Optional.of(executionTime);
+            return this;
+        }
+
+        public ResourceEstimateBuilder setCpuTime(Duration cpuTime)
+        {
+            this.cpuTime = Optional.of(cpuTime);
+            return this;
+        }
+
+        public ResourceEstimateBuilder setPeakMemory(DataSize peakMemory)
+        {
+            this.peakMemory = Optional.of(peakMemory);
+            return this;
+        }
+
+        public ResourceEstimates build()
+        {
+            return new ResourceEstimates(executionTime, cpuTime, peakMemory);
         }
     }
 }

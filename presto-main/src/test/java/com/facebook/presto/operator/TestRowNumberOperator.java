@@ -14,10 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -30,7 +32,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -38,15 +39,19 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -57,7 +62,7 @@ public class TestRowNumberOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler = new JoinCompiler();
+    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     @BeforeClass
     public void setUp()
@@ -71,6 +76,12 @@ public class TestRowNumberOperator
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
+    }
+
+    @DataProvider
+    public Object[][] dataType()
+    {
+        return new Object[][] {{VARCHAR}, {BIGINT}};
     }
 
     @DataProvider(name = "hashEnabledValues")
@@ -88,7 +99,6 @@ public class TestRowNumberOperator
 
     @Test
     public void testRowNumberUnpartitioned()
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -140,9 +150,41 @@ public class TestRowNumberOperator
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
+    @Test(dataProvider = "dataType")
+    public void testMemoryReservationYield(Type type)
+    {
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+
+        OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(type),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(type),
+                Optional.empty(),
+                Optional.empty(),
+                1,
+                joinCompiler);
+
+        // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 1_400_000);
+        assertGreaterThan(result.getYieldCount(), 5);
+        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+
+        int count = 0;
+        for (Page page : result.getOutput()) {
+            assertEquals(page.getChannelCount(), 3);
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                count++;
+            }
+        }
+        assertEquals(count, 6_000 * 600);
+    }
+
     @Test(dataProvider = "hashEnabledValues")
     public void testRowNumberPartitioned(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
@@ -209,7 +251,6 @@ public class TestRowNumberOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testRowNumberPartitionedLimit(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
@@ -280,7 +321,6 @@ public class TestRowNumberOperator
 
     @Test
     public void testRowNumberUnpartitionedLimit()
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -337,7 +377,7 @@ public class TestRowNumberOperator
 
     private static Block getRowNumberColumn(List<Page> pages)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), pages.size() * 100);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, pages.size() * 100);
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
@@ -351,8 +391,11 @@ public class TestRowNumberOperator
     {
         return input.stream()
                 .map(page -> {
-                    Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
-                    return new Page(blocks);
+                    Block[] blocks = new Block[page.getChannelCount() - 1];
+                    for (int i = 0; i < page.getChannelCount() - 1; i++) {
+                        blocks[i] = page.getBlock(i);
+                    }
+                    return new Page(page.getPositionCount(), blocks);
                 })
                 .collect(toImmutableList());
     }

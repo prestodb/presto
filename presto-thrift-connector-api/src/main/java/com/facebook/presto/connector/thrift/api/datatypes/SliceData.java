@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
@@ -76,7 +77,7 @@ final class SliceData
                 numberOfRecords,
                 values,
                 calculateOffsets(sizes, nulls, numberOfRecords),
-                nulls == null ? new boolean[numberOfRecords] : nulls);
+                Optional.ofNullable(nulls));
     }
 
     @Override

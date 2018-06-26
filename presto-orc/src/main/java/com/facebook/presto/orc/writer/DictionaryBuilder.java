@@ -16,11 +16,12 @@ package com.facebook.presto.orc.writer;
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -50,11 +51,10 @@ public class DictionaryBuilder
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
 
         // todo we can do better
-        BlockBuilderStatus blockBuilderStatus = new BlockBuilderStatus();
-        int expectedEntries = min(expectedSize, blockBuilderStatus.getMaxBlockSizeInBytes() / EXPECTED_BYTES_PER_ENTRY);
+        int expectedEntries = min(expectedSize, DEFAULT_MAX_PAGE_SIZE_IN_BYTES / EXPECTED_BYTES_PER_ENTRY);
         // it is guaranteed expectedEntries * EXPECTED_BYTES_PER_ENTRY will not overflow
         this.elementBlock = new VariableWidthBlockBuilder(
-                blockBuilderStatus,
+                null,
                 expectedEntries,
                 expectedEntries * EXPECTED_BYTES_PER_ENTRY);
 
@@ -90,7 +90,7 @@ public class DictionaryBuilder
     {
         containsNullElement = false;
         blockPositionByHash.fill(EMPTY_SLOT);
-        elementBlock = elementBlock.newBlockBuilderLike(new BlockBuilderStatus());
+        elementBlock = elementBlock.newBlockBuilderLike(null);
         // first position is always null
         elementBlock.appendNull();
     }
@@ -117,12 +117,16 @@ public class DictionaryBuilder
             return NULL_POSITION;
         }
 
+        int blockPosition;
         long hashPosition = getHashPositionOfElement(block, position);
         if (blockPositionByHash.get(hashPosition) != EMPTY_SLOT) {
-            return blockPositionByHash.get(hashPosition);
+            blockPosition = blockPositionByHash.get(hashPosition);
         }
-
-        return addNewElement(hashPosition, block, position);
+        else {
+            blockPosition = addNewElement(hashPosition, block, position);
+        }
+        verify(blockPosition != NULL_POSITION);
+        return blockPosition;
     }
 
     public int getEntryCount()
@@ -135,6 +139,7 @@ public class DictionaryBuilder
      */
     private long getHashPositionOfElement(Block block, int position)
     {
+        checkArgument(!block.isNull(position), "position is null");
         int length = block.getSliceLength(position);
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
         while (true) {
@@ -154,9 +159,7 @@ public class DictionaryBuilder
 
     private int addNewElement(long hashPosition, Block block, int position)
     {
-        if (block.isNull(position)) {
-            throw new IllegalArgumentException("position is null");
-        }
+        checkArgument(!block.isNull(position), "position is null");
         block.writeBytesTo(position, 0, block.getSliceLength(position), elementBlock);
         elementBlock.closeEntry();
 
@@ -179,13 +182,9 @@ public class DictionaryBuilder
         blockPositionByHash.ensureCapacity(newHashSize);
         blockPositionByHash.fill(EMPTY_SLOT);
 
-        rehashBlock(elementBlock);
-    }
-
-    private void rehashBlock(Block block)
-    {
-        for (int blockPosition = 0; blockPosition < block.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(block, blockPosition), blockPosition);
+        // the first element of elementBlock is always null
+        for (int blockPosition = 1; blockPosition < elementBlock.getPositionCount(); blockPosition++) {
+            blockPositionByHash.set(getHashPositionOfElement(elementBlock, blockPosition), blockPosition);
         }
     }
 

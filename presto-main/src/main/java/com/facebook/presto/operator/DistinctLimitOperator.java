@@ -13,21 +13,25 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctLimitOperator
@@ -39,7 +43,7 @@ public class DistinctLimitOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Integer> distinctChannels;
-        private final List<Type> types;
+        private final List<Type> sourceTypes;
         private final long limit;
         private final Optional<Integer> hashChannel;
         private boolean closed;
@@ -48,7 +52,7 @@ public class DistinctLimitOperator
         public DistinctLimitOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<? extends Type> types,
+                List<? extends Type> sourceTypes,
                 List<Integer> distinctChannels,
                 long limit,
                 Optional<Integer> hashChannel,
@@ -56,7 +60,7 @@ public class DistinctLimitOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
             this.distinctChannels = requireNonNull(distinctChannels, "distinctChannels is null");
 
             checkArgument(limit >= 0, "limit must be at least zero");
@@ -66,17 +70,14 @@ public class DistinctLimitOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, DistinctLimitOperator.class.getSimpleName());
-            return new DistinctLimitOperator(operatorContext, types, distinctChannels, limit, hashChannel, joinCompiler);
+            List<Type> distinctTypes = distinctChannels.stream()
+                    .map(sourceTypes::get)
+                    .collect(toImmutableList());
+            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler);
         }
 
         @Override
@@ -88,42 +89,47 @@ public class DistinctLimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DistinctLimitOperatorFactory(operatorId, planNodeId, types, distinctChannels, limit, hashChannel, joinCompiler);
+            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
+    private final LocalMemoryContext localUserMemoryContext;
 
-    private final PageBuilder pageBuilder;
-    private Page outputPage;
+    private Page inputPage;
     private long remainingLimit;
 
     private boolean finishing;
 
+    private final List<Integer> outputChannels;
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
+    // for yield when memory is not available
+    private GroupByIdBlock groupByIds;
+    private Work<GroupByIdBlock> unfinishedWork;
+
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         requireNonNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
         requireNonNull(hashChannel, "hashChannel is null");
 
-        ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
-        for (int channel : distinctChannels) {
-            distinctTypes.add(types.get(channel));
-        }
+        outputChannels = ImmutableList.<Integer>builder()
+                .addAll(distinctChannels)
+                .addAll(hashChannel.map(ImmutableList::of).orElse(ImmutableList.of()))
+                .build();
+
         this.groupByHash = createGroupByHash(
-                operatorContext.getSession(),
-                distinctTypes.build(),
+                distinctTypes,
                 Ints.toArray(distinctChannels),
                 hashChannel,
                 Math.min((int) limit, 10_000),
-                joinCompiler);
-        this.pageBuilder = new PageBuilder(types);
+                isDictionaryAggregationEnabled(operatorContext.getSession()),
+                joinCompiler,
+                this::updateMemoryReservation);
         remainingLimit = limit;
     }
 
@@ -134,51 +140,53 @@ public class DistinctLimitOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public void finish()
     {
         finishing = true;
-        pageBuilder.reset();
     }
 
     @Override
     public boolean isFinished()
     {
-        return (finishing && outputPage == null) || (remainingLimit == 0 && outputPage == null);
+        return !hasUnfinishedInput() && (finishing || remainingLimit == 0);
     }
 
     @Override
     public boolean needsInput()
     {
-        operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
-        return !finishing && remainingLimit > 0 && outputPage == null;
+        return !finishing && remainingLimit > 0 && !hasUnfinishedInput();
     }
 
     @Override
     public void addInput(Page page)
     {
         checkState(needsInput());
-        operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
 
-        pageBuilder.reset();
+        inputPage = page;
+        unfinishedWork = groupByHash.getGroupIds(page);
+        processUnfinishedWork();
+        updateMemoryReservation();
+    }
 
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
-        boolean done = work.process();
-        // TODO: this class does not yield wrt memory limit; enable it
-        verify(done);
-        GroupByIdBlock ids = work.getResult();
-        for (int position = 0; position < ids.getPositionCount(); position++) {
-            if (ids.getGroupId(position) == nextDistinctId) {
-                pageBuilder.declarePosition();
-                for (int channel = 0; channel < types.size(); channel++) {
-                    Type type = types.get(channel);
-                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-                }
+    @Override
+    public Page getOutput()
+    {
+        if (unfinishedWork != null && !processUnfinishedWork()) {
+            return null;
+        }
+
+        if (groupByIds == null) {
+            return null;
+        }
+
+        verify(inputPage != null);
+        int distinctCount = 0;
+        int[] distinctPositions = new int[inputPage.getPositionCount()];
+        for (int position = 0; position < groupByIds.getPositionCount(); position++) {
+            if (groupByIds.getGroupId(position) == nextDistinctId) {
+                distinctPositions[distinctCount] = position;
+                distinctCount++;
+
                 remainingLimit--;
                 nextDistinctId++;
                 if (remainingLimit == 0) {
@@ -186,16 +194,64 @@ public class DistinctLimitOperator
                 }
             }
         }
-        if (!pageBuilder.isEmpty()) {
-            outputPage = pageBuilder.build();
-        }
+        Page result = maskToDistinctOutputPositions(distinctCount, distinctPositions);
+
+        groupByIds = null;
+        inputPage = null;
+
+        updateMemoryReservation();
+        return result;
     }
 
-    @Override
-    public Page getOutput()
+    private Page maskToDistinctOutputPositions(int distinctCount, int[] distinctPositions)
     {
-        Page result = outputPage;
-        outputPage = null;
+        Page result = null;
+        if (distinctCount > 0) {
+            Block[] blocks = outputChannels.stream()
+                    .map(inputPage::getBlock)
+                    .map(block -> block.getPositions(distinctPositions, 0, distinctCount))
+                    .toArray(Block[]::new);
+            result = new Page(distinctCount, blocks);
+        }
         return result;
+    }
+
+    private boolean processUnfinishedWork()
+    {
+        verify(unfinishedWork != null);
+        if (!unfinishedWork.process()) {
+            return false;
+        }
+        groupByIds = unfinishedWork.getResult();
+        unfinishedWork = null;
+        return true;
+    }
+
+    private boolean hasUnfinishedInput()
+    {
+        return inputPage != null || unfinishedWork != null;
+    }
+
+    /**
+     * Update memory usage.
+     *
+     * @return true if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed (#9049)
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryReservation()
+    {
+        // Operator/driver will be blocked on memory after we call localUserMemoryContext.setBytes().
+        // If memory is not available, once we return, this operator will be blocked until memory is available.
+        localUserMemoryContext.setBytes(groupByHash.getEstimatedSize());
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    @VisibleForTesting
+    public int getCapacity()
+    {
+        return groupByHash.getCapacity();
     }
 }

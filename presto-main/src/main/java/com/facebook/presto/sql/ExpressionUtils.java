@@ -26,7 +26,6 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -43,6 +42,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -103,7 +103,17 @@ public final class ExpressionUtils
     {
         requireNonNull(type, "type is null");
         requireNonNull(expressions, "expressions is null");
-        Preconditions.checkArgument(!expressions.isEmpty(), "expressions is empty");
+
+        if (expressions.isEmpty()) {
+            switch (type) {
+                case AND:
+                    return TRUE_LITERAL;
+                case OR:
+                    return FALSE_LITERAL;
+                default:
+                    throw new IllegalArgumentException("Unsupported LogicalBinaryExpression type");
+            }
+        }
 
         // Build balanced tree for efficient recursive processing that
         // preserves the evaluation order of the input expressions.
@@ -177,11 +187,6 @@ public final class ExpressionUtils
 
     public static Expression combineConjuncts(Collection<Expression> expressions)
     {
-        return combineConjunctsWithDefault(expressions, TRUE_LITERAL);
-    }
-
-    public static Expression combineConjunctsWithDefault(Collection<Expression> expressions, Expression emptyDefault)
-    {
         requireNonNull(expressions, "expressions is null");
 
         List<Expression> conjuncts = expressions.stream()
@@ -195,7 +200,7 @@ public final class ExpressionUtils
             return FALSE_LITERAL;
         }
 
-        return conjuncts.isEmpty() ? emptyDefault : and(conjuncts);
+        return and(conjuncts);
     }
 
     public static Expression combineDisjuncts(Expression... expressions)
@@ -226,21 +231,30 @@ public final class ExpressionUtils
         return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
     }
 
-    public static Expression stripNonDeterministicConjuncts(Expression expression)
+    public static Expression filterDeterministicConjuncts(Expression expression)
+    {
+        return filterConjuncts(expression, DeterminismEvaluator::isDeterministic);
+    }
+
+    public static Expression filterNonDeterministicConjuncts(Expression expression)
+    {
+        return filterConjuncts(expression, not(DeterminismEvaluator::isDeterministic));
+    }
+
+    public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)
     {
         List<Expression> conjuncts = extractConjuncts(expression).stream()
-                .filter(DeterminismEvaluator::isDeterministic)
+                .filter(predicate)
                 .collect(toList());
 
         return combineConjuncts(conjuncts);
     }
 
-    public static Expression stripDeterministicConjuncts(Expression expression)
+    public static boolean referencesAny(Expression expression, Collection<Symbol> variables)
     {
-        return combineConjuncts(extractConjuncts(expression)
-                .stream()
-                .filter((conjunct) -> !DeterminismEvaluator.isDeterministic(conjunct))
-                .collect(toImmutableList()));
+        Set<Symbol> references = SymbolsExtractor.extractUnique(expression);
+
+        return variables.stream().anyMatch(references::contains);
     }
 
     public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol>... nullSymbolScopes)

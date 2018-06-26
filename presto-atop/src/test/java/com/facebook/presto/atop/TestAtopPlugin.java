@@ -22,7 +22,6 @@ public class TestAtopPlugin
 {
     @Test
     public void testGetConnectorFactory()
-            throws Exception
     {
         AtopPlugin plugin = new AtopPlugin();
         assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);

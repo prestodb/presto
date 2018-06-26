@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -64,7 +63,6 @@ public class HashAggregationOperator
         private final Optional<Integer> groupIdChannel;
 
         private final int expectedGroups;
-        private final List<Type> types;
         private final DataSize maxPartialMemory;
         private final boolean spillEnabled;
         private final DataSize memoryLimitForMerge;
@@ -184,14 +182,6 @@ public class HashAggregationOperator
             this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-
-            this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -271,7 +261,7 @@ public class HashAggregationOperator
     private final HashCollisionsCounter hashCollisionsCounter;
 
     private HashAggregationBuilder aggregationBuilder;
-    private Iterator<Page> outputIterator;
+    private WorkProcessor<Page> outputPages;
     private boolean inputProcessed;
     private boolean finishing;
     private boolean finished;
@@ -329,12 +319,6 @@ public class HashAggregationOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public void finish()
     {
         finishing = true;
@@ -349,7 +333,7 @@ public class HashAggregationOperator
     @Override
     public boolean needsInput()
     {
-        if (finishing || outputIterator != null) {
+        if (finishing || outputPages != null) {
             return false;
         }
         else if (aggregationBuilder != null && aggregationBuilder.isFull()) {
@@ -369,8 +353,8 @@ public class HashAggregationOperator
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
-            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause because ORDER BY is not yet implemented for spilling.
-            if (step.isOutputPartial() || !spillEnabled || hasOrderBy()) {
+            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
+            if (step.isOutputPartial() || !spillEnabled || hasOrderBy() || hasDistinct()) {
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         accumulatorFactories,
                         step,
@@ -417,6 +401,11 @@ public class HashAggregationOperator
         return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasOrderBy);
     }
 
+    private boolean hasDistinct()
+    {
+        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasDistinct);
+    }
+
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
@@ -451,10 +440,7 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
 
-        if (outputIterator == null) {
-            // current output iterator is done
-            outputIterator = null;
-
+        if (outputPages == null) {
             if (finishing) {
                 if (!inputProcessed && produceDefaultOutput) {
                     // global aggregations always generate an output row with the default aggregation output (e.g. 0 for COUNT, NULL for SUM)
@@ -473,20 +459,19 @@ public class HashAggregationOperator
                 return null;
             }
 
-            outputIterator = aggregationBuilder.buildResult();
-
-            if (!outputIterator.hasNext()) {
-                // current output iterator is done
-                closeAggregationBuilder();
-                return null;
-            }
+            outputPages = aggregationBuilder.buildResult();
         }
 
-        Page output = outputIterator.next();
-        if (!outputIterator.hasNext()) {
+        if (!outputPages.process()) {
+            return null;
+        }
+
+        if (outputPages.isFinished()) {
             closeAggregationBuilder();
+            return null;
         }
-        return output;
+
+        return outputPages.getResult();
     }
 
     @Override
@@ -503,7 +488,7 @@ public class HashAggregationOperator
 
     private void closeAggregationBuilder()
     {
-        outputIterator = null;
+        outputPages = null;
         if (aggregationBuilder != null) {
             aggregationBuilder.recordHashCollisions(hashCollisionsCounter);
             aggregationBuilder.close();
@@ -511,8 +496,8 @@ public class HashAggregationOperator
             // The reference must be set to null afterwards to avoid unaccounted memory.
             aggregationBuilder = null;
         }
-        operatorContext.setMemoryReservation(0);
-        operatorContext.setRevocableMemoryReservation(0);
+        operatorContext.localUserMemoryContext().setBytes(0);
+        operatorContext.localRevocableMemoryContext().setBytes(0);
     }
 
     private Page getGlobalAggregationOutput()
@@ -521,7 +506,9 @@ public class HashAggregationOperator
                 .map(AccumulatorFactory::createAccumulator)
                 .collect(Collectors.toList());
 
-        PageBuilder output = new PageBuilder(types);
+        // global aggregation output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder output = new PageBuilder(globalAggregationGroupIds.size(), types);
 
         for (int groupId : globalAggregationGroupIds) {
             output.declarePosition();

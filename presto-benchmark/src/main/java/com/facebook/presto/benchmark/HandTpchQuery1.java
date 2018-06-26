@@ -109,7 +109,7 @@ public class HandTpchQuery1
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
+                getColumnTypes("lineitem", "returnflag", "linestatus"),
                 Ints.asList(0, 1),
                 ImmutableList.of(),
                 Step.SINGLE,
@@ -153,12 +153,6 @@ public class HandTpchQuery1
             }
 
             @Override
-            public List<Type> getTypes()
-            {
-                return TYPES;
-            }
-
-            @Override
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, new PlanNodeId("test"), TpchQuery1Operator.class.getSimpleName());
@@ -191,12 +185,6 @@ public class HandTpchQuery1
         public OperatorContext getOperatorContext()
         {
             return operatorContext;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
         }
 
         @Override

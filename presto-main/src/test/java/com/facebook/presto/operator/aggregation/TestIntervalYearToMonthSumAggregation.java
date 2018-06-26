@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +29,7 @@ public class TestIntervalYearToMonthSumAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             INTERVAL_YEAR_MONTH.writeLong(blockBuilder, i);
         }

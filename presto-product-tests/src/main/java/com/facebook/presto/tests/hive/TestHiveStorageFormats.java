@@ -14,9 +14,9 @@
 package com.facebook.presto.tests.hive;
 
 import com.google.common.collect.ImmutableMap;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.assertions.QueryAssert.Row;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.assertions.QueryAssert.Row;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -29,10 +29,10 @@ import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -46,13 +46,17 @@ public class TestHiveStorageFormats
     {
         return new StorageFormat[][] {
                 {storageFormat("ORC")},
+                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_enabled", "true", "hive.orc_optimized_writer_validate", "true"))},
                 {storageFormat("DWRF")},
                 {storageFormat("PARQUET")},
                 {storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_reader_enabled", "true"))},
-                {storageFormat("RCBINARY")},
-                {storageFormat("RCTEXT")},
+                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "false", "hive.rcfile_optimized_writer_validate", "false"))},
+                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "true", "hive.rcfile_optimized_writer_validate", "true"))},
+                {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "false", "hive.rcfile_optimized_writer_validate", "false"))},
+                {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "true", "hive.rcfile_optimized_writer_validate", "true"))},
                 {storageFormat("SEQUENCEFILE")},
-                {storageFormat("TEXTFILE")}
+                {storageFormat("TEXTFILE")},
+                {storageFormat("AVRO")}
         };
     }
 

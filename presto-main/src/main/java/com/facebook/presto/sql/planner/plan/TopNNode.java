@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -44,16 +42,14 @@ public class TopNNode
 
     private final PlanNode source;
     private final long count;
-    private final List<Symbol> orderBy;
-    private final Map<Symbol, SortOrder> orderings;
+    private final OrderingScheme orderingScheme;
     private final Step step;
 
     @JsonCreator
     public TopNNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
-            @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
+            @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("step") Step step)
     {
         super(id);
@@ -61,14 +57,11 @@ public class TopNNode
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be positive");
         checkCondition(count <= Integer.MAX_VALUE, NOT_SUPPORTED, "ORDER BY LIMIT > %s is not supported", Integer.MAX_VALUE);
-        requireNonNull(orderBy, "orderBy is null");
-        checkArgument(!orderBy.isEmpty(), "orderBy is empty");
-        checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
+        requireNonNull(orderingScheme, "orderingScheme is null");
 
         this.source = source;
         this.count = count;
-        this.orderBy = ImmutableList.copyOf(orderBy);
-        this.orderings = ImmutableMap.copyOf(orderings);
+        this.orderingScheme = orderingScheme;
         this.step = requireNonNull(step, "step is null");
     }
 
@@ -96,16 +89,10 @@ public class TopNNode
         return count;
     }
 
-    @JsonProperty("orderBy")
-    public List<Symbol> getOrderBy()
+    @JsonProperty("orderingScheme")
+    public OrderingScheme getOrderingScheme()
     {
-        return orderBy;
-    }
-
-    @JsonProperty("orderings")
-    public Map<Symbol, SortOrder> getOrderings()
-    {
-        return orderings;
+        return orderingScheme;
     }
 
     @JsonProperty("step")
@@ -123,6 +110,6 @@ public class TopNNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderBy, orderings, step);
+        return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderingScheme, step);
     }
 }

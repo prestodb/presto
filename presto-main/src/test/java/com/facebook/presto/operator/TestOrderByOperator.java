@@ -70,7 +70,6 @@ public class TestOrderByOperator
 
     @Test
     public void testSingleFieldKey()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -102,7 +101,6 @@ public class TestOrderByOperator
 
     @Test
     public void testMultiFieldKey()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -134,7 +132,6 @@ public class TestOrderByOperator
 
     @Test
     public void testReverseOrder()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -164,9 +161,8 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of 10B")
     public void testMemoryLimit()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)

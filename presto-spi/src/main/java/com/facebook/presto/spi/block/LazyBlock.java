@@ -16,7 +16,6 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
@@ -194,17 +193,24 @@ public class LazyBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         assureLoaded();
-        return new LazyBlockEncoding(block.getEncoding());
+        return LazyBlockEncoding.NAME;
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block getPositions(int[] positions, int offset, int length)
     {
         assureLoaded();
-        return block.copyPositions(positions);
+        return block.getPositions(positions, offset, length);
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        assureLoaded();
+        return block.copyPositions(positions, offset, length);
     }
 
     @Override

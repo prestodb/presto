@@ -23,8 +23,6 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
-import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -93,7 +91,6 @@ import static java.util.Objects.requireNonNull;
  * <p>
  *
  * @see TransformCorrelatedScalarAggregationToJoin
- * @see TransformUncorrelatedInPredicateSubqueryToSemiJoin
  */
 public class TransformCorrelatedInPredicateToJoin
         implements Rule<ApplyNode>
@@ -207,6 +204,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
                         .build(),
                 ImmutableList.of(probeSide.getOutputSymbols()),
+                ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
@@ -257,9 +255,7 @@ public class TransformCorrelatedInPredicateToJoin
         return new AggregationNode.Aggregation(
                 countCall,
                 new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
-                Optional.<Symbol>empty(), /* mask */
-                ImmutableList.of(),
-                ImmutableList.of());
+                Optional.<Symbol>empty()); /* mask */
     }
 
     private static Expression isGreaterThan(Symbol symbol, long value)
@@ -293,9 +289,6 @@ public class TransformCorrelatedInPredicateToJoin
         return new BooleanLiteral(value.toString());
     }
 
-    /**
-     * TODO consult common parts with {@link com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin.Rewriter}
-     */
     private static class DecorrelatingVisitor
             extends PlanVisitor<Optional<Decorrelated>, PlanNode>
     {

@@ -16,6 +16,7 @@ package com.facebook.presto.spi.security;
 import com.facebook.presto.spi.PrestoException;
 
 import java.security.Principal;
+import java.util.Collection;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -198,14 +199,14 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyCreateViewWithSelect(String sourceName)
+    public static void denyCreateViewWithSelect(String sourceName, Identity identity)
     {
-        denyCreateViewWithSelect(sourceName, null);
+        denyCreateViewWithSelect(sourceName, identity, null);
     }
 
-    public static void denyCreateViewWithSelect(String sourceName, String extraInfo)
+    public static void denyCreateViewWithSelect(String sourceName, Identity identity, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot create view that selects from %s%s", sourceName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)
@@ -271,6 +272,16 @@ public class AccessDeniedException
     public static void denySetCatalogSessionProperty(String propertyName)
     {
         throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
+    }
+
+    public static void denySelectColumns(String tableName, Collection<String> columnNames)
+    {
+        denySelectColumns(tableName, columnNames, null);
+    }
+
+    public static void denySelectColumns(String tableName, Collection<String> columnNames, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
     }
 
     private static Object formatExtraInfo(String extraInfo)

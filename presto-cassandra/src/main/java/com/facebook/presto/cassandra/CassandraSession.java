@@ -52,7 +52,16 @@ public interface CassandraSession
     CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException;
 
-    List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix);
+    /**
+     * Get the list of partitions matching the given filters on partition keys.
+     * @param table the table to get partitions from
+     * @param filterPrefix the list of possible values for each partition key.
+     *                     Order of values should match {@link CassandraTable#getPartitionKeyColumns()}
+     * @return list of {@link CassandraPartition}
+     */
+    List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefix);
+
+    boolean isMaterializedView(SchemaTableName schemaTableName);
 
     ResultSet execute(String cql, Object... values);
 

@@ -33,7 +33,6 @@ public class TestAtopSmoke
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         queryRunner = createQueryRunner();
     }
@@ -42,6 +41,7 @@ public class TestAtopSmoke
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

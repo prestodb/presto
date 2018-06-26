@@ -17,6 +17,7 @@ import io.airlift.json.JsonCodec;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static org.testng.Assert.assertEquals;
@@ -28,7 +29,7 @@ public class TestQueryProgressStats
     public void testJson()
     {
         QueryProgressStats expected = new QueryProgressStats(
-                DateTime.parse("1991-09-06T05:00-05:30"),
+                Optional.of(DateTime.parse("1991-09-06T05:00-05:30")),
                 123456,
                 1111,
                 22222,
@@ -45,7 +46,7 @@ public class TestQueryProgressStats
         String json = codec.toJson(expected);
         QueryProgressStats actual = codec.fromJson(json);
 
-        assertEquals(actual.getExecutionStartTime().getMillis(), DateTime.parse("1991-09-06T05:00-05:30").getMillis());
+        assertEquals(actual.getExecutionStartTime().get().getMillis(), DateTime.parse("1991-09-06T05:00-05:30").getMillis());
         assertEquals(actual.getElapsedTimeMillis(), 123456);
         assertEquals(actual.getQueuedTimeMillis(), 1111);
         assertEquals(actual.getCpuTimeMillis(), 22222);

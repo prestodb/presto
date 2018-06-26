@@ -41,7 +41,6 @@ public class TestHttpRequestSessionContext
 {
     @Test
     public void testSessionContext()
-            throws Exception
     {
         HttpServletRequest request = new MockHttpServletRequest(
                 ImmutableListMultimap.<String, String>builder()
@@ -72,7 +71,6 @@ public class TestHttpRequestSessionContext
 
     @Test(expectedExceptions = WebApplicationException.class)
     public void testPreparedStatementsHeaderDoesNotParse()
-            throws Exception
     {
         HttpServletRequest request = new MockHttpServletRequest(
                 ImmutableListMultimap.<String, String>builder()

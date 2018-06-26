@@ -17,8 +17,7 @@ import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
+import static com.facebook.presto.cli.TestQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestTableNameCompleter
@@ -27,23 +26,8 @@ public class TestTableNameCompleter
     public void testAutoCompleteWithoutSchema()
     {
         ClientSession session = new ClientOptions().toClientSession();
-        QueryRunner runner = new QueryRunner(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                false,
-                false);
+        QueryRunner runner = createQueryRunner(session);
+
         TableNameCompleter completer = new TableNameCompleter(runner);
         assertEquals(completer.complete("SELECT is_infi", 14, ImmutableList.of()), 7);
     }

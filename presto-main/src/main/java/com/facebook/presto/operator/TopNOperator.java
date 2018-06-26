@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
-import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,7 +42,6 @@ public class TopNOperator
         private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final int n;
-        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private boolean closed;
@@ -61,19 +58,8 @@ public class TopNOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
-            ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
-            for (int channel : sortChannels) {
-                sortTypes.add(types.get(channel));
-            }
-            this.sortTypes = sortTypes.build();
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return sourceTypes;
         }
 
         @Override
@@ -85,7 +71,6 @@ public class TopNOperator
                     operatorContext,
                     sourceTypes,
                     n,
-                    sortTypes,
                     sortChannels,
                     sortOrders);
         }
@@ -103,45 +88,39 @@ public class TopNOperator
         }
     }
 
-    private static final int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
-    private static final DataSize OVERHEAD_PER_VALUE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
-
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext localUserMemoryContext;
     private final List<Type> types;
-    private final int n;
-    private final List<Type> sortTypes;
-    private final List<Integer> sortChannels;
-    private final List<SortOrder> sortOrders;
 
-    private final PageBuilder pageBuilder;
-
-    private TopNBuilder topNBuilder;
+    private GroupedTopNBuilder topNBuilder;
     private boolean finishing;
 
-    private Iterator<Block[]> outputIterator;
+    private Iterator<Page> outputIterator;
 
     public TopNOperator(
             OperatorContext operatorContext,
             List<Type> types,
             int n,
-            List<Type> sortTypes,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.types = requireNonNull(types, "types is null");
 
         checkArgument(n >= 0, "n must be positive");
-        this.n = n;
-
-        this.sortTypes = requireNonNull(sortTypes, "sortTypes is null");
-        this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
-        this.sortOrders = requireNonNull(sortOrders, "sortOrders is null");
-
-        this.pageBuilder = new PageBuilder(types);
 
         if (n == 0) {
             finishing = true;
+            outputIterator = emptyIterator();
+        }
+        else {
+            topNBuilder = new GroupedTopNBuilder(
+                    types,
+                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                    n,
+                    false,
+                    new NoChannelGroupByHash());
         }
     }
 
@@ -149,12 +128,6 @@ public class TopNOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -166,159 +139,55 @@ public class TopNOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && topNBuilder == null && (outputIterator == null || !outputIterator.hasNext());
+        return finishing && noMoreOutput();
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finishing && (outputIterator == null || !outputIterator.hasNext());
+        return !finishing && !noMoreOutput();
     }
 
     @Override
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        requireNonNull(page, "page is null");
-        if (topNBuilder == null) {
-            topNBuilder = new TopNBuilder(
-                    n,
-                    sortTypes,
-                    sortChannels,
-                    sortOrders,
-                    operatorContext);
-        }
-
-        topNBuilder.processPage(page);
+        boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
+        // there is no grouping so work will always be done
+        verify(done);
+        updateMemoryReservation();
     }
 
     @Override
     public Page getOutput()
     {
-        if (outputIterator == null || !outputIterator.hasNext()) {
-            // no data or not finishing
-            if (topNBuilder == null || !finishing) {
-                return null;
-            }
-
-            outputIterator = topNBuilder.build();
-            topNBuilder = null;
+        if (!finishing || noMoreOutput()) {
+            return null;
         }
 
-        pageBuilder.reset();
-        while (!pageBuilder.isFull() && outputIterator.hasNext()) {
-            Block[] next = outputIterator.next();
-            pageBuilder.declarePosition();
-            for (int i = 0; i < next.length; i++) {
-                Type type = types.get(i);
-                type.appendTo(next[i], 0, pageBuilder.getBlockBuilder(i));
-            }
+        if (outputIterator == null) {
+            // start flushing
+            outputIterator = topNBuilder.buildResult();
         }
 
-        return pageBuilder.build();
+        Page output = null;
+        if (outputIterator.hasNext()) {
+            output = outputIterator.next();
+        }
+        else {
+            outputIterator = emptyIterator();
+        }
+        updateMemoryReservation();
+        return output;
     }
 
-    private static class TopNBuilder
+    private void updateMemoryReservation()
     {
-        private final int n;
-        private final List<Type> sortTypes;
-        private final List<Integer> sortChannels;
-        private final List<SortOrder> sortOrders;
-        private final OperatorContext operatorContext;
-        private final PriorityQueue<Block[]> globalCandidates;
+        localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
+    }
 
-        private long memorySize;
-
-        private TopNBuilder(int n,
-                List<Type> sortTypes,
-                List<Integer> sortChannels,
-                List<SortOrder> sortOrders,
-                OperatorContext operatorContext)
-        {
-            this.n = n;
-
-            this.sortTypes = sortTypes;
-            this.sortChannels = sortChannels;
-            this.sortOrders = sortOrders;
-
-            this.operatorContext = operatorContext;
-
-            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
-            this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
-        }
-
-        public void processPage(Page page)
-        {
-            long sizeDelta = mergeWithGlobalCandidates(page);
-            memorySize += sizeDelta;
-            operatorContext.setMemoryReservation(memorySize);
-        }
-
-        private long mergeWithGlobalCandidates(Page page)
-        {
-            long sizeDelta = 0;
-
-            Block[] blocks = page.getBlocks();
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                if (globalCandidates.size() < n || compare(position, blocks, globalCandidates.peek()) < 0) {
-                    sizeDelta += addRow(position, page);
-                }
-            }
-
-            return sizeDelta;
-        }
-
-        private int compare(int position, Block[] blocks, Block[] currentMax)
-        {
-            for (int i = 0; i < sortChannels.size(); i++) {
-                Type type = sortTypes.get(i);
-                int sortChannel = sortChannels.get(i);
-                SortOrder sortOrder = sortOrders.get(i);
-
-                Block block = blocks[sortChannel];
-                Block currentMaxValue = currentMax[sortChannel];
-
-                // compare the right value to the left block but negate the result since we are evaluating in the opposite order
-                int compare = -sortOrder.compareBlockValue(type, currentMaxValue, 0, block, position);
-                if (compare != 0) {
-                    return compare;
-                }
-            }
-            return 0;
-        }
-
-        private long addRow(int position, Page page)
-        {
-            long sizeDelta = 0;
-            Block[] row = page.getSingleValuePage(position).getBlocks();
-
-            sizeDelta += sizeOfRow(row);
-            globalCandidates.add(row);
-
-            while (globalCandidates.size() > n) {
-                Block[] previous = globalCandidates.remove();
-                sizeDelta -= sizeOfRow(previous);
-            }
-            return sizeDelta;
-        }
-
-        private static long sizeOfRow(Block[] row)
-        {
-            long size = OVERHEAD_PER_VALUE.toBytes();
-            for (Block value : row) {
-                size += value.getRetainedSizeInBytes();
-            }
-            return size;
-        }
-
-        public Iterator<Block[]> build()
-        {
-            ImmutableList.Builder<Block[]> minSortedGlobalCandidates = ImmutableList.builder();
-            while (!globalCandidates.isEmpty()) {
-                Block[] row = globalCandidates.remove();
-                minSortedGlobalCandidates.add(row);
-            }
-            return minSortedGlobalCandidates.build().reverse().iterator();
-        }
+    private boolean noMoreOutput()
+    {
+        return outputIterator != null && !outputIterator.hasNext();
     }
 }

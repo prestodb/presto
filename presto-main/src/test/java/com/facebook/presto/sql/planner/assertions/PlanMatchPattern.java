@@ -14,16 +14,19 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -48,6 +51,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -62,11 +66,21 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -180,17 +194,12 @@ public final class PlanMatchPattern
         return result;
     }
 
-    public static PlanMatchPattern aggregationWithOrderBy(
-            List<List<String>> groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
-            Map<Symbol, Symbol> masks,
-            Optional<Symbol> groupId,
-            Map<String, List<String>> orderBys,
-            Map<String, List<SortOrder>> orderings,
+    public static PlanMatchPattern aggregation(
+            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, masks, groupId, Optional.of(orderBys), Optional.of(orderings), step));
+        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationStepMatcher(step));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
@@ -204,7 +213,19 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, masks, groupId, step));
+        return aggregation(groupingSets, aggregations, ImmutableList.of(), masks, groupId, step, source);
+    }
+
+    public static PlanMatchPattern aggregation(
+            List<List<String>> groupingSets,
+            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            List<String> preGroupedSymbols,
+            Map<Symbol, Symbol> masks,
+            Optional<Symbol> groupId,
+            Step step,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
@@ -260,9 +281,9 @@ public final class PlanMatchPattern
         return node(SortNode.class, source);
     }
 
-    public static PlanMatchPattern topN(long count, List<String> orderBy, PlanMatchPattern source)
+    public static PlanMatchPattern topN(long count, List<Ordering> orderBy, PlanMatchPattern source)
     {
-        return node(TopNNode.class, source).with(new TopNMatcher(count, toSymbolAliases(orderBy)));
+        return node(TopNNode.class, source).with(new TopNMatcher(count, orderBy));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)
@@ -318,11 +339,29 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
+        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), left, right);
+    }
+
+    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
+    {
         return node(JoinNode.class, left, right).with(
                 new JoinMatcher(
                         joinType,
                         expectedEquiCriteria,
-                        expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate)))));
+                        expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
+                        expectedDistributionType));
+    }
+
+    public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(JoinNode.class, left, right).with(
+                new SpatialJoinMatcher(INNER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions()))));
+    }
+
+    public static PlanMatchPattern spatialLeftJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(JoinNode.class, left, right).with(
+                new SpatialJoinMatcher(LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions()))));
     }
 
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
@@ -367,9 +406,13 @@ public final class PlanMatchPattern
         return new SymbolAlias(alias);
     }
 
-    public static PlanMatchPattern filter(String predicate, PlanMatchPattern source)
+    public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
     {
-        Expression expectedPredicate = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate));
+        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+    }
+
+    public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
+    {
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
@@ -434,6 +477,11 @@ public final class PlanMatchPattern
         return node(LimitNode.class, source).with(new LimitMatcher(limit));
     }
 
+    public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)
+    {
+        return node(EnforceSingleRowNode.class, source);
+    }
+
     public static PlanMatchPattern tableWriter(List<String> columns, List<String> columnNames, PlanMatchPattern source)
     {
         return node(TableWriterNode.class, source).with(new TableWriterMatcher(columns, columnNames));
@@ -458,18 +506,28 @@ public final class PlanMatchPattern
                 states.add(new PlanMatchingState(ImmutableList.of(this)));
             }
         }
-        if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.shapeMatches(node))) {
+        if (node instanceof GroupReference) {
+            if (sourcePatterns.isEmpty() && shapeMatchesMatchers(node)) {
+                states.add(new PlanMatchingState(ImmutableList.of()));
+            }
+        }
+        else if (node.getSources().size() == sourcePatterns.size() && shapeMatchesMatchers(node)) {
             states.add(new PlanMatchingState(sourcePatterns));
         }
         return states.build();
     }
 
-    MatchResult detailMatches(PlanNode node, PlanNodeCost planNodeCost, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    private boolean shapeMatchesMatchers(PlanNode node)
+    {
+        return matchers.stream().allMatch(it -> it.shapeMatches(node));
+    }
+
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, planNodeCost, session, metadata, symbolAliases);
+            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -551,9 +609,9 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withCost(PlanNodeCost cost)
+    public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount)
     {
-        matchers.add(new PlanCostMatcher(cost));
+        matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount));
         return this;
     }
 
@@ -597,6 +655,11 @@ public final class PlanMatchPattern
     public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args)
     {
         return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
+    }
+
+    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, List<Ordering> orderBy)
+    {
+        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args), orderBy);
     }
 
     public static ExpectedValueProvider<FunctionCall> functionCall(
@@ -651,6 +714,11 @@ public final class PlanMatchPattern
                         .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), Map.Entry::getValue)));
     }
 
+    public static Ordering sort(String field, SortItem.Ordering ordering, SortItem.NullOrdering nullOrdering)
+    {
+        return new Ordering(field, ordering, nullOrdering);
+    }
+
     @Override
     public String toString()
     {
@@ -698,5 +766,67 @@ public final class PlanMatchPattern
     private static String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
+    }
+
+    public static class Ordering
+    {
+        private final String field;
+        private final SortItem.Ordering ordering;
+        private final SortItem.NullOrdering nullOrdering;
+
+        private Ordering(String field, SortItem.Ordering ordering, SortItem.NullOrdering nullOrdering)
+        {
+            this.field = field;
+            this.ordering = ordering;
+            this.nullOrdering = nullOrdering;
+        }
+
+        public String getField()
+        {
+            return field;
+        }
+
+        public SortItem.Ordering getOrdering()
+        {
+            return ordering;
+        }
+
+        public SortItem.NullOrdering getNullOrdering()
+        {
+            return nullOrdering;
+        }
+
+        public SortOrder getSortOrder()
+        {
+            checkState(nullOrdering != UNDEFINED, "nullOrdering is undefined");
+            if (ordering == ASCENDING) {
+                if (nullOrdering == FIRST) {
+                    return ASC_NULLS_FIRST;
+                }
+                else {
+                    return ASC_NULLS_LAST;
+                }
+            }
+            else {
+                checkState(ordering == DESCENDING);
+                if (nullOrdering == FIRST) {
+                    return DESC_NULLS_FIRST;
+                }
+                else {
+                    return DESC_NULLS_LAST;
+                }
+            }
+        }
+
+        @Override
+        public String toString()
+        {
+            String result = field + " " + ordering;
+            if (nullOrdering != UNDEFINED) {
+                result += " NULLS " + nullOrdering;
+            }
+
+            return result;
+        }
     }
 }

@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class InListExpression
         extends Expression
@@ -35,7 +40,9 @@ public class InListExpression
     private InListExpression(Optional<NodeLocation> location, List<Expression> values)
     {
         super(location);
-        this.values = values;
+        requireNonNull(values, "values is null");
+        checkArgument(!values.isEmpty(), "values cannot be empty");
+        this.values = ImmutableList.copyOf(values);
     }
 
     public List<Expression> getValues()

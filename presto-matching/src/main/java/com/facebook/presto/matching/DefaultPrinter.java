@@ -19,11 +19,14 @@ import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
 
+import static com.google.common.base.Strings.repeat;
+import static java.lang.String.format;
+
 public class DefaultPrinter
         implements PatternVisitor
 {
-    private StringBuilder result = new StringBuilder();
-    private int level = 0;
+    private final StringBuilder result = new StringBuilder();
+    private int level;
 
     public String result()
     {
@@ -70,6 +73,6 @@ public class DefaultPrinter
 
     private void appendLine(String template, Object... arguments)
     {
-        result.append(Util.indent(level, template + "\n", arguments));
+        result.append(repeat("\t", level)).append(format(template + "\n", arguments));
     }
 }

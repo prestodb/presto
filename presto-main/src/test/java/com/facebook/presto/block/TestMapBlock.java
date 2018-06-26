@@ -16,10 +16,9 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
-import com.google.common.primitives.Ints;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -66,40 +65,40 @@ public class TestMapBlock
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
 
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, Ints.asList(0, 1, 3, 4, 7));
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 1, 3, 4, 7));
-        assertBlockFilteredPositions(expectedValues, blockBuilder, Ints.asList(2, 3, 5, 6));
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(2, 3, 5, 6));
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
 
         Block block = createBlockWithValuesFromKeyValueBlock(expectedValues);
 
-        assertBlock(block, expectedValues);
-        assertBlockFilteredPositions(expectedValues, block, Ints.asList(0, 1, 3, 4, 7));
-        assertBlockFilteredPositions(expectedValues, block, Ints.asList(2, 3, 5, 6));
+        assertBlock(block, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
 
         Map<String, Long>[] expectedValuesWithNull = (Map<String, Long>[]) alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
 
-        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, Ints.asList(2, 3, 4, 9, 13, 14));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
+        assertBlock(blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
+        assertBlock(blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
 
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(expectedValuesWithNull);
 
-        assertBlock(blockWithNull, expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, Ints.asList(2, 3, 4, 9, 13, 14));
+        assertBlock(blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
     }
 
     private BlockBuilder createBlockBuilderWithValues(Map<String, Long>[] maps)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         for (Map<String, Long> map : maps) {
             createBlockBuilderWithValues(map, mapBlockBuilder);
         }
@@ -200,5 +199,30 @@ public class TestMapBlock
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));
         }
+    }
+
+    @Test
+    public void testCloseEntryStrict()
+            throws Exception
+    {
+        MapType mapType = mapType(BIGINT, BIGINT);
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+
+        // Add 100 maps with only one entry but the same key
+        for (int i = 0; i < 100; i++) {
+            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
+            BIGINT.writeLong(entryBuilder, 1);
+            BIGINT.writeLong(entryBuilder, -1);
+            mapBlockBuilder.closeEntry();
+        }
+
+        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
+        // Add 50 keys so we get some chance to get hash conflict
+        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
+        for (int i = 0; i < 50; i++) {
+            BIGINT.writeLong(entryBuilder, i);
+            BIGINT.writeLong(entryBuilder, -1);
+        }
+        mapBlockBuilder.closeEntryStrict();
     }
 }

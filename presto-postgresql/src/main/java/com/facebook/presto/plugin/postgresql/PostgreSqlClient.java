@@ -15,8 +15,10 @@ package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.spi.type.Type;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -27,14 +29,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
     @Inject
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
-            throws SQLException
     {
-        super(connectorId, config, "\"", new Driver());
+        super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
     }
 
     @Override
@@ -76,5 +79,15 @@ public class PostgreSqlClient
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        if (VARBINARY.equals(type)) {
+            return "bytea";
+        }
+
+        return super.toSqlType(type);
     }
 }

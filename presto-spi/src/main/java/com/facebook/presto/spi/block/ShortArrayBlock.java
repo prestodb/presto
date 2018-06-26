@@ -15,9 +15,12 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
+import javax.annotation.Nullable;
+
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -29,15 +32,16 @@ public class ShortArrayBlock
 
     private final int arrayOffset;
     private final int positionCount;
+    @Nullable
     private final boolean[] valueIsNull;
     private final short[] values;
 
     private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
-    public ShortArrayBlock(int positionCount, boolean[] valueIsNull, short[] values)
+    public ShortArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, short[] values)
     {
-        this(0, positionCount, valueIsNull, values);
+        this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
     ShortArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, short[] values)
@@ -56,7 +60,7 @@ public class ShortArrayBlock
         }
         this.values = values;
 
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -87,7 +91,9 @@ public class ShortArrayBlock
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, sizeOf(values));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsNull != null) {
+            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -108,10 +114,16 @@ public class ShortArrayBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
@@ -119,6 +131,7 @@ public class ShortArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeShort(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -126,23 +139,31 @@ public class ShortArrayBlock
     {
         checkReadablePosition(position);
         return new ShortArrayBlock(
+                0,
                 1,
-                new boolean[] {valueIsNull[position + arrayOffset]},
+                isNull(position) ? new boolean[] {true} : null,
                 new short[] {values[position + arrayOffset]});
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        boolean[] newValueIsNull = new boolean[positions.size()];
-        short[] newValues = new short[positions.size()];
-        for (int i = 0; i < positions.size(); i++) {
-            int position = positions.get(i);
+        checkArrayRange(positions, offset, length);
+
+        boolean[] newValueIsNull = null;
+        if (valueIsNull != null) {
+            newValueIsNull = new boolean[length];
+        }
+        short[] newValues = new short[length];
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            if (valueIsNull != null) {
+                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            }
             newValues[i] = values[position + arrayOffset];
         }
-        return new ShortArrayBlock(positions.size(), newValueIsNull, newValues);
+        return new ShortArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -159,19 +180,19 @@ public class ShortArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         short[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
-        return new ShortArrayBlock(length, newValueIsNull, newValues);
+        return new ShortArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ShortArrayBlockEncoding();
+        return ShortArrayBlockEncoding.NAME;
     }
 
     @Override

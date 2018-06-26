@@ -20,6 +20,7 @@ import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.Expression;
@@ -33,7 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -69,7 +70,7 @@ public class TestWindowNode
         objectMapper = provider.get();
     }
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         symbolAllocator = new SymbolAllocator();
@@ -107,8 +108,9 @@ public class TestWindowNode
         PlanNodeId id = newId();
         WindowNode.Specification specification = new WindowNode.Specification(
                 ImmutableList.of(columnA),
-                ImmutableList.of(columnB),
-                ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST));
+                Optional.of(new OrderingScheme(
+                        ImmutableList.of(columnB),
+                        ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
         Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(functionCall, signature, frame));
         Optional<Symbol> hashSymbol = Optional.of(columnB);
         Set<Symbol> prePartitionedInputs = ImmutableSet.of(columnA);

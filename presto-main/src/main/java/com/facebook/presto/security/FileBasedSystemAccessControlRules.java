@@ -23,15 +23,24 @@ import java.util.Optional;
 public class FileBasedSystemAccessControlRules
 {
     private final List<CatalogAccessControlRule> catalogRules;
+    private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
 
     @JsonCreator
-    public FileBasedSystemAccessControlRules(@JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules)
+    public FileBasedSystemAccessControlRules(
+            @JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules,
+            @JsonProperty("principals") Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf).orElse(ImmutableList.of());
+        this.principalUserMatchRules = principalUserMatchRules.map(ImmutableList::copyOf);
     }
 
     public List<CatalogAccessControlRule> getCatalogRules()
     {
         return catalogRules;
+    }
+
+    public Optional<List<PrincipalUserMatchRule>> getPrincipalUserMatchRules()
+    {
+        return principalUserMatchRules;
     }
 }

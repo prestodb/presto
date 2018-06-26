@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 public interface TaskManager
 {
@@ -83,7 +84,7 @@ public interface TaskManager
      * Updates the task plan, sources and output buffers.  If the task does not
      * already exist, is is created and then updated.
      */
-    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
+    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then
@@ -106,6 +107,11 @@ public interface TaskManager
      * eventually exist are queried.
      */
     ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
+
+    /**
+     * Acknowledges previously received results.
+     */
+    void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId);
 
     /**
      * Aborts a result buffer for a task.  If the task or buffer has not been

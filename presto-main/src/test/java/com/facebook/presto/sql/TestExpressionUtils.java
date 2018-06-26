@@ -24,6 +24,8 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.sql.ExpressionUtils.normalize;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
@@ -34,7 +36,6 @@ public class TestExpressionUtils
 {
     @Test
     public void testAnd()
-            throws Exception
     {
         Expression a = name("a");
         Expression b = name("b");
@@ -53,11 +54,10 @@ public class TestExpressionUtils
 
     @Test
     public void testNormalize()
-            throws Exception
     {
         assertNormalize(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1")));
         assertNormalize(new IsNullPredicate(name("a")));
-        assertNormalize(new NotExpression(new LikePredicate(name("a"), new StringLiteral("x%"), null)));
+        assertNormalize(new NotExpression(new LikePredicate(name("a"), new StringLiteral("x%"), Optional.empty())));
         assertNormalize(
                 new NotExpression(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1"))),
                 new ComparisonExpression(NOT_EQUAL, name("a"), new LongLiteral("1")));

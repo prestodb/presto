@@ -26,10 +26,8 @@ public class TestFixedWidthBlockBuilder
 
     @Test
     public void testFixedBlockIsFull()
-            throws Exception
     {
-        testIsFull(new PageBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024));
-        testIsFull(new PageBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
+        testIsFull(new PageBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
     }
 
     private static void testIsFull(PageBuilderStatus pageBuilderStatus)

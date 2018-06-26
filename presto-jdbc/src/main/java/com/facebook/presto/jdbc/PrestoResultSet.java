@@ -62,6 +62,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -73,9 +74,9 @@ import static java.util.Objects.requireNonNull;
 public class PrestoResultSet
         implements ResultSet
 {
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    private static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+    static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+    static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter(),
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
@@ -84,8 +85,8 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+    static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
@@ -103,6 +104,7 @@ public class PrestoResultSet
     private final ResultSetMetaData resultSetMetaData;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
             throws SQLException
@@ -156,6 +158,7 @@ public class PrestoResultSet
     public void close()
             throws SQLException
     {
+        closed.set(true);
         client.close();
     }
 
@@ -1311,7 +1314,7 @@ public class PrestoResultSet
     public boolean isClosed()
             throws SQLException
     {
-        return client.isClosed();
+        return closed.get();
     }
 
     @Override
@@ -1640,6 +1643,11 @@ public class PrestoResultSet
         return iface.isInstance(this);
     }
 
+    void partialCancel()
+    {
+        client.cancelLeafStage();
+    }
+
     private void checkOpen()
             throws SQLException
     {
@@ -1721,7 +1729,7 @@ public class PrestoResultSet
     private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
-        while (client.isValid()) {
+        while (client.isRunning()) {
             QueryStatusInfo results = client.currentStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
             List<Column> columns = results.getColumns();
@@ -1731,8 +1739,9 @@ public class PrestoResultSet
             client.advance();
         }
 
+        verify(client.isFinished());
         QueryStatusInfo results = client.finalStatusInfo();
-        if (!client.isFailed()) {
+        if (results.getError() == null) {
             throw new SQLException(format("Query has no columns (#%s)", results.getId()));
         }
         throw resultsException(results);
@@ -1759,7 +1768,7 @@ public class PrestoResultSet
         @Override
         protected Iterable<List<Object>> computeNext()
         {
-            while (client.isValid()) {
+            while (client.isRunning()) {
                 if (Thread.currentThread().isInterrupted()) {
                     client.close();
                     throw new RuntimeException(new SQLException("ResultSet thread was interrupted"));
@@ -1774,10 +1783,11 @@ public class PrestoResultSet
                 }
             }
 
+            verify(client.isFinished());
             QueryStatusInfo results = client.finalStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
 
-            if (client.isFailed()) {
+            if (results.getError() != null) {
                 throw new RuntimeException(resultsException(results));
             }
 

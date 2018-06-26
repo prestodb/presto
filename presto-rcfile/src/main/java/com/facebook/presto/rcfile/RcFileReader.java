@@ -17,7 +17,6 @@ import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksum;
 import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -329,12 +328,12 @@ public class RcFileReader
         }
 
         // read uncompressed size of row group (which is useless information)
-        verify(input.remaining() >= SIZE_OF_INT, "RCFile truncated %s", dataSource);
+        verify(input.remaining() >= SIZE_OF_INT, "RCFile truncated %s", dataSource.getId());
         int unusedRowGroupSize = Integer.reverseBytes(input.readInt());
 
         // read sequence sync if present
         if (unusedRowGroupSize == -1) {
-            verify(input.remaining() >= SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT, "RCFile truncated %s", dataSource);
+            verify(input.remaining() >= SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT, "RCFile truncated %s", dataSource.getId());
 
             // The full sync sequence is "0xFFFFFFFF syncFirst syncSecond".  If
             // this sequence begins in our segment, we must continue process until the
@@ -347,7 +346,7 @@ public class RcFileReader
                 return -1;
             }
 
-            verify(syncFirst == input.readLong() && syncSecond == input.readLong(), "Invalid sync in RCFile %s", dataSource);
+            verify(syncFirst == input.readLong() && syncSecond == input.readLong(), "Invalid sync in RCFile %s", dataSource.getId());
 
             // read the useless uncompressed length
             unusedRowGroupSize = Integer.reverseBytes(input.readInt());
@@ -378,7 +377,7 @@ public class RcFileReader
             header = buffer;
         }
         else {
-            verify(compressedHeaderSize == uncompressedHeaderSize, "Invalid RCFile %s", dataSource);
+            verify(compressedHeaderSize == uncompressedHeaderSize, "Invalid RCFile %s", dataSource.getId());
             header = compressedHeaderBuffer;
         }
         BasicSliceInput headerInput = header.getInput();
@@ -396,7 +395,7 @@ public class RcFileReader
             totalCompressedDataSize += compressedDataSize;
             int uncompressedDataSize = toIntExact(readVInt(headerInput));
             if (decompressor == null && compressedDataSize != uncompressedDataSize) {
-                throw corrupt("Invalid RCFile %s", dataSource);
+                throw corrupt("Invalid RCFile %s", dataSource.getId());
             }
 
             int lengthsSize = toIntExact(readVInt(headerInput));
@@ -428,11 +427,16 @@ public class RcFileReader
 
         if (columnIndex >= columns.length) {
             Type type = readColumns.get(columnIndex);
-            Block nullBlock = type.createBlockBuilder(new BlockBuilderStatus(), 1, 0).appendNull().build();
+            Block nullBlock = type.createBlockBuilder(null, 1, 0).appendNull().build();
             return new RunLengthEncodedBlock(nullBlock, currentChunkRowCount);
         }
 
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
+    }
+
+    public RcFileDataSourceId getId()
+    {
+        return dataSource.getId();
     }
 
     private void seekToFirstRowGroupInRange(long offset, long length)
@@ -486,7 +490,6 @@ public class RcFileReader
     }
 
     private void validateWriteRowGroupChecksum()
-            throws IOException
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addRowGroup(rowGroupRowCount);

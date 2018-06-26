@@ -14,8 +14,8 @@
 package com.facebook.presto.resourceGroups.db;
 
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,10 +39,10 @@ public class ResourceGroupGlobalProperties
     }
 
     public static class Mapper
-            implements ResultSetMapper<ResourceGroupGlobalProperties>
+            implements RowMapper<ResourceGroupGlobalProperties>
     {
         @Override
-        public ResourceGroupGlobalProperties map(int index, ResultSet resultSet, StatementContext context)
+        public ResourceGroupGlobalProperties map(ResultSet resultSet, StatementContext context)
                 throws SQLException
         {
             return new ResourceGroupGlobalProperties(Optional.ofNullable(resultSet.getString("value")).map(Duration::valueOf));

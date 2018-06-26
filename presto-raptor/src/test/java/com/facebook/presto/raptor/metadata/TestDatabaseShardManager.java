@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.predicate.Range.greaterThan;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThan;
+import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -122,7 +123,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testCommit()
-            throws Exception
     {
         long tableId = createTable("test");
 
@@ -242,7 +242,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testGetNodeTableShards()
-            throws Exception
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
@@ -271,7 +270,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testGetExistingShards()
-            throws Exception
     {
         long tableId = createTable("test");
         UUID shard1 = UUID.randomUUID();
@@ -290,7 +288,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testReplaceShardUuids()
-            throws Exception
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
@@ -352,7 +349,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testExternalBatches()
-            throws Exception
     {
         long tableId = createTable("test");
         Optional<String> externalBatchId = Optional.of("foo");
@@ -441,7 +437,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testTemporalColumnTableCreation()
-            throws Exception
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
@@ -454,7 +449,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testShardPruning()
-            throws Exception
     {
         ShardInfo shard1 = shardInfo(
                 UUID.randomUUID(),
@@ -577,15 +571,31 @@ public class TestDatabaseShardManager
         shardAssertion(tableId).range(c6, lessThan(BOOLEAN, true)).expected(shards);
         shardAssertion(tableId).range(c6, lessThan(BOOLEAN, false)).expected(shard1, shard3);
 
-        // TODO: support multiple ranges
+        // Test multiple ranges
         shardAssertion(tableId)
                 .domain(c1, createDomain(lessThan(BIGINT, 0L), greaterThan(BIGINT, 25L)))
-                .expected(shards);
+                .expected();
+
+        shardAssertion(tableId)
+                .domain(c1, createDomain(range(BIGINT, 3L, true, 4L, true), range(BIGINT, 16L, true, 18L, true)))
+                .expected(shard2, shard3);
+
+        shardAssertion(tableId)
+                .domain(c5, createDomain(
+                        range(createVarcharType(10), utf8Slice("gum"), true, utf8Slice("happy"), true),
+                        range(createVarcharType(10), utf8Slice("pear"), true, utf8Slice("wall"), true)))
+                .expected(shard1, shard3);
+
+        shardAssertion(tableId)
+                .domain(c1, createDomain(range(BIGINT, 3L, true, 4L, true), range(BIGINT, 16L, true, 18L, true)))
+                .domain(c5, createDomain(
+                        range(createVarcharType(10), utf8Slice("gum"), true, utf8Slice("happy"), true),
+                        range(createVarcharType(10), utf8Slice("pear"), true, utf8Slice("wall"), true)))
+                .expected(shard3);
     }
 
     @Test
     public void testShardPruningTruncatedValues()
-            throws Exception
     {
         String prefix = repeat("x", MAX_BINARY_INDEX_SIZE);
 
@@ -625,7 +635,6 @@ public class TestDatabaseShardManager
 
     @Test
     public void testShardPruningNoStats()
-            throws Exception
     {
         ShardInfo shard = shardInfo(UUID.randomUUID(), "node");
         List<ShardInfo> shards = ImmutableList.of(shard);

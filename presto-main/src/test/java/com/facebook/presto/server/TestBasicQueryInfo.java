@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,7 @@ public class TestBasicQueryInfo
                                 DateTime.parse("1991-09-06T06:00-05:30"),
                                 Duration.valueOf("8m"),
                                 Duration.valueOf("7m"),
+                                Duration.valueOf("34m"),
                                 Duration.valueOf("9m"),
                                 Duration.valueOf("10m"),
                                 Duration.valueOf("11m"),
@@ -72,6 +74,9 @@ public class TestBasicQueryInfo
                                 20.0,
                                 DataSize.valueOf("21GB"),
                                 DataSize.valueOf("22GB"),
+                                DataSize.valueOf("23GB"),
+                                DataSize.valueOf("24GB"),
+                                DataSize.valueOf("25GB"),
                                 true,
                                 Duration.valueOf("23m"),
                                 Duration.valueOf("24m"),
@@ -85,6 +90,15 @@ public class TestBasicQueryInfo
                                 30,
                                 DataSize.valueOf("31GB"),
                                 32,
+                                DataSize.valueOf("32GB"),
+                                ImmutableList.of(new StageGcStatistics(
+                                        101,
+                                        102,
+                                        103,
+                                        104,
+                                        105,
+                                        106,
+                                        107)),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),
@@ -99,7 +113,6 @@ public class TestBasicQueryInfo
                         null,
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
                         ImmutableSet.of(),
-                        Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty()));
@@ -120,9 +133,9 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getRunningDrivers(), 18);
         assertEquals(basicInfo.getQueryStats().getCompletedDrivers(), 19);
 
-        assertEquals(basicInfo.getQueryStats().getCumulativeMemory(), 20.0);
-        assertEquals(basicInfo.getQueryStats().getTotalMemoryReservation(), DataSize.valueOf("21GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakMemoryReservation(), DataSize.valueOf("22GB"));
+        assertEquals(basicInfo.getQueryStats().getCumulativeUserMemory(), 20.0);
+        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("21GB"));
+        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("23GB"));
         assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), Duration.valueOf("24m"));
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);

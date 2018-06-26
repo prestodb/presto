@@ -57,10 +57,9 @@ public class TestFixedCountScheduler
 
     @Test
     public void testSingleNode()
-            throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> taskFactory.createTableScanTask(
+                (node, partition, totalPartitions) -> taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> {})),
@@ -75,10 +74,9 @@ public class TestFixedCountScheduler
 
     @Test
     public void testMultipleNodes()
-            throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> taskFactory.createTableScanTask(
+                (node, partition, totalPartitions) -> taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> {})),

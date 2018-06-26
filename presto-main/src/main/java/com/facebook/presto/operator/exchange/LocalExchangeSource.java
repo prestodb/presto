@@ -14,8 +14,6 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -42,7 +40,6 @@ public class LocalExchangeSource
         NOT_EMPTY.set(null);
     }
 
-    private final List<Type> types;
     private final Consumer<LocalExchangeSource> onFinish;
 
     private final BlockingQueue<PageReference> buffer = new LinkedBlockingDeque<>();
@@ -56,15 +53,9 @@ public class LocalExchangeSource
     @GuardedBy("lock")
     private boolean finishing;
 
-    public LocalExchangeSource(List<? extends Type> types, Consumer<LocalExchangeSource> onFinish)
+    public LocalExchangeSource(Consumer<LocalExchangeSource> onFinish)
     {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.onFinish = requireNonNull(onFinish, "onFinish is null");
-    }
-
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     public LocalExchangeBufferInfo getBufferInfo()

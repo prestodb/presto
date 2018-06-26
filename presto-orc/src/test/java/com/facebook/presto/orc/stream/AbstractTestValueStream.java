@@ -23,13 +23,13 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W extends ValueOutputStream<C>, R extends ValueInputStream<C>>
 {
+    static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
     static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
     protected void testWriteValue(List<List<T>> groups)
@@ -49,11 +49,12 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            Optional<Stream> stream = outputStream.writeDataStreams(33, sliceOutput);
-            assertTrue(stream.isPresent());
-            assertEquals(stream.get().getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.get().getColumn(), 33);
-            assertEquals(stream.get().getLength(), sliceOutput.size());
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            streamDataOutput.writeData(sliceOutput);
+            Stream stream = streamDataOutput.getStream();
+            assertEquals(stream.getStreamKind(), StreamKind.DATA);
+            assertEquals(stream.getColumn(), 33);
+            assertEquals(stream.getLength(), sliceOutput.size());
 
             List<C> checkpoints = outputStream.getCheckpoints();
             assertEquals(checkpoints.size(), groups.size());

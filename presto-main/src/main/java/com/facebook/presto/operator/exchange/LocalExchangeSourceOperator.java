@@ -17,12 +17,10 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -35,32 +33,25 @@ public class LocalExchangeSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final LocalExchange inMemoryExchange;
-        private int bufferIndex;
+        private final LocalExchangeFactory localExchangeFactory;
         private boolean closed;
 
-        public LocalExchangeSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchange inMemoryExchange)
+        public LocalExchangeSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchangeFactory localExchangeFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.inMemoryExchange = requireNonNull(inMemoryExchange, "inMemoryExchange is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return inMemoryExchange.getTypes();
+            this.localExchangeFactory = requireNonNull(localExchangeFactory, "localExchangeFactory is null");
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            checkState(bufferIndex < inMemoryExchange.getBufferCount(), "All operators already created");
+
+            LocalExchange inMemoryExchange = localExchangeFactory.getLocalExchange(driverContext.getLifespan());
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSourceOperator.class.getSimpleName());
-            Operator operator = new LocalExchangeSourceOperator(operatorContext, inMemoryExchange.getSource(bufferIndex));
-            bufferIndex++;
-            return operator;
+            return new LocalExchangeSourceOperator(operatorContext, inMemoryExchange.getNextSource());
         }
 
         @Override
@@ -73,6 +64,11 @@ public class LocalExchangeSourceOperator
         public OperatorFactory duplicate()
         {
             throw new UnsupportedOperationException("Source operator factories can not be duplicated");
+        }
+
+        public LocalExchangeFactory getLocalExchangeFactory()
+        {
+            return localExchangeFactory;
         }
     }
 
@@ -90,12 +86,6 @@ public class LocalExchangeSourceOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return source.getTypes();
     }
 
     @Override

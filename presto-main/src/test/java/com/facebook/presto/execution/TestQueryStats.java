@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -56,6 +57,7 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(1L),
                     1L,
+                    succinctBytes(1L),
                     new Duration(1, NANOSECONDS),
                     0L,
                     new Duration(1, NANOSECONDS),
@@ -85,6 +87,7 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(500L),
                     100L,
+                    succinctBytes(1L),
                     new Duration(1, NANOSECONDS),
                     0L,
                     new Duration(1, NANOSECONDS),
@@ -114,6 +117,7 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(1L),
                     1L,
+                    succinctBytes(1L),
                     new Duration(1, NANOSECONDS),
                     0L,
                     new Duration(1, NANOSECONDS),
@@ -132,6 +136,7 @@ public class TestQueryStats
             new DateTime(4),
             new Duration(6, NANOSECONDS),
             new Duration(5, NANOSECONDS),
+            new Duration(31, NANOSECONDS),
             new Duration(7, NANOSECONDS),
             new Duration(8, NANOSECONDS),
 
@@ -151,6 +156,9 @@ public class TestQueryStats
             17.0,
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
+            new DataSize(20, BYTE),
+            new DataSize(21, BYTE),
+            new DataSize(22, BYTE),
 
             true,
             new Duration(20, NANOSECONDS),
@@ -168,6 +176,18 @@ public class TestQueryStats
 
             new DataSize(28, BYTE),
             29,
+
+            new DataSize(30, BYTE),
+
+            ImmutableList.of(new StageGcStatistics(
+                    101,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107)),
+
             operatorSummaries);
 
     @Test
@@ -207,9 +227,11 @@ public class TestQueryStats
         assertEquals(actual.getBlockedDrivers(), 30);
         assertEquals(actual.getCompletedDrivers(), 16);
 
-        assertEquals(actual.getCumulativeMemory(), 17.0);
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(18, BYTE));
-        assertEquals(actual.getPeakMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 17.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
+        assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
@@ -225,7 +247,19 @@ public class TestQueryStats
         assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);
 
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(30, BYTE));
+
+        assertEquals(actual.getStageGcStatistics().size(), 1);
+        StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
+        assertEquals(gcStatistics.getStageId(), 101);
+        assertEquals(gcStatistics.getTasks(), 102);
+        assertEquals(gcStatistics.getFullGcTasks(), 103);
+        assertEquals(gcStatistics.getMinFullGcSec(), 104);
+        assertEquals(gcStatistics.getMaxFullGcSec(), 105);
+        assertEquals(gcStatistics.getTotalFullGcSec(), 106);
+        assertEquals(gcStatistics.getAverageFullGcSec(), 107);
+
         assertEquals(400L, actual.getWrittenPositions());
-        assertEquals(1500L, actual.getWrittenDataSize().toBytes());
+        assertEquals(1500L, actual.getLogicalWrittenDataSize().toBytes());
     }
 }

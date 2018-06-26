@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -88,12 +87,7 @@ public final class InvokeFunction
 
     public static Object invoke(InvokeLambda function)
     {
-        try {
-            return function.apply();
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
-        }
+        return function.apply();
     }
 
     @FunctionalInterface

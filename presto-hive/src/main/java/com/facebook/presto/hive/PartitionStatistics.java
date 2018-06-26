@@ -18,66 +18,25 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
-import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
 public class PartitionStatistics
 {
-    public static final PartitionStatistics EMPTY_STATISTICS = new PartitionStatistics(
-            false,
-            OptionalLong.empty(),
-            OptionalLong.empty(),
-            OptionalLong.empty(),
-            OptionalLong.empty(),
-            ImmutableMap.of());
-
-    private final boolean columnStatsAcurate;
-    private final OptionalLong fileCount;
-    private final OptionalLong rowCount;
-    private final OptionalLong rawDataSize;
-    private final OptionalLong totalSize;
+    private final HiveBasicStatistics basicStatistics;
     private final Map<String, HiveColumnStatistics> columnStatistics;
 
     public PartitionStatistics(
-            boolean columnStatsAcurate,
-            OptionalLong fileCount,
-            OptionalLong rowCount,
-            OptionalLong rawDataSize,
-            OptionalLong totalSize,
+            HiveBasicStatistics basicStatistics,
             Map<String, HiveColumnStatistics> columnStatistics)
     {
-        this.columnStatsAcurate = columnStatsAcurate;
-        this.fileCount = fileCount;
-        this.rowCount = rowCount;
-        this.rawDataSize = rawDataSize;
-        this.totalSize = totalSize;
+        this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
         this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics can not be null"));
     }
 
-    public boolean isColumnStatsAcurate()
+    public HiveBasicStatistics getBasicStatistics()
     {
-        return columnStatsAcurate;
-    }
-
-    public OptionalLong getFileCount()
-    {
-        return fileCount;
-    }
-
-    public OptionalLong getRowCount()
-    {
-        return rowCount;
-    }
-
-    public OptionalLong getRawDataSize()
-    {
-        return rawDataSize;
-    }
-
-    public OptionalLong getTotalSize()
-    {
-        return totalSize;
+        return basicStatistics;
     }
 
     public Map<String, HiveColumnStatistics> getColumnStatistics()

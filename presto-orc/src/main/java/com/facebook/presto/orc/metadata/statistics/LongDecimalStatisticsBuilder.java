@@ -13,11 +13,18 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalStatisticsBuilder
@@ -28,6 +35,18 @@ public class LongDecimalStatisticsBuilder
     private long nonNullValueCount;
     private BigDecimal minimum;
     private BigDecimal maximum;
+
+    @Override
+    public void addBlock(Type type, Block block)
+    {
+        int scale = ((DecimalType) type).getScale();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                Slice value = type.getSlice(block, position);
+                addValue(new BigDecimal(Decimals.decodeUnscaledValue(value), scale));
+            }
+        }
+    }
 
     public void addValue(BigDecimal value)
     {
@@ -67,7 +86,8 @@ public class LongDecimalStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new DecimalStatistics(minimum, maximum));
+        checkState(minimum != null && maximum != null);
+        return Optional.of(new DecimalStatistics(minimum, maximum, LONG_DECIMAL_VALUE_BYTES));
     }
 
     @Override

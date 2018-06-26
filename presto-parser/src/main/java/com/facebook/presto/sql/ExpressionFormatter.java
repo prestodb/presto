@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -78,6 +79,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -96,6 +98,7 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ExpressionFormatter
@@ -108,6 +111,18 @@ public final class ExpressionFormatter
     public static String formatExpression(Expression expression, Optional<List<Expression>> parameters)
     {
         return new Formatter(parameters).process(expression, null);
+    }
+
+    public static String formatQualifiedName(QualifiedName name)
+    {
+        return name.getParts().stream()
+                .map(ExpressionFormatter::formatIdentifier)
+                .collect(joining("."));
+    }
+
+    public static String formatIdentifier(String s)
+    {
+        return '"' + s.replace("\"", "\"\"") + '"';
     }
 
     public static class Formatter
@@ -147,6 +162,12 @@ public final class ExpressionFormatter
                     .append(process(node.getValue(), context))
                     .append(" AT TIME ZONE ")
                     .append(process(node.getTimeZone(), context)).toString();
+        }
+
+        @Override
+        protected String visitCurrentUser(CurrentUser node, Void context)
+        {
+            return "CURRENT_USER";
         }
 
         @Override
@@ -320,15 +341,6 @@ public final class ExpressionFormatter
         {
             String baseString = process(node.getBase(), context);
             return baseString + "." + process(node.getField());
-        }
-
-        private static String formatQualifiedName(QualifiedName name)
-        {
-            List<String> parts = new ArrayList<>();
-            for (String part : name.getParts()) {
-                parts.add(formatIdentifier(part));
-            }
-            return Joiner.on('.').join(parts);
         }
 
         @Override
@@ -675,18 +687,12 @@ public final class ExpressionFormatter
                     .map((e) -> process(e, null))
                     .iterator());
         }
-
-        private static String formatIdentifier(String s)
-        {
-            // TODO: handle escaping properly
-            return '"' + s + '"';
-        }
     }
 
     static String formatStringLiteral(String s)
     {
         s = s.replace("'", "''");
-        if (isAsciiPrintable(s)) {
+        if (CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(s)) {
             return "'" + s + "'";
         }
 
@@ -763,16 +769,6 @@ public final class ExpressionFormatter
             resultStrings.add(result);
         }
         return Joiner.on(", ").join(resultStrings.build());
-    }
-
-    private static boolean isAsciiPrintable(String s)
-    {
-        for (int i = 0; i < s.length(); i++) {
-            if (!isAsciiPrintable(s.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static boolean isAsciiPrintable(int codePoint)

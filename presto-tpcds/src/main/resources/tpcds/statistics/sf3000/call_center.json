@@ -1,0 +1,152 @@
+ {
+    "rowCount" : 48.0,
+     "columns" : {
+        "cc_county" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_suite_number" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_gmt_offset" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 0.000000,
+             "min" : -800,
+             "max" : -500
+        },
+        "cc_manager" : {
+             "distinctValuesCount" : 37.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_city" : {
+             "distinctValuesCount" : 22.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_zip" : {
+             "distinctValuesCount" : 24.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_market_manager" : {
+             "distinctValuesCount" : 43.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_company" : {
+             "distinctValuesCount" : 5.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 6
+        },
+        "cc_street_number" : {
+             "distinctValuesCount" : 25.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_mkt_id" : {
+             "distinctValuesCount" : 5.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 6
+        },
+        "cc_rec_end_date" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 24.000000,
+             "min" : "2000-01-02",
+             "max" : "2002-01-01"
+        },
+        "cc_company_name" : {
+             "distinctValuesCount" : 7.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_open_date_sk" : {
+             "distinctValuesCount" : 15.0,
+             "nullsCount" : 0.000000,
+             "min" : 2450794,
+             "max" : 2451146
+        },
+        "cc_class" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_mkt_class" : {
+             "distinctValuesCount" : 43.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_division" : {
+             "distinctValuesCount" : 5.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 6
+        },
+        "cc_call_center_sk" : {
+             "distinctValuesCount" : 36.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 48
+        },
+        "cc_rec_start_date" : {
+             "distinctValuesCount" : 4.0,
+             "nullsCount" : 0.000000,
+             "min" : "1998-01-02",
+             "max" : "2002-01-02"
+        },
+        "cc_street_type" : {
+             "distinctValuesCount" : 14.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_division_name" : {
+             "distinctValuesCount" : 7.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_name" : {
+             "distinctValuesCount" : 25.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_country" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_closed_date_sk" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 48.000000
+        },
+        "cc_call_center_id" : {
+             "distinctValuesCount" : 24.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_street_name" : {
+             "distinctValuesCount" : 25.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_tax_percentage" : {
+             "distinctValuesCount" : 15.0,
+             "nullsCount" : 0.000000,
+             "min" : 0,
+             "max" : 12
+        },
+        "cc_sq_ft" : {
+             "distinctValuesCount" : 45.0,
+             "nullsCount" : 0.000000,
+             "min" : -2131742388,
+             "max" : 1959548348
+        },
+        "cc_state" : {
+             "distinctValuesCount" : 12.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_hours" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_mkt_desc" : {
+             "distinctValuesCount" : 33.0,
+             "nullsCount" : 0.000000
+        },
+        "cc_employees" : {
+             "distinctValuesCount" : 34.0,
+             "nullsCount" : 0.000000,
+             "min" : 146280,
+             "max" : 62879074
+        },
+        "dummyColumn" : {}
+    }
+}

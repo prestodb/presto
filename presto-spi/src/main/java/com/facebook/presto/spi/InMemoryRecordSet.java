@@ -41,7 +41,7 @@ public class InMemoryRecordSet
     private final List<Type> types;
     private final Iterable<? extends List<?>> records;
 
-    public InMemoryRecordSet(Collection<? extends Type> types, Collection<? extends List<?>> records)
+    public InMemoryRecordSet(Collection<? extends Type> types, Iterable<? extends List<?>> records)
     {
         this.types = Collections.unmodifiableList(new ArrayList<>(types));
         this.records = records;

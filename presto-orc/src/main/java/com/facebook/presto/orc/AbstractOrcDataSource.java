@@ -109,7 +109,7 @@ public abstract class AbstractOrcDataSource
     }
 
     @Override
-    public final <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
+    public final <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         requireNonNull(diskRanges, "diskRanges is null");
@@ -138,14 +138,14 @@ public abstract class AbstractOrcDataSource
         Map<K, DiskRange> largeRanges = largeRangesBuilder.build();
 
         // read ranges
-        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
         slices.putAll(readSmallDiskRanges(smallRanges));
         slices.putAll(readLargeDiskRanges(largeRanges));
 
         return slices.build();
     }
 
-    private <K> Map<K, FixedLengthSliceInput> readSmallDiskRanges(Map<K, DiskRange> diskRanges)
+    private <K> Map<K, OrcDataSourceInput> readSmallDiskRanges(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         if (diskRanges.isEmpty()) {
@@ -154,14 +154,15 @@ public abstract class AbstractOrcDataSource
 
         Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxBufferSize);
 
-        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
         if (lazyReadSmallRanges) {
             for (DiskRange mergedRange : mergedRanges) {
                 LazyBufferLoader mergedRangeLazyLoader = new LazyBufferLoader(mergedRange);
                 for (Entry<K, DiskRange> diskRangeEntry : diskRanges.entrySet()) {
                     DiskRange diskRange = diskRangeEntry.getValue();
                     if (mergedRange.contains(diskRange)) {
-                        slices.put(diskRangeEntry.getKey(), new LazySliceInput(diskRange.getLength(), new LazySliceLoader(diskRange, mergedRangeLazyLoader)));
+                        FixedLengthSliceInput sliceInput = new LazySliceInput(diskRange.getLength(), new LazyMergedSliceLoader(diskRange, mergedRangeLazyLoader));
+                        slices.put(diskRangeEntry.getKey(), new OrcDataSourceInput(sliceInput, diskRange.getLength()));
                     }
                 }
             }
@@ -176,26 +177,27 @@ public abstract class AbstractOrcDataSource
             }
 
             for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-                slices.put(entry.getKey(), getDiskRangeSlice(entry.getValue(), buffers).getInput());
+                slices.put(entry.getKey(), new OrcDataSourceInput(getDiskRangeSlice(entry.getValue(), buffers).getInput(), entry.getValue().getLength()));
             }
         }
 
-        Map<K, FixedLengthSliceInput> sliceStreams = slices.build();
+        Map<K, OrcDataSourceInput> sliceStreams = slices.build();
         verify(sliceStreams.keySet().equals(diskRanges.keySet()));
         return sliceStreams;
     }
 
-    private <K> Map<K, FixedLengthSliceInput> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
-            throws IOException
+    private <K> Map<K, OrcDataSourceInput> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
     {
         if (diskRanges.isEmpty()) {
             return ImmutableMap.of();
         }
 
-        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new ChunkedSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
-            slices.put(entry.getKey(), sliceInput);
+            DiskRange diskRange = entry.getValue();
+            int bufferSize = toIntExact(streamBufferSize.toBytes());
+            FixedLengthSliceInput sliceInput = new LazySliceInput(diskRange.getLength(), new LazyChunkedSliceLoader(diskRange, bufferSize));
+            slices.put(entry.getKey(), new OrcDataSourceInput(sliceInput, bufferSize));
         }
         return slices.build();
     }
@@ -241,13 +243,13 @@ public abstract class AbstractOrcDataSource
         }
     }
 
-    private final class LazySliceLoader
+    private final class LazyMergedSliceLoader
             implements Supplier<FixedLengthSliceInput>
     {
         private final DiskRange diskRange;
         private final LazyBufferLoader lazyBufferLoader;
 
-        public LazySliceLoader(DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
+        public LazyMergedSliceLoader(DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
         {
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
             this.lazyBufferLoader = requireNonNull(lazyBufferLoader, "lazyBufferLoader is null");
@@ -321,6 +323,26 @@ public abstract class AbstractOrcDataSource
         public Slice getSlice()
         {
             return slice;
+        }
+    }
+
+    private final class LazyChunkedSliceLoader
+            implements Supplier<FixedLengthSliceInput>
+    {
+        private final DiskRange diskRange;
+        private final int bufferSize;
+
+        public LazyChunkedSliceLoader(DiskRange diskRange, int bufferSize)
+        {
+            this.diskRange = requireNonNull(diskRange, "diskRange is null");
+            checkArgument(bufferSize > 0, "bufferSize must be greater than 0");
+            this.bufferSize = bufferSize;
+        }
+
+        @Override
+        public FixedLengthSliceInput get()
+        {
+            return new ChunkedSliceInput(new ChunkedSliceLoader(diskRange), bufferSize);
         }
     }
 }

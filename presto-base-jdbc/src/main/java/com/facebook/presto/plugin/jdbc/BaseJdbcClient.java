@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -32,30 +32,28 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
+import javax.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -66,14 +64,10 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Maps.fromProperties;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
@@ -101,33 +95,28 @@ public class BaseJdbcClient
             .build();
 
     protected final String connectorId;
-    protected final Driver driver;
-    protected final String connectionUrl;
-    protected final Properties connectionProperties;
+    protected final ConnectionFactory connectionFactory;
     protected final String identifierQuote;
 
-    public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, Driver driver)
+    public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        requireNonNull(config, "config is null"); // currently unused, retained as parameter for future extensions
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
-        this.driver = requireNonNull(driver, "driver is null");
+        this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
+    }
 
-        requireNonNull(config, "config is null");
-        connectionUrl = config.getConnectionUrl();
-
-        connectionProperties = new Properties();
-        if (config.getConnectionUser() != null) {
-            connectionProperties.setProperty("user", config.getConnectionUser());
-        }
-        if (config.getConnectionPassword() != null) {
-            connectionProperties.setProperty("password", config.getConnectionPassword());
-        }
+    @PreDestroy
+    public void destroy()
+            throws Exception
+    {
+        connectionFactory.close();
     }
 
     @Override
     public Set<String> getSchemaNames()
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties);
+        try (Connection connection = connectionFactory.openConnection();
                 ResultSet resultSet = connection.getMetaData().getSchemas()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -147,7 +136,7 @@ public class BaseJdbcClient
     @Override
     public List<SchemaTableName> getTableNames(@Nullable String schema)
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
             if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
                 schema = schema.toUpperCase(ENGLISH);
@@ -169,7 +158,7 @@ public class BaseJdbcClient
     @Override
     public JdbcTableHandle getTableHandle(SchemaTableName schemaTableName)
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
             String jdbcSchemaName = schemaTableName.getSchemaName();
             String jdbcTableName = schemaTableName.getTableName();
@@ -202,29 +191,26 @@ public class BaseJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
-                boolean found = false;
                 while (resultSet.next()) {
-                    found = true;
-                    Type columnType = toPrestoType(
+                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
+                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
-                    if (columnType != null) {
+                    if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, columnType));
+                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType()));
                     }
                 }
-                if (!found) {
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
-                }
                 if (columns.isEmpty()) {
-                    throw new PrestoException(NOT_SUPPORTED, "Table has no supported column types: " + tableHandle.getSchemaTableName());
+                    // In rare cases (e.g. PostgreSQL) a table might have no columns.
+                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -232,6 +218,12 @@ public class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        return jdbcTypeToPrestoType(typeHandle);
     }
 
     @Override
@@ -243,8 +235,6 @@ public class BaseJdbcClient
                 tableHandle.getCatalogName(),
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                connectionUrl,
-                fromProperties(connectionProperties),
                 layoutHandle.getTupleDomain());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
@@ -253,7 +243,7 @@ public class BaseJdbcClient
     public Connection getConnection(JdbcSplit split)
             throws SQLException
     {
-        Connection connection = driver.connect(split.getConnectionUrl(), toProperties(split.getConnectionProperties()));
+        Connection connection = connectionFactory.openConnection();
         try {
             connection.setReadOnly(true);
         }
@@ -300,7 +290,7 @@ public class BaseJdbcClient
             throw new PrestoException(NOT_FOUND, "Schema not found: " + schema);
         }
 
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
                 schema = schema.toUpperCase(ENGLISH);
@@ -308,7 +298,7 @@ public class BaseJdbcClient
             }
             String catalog = connection.getCatalog();
 
-            String temporaryName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+            String temporaryName = generateTemporaryTableName();
             StringBuilder sql = new StringBuilder()
                     .append("CREATE TABLE ")
                     .append(quoted(catalog, schema, temporaryName))
@@ -341,13 +331,16 @@ public class BaseJdbcClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    temporaryName,
-                    connectionUrl,
-                    fromProperties(connectionProperties));
+                    temporaryName);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    protected String generateTemporaryTableName()
+    {
+        return "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override
@@ -397,7 +390,7 @@ public class BaseJdbcClient
                 .append("DROP TABLE ")
                 .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
 
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             execute(connection, sql.toString());
         }
         catch (SQLException e) {
@@ -431,7 +424,7 @@ public class BaseJdbcClient
     public Connection getConnection(JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return driver.connect(handle.getConnectionUrl(), toProperties(handle.getConnectionProperties()));
+        return connectionFactory.openConnection();
     }
 
     @Override
@@ -470,64 +463,14 @@ public class BaseJdbcClient
         }
     }
 
-    protected Type toPrestoType(int jdbcType, int columnSize, int decimalDigits)
-    {
-        switch (jdbcType) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return BOOLEAN;
-            case Types.TINYINT:
-                return TINYINT;
-            case Types.SMALLINT:
-                return SMALLINT;
-            case Types.INTEGER:
-                return INTEGER;
-            case Types.BIGINT:
-                return BIGINT;
-            case Types.REAL:
-                return REAL;
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return DOUBLE;
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    return null;
-                }
-                return createDecimalType(precision, max(decimalDigits, 0));
-            case Types.CHAR:
-            case Types.NCHAR:
-                return createCharType(min(columnSize, CharType.MAX_LENGTH));
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
-                    return createUnboundedVarcharType();
-                }
-                return createVarcharType(columnSize);
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return VARBINARY;
-            case Types.DATE:
-                return DATE;
-            case Types.TIME:
-                return TIME;
-            case Types.TIMESTAMP:
-                return TIMESTAMP;
-        }
-        return null;
-    }
-
     protected String toSqlType(Type type)
     {
-        if (type instanceof VarcharType) {
-            if (((VarcharType) type).isUnbounded()) {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded()) {
                 return "varchar";
             }
-            return "varchar(" + ((VarcharType) type).getLength() + ")";
+            return "varchar(" + varcharType.getLengthSafe() + ")";
         }
         if (type instanceof CharType) {
             if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
@@ -543,7 +486,7 @@ public class BaseJdbcClient
         if (sqlType != null) {
             return sqlType;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getTypeSignature());
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     protected String quoted(String name)
@@ -587,14 +530,5 @@ public class BaseJdbcClient
                 escapeNamePattern(tableHandle.getSchemaName(), escape),
                 escapeNamePattern(tableHandle.getTableName(), escape),
                 null);
-    }
-
-    private static Properties toProperties(Map<String, String> map)
-    {
-        Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
-        }
-        return properties;
     }
 }

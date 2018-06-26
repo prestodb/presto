@@ -23,6 +23,8 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -48,7 +50,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
-import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -63,10 +64,12 @@ public class WindowFilterPushDown
     private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
 
     private final Metadata metadata;
+    private final DomainTranslator domainTranslator;
 
     public WindowFilterPushDown(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
     }
 
     @Override
@@ -78,7 +81,7 @@ public class WindowFilterPushDown
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, domainTranslator, session, types), plan, null);
     }
 
     private static class Rewriter
@@ -86,13 +89,15 @@ public class WindowFilterPushDown
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
+        private final DomainTranslator domainTranslator;
         private final Session session;
         private final Map<Symbol, Type> types;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, Map<Symbol, Type> types)
+        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, DomainTranslator domainTranslator, Session session, Map<Symbol, Type> types)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.session = requireNonNull(session, "session is null");
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
         }
@@ -134,7 +139,7 @@ public class WindowFilterPushDown
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source)) {
                 WindowNode windowNode = (WindowNode) source;
                 // verify that unordered row_number window functions are replaced by RowNumberNode
-                verify(!windowNode.getOrderBy().isEmpty());
+                verify(windowNode.getOrderingScheme().isPresent());
                 TopNRowNumberNode topNRowNumberNode = convertToTopNRowNumber(windowNode, limit);
                 if (windowNode.getPartitionBy().isEmpty()) {
                     return topNRowNumberNode;
@@ -191,7 +196,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     extractionResult.getRemainingExpression(),
-                    toPredicate(newTupleDomain));
+                    domainTranslator.toPredicate(newTupleDomain));
 
             if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
@@ -235,10 +240,10 @@ public class WindowFilterPushDown
                 upperBound--;
             }
 
-            if (upperBound > Integer.MAX_VALUE) {
-                return OptionalInt.empty();
+            if (upperBound > 0 && upperBound <= Integer.MAX_VALUE) {
+                return OptionalInt.of(toIntExact(upperBound));
             }
-            return OptionalInt.of(toIntExact(upperBound));
+            return OptionalInt.empty();
         }
 
         private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
@@ -262,7 +267,7 @@ public class WindowFilterPushDown
 
         private static boolean canReplaceWithRowNumber(WindowNode node)
         {
-            return canOptimizeWindowFunction(node) && node.getOrderBy().isEmpty();
+            return canOptimizeWindowFunction(node) && !node.getOrderingScheme().isPresent();
         }
 
         private static boolean canOptimizeWindowFunction(WindowNode node)

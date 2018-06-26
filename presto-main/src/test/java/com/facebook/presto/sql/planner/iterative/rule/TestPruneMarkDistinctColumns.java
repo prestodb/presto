@@ -30,7 +30,6 @@ public class TestPruneMarkDistinctColumns
 {
     @Test
     public void testMarkerSymbolNotReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
@@ -51,7 +50,6 @@ public class TestPruneMarkDistinctColumns
 
     @Test
     public void testSourceSymbolNotReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
@@ -81,7 +79,6 @@ public class TestPruneMarkDistinctColumns
 
     @Test
     public void testKeySymbolNotReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
@@ -97,7 +94,6 @@ public class TestPruneMarkDistinctColumns
 
     @Test
     public void testAllOutputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->

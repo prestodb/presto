@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -26,6 +21,11 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
 
 import java.util.function.BiFunction;
@@ -50,16 +50,9 @@ class InputReferenceCompiler
         this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
     }
 
-    @Override
-    public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+    public static BytecodeNode generateInputReference(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
     {
-        int field = node.getField();
-        Type type = node.getType();
-
-        BytecodeExpression block = blockResolver.apply(scope, field);
-        BytecodeExpression position = positionResolver.apply(scope, field);
         Variable wasNullVariable = scope.getVariable("wasNull");
-
         Class<?> javaType = type.getJavaType();
         if (!javaType.isPrimitive() && javaType != Slice.class) {
             javaType = Object.class;
@@ -76,6 +69,18 @@ class InputReferenceCompiler
         ifStatement.ifFalse(constantType(callSiteBinder, type).invoke(methodName, javaType, block, position));
 
         return ifStatement;
+    }
+
+    @Override
+    public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+    {
+        int field = node.getField();
+        Type type = node.getType();
+
+        BytecodeExpression block = blockResolver.apply(scope, field);
+        BytecodeExpression position = positionResolver.apply(scope, field);
+
+        return generateInputReference(callSiteBinder, scope, type, block, position);
     }
 
     @Override

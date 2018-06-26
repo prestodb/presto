@@ -111,7 +111,8 @@ public class DecimalInequalityOperators
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
-                .signature(signature);
+                .signature(signature)
+                .deterministic(true);
     }
 
     private static SqlScalarFunction binaryOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
@@ -192,6 +193,7 @@ public class DecimalInequalityOperators
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("betweenShortShortShort", "betweenLongLongLong"))
                 .build();

@@ -28,7 +28,7 @@ Query one of the tables::
 
 Kill a running query::
 
-    CALL system.runtime.kill_query('20151207_215727_00146_tx3nr');
+    CALL system.runtime.kill_query(query_id => '20151207_215727_00146_tx3nr', message => 'Using too many resources');
 
 System Connector Tables
 -----------------------

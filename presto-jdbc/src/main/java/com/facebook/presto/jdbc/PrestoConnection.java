@@ -16,7 +16,10 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -41,20 +44,25 @@ import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class PrestoConnection
@@ -68,7 +76,9 @@ public class PrestoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
+    private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
+    private final AtomicLong nextStatementId = new AtomicLong(1);
 
     private final URI jdbcUri;
     private final URI httpUri;
@@ -108,7 +118,8 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        throw new NotImplementedException("Connection", "prepareStatement");
+        String name = "statement" + nextStatementId.getAndIncrement();
+        return new PrestoPreparedStatement(this, name, sql);
     }
 
     @Override
@@ -552,14 +563,19 @@ public class PrestoConnection
     public void setNetworkTimeout(Executor executor, int milliseconds)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("setNetworkTimeout");
+        checkOpen();
+        if (milliseconds < 0) {
+            throw new SQLException("Timeout is negative");
+        }
+        networkTimeoutMillis.set(milliseconds);
     }
 
     @Override
     public int getNetworkTimeout()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getNetworkTimeout");
+        checkOpen();
+        return networkTimeoutMillis.get();
     }
 
     @SuppressWarnings("unchecked")
@@ -621,24 +637,33 @@ public class PrestoConnection
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
+        Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
+                .split(nullToEmpty(clientInfo.get("ClientTags")));
 
         Map<String, String> allProperties = new HashMap<>(sessionProperties);
         allProperties.putAll(sessionPropertiesOverride);
+
+        // zero means no timeout, so use a huge value that is effectively unlimited
+        int millis = networkTimeoutMillis.get();
+        Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
 
         ClientSession session = new ClientSession(
                 httpUri,
                 user,
                 source,
+                traceToken,
+                ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
+                ImmutableMap.of(),
                 ImmutableMap.copyOf(allProperties),
                 ImmutableMap.copyOf(preparedStatements),
                 transactionId.get(),
-                false,
-                new Duration(2, MINUTES));
+                timeout);
 
         return queryExecutor.startQuery(session, sql);
     }

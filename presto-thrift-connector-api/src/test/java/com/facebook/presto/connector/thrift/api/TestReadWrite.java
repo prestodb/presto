@@ -17,7 +17,6 @@ import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -109,21 +108,18 @@ public class TestReadWrite
 
     @Test(invocationCount = 20)
     public void testSingleRowPageReadWrite()
-            throws Exception
     {
         testPageReadWrite(new Random(singleRowPageSeedGenerator.incrementAndGet()), 1);
     }
 
     @Test(invocationCount = 20)
     public void testSingleRowRecordSetReadWrite()
-            throws Exception
     {
         testRecordSetReadWrite(new Random(singleRowRecordSetSeedGenerator.incrementAndGet()), 1);
     }
 
     @Test(invocationCount = 20)
     public void testMultiRowPageReadWrite()
-            throws Exception
     {
         Random random = new Random(multiRowPageSeedGenerator.incrementAndGet());
         testPageReadWrite(random, random.nextInt(10000) + 10000);
@@ -131,7 +127,6 @@ public class TestReadWrite
 
     @Test(invocationCount = 20)
     public void testMultiRowRecordSetReadWrite()
-            throws Exception
     {
         Random random = new Random(multiRowRecordSetSeedGenerator.incrementAndGet());
         testRecordSetReadWrite(random, random.nextInt(10000) + 10000);
@@ -183,7 +178,7 @@ public class TestReadWrite
 
     private static Block generateColumn(ColumnDefinition column, Random random, int records)
     {
-        BlockBuilder builder = column.getType().createBlockBuilder(new BlockBuilderStatus(), records);
+        BlockBuilder builder = column.getType().createBlockBuilder(null, records);
         for (int i = 0; i < records; i++) {
             if (random.nextDouble() < NULL_FRACTION) {
                 builder.appendNull();

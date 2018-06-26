@@ -15,8 +15,6 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.List;
-
 public abstract class AbstractSingleArrayBlock
         implements Block
 {
@@ -27,7 +25,7 @@ public abstract class AbstractSingleArrayBlock
         this.start = start;
     }
 
-    protected abstract BlockBuilder getBlock();
+    protected abstract Block getBlock();
 
     private void checkReadablePosition(int position)
     {
@@ -149,14 +147,14 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         // SingleArrayBlockEncoding does not exist
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
         throw new UnsupportedOperationException();
     }

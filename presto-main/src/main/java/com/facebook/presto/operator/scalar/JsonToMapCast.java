@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -101,7 +100,7 @@ public class JsonToMapCast
             if (jsonParser.getCurrentToken() != START_OBJECT) {
                 throw new JsonCastException(format("Expected a json object, but got %s", jsonParser.getText()));
             }
-            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
             BlockBuilder singleMapBlockBuilder = mapBlockBuilder.beginBlockEntry();
             HashTable hashTable = new HashTable(mapType.getKeyType(), singleMapBlockBuilder);
             int position = 0;

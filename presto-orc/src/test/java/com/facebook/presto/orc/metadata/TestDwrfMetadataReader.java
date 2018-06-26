@@ -46,17 +46,26 @@ public class TestDwrfMetadataReader
                         .build(),
                 false));
 
-        // if min and max are both null, no stat is ever produced
-        for (HiveWriterVersion hiveWriterVersion : HiveWriterVersion.values()) {
-            for (boolean isRowGroup : ImmutableList.of(true, false)) {
-                assertNull(DwrfMetadataReader.toStringStatistics(
-                        hiveWriterVersion,
-                        DwrfProto.StringStatistics.newBuilder()
-                                .setSum(45)
-                                .build(),
-                        isRowGroup));
-            }
+        // having only sum should work for current version
+        for (boolean isRowGroup : ImmutableList.of(true, false)) {
+            assertEquals(
+                    DwrfMetadataReader.toStringStatistics(
+                    HiveWriterVersion.ORC_HIVE_8732,
+                    DwrfProto.StringStatistics.newBuilder()
+                            .setSum(45)
+                            .build(),
+                    isRowGroup),
+                    new StringStatistics(null, null, 45));
         }
+        // and the ORIGINAL version row group stats (but not rolled up stats)
+        assertEquals(
+                DwrfMetadataReader.toStringStatistics(
+                HiveWriterVersion.ORIGINAL,
+                DwrfProto.StringStatistics.newBuilder()
+                        .setSum(45)
+                        .build(),
+                true),
+                new StringStatistics(null, null, 45));
 
         // having only a min or max should work
         assertEquals(

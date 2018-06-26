@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
@@ -174,7 +175,7 @@ import static java.util.stream.Collectors.toList;
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
 {
-    private int parameterPosition = 0;
+    private int parameterPosition;
     private final ParsingOptions parsingOptions;
 
     AstBuilder(ParsingOptions parsingOptions)
@@ -723,6 +724,8 @@ class AstBuilder
                 Optional.ofNullable(context.qualifiedName())
                         .map(this::getQualifiedName),
                 getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
                         .map(AstBuilder::unquote));
     }
 
@@ -733,6 +736,8 @@ class AstBuilder
                 getLocation(context),
                 visitIfPresent(context.identifier(), Identifier.class),
                 getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
                         .map(AstBuilder::unquote));
     }
 
@@ -1219,6 +1224,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCurrentUser(SqlBaseParser.CurrentUserContext context)
+    {
+        return new CurrentUser(getLocation(context.CURRENT_USER()));
+    }
+
+    @Override
     public Node visitExtract(SqlBaseParser.ExtractContext context)
     {
         String fieldString = context.identifier().getText();
@@ -1324,6 +1335,7 @@ class AstBuilder
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'if' function", context);
             check(!distinct, "DISTINCT not valid for 'if' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'if' function", context);
 
             Expression elseExpression = null;
             if (context.expression().size() == 3) {
@@ -1341,6 +1353,7 @@ class AstBuilder
             check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'nullif' function", context);
 
             return new NullIfExpression(
                     getLocation(context),
@@ -1352,6 +1365,7 @@ class AstBuilder
             check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'coalesce' function", context);
 
             return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
         }
@@ -1360,6 +1374,7 @@ class AstBuilder
             check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
             check(!window.isPresent(), "OVER clause not valid for 'try' function", context);
             check(!distinct, "DISTINCT not valid for 'try' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
@@ -1368,6 +1383,7 @@ class AstBuilder
             check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
+            check(!filter.isPresent(), "FILTER not valid for '$internal$bind' function", context);
 
             int numValues = context.expression().size() - 1;
             List<Expression> arguments = context.expression().stream()

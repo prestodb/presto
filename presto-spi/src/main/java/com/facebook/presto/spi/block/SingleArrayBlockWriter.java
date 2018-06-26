@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
+import static java.lang.String.format;
+
 public class SingleArrayBlockWriter
         extends AbstractSingleArrayBlock
         implements BlockBuilder
@@ -36,7 +38,7 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    protected BlockBuilder getBlock()
+    protected Block getBlock()
     {
         return blockBuilder;
     }
@@ -96,9 +98,18 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
-        blockBuilder.writeObject(value);
+        blockBuilder.appendStructure(block);
+        entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        blockBuilder.appendStructureInternal(block, position);
+        entryAdded();
         return this;
     }
 
@@ -150,9 +161,6 @@ public class SingleArrayBlockWriter
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("SingleArrayBlockWriter{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("SingleArrayBlockWriter{positionCount=%d}", getPositionCount());
     }
 }

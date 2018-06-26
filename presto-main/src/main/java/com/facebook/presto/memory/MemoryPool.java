@@ -16,8 +16,8 @@ package com.facebook.presto.memory;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 
@@ -47,7 +47,7 @@ public class MemoryPool
 
     @Nullable
     @GuardedBy("this")
-    private SettableFuture<?> future;
+    private NonCancellableMemoryFuture<?> future;
 
     @GuardedBy("this")
     // TODO: It would be better if we just tracked QueryContexts, but their lifecycle is managed by a weak reference, so we can't do that
@@ -99,7 +99,7 @@ public class MemoryPool
             reservedBytes += bytes;
             if (getFreeBytes() <= 0) {
                 if (future == null) {
-                    future = SettableFuture.create();
+                    future = NonCancellableMemoryFuture.create();
                 }
                 checkState(!future.isDone(), "future is already completed");
                 result = future;
@@ -130,7 +130,7 @@ public class MemoryPool
             reservedRevocableBytes += bytes;
             if (getFreeBytes() <= 0) {
                 if (future == null) {
-                    future = SettableFuture.create();
+                    future = NonCancellableMemoryFuture.create();
                 }
                 checkState(!future.isDone(), "future is already completed");
                 result = future;
@@ -243,6 +243,16 @@ public class MemoryPool
         return reservedRevocableBytes;
     }
 
+    synchronized long getQueryMemoryReservation(QueryId queryId)
+    {
+        return queryMemoryReservations.getOrDefault(queryId, 0L);
+    }
+
+    synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
+    {
+        return queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
+    }
+
     @Override
     public synchronized String toString()
     {
@@ -254,5 +264,26 @@ public class MemoryPool
                 .add("reservedRevocableBytes", reservedRevocableBytes)
                 .add("future", future)
                 .toString();
+    }
+
+    private static class NonCancellableMemoryFuture<V>
+            extends AbstractFuture<V>
+    {
+        public static <V> NonCancellableMemoryFuture<V> create()
+        {
+            return new NonCancellableMemoryFuture<V>();
+        }
+
+        @Override
+        public boolean set(@Nullable V value)
+        {
+            return super.set(value);
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            throw new UnsupportedOperationException("cancellation is not supported");
+        }
     }
 }

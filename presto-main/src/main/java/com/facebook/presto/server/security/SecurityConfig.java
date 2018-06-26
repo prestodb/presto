@@ -14,16 +14,16 @@
 package com.facebook.presto.server.security;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.NotNull;
 
-import java.util.Set;
+import java.util.List;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 
 @DefunctConfig("http.server.authentication.enabled")
@@ -31,29 +31,30 @@ public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private Set<AuthenticationType> authenticationTypes = ImmutableSet.of();
+    private List<AuthenticationType> authenticationTypes = ImmutableList.of();
 
     public enum AuthenticationType
     {
         CERTIFICATE,
         KERBEROS,
-        LDAP
+        PASSWORD,
+        JWT
     }
 
     @NotNull
-    public Set<AuthenticationType> getAuthenticationTypes()
+    public List<AuthenticationType> getAuthenticationTypes()
     {
         return authenticationTypes;
     }
 
-    public SecurityConfig setAuthenticationTypes(Set<AuthenticationType> authenticationTypes)
+    public SecurityConfig setAuthenticationTypes(List<AuthenticationType> authenticationTypes)
     {
-        this.authenticationTypes = ImmutableSet.copyOf(authenticationTypes);
+        this.authenticationTypes = ImmutableList.copyOf(authenticationTypes);
         return this;
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, LDAP)")
+    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD, JWT)")
     public SecurityConfig setAuthenticationTypes(String types)
     {
         if (types == null) {
@@ -63,7 +64,7 @@ public class SecurityConfig
 
         authenticationTypes = stream(SPLITTER.split(types))
                 .map(AuthenticationType::valueOf)
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
         return this;
     }
 }

@@ -21,15 +21,16 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -37,6 +38,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
@@ -50,7 +52,6 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class ArrayJoin
@@ -62,17 +63,34 @@ public final class ArrayJoin
     private static final TypeSignature VARCHAR_TYPE_SIGNATURE = VARCHAR.getTypeSignature();
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", MethodHandle.class, ConnectorSession.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(
+            ArrayJoin.class,
+            "arrayJoin",
+            MethodHandle.class,
+            Object.class,
+            ConnectorSession.class,
+            Block.class,
+            Slice.class);
 
     private static final MethodHandle GET_BOOLEAN = methodHandle(Type.class, "getBoolean", Block.class, int.class);
     private static final MethodHandle GET_DOUBLE = methodHandle(Type.class, "getDouble", Block.class, int.class);
     private static final MethodHandle GET_LONG = methodHandle(Type.class, "getLong", Block.class, int.class);
     private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
 
+    private static final MethodHandle STATE_FACTORY = methodHandle(ArrayJoin.class, "createState");
+
     public static class ArrayJoinWithNullReplacement
             extends SqlScalarFunction
     {
-        private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", MethodHandle.class, ConnectorSession.class, Block.class, Slice.class, Slice.class);
+        private static final MethodHandle METHOD_HANDLE = methodHandle(
+                ArrayJoin.class,
+                "arrayJoin",
+                MethodHandle.class,
+                Object.class,
+                ConnectorSession.class,
+                Block.class,
+                Slice.class,
+                Slice.class);
 
         public ArrayJoinWithNullReplacement()
         {
@@ -121,6 +139,12 @@ public final class ArrayJoin
                 false));
     }
 
+    @UsedByGeneratedCode
+    public static Object createState()
+    {
+        return new PageBuilder(ImmutableList.of(VARCHAR));
+    }
+
     @Override
     public boolean isHidden()
     {
@@ -159,6 +183,7 @@ public final class ArrayJoin
                     false,
                     argumentProperties,
                     methodHandle.bindTo(null),
+                    Optional.of(STATE_FACTORY),
                     true);
         }
         else {
@@ -199,7 +224,12 @@ public final class ArrayJoin
                 cast = MethodHandles.foldArguments(cast, getter.bindTo(type));
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
-                return new ScalarFunctionImplementation(false, argumentProperties, target, true);
+                return new ScalarFunctionImplementation(
+                        false,
+                        argumentProperties,
+                        target,
+                        Optional.of(STATE_FACTORY),
+                        true);
             }
             catch (PrestoException e) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
@@ -208,22 +238,36 @@ public final class ArrayJoin
     }
 
     @UsedByGeneratedCode
-    public static Slice arrayJoin(MethodHandle castFunction, ConnectorSession session, Block arrayBlock, Slice delimiter)
+    public static Slice arrayJoin(
+            MethodHandle castFunction,
+            Object state,
+            ConnectorSession session,
+            Block arrayBlock,
+            Slice delimiter)
     {
-        return arrayJoin(castFunction, session, arrayBlock, delimiter, null);
+        return arrayJoin(castFunction, state, session, arrayBlock, delimiter, null);
     }
 
     @UsedByGeneratedCode
-    public static Slice arrayJoin(MethodHandle castFunction, ConnectorSession session, Block arrayBlock, Slice delimiter, Slice nullReplacement)
+    public static Slice arrayJoin(
+            MethodHandle castFunction,
+            Object state,
+            ConnectorSession session,
+            Block arrayBlock,
+            Slice delimiter,
+            Slice nullReplacement)
     {
+        PageBuilder pageBuilder = (PageBuilder) state;
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
         int numElements = arrayBlock.getPositionCount();
-
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(toIntExact(arrayBlock.getSizeInBytes() + delimiter.length() * arrayBlock.getPositionCount()));
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
         for (int i = 0; i < numElements; i++) {
             if (arrayBlock.isNull(i)) {
                 if (nullReplacement != null) {
-                    sliceOutput.appendBytes(nullReplacement);
+                    blockBuilder.writeBytes(nullReplacement, 0, nullReplacement.length());
                 }
                 else {
                     continue;
@@ -231,18 +275,24 @@ public final class ArrayJoin
             }
             else {
                 try {
-                    sliceOutput.appendBytes((Slice) castFunction.invokeExact(arrayBlock, i, session));
+                    Slice slice = (Slice) castFunction.invokeExact(arrayBlock, i, session);
+                    blockBuilder.writeBytes(slice, 0, slice.length());
                 }
                 catch (Throwable throwable) {
+                    // Restore pageBuilder into a consistent state
+                    blockBuilder.closeEntry();
+                    pageBuilder.declarePosition();
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Error casting array element to VARCHAR", throwable);
                 }
             }
 
             if (i != numElements - 1) {
-                sliceOutput.appendBytes(delimiter);
+                blockBuilder.writeBytes(delimiter, 0, delimiter.length());
             }
         }
 
-        return sliceOutput.slice();
+        blockBuilder.closeEntry();
+        pageBuilder.declarePosition();
+        return VARCHAR.getSlice(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 }

@@ -15,10 +15,8 @@ package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
 import com.facebook.presto.rcfile.EncodeOutput;
-import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
@@ -49,7 +47,6 @@ public class DecimalEncoding
 
     @Override
     public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
-            throws RcFileCorruptionException
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
@@ -64,7 +61,6 @@ public class DecimalEncoding
 
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
-            throws RcFileCorruptionException
     {
         encodeValue(block, position, output);
     }
@@ -83,7 +79,7 @@ public class DecimalEncoding
     public Block decodeColumn(ColumnData columnData)
     {
         int size = columnData.rowCount();
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), size);
+        BlockBuilder builder = type.createBlockBuilder(null, size);
 
         Slice slice = columnData.getSlice();
         for (int i = 0; i < size; i++) {

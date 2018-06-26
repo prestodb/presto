@@ -39,7 +39,7 @@ public class InformationSchemaConnector
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(metadata, "metadata is null");
 
-        this.metadata = new InformationSchemaMetadata(catalogName);
+        this.metadata = new InformationSchemaMetadata(catalogName, metadata);
         this.splitManager = new InformationSchemaSplitManager(nodeManager);
         this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata, accessControl);
     }

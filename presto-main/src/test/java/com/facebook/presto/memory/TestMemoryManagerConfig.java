@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.memory.MemoryManagerConfig.LowMemoryKillerPolicy.NONE;
+import static com.facebook.presto.memory.MemoryManagerConfig.LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -33,24 +35,27 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
-                .setKillOnOutOfMemory(false)
+                .setLowMemoryKillerPolicy(NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE)));
+                .setMaxQueryMemory(new DataSize(20, GIGABYTE))
+                .setMaxQueryTotalMemory(new DataSize(40, GIGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.low-memory-killer.enabled", "true")
+                .put("query.low-memory-killer.policy", "total-reservation-on-blocked-nodes")
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
+                .put("query.max-total-memory", "3GB")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setKillOnOutOfMemory(true)
+                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE));
+                .setMaxQueryMemory(new DataSize(2, GIGABYTE))
+                .setMaxQueryTotalMemory(new DataSize(3, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

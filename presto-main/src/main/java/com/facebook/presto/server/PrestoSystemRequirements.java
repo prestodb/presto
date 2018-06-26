@@ -91,7 +91,7 @@ final class PrestoSystemRequirements
             return;
         }
 
-        if (version.getMajor() == 9) {
+        if (version.getMajor() >= 9) {
             return;
         }
 

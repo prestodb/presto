@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.resourceGroups.SelectorResourceEstimate.Range;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -27,39 +32,171 @@ import static org.testng.Assert.assertEquals;
 
 public class TestStaticSelector
 {
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+
     @Test
     public void testUserRegex()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
-        StaticSelector selector = new StaticSelector(Optional.of(Pattern.compile("user.*")), Optional.empty(), Optional.empty(), Optional.empty(), new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionContext("userA", null, ImmutableSet.of("tag1"))), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionContext("userB", "source", ImmutableSet.of())), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionContext("A.user", null, ImmutableSet.of("tag1"))), Optional.empty());
+        StaticSelector selector = new StaticSelector(
+                Optional.of(Pattern.compile("user.*")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo"));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
     }
 
     @Test
     public void testSourceRegex()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(Pattern.compile(".*source.*")), Optional.empty(), Optional.empty(), new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionContext("userA", null, ImmutableSet.of("tag1"))), Optional.empty());
-        assertEquals(selector.match(newSelectionContext("userB", "source", ImmutableSet.of())), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionContext("A.user", "a source b", ImmutableSet.of("tag1"))), Optional.of(resourceGroupId));
+        StaticSelector selector = new StaticSelector(
+                Optional.empty(),
+                Optional.of(Pattern.compile(".*source.*")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo"));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     @Test
     public void testClientTags()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(ImmutableList.of("tag1", "tag2")), Optional.empty(), new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionContext("userA", null, ImmutableSet.of("tag1", "tag2"))), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionContext("userB", "source", ImmutableSet.of())), Optional.empty());
-        assertEquals(selector.match(newSelectionContext("A.user", "a source b", ImmutableSet.of("tag1"))), Optional.empty());
-        assertEquals(selector.match(newSelectionContext("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"))), Optional.of(resourceGroupId));
+        StaticSelector selector = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo"));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
-    private SelectionContext newSelectionContext(String user, String source, Set<String> tags)
+    @Test
+    public void testSelectorResourceEstimate()
     {
-        return new SelectionContext(true, user, Optional.ofNullable(source), tags, 1, Optional.empty());
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
+
+        StaticSelector smallQuerySelector = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new SelectorResourceEstimate(
+                        Optional.of(new Range<>(
+                                Optional.empty(),
+                                Optional.of(Duration.valueOf("5m")))),
+                        Optional.empty(),
+                        Optional.of(new Range<>(
+                                Optional.empty(),
+                                Optional.of(DataSize.valueOf("500MB")))))),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo"));
+
+        assertEquals(
+                smallQuerySelector.match(
+                        newSelectionCriteria(
+                                "userA",
+                                null,
+                                ImmutableSet.of("tag1", "tag2"),
+                                new ResourceEstimates(
+                                        Optional.of(Duration.valueOf("4m")),
+                                        Optional.empty(),
+                                        Optional.of(DataSize.valueOf("400MB")))))
+                        .map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+
+        assertEquals(
+                smallQuerySelector.match(
+                        newSelectionCriteria(
+                                "A.user",
+                                "a source b",
+                                ImmutableSet.of("tag1"),
+                                new ResourceEstimates(
+                                        Optional.of(Duration.valueOf("4m")),
+                                        Optional.empty(),
+                                        Optional.of(DataSize.valueOf("600MB")))))
+                        .map(SelectionContext::getResourceGroupId),
+                Optional.empty());
+
+        assertEquals(
+                smallQuerySelector.match(
+                        newSelectionCriteria(
+                                "userB",
+                                "source",
+                                ImmutableSet.of(),
+                                new ResourceEstimates(
+                                        Optional.of(Duration.valueOf("4m")),
+                                        Optional.empty(),
+                                        Optional.empty())))
+                        .map(SelectionContext::getResourceGroupId),
+                Optional.empty());
+
+        StaticSelector largeQuerySelector = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new SelectorResourceEstimate(
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Range<>(
+                                Optional.of(DataSize.valueOf("5TB")),
+                                Optional.empty())))),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo"));
+
+        assertEquals(
+                largeQuerySelector.match(
+                        newSelectionCriteria(
+                                "userA",
+                                null,
+                                ImmutableSet.of("tag1", "tag2"),
+                                new ResourceEstimates(
+                                        Optional.of(Duration.valueOf("100h")),
+                                        Optional.empty(),
+                                        Optional.of(DataSize.valueOf("4TB")))))
+                        .map(SelectionContext::getResourceGroupId),
+                Optional.empty());
+
+        assertEquals(
+                largeQuerySelector.match(
+                        newSelectionCriteria(
+                                "A.user",
+                                "a source b",
+                                ImmutableSet.of("tag1"),
+                                new ResourceEstimates(
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.of(DataSize.valueOf("6TB")))))
+                        .map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+
+        assertEquals(
+                largeQuerySelector.match(
+                        newSelectionCriteria(
+                                "userB",
+                                "source",
+                                ImmutableSet.of(),
+                                new ResourceEstimates(
+                                        Optional.of(Duration.valueOf("1s")),
+                                        Optional.of(Duration.valueOf("1s")),
+                                        Optional.of(DataSize.valueOf("6TB")))))
+                        .map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+    }
+
+    private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates)
+    {
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty());
     }
 }

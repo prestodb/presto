@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.window.FramedWindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
@@ -60,7 +61,6 @@ public class WindowOperator
         private final List<SortOrder> sortOrder;
         private final int preSortedChannelPrefix;
         private final int expectedPositions;
-        private final List<Type> types;
         private boolean closed;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -104,18 +104,6 @@ public class WindowOperator
             this.sortOrder = ImmutableList.copyOf(sortOrder);
             this.preSortedChannelPrefix = preSortedChannelPrefix;
             this.expectedPositions = expectedPositions;
-            this.types = Stream.concat(
-                    outputChannels.stream()
-                            .map(sourceTypes::get),
-                    windowFunctionDefinitions.stream()
-                            .map(WindowFunctionDefinition::getType))
-                    .collect(toImmutableList());
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -176,7 +164,7 @@ public class WindowOperator
     private final List<FramedWindowFunction> windowFunctions;
     private final List<Integer> orderChannels;
     private final List<SortOrder> ordering;
-    private final List<Type> types;
+    private final LocalMemoryContext localUserMemoryContext;
 
     private final int[] preGroupedChannels;
 
@@ -225,12 +213,13 @@ public class WindowOperator
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
 
         this.operatorContext = operatorContext;
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.outputChannels = Ints.toArray(outputChannels);
         this.windowFunctions = windowFunctionDefinitions.stream()
                 .map(functionDefinition -> new FramedWindowFunction(functionDefinition.createWindowFunction(), functionDefinition.getFrameInfo()))
                 .collect(toImmutableList());
 
-        this.types = Stream.concat(
+        List<Type> types = Stream.concat(
                 outputChannels.stream()
                         .map(sourceTypes::get),
                 windowFunctionDefinitions.stream()
@@ -250,7 +239,7 @@ public class WindowOperator
         this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
         this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
 
-        this.pageBuilder = new PageBuilder(this.types);
+        this.pageBuilder = new PageBuilder(types);
 
         if (preSortedChannelPrefix > 0) {
             // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
@@ -276,12 +265,6 @@ public class WindowOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -324,7 +307,7 @@ public class WindowOperator
         if (processPendingInput()) {
             state = State.HAS_OUTPUT;
         }
-        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
+        localUserMemoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
     }
 
     /**
@@ -394,7 +377,7 @@ public class WindowOperator
         }
 
         Page page = extractOutput();
-        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
+        localUserMemoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
         return page;
     }
 
@@ -540,7 +523,6 @@ public class WindowOperator
 
     @Override
     public void close()
-            throws Exception
     {
         driverWindowInfo.set(Optional.of(windowInfo.build()));
     }

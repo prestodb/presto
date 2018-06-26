@@ -69,8 +69,10 @@ statement
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=string)?  #showTables
-    | SHOW SCHEMAS ((FROM | IN) identifier)? (LIKE pattern=string)?    #showSchemas
+    | SHOW TABLES ((FROM | IN) qualifiedName)?
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
+    | SHOW SCHEMAS ((FROM | IN) identifier)?
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS (LIKE pattern=string)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
     | SHOW STATS (FOR | ON) qualifiedName                              #showStats
@@ -244,19 +246,13 @@ expression
     ;
 
 booleanExpression
-    : predicated                                                   #booleanDefault
+    : valueExpression predicate[$valueExpression.ctx]?             #predicated
     | NOT booleanExpression                                        #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
     ;
 
-// workaround for:
-//  https://github.com/antlr/antlr4/issues/780
-//  https://github.com/antlr/antlr4/issues/781
-predicated
-    : valueExpression predicate[$valueExpression.ctx]?
-    ;
-
+// workaround for https://github.com/antlr/antlr4/issues/780
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
     | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
@@ -292,7 +288,7 @@ primaryExpression
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)? ')' filter? over?                             #functionCall
+        (ORDER BY sortItem (',' sortItem)*)? ')' filter? over?                            #functionCall
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
@@ -311,6 +307,7 @@ primaryExpression
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
     | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
+    | name=CURRENT_USER                                                                   #currentUser
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
@@ -451,13 +448,13 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ALL | ANALYZE | ANY | ARRAY | ASC | AT
     | BERNOULLI
-    | CALL | CASCADE | CATALOGS | COALESCE | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT
+    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT
     | DATA | DATE | DAY | DESC | DISTRIBUTED
     | EXCLUDING | EXPLAIN
     | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRANT | GRANTS | GRAPHVIZ
     | HOUR
-    | IF | INCLUDING | INPUT | INTEGER | INTERVAL | ISOLATION
+    | IF | INCLUDING | INPUT | INTERVAL | ISOLATION
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MINUTE | MONTH
     | NFC | NFD | NFKC | NFKD | NO | NULLIF | NULLS
@@ -465,8 +462,8 @@ nonReserved
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES | PUBLIC
     | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | REVOKE | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SMALLINT | SOME | START | STATS | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TINYINT | TO | TRANSACTION | TRY_CAST | TYPE
+    | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
+    | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE
     | VALIDATE | VERBOSE | VIEW
     | WORK | WRITE
@@ -492,7 +489,6 @@ CASCADE: 'CASCADE';
 CASE: 'CASE';
 CAST: 'CAST';
 CATALOGS: 'CATALOGS';
-COALESCE: 'COALESCE';
 COLUMN: 'COLUMN';
 COLUMNS: 'COLUMNS';
 COMMENT: 'COMMENT';
@@ -506,6 +502,7 @@ CURRENT: 'CURRENT';
 CURRENT_DATE: 'CURRENT_DATE';
 CURRENT_TIME: 'CURRENT_TIME';
 CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
+CURRENT_USER: 'CURRENT_USER';
 DATA: 'DATA';
 DATE: 'DATE';
 DAY: 'DAY';
@@ -547,7 +544,6 @@ INCLUDING: 'INCLUDING';
 INNER: 'INNER';
 INPUT: 'INPUT';
 INSERT: 'INSERT';
-INTEGER: 'INTEGER';
 INTERSECT: 'INTERSECT';
 INTERVAL: 'INTERVAL';
 INTO: 'INTO';
@@ -617,7 +613,6 @@ SESSION: 'SESSION';
 SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
-SMALLINT: 'SMALLINT';
 SOME: 'SOME';
 START: 'START';
 STATS: 'STATS';
@@ -630,7 +625,6 @@ TEXT: 'TEXT';
 THEN: 'THEN';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
-TINYINT: 'TINYINT';
 TO: 'TO';
 TRANSACTION: 'TRANSACTION';
 TRUE: 'TRUE';

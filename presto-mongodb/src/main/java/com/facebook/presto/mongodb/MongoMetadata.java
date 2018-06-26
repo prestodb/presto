@@ -135,6 +135,14 @@ public class MongoMetadata
         return columns.build();
     }
 
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        if (prefix.getTableName() == null) {
+            return listTables(session, prefix.getSchemaName());
+        }
+        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+    }
+
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
@@ -238,6 +246,12 @@ public class MongoMetadata
                 columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    {
+        return Optional.empty();
+    }
+
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
@@ -277,14 +291,6 @@ public class MongoMetadata
             return listSchemaNames(session);
         }
         return ImmutableList.of(schemaNameOrNull);
-    }
-
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        if (prefix.getSchemaName() == null) {
-            return listTables(session, prefix.getSchemaName());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)

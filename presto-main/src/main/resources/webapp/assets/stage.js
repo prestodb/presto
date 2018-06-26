@@ -22,7 +22,7 @@ let OperatorSummary = React.createClass({
 
         const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
 
-        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
+        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
         const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
         return (
@@ -672,7 +672,7 @@ let StagePerformance = React.createClass({
                                     &nbsp;
                                     <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Stage Performance</a>
                                     &nbsp;
-                                    <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                    <a href={ "timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                     &nbsp;
                                     <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
                                 </td>

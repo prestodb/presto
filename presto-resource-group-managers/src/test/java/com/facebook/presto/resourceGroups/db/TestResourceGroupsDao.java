@@ -14,12 +14,15 @@
 package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.resourceGroups.ResourceGroupNameTemplate;
+import com.facebook.presto.resourceGroups.SelectorResourceEstimate;
+import com.facebook.presto.resourceGroups.SelectorResourceEstimate.Range;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.h2.jdbc.JdbcSQLException;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -28,6 +31,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
+import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
+import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
+import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -36,7 +44,19 @@ import static org.testng.Assert.assertTrue;
 public class TestResourceGroupsDao
 {
     private static final String ENVIRONMENT = "test";
+    private static final SelectorResourceEstimate SELECTOR_RESOURCE_ESTIMATE = new SelectorResourceEstimate(
+            Optional.of(new Range<>(
+                    Optional.empty(),
+                    Optional.of(Duration.valueOf("5m")))),
+            Optional.of(new SelectorResourceEstimate.Range<>(
+                    Optional.of(Duration.valueOf("10s")),
+                    Optional.empty())),
+            Optional.of(new Range<>(
+                    Optional.empty(),
+                    Optional.of(DataSize.valueOf("500MB")))));
+
     private static final JsonCodec<List<String>> LIST_STRING_CODEC = listJsonCodec(String.class);
+    private static final JsonCodec<SelectorResourceEstimate> SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC = jsonCodec(SelectorResourceEstimate.class);
 
     static H2ResourceGroupsDao setup(String prefix)
     {
@@ -101,22 +121,39 @@ public class TestResourceGroupsDao
         map.put(2L,
                 new SelectorRecord(
                         2L,
+                        1L,
                         Optional.of(Pattern.compile("ping_user")),
                         Optional.of(Pattern.compile(".*")),
                         Optional.empty(),
-                        1L));
+                        Optional.empty(),
+                        Optional.empty()));
         map.put(3L,
                 new SelectorRecord(
                         3L,
+                        2L,
                         Optional.of(Pattern.compile("admin_user")),
                         Optional.of(Pattern.compile(".*")),
+                        Optional.of(EXPLAIN.name()),
                         Optional.of(ImmutableList.of("tag1", "tag2")),
-                        2L));
+                        Optional.empty()));
+        map.put(4L,
+                new SelectorRecord(
+                        4L,
+                        0L,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(SELECTOR_RESOURCE_ESTIMATE)));
+
         dao.insertResourceGroup(1, "admin", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertResourceGroup(2, "ping_query", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
         dao.insertResourceGroup(3, "config", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
-        dao.insertSelector(2, "ping_user", ".*", null, 1);
-        dao.insertSelector(3, "admin_user", ".*", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), 2);
+        dao.insertResourceGroup(4, "config", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
+
+        dao.insertSelector(2, 1, "ping_user", ".*", null, null, null);
+        dao.insertSelector(3, 2, "admin_user", ".*", EXPLAIN.name(), LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null);
+        dao.insertSelector(4, 0, null, null, null, null, SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC.toJson(SELECTOR_RESOURCE_ESTIMATE));
         List<SelectorRecord> records = dao.getSelectors(ENVIRONMENT);
         compareSelectors(map, records);
     }
@@ -126,26 +163,30 @@ public class TestResourceGroupsDao
         dao.updateSelector(2, "ping.*", "ping_source", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1")), "ping_user", ".*", null);
         SelectorRecord updated = new SelectorRecord(
                 2,
+                1L,
                 Optional.of(Pattern.compile("ping.*")),
                 Optional.of(Pattern.compile("ping_source")),
+                Optional.empty(),
                 Optional.of(ImmutableList.of("tag1")),
-                1L);
+                Optional.empty());
         map.put(2L, updated);
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
     }
 
     private static void testSelectorUpdateNull(H2ResourceGroupsDao dao, Map<Long, SelectorRecord> map)
     {
-        SelectorRecord updated = new SelectorRecord(2, Optional.empty(), Optional.empty(), Optional.empty(), 3L);
+        SelectorRecord updated = new SelectorRecord(2, 3L, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         map.put(2L, updated);
         dao.updateSelector(2, null, null, null, "ping.*", "ping_source", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1")));
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
         updated = new SelectorRecord(
                 2,
+                2L,
                 Optional.of(Pattern.compile("ping.*")),
                 Optional.of(Pattern.compile("ping_source")),
+                Optional.of(EXPLAIN.name()),
                 Optional.of(ImmutableList.of("tag1", "tag2")),
-                2L);
+                Optional.empty());
         map.put(2L, updated);
         dao.updateSelector(2, "ping.*", "ping_source", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null, null, null);
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
@@ -161,7 +202,7 @@ public class TestResourceGroupsDao
     private static void testSelectorDeleteNull(H2ResourceGroupsDao dao, Map<Long, SelectorRecord> map)
     {
         dao.updateSelector(3, null, null, null, "admin_user", ".*", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")));
-        SelectorRecord nullRegexes = new SelectorRecord(3L, Optional.empty(), Optional.empty(), Optional.empty(), 2L);
+        SelectorRecord nullRegexes = new SelectorRecord(3L, 2L, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         map.put(3L, nullRegexes);
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
         dao.deleteSelector(3, null, null, null);
@@ -175,13 +216,15 @@ public class TestResourceGroupsDao
             return;
         }
 
-        dao.insertSelector(3, "user1", "pipeline", null, 3L);
+        dao.insertSelector(3, 3L, "user1", "pipeline", null, null, null);
         map.put(3L, new SelectorRecord(
+                3L,
                 3L,
                 Optional.of(Pattern.compile("user1")),
                 Optional.of(Pattern.compile("pipeline")),
                 Optional.empty(),
-                3L));
+                Optional.empty(),
+                Optional.empty()));
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
         dao.deleteSelectors(3L);
         map.remove(3L);
@@ -219,13 +262,19 @@ public class TestResourceGroupsDao
         H2ResourceGroupsDao dao = setup("exact_match_selector");
         dao.createExactMatchSelectorsTable();
 
-        ResourceGroupId resourceGroupId = new ResourceGroupId(ImmutableList.of("global", "test", "user"));
+        ResourceGroupId resourceGroupId1 = new ResourceGroupId(ImmutableList.of("global", "test", "user", "insert"));
+        ResourceGroupId resourceGroupId2 = new ResourceGroupId(ImmutableList.of("global", "test", "user", "select"));
         JsonCodec<ResourceGroupId> codec = JsonCodec.jsonCodec(ResourceGroupId.class);
-        dao.insertExactMatchSelector("test", "@test@test_pipeline", codec.toJson(resourceGroupId));
+        dao.insertExactMatchSelector("test", "@test@test_pipeline", INSERT.name(), codec.toJson(resourceGroupId1));
+        dao.insertExactMatchSelector("test", "@test@test_pipeline", SELECT.name(), codec.toJson(resourceGroupId2));
 
-        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline"), codec.toJson(resourceGroupId));
-        assertNull(dao.getExactMatchResourceGroup("test", "abc"));
-        assertNull(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline"));
+        assertNull(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", null));
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", INSERT.name()), codec.toJson(resourceGroupId1));
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", SELECT.name()), codec.toJson(resourceGroupId2));
+        assertNull(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", DELETE.name()));
+
+        assertNull(dao.getExactMatchResourceGroup("test", "abc", INSERT.name()));
+        assertNull(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline", INSERT.name()));
     }
 
     private static void compareResourceGroups(Map<Long, ResourceGroupSpecBuilder> map, List<ResourceGroupSpecBuilder> records)
@@ -245,6 +294,7 @@ public class TestResourceGroupsDao
             assertEquals(record.getResourceGroupId(), expected.getResourceGroupId());
             assertEquals(record.getUserRegex().map(Pattern::pattern), expected.getUserRegex().map(Pattern::pattern));
             assertEquals(record.getSourceRegex().map(Pattern::pattern), expected.getSourceRegex().map(Pattern::pattern));
+            assertEquals(record.getSelectorResourceEstimate(), expected.getSelectorResourceEstimate());
         }
     }
 }

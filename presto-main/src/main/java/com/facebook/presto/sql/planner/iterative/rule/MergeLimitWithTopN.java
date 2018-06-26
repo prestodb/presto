@@ -49,8 +49,7 @@ public class MergeLimitWithTopN
                         parent.getId(),
                         child.getSource(),
                         Math.min(parent.getCount(), child.getCount()),
-                        child.getOrderBy(),
-                        child.getOrderings(),
+                        child.getOrderingScheme(),
                         parent.isPartial() ? TopNNode.Step.PARTIAL : TopNNode.Step.SINGLE));
     }
 }

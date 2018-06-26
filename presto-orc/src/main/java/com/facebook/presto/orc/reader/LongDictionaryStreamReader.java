@@ -22,7 +22,6 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nonnull;
@@ -147,7 +146,7 @@ public class LongDictionaryStreamReader
             inDictionaryStream.getSetBits(nextBatchSize, inDictionary, nullVector);
         }
 
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
         for (int i = 0; i < nextBatchSize; i++) {
             if (nullVector[i]) {
                 builder.appendNull();
@@ -192,7 +191,6 @@ public class LongDictionaryStreamReader
 
     @Override
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
-            throws IOException
     {
         dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, LongInputStream.class);
         dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
@@ -214,7 +212,6 @@ public class LongDictionaryStreamReader
 
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
-            throws IOException
     {
         presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
         inDictionaryStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, IN_DICTIONARY, BooleanInputStream.class);

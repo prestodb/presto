@@ -88,14 +88,12 @@ public class TestResetSessionTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
 
     @Test
     public void test()
-            throws Exception
     {
         Session session = testSessionBuilder(metadata.getSessionPropertyManager())
                 .setSystemProperty("foo", "bar")

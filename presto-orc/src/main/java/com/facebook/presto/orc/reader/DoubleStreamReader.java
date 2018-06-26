@@ -22,7 +22,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nonnull;
@@ -92,7 +91,7 @@ public class DoubleStreamReader
             }
         }
 
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
@@ -134,7 +133,6 @@ public class DoubleStreamReader
 
     @Override
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
-            throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(DoubleInputStream.class);
@@ -150,7 +148,6 @@ public class DoubleStreamReader
 
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
-            throws IOException
     {
         presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
         dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, DoubleInputStream.class);

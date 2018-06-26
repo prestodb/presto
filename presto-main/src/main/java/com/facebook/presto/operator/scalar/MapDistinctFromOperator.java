@@ -14,6 +14,7 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -48,10 +49,10 @@ public final class MapDistinctFromOperator
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
             @SqlNullable @SqlType("map(K,V)") Block leftMapBlock,
-            @SqlNullable @SqlType("map(K,V)") Block rightMapBlock)
+            @IsNull boolean leftMapNull,
+            @SqlNullable @SqlType("map(K,V)") Block rightMapBlock,
+            @IsNull boolean rightMapNull)
     {
-        boolean leftMapNull = leftMapBlock == null;
-        boolean rightMapNull = rightMapBlock == null;
         if (leftMapNull != rightMapNull) {
             return true;
         }
@@ -60,8 +61,6 @@ public final class MapDistinctFromOperator
         }
         // Note that we compare to NOT distinct here and so negate the result.
         return !MapGenericEquality.genericEqual(
-                keyEqualsFunction,
-                keyHashcodeFunction,
                 keyType,
                 leftMapBlock,
                 rightMapBlock,

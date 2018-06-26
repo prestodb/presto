@@ -51,6 +51,7 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -92,7 +93,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testBasicStateChanges()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertState(stateMachine, QUEUED);
@@ -112,8 +112,30 @@ public class TestQueryStateMachine
     }
 
     @Test
+    public void testStateChangesWithResourceWaiting()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertState(stateMachine, QUEUED);
+
+        assertTrue(stateMachine.transitionToWaitingForResources());
+        assertState(stateMachine, WAITING_FOR_RESOURCES);
+
+        assertTrue(stateMachine.transitionToPlanning());
+        assertState(stateMachine, PLANNING);
+
+        assertTrue(stateMachine.transitionToStarting());
+        assertState(stateMachine, STARTING);
+
+        assertTrue(stateMachine.transitionToRunning());
+        assertState(stateMachine, RUNNING);
+
+        assertTrue(stateMachine.transitionToFinishing());
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
+        assertState(stateMachine, FINISHED);
+    }
+
+    @Test
     public void testQueued()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertState(stateMachine, QUEUED);
@@ -141,7 +163,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testPlanning()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToPlanning());
@@ -172,7 +193,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testStarting()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToStarting());
@@ -201,7 +221,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testRunning()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToRunning());
@@ -228,7 +247,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testFinished()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
@@ -254,7 +272,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testPlanningTimeDuration()
-            throws InterruptedException
     {
         TestingTicker mockTicker = new TestingTicker();
         QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
@@ -280,6 +297,32 @@ public class TestQueryStateMachine
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
         assertTrue(queryStats.getQueuedTime().toMillis() == 100);
         assertTrue(queryStats.getTotalPlanningTime().toMillis() == 500);
+    }
+
+    @Test
+    public void testUpdateMemoryUsage()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+
+        stateMachine.updateMemoryUsage(5, 10, 3);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+
+        stateMachine.updateMemoryUsage(0, 0, 2);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+
+        stateMachine.updateMemoryUsage(1, 1, 5);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 6);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 11);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+
+        stateMachine.updateMemoryUsage(3, 3, 2);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 9);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 14);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
@@ -343,8 +386,17 @@ public class TestQueryStateMachine
             assertNull(queryStats.getFinishingTime());
             assertNull(queryStats.getEndTime());
         }
+        else if (queryInfo.getState() == WAITING_FOR_RESOURCES) {
+            assertNotNull(queryStats.getQueuedTime());
+            assertNull(queryStats.getResourceWaitingTime());
+            assertNull(queryStats.getTotalPlanningTime());
+            assertNull(queryStats.getExecutionStartTime());
+            assertNull(queryStats.getFinishingTime());
+            assertNull(queryStats.getEndTime());
+        }
         else if (queryInfo.getState() == PLANNING) {
             assertNotNull(queryStats.getQueuedTime());
+            assertNotNull(queryStats.getResourceWaitingTime());
             assertNull(queryStats.getTotalPlanningTime());
             assertNull(queryStats.getExecutionStartTime());
             assertNull(queryStats.getFinishingTime());
@@ -352,6 +404,7 @@ public class TestQueryStateMachine
         }
         else if (queryInfo.getState() == STARTING) {
             assertNotNull(queryStats.getQueuedTime());
+            assertNotNull(queryStats.getResourceWaitingTime());
             assertNotNull(queryStats.getTotalPlanningTime());
             assertNull(queryStats.getExecutionStartTime());
             assertNull(queryStats.getFinishingTime());
@@ -359,6 +412,7 @@ public class TestQueryStateMachine
         }
         else if (queryInfo.getState() == RUNNING) {
             assertNotNull(queryStats.getQueuedTime());
+            assertNotNull(queryStats.getResourceWaitingTime());
             assertNotNull(queryStats.getTotalPlanningTime());
             assertNotNull(queryStats.getExecutionStartTime());
             assertNull(queryStats.getFinishingTime());
@@ -366,6 +420,7 @@ public class TestQueryStateMachine
         }
         else if (queryInfo.getState() == FINISHING) {
             assertNotNull(queryStats.getQueuedTime());
+            assertNotNull(queryStats.getResourceWaitingTime());
             assertNotNull(queryStats.getTotalPlanningTime());
             assertNotNull(queryStats.getExecutionStartTime());
             assertNull(queryStats.getFinishingTime());
@@ -373,6 +428,7 @@ public class TestQueryStateMachine
         }
         else {
             assertNotNull(queryStats.getQueuedTime());
+            assertNotNull(queryStats.getResourceWaitingTime());
             assertNotNull(queryStats.getTotalPlanningTime());
             assertNotNull(queryStats.getExecutionStartTime());
             assertNotNull(queryStats.getFinishingTime());

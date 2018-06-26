@@ -13,71 +13,40 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.transformAsync;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPagesSupplier
+        implements NestedLoopJoinPagesBridge
 {
-    private final List<Type> types;
     private final SettableFuture<NestedLoopJoinPages> pagesFuture = SettableFuture.create();
-    private final AtomicInteger referenceCount = new AtomicInteger(0);
+    private final SettableFuture<?> pagesNoLongerNeeded = SettableFuture.create();
 
-    public NestedLoopJoinPagesSupplier(List<Type> types)
-    {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-    }
-
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
+    @Override
     public ListenableFuture<NestedLoopJoinPages> getPagesFuture()
     {
-        return transformAsync(pagesFuture, Futures::immediateFuture);
+        return transformAsync(pagesFuture, Futures::immediateFuture, directExecutor());
     }
 
-    public void setPages(NestedLoopJoinPages nestedLoopJoinPages)
+    @Override
+    public ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages)
     {
         requireNonNull(nestedLoopJoinPages, "nestedLoopJoinPages is null");
         boolean wasSet = pagesFuture.set(nestedLoopJoinPages);
         checkState(wasSet, "pagesFuture already set");
+        return pagesNoLongerNeeded;
     }
 
-    public void retain()
+    @Override
+    public void destroy()
     {
-        referenceCount.incrementAndGet();
-    }
-
-    public void release()
-    {
-        if (referenceCount.decrementAndGet() == 0) {
-            // We own the shared pageSource, so we need to free their memory
-            Futures.addCallback(pagesFuture, new FutureCallback<NestedLoopJoinPages>()
-            {
-                @Override
-                public void onSuccess(NestedLoopJoinPages result)
-                {
-                    result.freeMemory();
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    // ignored
-                }
-            });
-        }
+        // Let the NestedLoopBuildOperator declare that it's finished.
+        pagesNoLongerNeeded.set(null);
     }
 }

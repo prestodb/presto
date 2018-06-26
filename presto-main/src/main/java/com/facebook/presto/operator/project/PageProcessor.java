@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
+import io.airlift.slice.SizeOf;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -115,8 +116,9 @@ public class PageProcessor
 
     private static long calculateRetainedSizeWithoutLoading(Page page)
     {
-        long retainedSizeInBytes = 0;
-        for (Block block : page.getBlocks()) {
+        long retainedSizeInBytes = Page.INSTANCE_SIZE + SizeOf.sizeOfObjectArray(page.getChannelCount());
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
             if (!isUnloadedLazyBlock(block)) {
                 retainedSizeInBytes += block.getRetainedSizeInBytes();
             }
@@ -226,9 +228,10 @@ public class PageProcessor
         private void updateRetainedSize()
         {
             // increment the size only when it is the first reference
-            retainedSizeInBytes = 0;
+            retainedSizeInBytes = Page.INSTANCE_SIZE + SizeOf.sizeOfObjectArray(page.getChannelCount());
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
-            for (Block block : page.getBlocks()) {
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                Block block = page.getBlock(channel);
                 if (!isUnloadedLazyBlock(block)) {
                     block.retainedBytesForEachPart((object, size) -> {
                         if (referenceCountMap.incrementAndGet(object) == 1) {

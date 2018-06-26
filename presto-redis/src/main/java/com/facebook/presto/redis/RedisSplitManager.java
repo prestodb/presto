@@ -21,7 +21,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import redis.clients.jedis.Jedis;
 
@@ -60,7 +59,7 @@ public class RedisSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         RedisTableHandle redisTableHandle = convertLayout(layout).getTable();
 
@@ -76,9 +75,6 @@ public class RedisSplitManager
         if (redisTableHandle.getKeyDataFormat().equals("zset")) {
             try (Jedis jedis = jedisManager.getJedisPool(nodes.get(0)).getResource()) {
                 numberOfKeys = jedis.zcount(redisTableHandle.getKeyName(), "-inf", "+inf");
-            }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
             }
         }
 

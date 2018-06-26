@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.CharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -34,7 +33,7 @@ public class TestCharType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = CHAR_TYPE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = CHAR_TYPE.createBlockBuilder(null, 15);
         CHAR_TYPE.writeString(blockBuilder, "apple");
         CHAR_TYPE.writeString(blockBuilder, "apple");
         CHAR_TYPE.writeString(blockBuilder, "apple");

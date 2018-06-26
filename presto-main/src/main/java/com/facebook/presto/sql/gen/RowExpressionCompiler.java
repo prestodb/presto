@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -26,16 +23,12 @@ import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Scope;
 
 import java.util.Optional;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
-import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
-import static com.facebook.presto.bytecode.instruction.Constant.loadDouble;
-import static com.facebook.presto.bytecode.instruction.Constant.loadFloat;
-import static com.facebook.presto.bytecode.instruction.Constant.loadInt;
-import static com.facebook.presto.bytecode.instruction.Constant.loadLong;
-import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static com.facebook.presto.sql.relational.Signatures.BIND;
@@ -49,6 +42,13 @@ import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.instruction.Constant.loadBoolean;
+import static io.airlift.bytecode.instruction.Constant.loadDouble;
+import static io.airlift.bytecode.instruction.Constant.loadFloat;
+import static io.airlift.bytecode.instruction.Constant.loadInt;
+import static io.airlift.bytecode.instruction.Constant.loadLong;
+import static io.airlift.bytecode.instruction.Constant.loadString;
 
 public class RowExpressionCompiler
 {
@@ -143,8 +143,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry,
-                    preGeneratedExpressions);
+                    registry);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
         }
@@ -215,8 +214,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry,
-                    preGeneratedExpressions);
+                    registry);
 
             return generateLambda(
                     generatorContext,

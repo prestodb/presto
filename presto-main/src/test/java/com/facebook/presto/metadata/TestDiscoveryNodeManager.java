@@ -89,7 +89,6 @@ public class TestDiscoveryNodeManager
 
     @Test
     public void testGetAllNodes()
-            throws Exception
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
         AllNodes allNodes = manager.getAllNodes();
@@ -133,7 +132,6 @@ public class TestDiscoveryNodeManager
 
     @Test
     public void testGetCoordinators()
-            throws Exception
     {
         InternalNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
         assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));

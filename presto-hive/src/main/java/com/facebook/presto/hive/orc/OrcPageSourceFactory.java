@@ -18,18 +18,18 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -63,8 +63,11 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -109,8 +112,13 @@ public class OrcPageSourceFactory
             return Optional.empty();
         }
 
+        // per HIVE-13040 and ORC-162, empty files are allowed
+        if (fileSize == 0) {
+            return Optional.of(new FixedPageSource(ImmutableList.of()));
+        }
+
         return Optional.of(createOrcPageSource(
-                new OrcMetadataReader(),
+                ORC,
                 hdfsEnvironment,
                 session.getUser(),
                 configuration,
@@ -126,6 +134,7 @@ public class OrcPageSourceFactory
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
+                getOrcTinyStripeThreshold(session),
                 getOrcMaxReadBlockSize(session),
                 getOrcLazyReadSmallRanges(session),
                 isOrcBloomFiltersEnabled(session),
@@ -133,7 +142,7 @@ public class OrcPageSourceFactory
     }
 
     public static OrcPageSource createOrcPageSource(
-            MetadataReader metadataReader,
+            OrcEncoding orcEncoding,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             Configuration configuration,
@@ -149,6 +158,7 @@ public class OrcPageSourceFactory
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
             DataSize streamBufferSize,
+            DataSize tinyStripeThreshold,
             DataSize maxReadBlockSize,
             boolean lazyReadSmallRanges,
             boolean orcBloomFiltersEnabled,
@@ -176,9 +186,9 @@ public class OrcPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
+        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize, maxReadBlockSize);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, maxBufferSize, tinyStripeThreshold, maxReadBlockSize);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();

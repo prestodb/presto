@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.airlift.drift.client.DriftClient;
 
 import javax.inject.Inject;
 
@@ -30,14 +31,18 @@ import static java.util.Objects.requireNonNull;
 public class ThriftPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final PrestoThriftServiceProvider clientProvider;
+    private final DriftClient<PrestoThriftService> client;
+    private final ThriftHeaderProvider thriftHeaderProvider;
     private final long maxBytesPerResponse;
+    private final ThriftConnectorStats stats;
 
     @Inject
-    public ThriftPageSourceProvider(PrestoThriftServiceProvider clientProvider, ThriftConnectorConfig config)
+    public ThriftPageSourceProvider(DriftClient<PrestoThriftService> client, ThriftHeaderProvider thriftHeaderProvider, ThriftConnectorStats stats, ThriftConnectorConfig config)
     {
-        this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.client = requireNonNull(client, "client is null");
+        this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderFactor is null");
         this.maxBytesPerResponse = requireNonNull(config, "config is null").getMaxResponseSize().toBytes();
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -47,6 +52,6 @@ public class ThriftPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        return new ThriftPageSource(clientProvider, (ThriftConnectorSplit) split, columns, maxBytesPerResponse);
+        return new ThriftPageSource(client, thriftHeaderProvider.getHeaders(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
     }
 }

@@ -30,6 +30,7 @@ import java.util.Base64;
 import java.util.zip.CRC32;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public final class VarbinaryFunctions
@@ -160,6 +161,27 @@ public final class VarbinaryFunctions
         return Long.reverseBytes(slice.getLong(0));
     }
 
+    @Description("encode value as a 32-bit 2's complement big endian varbinary")
+    @ScalarFunction("to_big_endian_32")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toBigEndian32(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        Slice slice = Slices.allocate(Integer.BYTES);
+        slice.setInt(0, Integer.reverseBytes((int) value));
+        return slice;
+    }
+
+    @Description("decode bigint value from a 32-bit 2's complement big endian varbinary")
+    @ScalarFunction("from_big_endian_32")
+    @SqlType(StandardTypes.INTEGER)
+    public static long fromBigEndian32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        if (slice.length() != Integer.BYTES) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 4-byte input, but got instead: " + slice.length());
+        }
+        return Integer.reverseBytes(slice.getInt(0));
+    }
+
     @Description("encode value as a big endian varbinary according to IEEE 754 single-precision floating-point format")
     @ScalarFunction("to_ieee754_32")
     @SqlType(StandardTypes.VARBINARY)
@@ -170,6 +192,15 @@ public final class VarbinaryFunctions
         return slice;
     }
 
+    @Description("decode the 32-bit big-endian binary in IEEE 754 single-precision floating-point format")
+    @ScalarFunction("from_ieee754_32")
+    @SqlType(StandardTypes.REAL)
+    public static long fromIEEE754Binary32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        checkCondition(slice.length() == Integer.BYTES, INVALID_FUNCTION_ARGUMENT, "Input floating-point value must be exactly 4 bytes long");
+        return Integer.reverseBytes(slice.getInt(0));
+    }
+
     @Description("encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
     @ScalarFunction("to_ieee754_64")
     @SqlType(StandardTypes.VARBINARY)
@@ -178,6 +209,15 @@ public final class VarbinaryFunctions
         Slice slice = Slices.allocate(Double.BYTES);
         slice.setLong(0, Long.reverseBytes(Double.doubleToLongBits(value)));
         return slice;
+    }
+
+    @Description("decode the 64-bit big-endian binary in IEEE 754 double-precision floating-point format")
+    @ScalarFunction("from_ieee754_64")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double fromIEEE754Binary64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        checkCondition(slice.length() == Double.BYTES, INVALID_FUNCTION_ARGUMENT, "Input floating-point value must be exactly 8 bytes long");
+        return Double.longBitsToDouble(Long.reverseBytes(slice.getLong(0)));
     }
 
     @Description("compute md5 hash")
@@ -301,5 +341,63 @@ public final class VarbinaryFunctions
         }
 
         return slice.slice(indexStart, indexEnd - indexStart);
+    }
+
+    private static Slice pad(Slice inputSlice, long targetLength, Slice padSlice, int paddingOffset)
+    {
+        checkCondition(
+                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                INVALID_FUNCTION_ARGUMENT,
+                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+        checkCondition(padSlice.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding bytes must not be empty");
+
+        int inputLength = inputSlice.length();
+        int resultLength = (int) targetLength;
+
+        // if our target length is the same as our string then return our string
+        if (inputLength == resultLength) {
+            return inputSlice;
+        }
+
+        // if our string is bigger than requested then truncate
+        if (inputLength > resultLength) {
+            return inputSlice.slice(0, resultLength);
+        }
+
+        // preallocate the result
+        Slice buffer = Slices.allocate(resultLength);
+
+        // fill in the existing string
+        int fillLength = resultLength - inputLength;
+        int startPointOfExistingText = (paddingOffset + fillLength) % resultLength;
+        buffer.setBytes(startPointOfExistingText, inputSlice);
+
+        // assign the pad string while there's enough space for it
+        int byteIndex = paddingOffset;
+        for (int i = 0; i < fillLength / padSlice.length(); i++) {
+            buffer.setBytes(byteIndex, padSlice);
+            byteIndex += padSlice.length();
+        }
+
+        // handle the tail: at most we assign padStringLength - 1 code points
+        buffer.setBytes(byteIndex, padSlice.getBytes(0, paddingOffset + fillLength - byteIndex));
+
+        return buffer;
+    }
+
+    @Description("pads a varbinary on the left")
+    @ScalarFunction("lpad")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice leftPad(@SqlType("varbinary") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varbinary") Slice padBytes)
+    {
+        return pad(inputSlice, targetLength, padBytes, 0);
+    }
+
+    @Description("pads a varbinary on the right")
+    @ScalarFunction("rpad")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice rightPad(@SqlType("varbinary") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varbinary") Slice padBytes)
+    {
+        return pad(inputSlice, targetLength, padBytes, inputSlice.length());
     }
 }

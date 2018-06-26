@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -47,6 +45,7 @@ public class AggregationNode
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;
     private final List<List<Symbol>> groupingSets;
+    private final List<Symbol> preGroupedSymbols;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
@@ -58,6 +57,7 @@ public class AggregationNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
+            @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
@@ -70,10 +70,19 @@ public class AggregationNode
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = listOfListsCopy(groupingSets);
 
-        checkArgument(aggregations.values().stream().noneMatch(Aggregation::hasOrderBy) || step == SINGLE, "ORDER BY does not support distributed aggregation");
+        boolean hasOrderBy = aggregations.values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .noneMatch(Optional::isPresent);
+        checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
+
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
+        checkArgument(preGroupedSymbols.isEmpty() || getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
+        this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         outputs.addAll(getGroupingKeys());
@@ -141,6 +150,12 @@ public class AggregationNode
         return groupingSets;
     }
 
+    @JsonProperty("preGroupedSymbols")
+    public List<Symbol> getPreGroupedSymbols()
+    {
+        return preGroupedSymbols;
+    }
+
     @JsonProperty("source")
     public PlanNode getSource()
     {
@@ -165,12 +180,12 @@ public class AggregationNode
         return groupIdSymbol;
     }
 
-    public List<Symbol> getOrderBySymbols()
+    public boolean hasOrderings()
     {
-        return this.getAggregations().values().stream()
-                .map(Aggregation::getOrderBy)
-                .flatMap(List::stream)
-                .collect(toImmutableList());
+        return aggregations.values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
     }
 
     @Override
@@ -182,16 +197,46 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
     }
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        return (getAggregations().entrySet().stream()
-                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
-                .allMatch(InternalAggregationFunction::isDecomposable)) &&
-                getAggregations().entrySet().stream()
-                        .allMatch(entry -> !entry.getValue().hasOrderBy());
+        boolean hasOrderBy = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
+
+        boolean hasDistinct = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .anyMatch(FunctionCall::isDistinct);
+
+        boolean decomposableFunctions = getAggregations().values().stream()
+                .map(Aggregation::getSignature)
+                .map(functionRegistry::getAggregateFunctionImplementation)
+                .allMatch(InternalAggregationFunction::isDecomposable);
+
+        return !hasOrderBy && !hasDistinct && decomposableFunctions;
+    }
+
+    public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)
+    {
+        // There are two kinds of aggregations the have single node execution preference:
+        //
+        // 1. aggregations with only empty grouping sets like
+        //
+        // SELECT count(*) FROM lineitem;
+        //
+        // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
+        // since all input have to be aggregated into one line output.
+        //
+        // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
+    }
+
+    public boolean isStreamable()
+    {
+        return !preGroupedSymbols.isEmpty() && groupingSets.size() == 1 && !Iterables.getOnlyElement(groupingSets).isEmpty();
     }
 
     public enum Step
@@ -246,25 +291,16 @@ public class AggregationNode
         private final FunctionCall call;
         private final Signature signature;
         private final Optional<Symbol> mask;
-        private final List<Symbol> orderBy;
-        private final List<SortOrder> ordering;
 
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,
                 @JsonProperty("signature") Signature signature,
-                @JsonProperty("mask") Optional<Symbol> mask,
-                @JsonProperty("orderBy") List<Symbol> orderBy,
-                @JsonProperty("ordering") List<SortOrder> ordering)
+                @JsonProperty("mask") Optional<Symbol> mask)
         {
             this.call = call;
             this.signature = signature;
             this.mask = mask;
-            requireNonNull(orderBy, "orderBy is null");
-            requireNonNull(ordering, "ordering is null");
-            checkArgument(orderBy.size() == ordering.size(), "orderBy and ordering have different size");
-            this.orderBy = ImmutableList.copyOf(orderBy);
-            this.ordering = ImmutableList.copyOf(ordering);
         }
 
         @JsonProperty
@@ -283,23 +319,6 @@ public class AggregationNode
         public Optional<Symbol> getMask()
         {
             return mask;
-        }
-
-        @JsonProperty
-        public List<Symbol> getOrderBy()
-        {
-            return orderBy;
-        }
-
-        @JsonProperty
-        public List<SortOrder> getOrdering()
-        {
-            return ordering;
-        }
-
-        boolean hasOrderBy()
-        {
-            return !orderBy.isEmpty();
         }
     }
 }

@@ -92,4 +92,10 @@ public class DriverYieldSignal
     {
         yield.set(true);
     }
+
+    @VisibleForTesting
+    public synchronized void resetYieldForTesting()
+    {
+        yield.set(false);
+    }
 }

@@ -53,7 +53,6 @@ public class PartitionMetadata
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation)
-
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -120,6 +119,12 @@ public class PartitionMetadata
     public Optional<String> getExternalLocation()
     {
         return externalLocation;
+    }
+
+    public PartitionMetadata withParameters(Map<String, String> parameters)
+    {
+        requireNonNull(parameters, "parameters is null");
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation);
     }
 
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)

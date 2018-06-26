@@ -13,21 +13,12 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -41,6 +32,16 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -52,18 +53,19 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.bytecode.Access.FINAL;
-import static com.facebook.presto.bytecode.Access.PRIVATE;
-import static com.facebook.presto.bytecode.Access.PUBLIC;
-import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
-import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
-import static com.facebook.presto.bytecode.Parameter.arg;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -135,14 +137,13 @@ public class JoinFilterFunctionCompiler
         PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter, leftBlocksSize, sessionField);
 
-        generateConstructor(classDefinition, sessionField, cachedInstanceBinder, preGeneratedExpressions);
+        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
             FieldDefinition sessionField,
-            CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions)
+            CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
@@ -156,9 +157,6 @@ public class JoinFilterFunctionCompiler
 
         body.append(thisVariable.setField(sessionField, sessionParameter));
         cachedInstanceBinder.generateInitializations(thisVariable, body);
-        for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
-            compiledLambda.generateInitialization(thisVariable, body);
-        }
         body.ret();
     }
 
@@ -171,11 +169,11 @@ public class JoinFilterFunctionCompiler
             int leftBlocksSize,
             FieldDefinition sessionField)
     {
-        // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
+        // int leftPosition, Page leftPage, int rightPosition, Page rightPage
         Parameter leftPosition = arg("leftPosition", int.class);
-        Parameter leftBlocks = arg("leftBlocks", Block[].class);
+        Parameter leftPage = arg("leftPage", Page.class);
         Parameter rightPosition = arg("rightPosition", int.class);
-        Parameter rightBlocks = arg("rightBlocks", Block[].class);
+        Parameter rightPage = arg("rightPage", Page.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -183,9 +181,9 @@ public class JoinFilterFunctionCompiler
                 type(boolean.class),
                 ImmutableList.<Parameter>builder()
                         .add(leftPosition)
-                        .add(leftBlocks)
+                        .add(leftPage)
                         .add(rightPosition)
-                        .add(rightBlocks)
+                        .add(rightPage)
                         .build());
 
         method.comment("filter: %s", filter.toString());
@@ -198,7 +196,7 @@ public class JoinFilterFunctionCompiler
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
+                fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
@@ -265,13 +263,18 @@ public class JoinFilterFunctionCompiler
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
             final CallSiteBinder callSiteBinder,
             final Variable leftPosition,
-            final Variable leftBlocks,
+            final Variable leftPage,
             final Variable rightPosition,
-            final Variable rightBlocks,
+            final Variable rightPage,
             final int leftBlocksSize)
     {
         return new InputReferenceCompiler(
-                (scope, field) -> field < leftBlocksSize ? leftBlocks.getElement(field) : rightBlocks.getElement(field - leftBlocksSize),
+                (scope, field) -> {
+                    if (field < leftBlocksSize) {
+                        return leftPage.invoke("getBlock", Block.class, constantInt(field));
+                    }
+                    return rightPage.invoke("getBlock", Block.class, constantInt(field - leftBlocksSize));
+                },
                 (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
                 callSiteBinder);
     }

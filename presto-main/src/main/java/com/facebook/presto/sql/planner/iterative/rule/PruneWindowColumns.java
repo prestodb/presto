@@ -51,9 +51,12 @@ public class PruneWindowColumns
                 .addAll(windowNode.getSource().getOutputSymbols().stream()
                         .filter(referencedOutputs::contains)
                         .iterator())
-                .addAll(windowNode.getPartitionBy())
-                .addAll(windowNode.getOrderBy());
+                .addAll(windowNode.getPartitionBy());
 
+        windowNode.getOrderingScheme().ifPresent(
+                orderingScheme -> orderingScheme
+                        .getOrderBy()
+                        .forEach(referencedInputs::add));
         windowNode.getHashSymbol().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {

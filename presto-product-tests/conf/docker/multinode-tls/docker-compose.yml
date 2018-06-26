@@ -45,5 +45,6 @@ services:
       - presto-master
 
   application-runner:
-    volumes:
-      - ../../../conf/tempto/tempto-configuration-for-docker-tls.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-tls.yaml
+      - CLI_ARGUMENTS=--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456

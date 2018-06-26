@@ -21,7 +21,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -73,7 +72,6 @@ public class BenchmarkJsonToArrayCast
     @Benchmark
     @OperationsPerInvocation(POSITION_COUNT)
     public List<Optional<Page>> benchmark(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
@@ -121,7 +119,7 @@ public class BenchmarkJsonToArrayCast
 
         private static Block createChannel(int positionCount, int mapSize, Type elementType)
         {
-            BlockBuilder blockBuilder = JSON.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = JSON.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput jsonSlice = new DynamicSliceOutput(20 * mapSize);
                 jsonSlice.appendByte('[');
@@ -177,7 +175,6 @@ public class BenchmarkJsonToArrayCast
 
     @Test
     public void verify()
-            throws Throwable
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();

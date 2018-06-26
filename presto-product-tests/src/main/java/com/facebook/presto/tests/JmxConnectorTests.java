@@ -13,43 +13,26 @@
  */
 package com.facebook.presto.tests;
 
-import com.teradata.tempto.ProductTest;
+import io.prestodb.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
-
+import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.JMX_CONNECTOR;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.sql.JDBCType.BIGINT;
-import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.VARCHAR;
 
 public class JmxConnectorTests
         extends ProductTest
 {
-    @Test(groups = JMX_CONNECTOR)
+    @Test(groups = {JMX_CONNECTOR, JDBC})
     public void selectFromJavaRuntimeJmxMBean()
     {
-        Connection connection = defaultQueryExecutor().getConnection();
         String sql = "SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=runtime\"";
-
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(query(sql))
-                    .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
-                    .hasAnyRows();
-        }
-        else if (usingTeradataJdbcDriver(connection)) {
-            assertThat(query(sql))
-                    .hasColumns(VARCHAR, VARCHAR, VARCHAR)
-                    .hasAnyRows();
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertThat(query(sql))
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR)
+                .hasAnyRows();
     }
 
     @Test(groups = JMX_CONNECTOR)

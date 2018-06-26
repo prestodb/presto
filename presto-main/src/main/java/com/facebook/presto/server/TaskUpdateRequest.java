@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -33,23 +34,27 @@ public class TaskUpdateRequest
     private final Optional<PlanFragment> fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
+    private final OptionalInt totalPartitions;
 
     @JsonCreator
     public TaskUpdateRequest(
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
-            @JsonProperty("outputIds") OutputBuffers outputIds)
+            @JsonProperty("outputIds") OutputBuffers outputIds,
+            @JsonProperty("totalPartitions") OptionalInt totalPartitions)
     {
         requireNonNull(session, "session is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");
+        requireNonNull(totalPartitions, "totalPartitions is null");
 
         this.session = session;
         this.fragment = fragment;
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
+        this.totalPartitions = totalPartitions;
     }
 
     @JsonProperty
@@ -76,6 +81,12 @@ public class TaskUpdateRequest
         return outputIds;
     }
 
+    @JsonProperty
+    public OptionalInt getTotalPartitions()
+    {
+        return totalPartitions;
+    }
+
     @Override
     public String toString()
     {
@@ -84,6 +95,7 @@ public class TaskUpdateRequest
                 .add("fragment", fragment)
                 .add("sources", sources)
                 .add("outputIds", outputIds)
+                .add("totalPartitions", totalPartitions)
                 .toString();
     }
 }

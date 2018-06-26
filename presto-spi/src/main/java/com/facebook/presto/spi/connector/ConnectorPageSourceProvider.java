@@ -22,5 +22,8 @@ import java.util.List;
 
 public interface ConnectorPageSourceProvider
 {
+    /**
+     * @param columns columns that should show up in the output page, in this order
+     */
     ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);
 }

@@ -89,9 +89,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
-final class StreamPropertyDerivations
+public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
+
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    {
+        List<StreamProperties> inputProperties = node.getSources().stream()
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .collect(toImmutableList());
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
+    }
 
     public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
@@ -169,10 +177,8 @@ final class StreamPropertyDerivations
                             .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
                             .unordered(unordered);
                 case LEFT:
-                    // the left can contain nulls in any stream so we can't say anything about the
-                    // partitioning but the other properties of the left will be maintained.
                     return leftProperties
-                            .withUnspecifiedPartitioning()
+                            .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
                             .unordered(unordered);
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
@@ -423,7 +429,15 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitAssignUniqueId(AssignUniqueId node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            if (properties.getPartitioningColumns().isPresent()) {
+                // preserve input (possibly preferred) partitioning
+                return properties;
+            }
+
+            return new StreamProperties(properties.getDistribution(),
+                    Optional.of(ImmutableList.of(node.getIdColumn())),
+                    properties.isOrdered());
         }
 
         //
@@ -474,7 +488,13 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitSort(SortNode node, List<StreamProperties> inputProperties)
         {
-            return StreamProperties.ordered();
+            StreamProperties sourceProperties = Iterables.getOnlyElement(inputProperties);
+            if (sourceProperties.isSingleStream()) {
+                // stream is only sorted if sort operator is executed without parallelism
+                return StreamProperties.ordered();
+            }
+
+            return sourceProperties;
         }
 
         @Override

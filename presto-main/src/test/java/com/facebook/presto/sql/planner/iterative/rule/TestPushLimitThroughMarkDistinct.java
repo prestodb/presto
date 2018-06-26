@@ -27,7 +27,6 @@ public class TestPushLimitThroughMarkDistinct
 {
     @Test
     public void test()
-            throws Exception
     {
         tester().assertThat(new PushLimitThroughMarkDistinct())
                 .on(p ->
@@ -43,7 +42,6 @@ public class TestPushLimitThroughMarkDistinct
 
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new PushLimitThroughMarkDistinct())
                 .on(p ->

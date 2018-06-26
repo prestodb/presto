@@ -58,12 +58,6 @@ public class MetadataDeleteOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
@@ -108,12 +102,6 @@ public class MetadataDeleteOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return TYPES;
-    }
-
-    @Override
     public void finish()
     {
     }
@@ -146,7 +134,9 @@ public class MetadataDeleteOperator
 
         OptionalLong rowsDeletedCount = metadata.metadataDelete(session, tableHandle, tableLayout);
 
-        PageBuilder page = new PageBuilder(TYPES);
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder page = new PageBuilder(1, TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         page.declarePosition();
         if (rowsDeletedCount.isPresent()) {

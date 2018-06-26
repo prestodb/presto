@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
@@ -55,7 +55,6 @@ public class ScanFilterAndProjectOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
-    private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
@@ -90,13 +89,12 @@ public class ScanFilterAndProjectOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.pageBuilderMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
 
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.pageBuilder = new PageBuilder(ImmutableList.copyOf(requireNonNull(types, "types is null")));
     }
 
     @Override
@@ -149,12 +147,6 @@ public class ScanFilterAndProjectOperator
             mergingOutput.finish();
         }
         blocked.set(null);
-    }
-
-    @Override
-    public final List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -340,12 +332,6 @@ public class ScanFilterAndProjectOperator
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

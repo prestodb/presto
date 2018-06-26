@@ -19,7 +19,6 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Defaults;
-import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -28,6 +27,7 @@ import java.util.List;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +88,7 @@ public class FunctionInvoker
             return method.invokeWithArguments(actualArguments);
         }
         catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
+            throw propagate(throwable);
         }
     }
 
@@ -102,10 +102,16 @@ public class FunctionInvoker
             return method.bindTo(implementation.getInstanceFactory().get().invoke());
         }
         catch (Throwable throwable) {
-            if (throwable instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(throwable);
+            throw propagate(throwable);
         }
+    }
+
+    private static RuntimeException propagate(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }

@@ -36,7 +36,6 @@ public class TestLazyMap
 
     @Test
     public void test()
-            throws Exception
     {
         assertMapDecode("\\N\u0003ignored", ImmutableMap.of());
         assertMapDecode("\\N\u0003ignored\u0002alice\u0003apple", ImmutableMap.of(lazyString("alice"), lazyString("apple")));

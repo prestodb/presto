@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
@@ -24,13 +25,15 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlockEncoding
 {
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+
     @Test
     public void testRoundTrip()
     {
         int positionCount = 40;
 
         // build dictionary
-        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 4);
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
         VARCHAR.writeString(dictionaryBuilder, "alice");
         VARCHAR.writeString(dictionaryBuilder, "bob");
         VARCHAR.writeString(dictionaryBuilder, "charlie");
@@ -43,12 +46,11 @@ public class TestDictionaryBlockEncoding
             ids[i] = i % 4;
         }
 
-        BlockEncoding blockEncoding = new DictionaryBlockEncoding(new VariableWidthBlockEncoding());
         DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        blockEncoding.writeBlock(sliceOutput, dictionaryBlock);
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
+        blockEncodingSerde.writeBlock(sliceOutput, dictionaryBlock);
+        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
 
         assertTrue(actualBlock instanceof DictionaryBlock);
         DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;

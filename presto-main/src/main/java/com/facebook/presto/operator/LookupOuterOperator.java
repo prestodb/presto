@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -20,7 +21,10 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -39,20 +43,21 @@ public class LookupOuterOperator
 
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
-        private final List<Type> types;
+        private final Function<Lifespan, ListenableFuture<OuterPositionIterator>> outerPositionsFuture;
         private final List<Type> probeOutputTypes;
         private final List<Type> buildOutputTypes;
-        private final ReferenceCount referenceCount;
-        private State state = State.NOT_CREATED;
+        private final Function<Lifespan, ReferenceCount> referenceCount;
+
+        private Set<Lifespan> createdLifespans = new HashSet<>();
+        private boolean closed;
 
         public LookupOuterOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                ListenableFuture<OuterPositionIterator> outerPositionsFuture,
+                Function<Lifespan, ListenableFuture<OuterPositionIterator>> outerPositionsFuture,
                 List<Type> probeOutputTypes,
                 List<Type> buildOutputTypes,
-                ReferenceCount referenceCount)
+                Function<Lifespan, ReferenceCount> referenceCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -60,11 +65,6 @@ public class LookupOuterOperator
             this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
             this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
             this.referenceCount = requireNonNull(referenceCount, "referenceCount is null");
-
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeOutputTypes)
-                    .addAll(buildOutputTypes)
-                    .build();
         }
 
         public int getOperatorId()
@@ -73,30 +73,35 @@ public class LookupOuterOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            checkState(state == State.NOT_CREATED, "Only one outer operator can be created");
-            state = State.CREATED;
+            checkState(!closed, "LookupOuterOperatorFactory is closed");
+            if (createdLifespans.contains(driverContext.getLifespan())) {
+                throw new IllegalStateException("Only one outer operator can be created per Lifespan");
+            }
+            createdLifespans.add(driverContext.getLifespan());
 
+            ListenableFuture<OuterPositionIterator> outerPositionsFuture = this.outerPositionsFuture.apply(driverContext.getLifespan());
+            ReferenceCount referenceCount = this.referenceCount.apply(driverContext.getLifespan());
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupOuterOperator.class.getSimpleName());
             referenceCount.retain();
             return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, referenceCount::release);
         }
 
         @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            ReferenceCount referenceCount = this.referenceCount.apply(lifespan);
+            referenceCount.release();
+        }
+
+        @Override
         public void noMoreOperators()
         {
-            if (state == State.CLOSED) {
+            if (closed) {
                 return;
             }
-            state = State.CLOSED;
-            referenceCount.release();
+            closed = true;
         }
 
         @Override
@@ -109,7 +114,6 @@ public class LookupOuterOperator
     private final OperatorContext operatorContext;
     private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
 
-    private final List<Type> types;
     private final List<Type> probeOutputTypes;
     private final Runnable onClose;
 
@@ -128,7 +132,7 @@ public class LookupOuterOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
 
-        this.types = ImmutableList.<Type>builder()
+        List<Type> types = ImmutableList.<Type>builder()
                 .addAll(requireNonNull(probeOutputTypes, "probeOutputTypes is null"))
                 .addAll(requireNonNull(buildOutputTypes, "buildOutputTypes is null"))
                 .build();
@@ -141,12 +145,6 @@ public class LookupOuterOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

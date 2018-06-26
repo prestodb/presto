@@ -56,7 +56,6 @@ public class TestRFC2822JsonFieldDecoder
 
     @Test
     public void testBasicFormatting()
-            throws Exception
     {
         long now = (System.currentTimeMillis() / 1000) * 1000; // rfc2822 is second granularity
         String nowString = FORMATTER.print(now);
@@ -99,7 +98,6 @@ public class TestRFC2822JsonFieldDecoder
 
     @Test
     public void testNullValues()
-            throws Exception
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 

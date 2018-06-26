@@ -15,7 +15,6 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -183,7 +182,7 @@ public final class SerDeUtils
             currentBuilder = builder.beginBlockEntry();
         }
         else {
-            currentBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), list.size());
+            currentBuilder = elementType.createBlockBuilder(null, list.size());
         }
 
         for (Object element : list) {
@@ -219,7 +218,7 @@ public final class SerDeUtils
         boolean builderSynthesized = false;
         if (builder == null) {
             builderSynthesized = true;
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+            builder = type.createBlockBuilder(null, 1);
         }
         currentBuilder = builder.beginBlockEntry();
 
@@ -255,7 +254,7 @@ public final class SerDeUtils
         boolean builderSynthesized = false;
         if (builder == null) {
             builderSynthesized = true;
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+            builder = type.createBlockBuilder(null, 1);
         }
         currentBuilder = builder.beginBlockEntry();
 

@@ -229,7 +229,11 @@ public class RaptorMetadata
                 .collect(toCollection(ArrayList::new));
 
         columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_TYPE));
-        columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
+
+        if (handle.isBucketed()) {
+            columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
+        }
+
         return new ConnectorTableMetadata(tableName, columns, properties.build());
     }
 
@@ -251,8 +255,10 @@ public class RaptorMetadata
         RaptorColumnHandle uuidColumn = shardUuidColumnHandle(connectorId);
         builder.put(uuidColumn.getColumnName(), uuidColumn);
 
-        RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle(connectorId);
-        builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+        if (raptorTableHandle.isBucketed()) {
+            RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle(connectorId);
+            builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+        }
 
         return builder.build();
     }
@@ -445,11 +451,10 @@ public class RaptorMetadata
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
 
         // Always add new columns to the end.
-        // TODO: This needs to be updated when we support dropping columns.
         List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
         TableColumn lastColumn = existingColumns.get(existingColumns.size() - 1);
         long columnId = lastColumn.getColumnId() + 1;
-        int ordinalPosition = existingColumns.size();
+        int ordinalPosition = lastColumn.getOrdinalPosition() + 1;
 
         String type = column.getType().getTypeSignature().toString();
         daoTransaction(dbi, MetadataDao.class, dao -> {

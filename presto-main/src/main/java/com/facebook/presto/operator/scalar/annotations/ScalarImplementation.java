@@ -249,7 +249,7 @@ public class ScalarImplementation
         private final List<ImplementationDependency> constructorDependencies = new ArrayList<>();
         private final List<LongVariableConstraint> longVariableConstraints;
 
-        private Parser(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
+        private Parser(String functionName, Method method, Optional<Constructor<?>> constructor)
         {
             this.functionName = requireNonNull(functionName, "functionName is null");
             this.nullable = method.getAnnotation(SqlNullable.class) != null;
@@ -287,7 +287,7 @@ public class ScalarImplementation
 
             parseArguments(method);
 
-            this.constructorMethodHandle = getConstructor(method, constructors);
+            this.constructorMethodHandle = getConstructor(method, constructor);
 
             this.methodHandle = getMethodHandle(method);
         }
@@ -378,14 +378,18 @@ public class ScalarImplementation
         }
 
         // Find matching constructor, if this is an instance method, and populate constructorDependencies
-        private Optional<MethodHandle> getConstructor(Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
+        private Optional<MethodHandle> getConstructor(Method method, Optional<Constructor<?>> optionalConstructor)
         {
             if (isStatic(method.getModifiers())) {
                 return Optional.empty();
             }
 
-            Constructor<?> constructor = constructors.get(typeParameters);
-            checkArgument(constructor != null, "Method [%s] is an instance method and requires a public constructor to be declared with %s type parameters", method, typeParameters);
+            checkArgument(optionalConstructor.isPresent(), "Method [%s] is an instance method. It must be in a class annotated with @ScalarFunction, and the class is required to have a public constructor.", method);
+            Constructor<?> constructor = optionalConstructor.get();
+            Set<TypeParameter> constructorTypeParameters = Stream.of(constructor.getAnnotationsByType(TypeParameter.class))
+                    .collect(ImmutableSet.toImmutableSet());
+            checkArgument(constructorTypeParameters.containsAll(typeParameters), "Method [%s] is an instance method and requires a public constructor containing all type parameters: %s", method, typeParameters);
+
             for (int i = 0; i < constructor.getParameterCount(); i++) {
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
@@ -445,9 +449,9 @@ public class ScalarImplementation
                     specializedTypeParameters);
         }
 
-        public static ScalarImplementation parseImplementation(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
+        public static ScalarImplementation parseImplementation(String functionName, Method method, Optional<Constructor<?>> constructor)
         {
-            return new Parser(functionName, method, constructors).get();
+            return new Parser(functionName, method, constructor).get();
         }
     }
 }

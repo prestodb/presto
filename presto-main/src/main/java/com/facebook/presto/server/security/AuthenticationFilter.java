@@ -14,7 +14,7 @@
 package com.facebook.presto.server.security;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -31,22 +31,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.Principal;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
 public class AuthenticationFilter
         implements Filter
 {
-    private final Set<Authenticator> authenticators;
+    private final List<Authenticator> authenticators;
 
     @Inject
-    public AuthenticationFilter(Set<Authenticator> authenticators)
+    public AuthenticationFilter(List<Authenticator> authenticators)
     {
-        this.authenticators = ImmutableSet.copyOf(authenticators);
+        this.authenticators = ImmutableList.copyOf(authenticators);
     }
 
     @Override
@@ -94,7 +96,7 @@ public class AuthenticationFilter
         skipRequestBody(request);
 
         for (String value : authenticateHeaders) {
-            response.setHeader(WWW_AUTHENTICATE, value);
+            response.addHeader(WWW_AUTHENTICATE, value);
         }
 
         if (messages.isEmpty()) {
@@ -105,6 +107,7 @@ public class AuthenticationFilter
 
     private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
     {
+        requireNonNull(principal, "principal is null");
         return new HttpServletRequestWrapper(request)
         {
             @Override

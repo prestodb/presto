@@ -44,7 +44,6 @@ public class UnnestOperator
         private final List<Type> unnestTypes;
         private final boolean withOrdinality;
         private boolean closed;
-        private final ImmutableList<Type> types;
 
         public UnnestOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
         {
@@ -57,19 +56,6 @@ public class UnnestOperator
             this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
             checkArgument(unnestChannels.size() == unnestTypes.size(), "unnestChannels and unnestTypes do not match");
             this.withOrdinality = withOrdinality;
-            ImmutableList.Builder<Type> typesBuilder = ImmutableList.<Type>builder()
-                    .addAll(replicateTypes)
-                    .addAll(getUnnestedTypes(unnestTypes));
-            if (withOrdinality) {
-                typesBuilder.add(BIGINT);
-            }
-            this.types = typesBuilder.build();
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -99,7 +85,6 @@ public class UnnestOperator
     private final List<Integer> unnestChannels;
     private final List<Type> unnestTypes;
     private final boolean withOrdinality;
-    private final List<Type> outputTypes;
     private final PageBuilder pageBuilder;
     private final List<Unnester> unnesters;
     private boolean finishing;
@@ -123,15 +108,15 @@ public class UnnestOperator
         if (withOrdinality) {
             outputTypesBuilder.add(BIGINT);
         }
-        this.outputTypes = outputTypesBuilder.build();
-        this.pageBuilder = new PageBuilder(outputTypes);
+        this.pageBuilder = new PageBuilder(outputTypesBuilder.build());
         this.unnesters = new ArrayList<>(unnestTypes.size());
         for (Type type : unnestTypes) {
             if (type instanceof ArrayType) {
-                unnesters.add(new ArrayUnnester((ArrayType) type, null));
+                unnesters.add(new ArrayUnnester(((ArrayType) type).getElementType()));
             }
             else if (type instanceof MapType) {
-                unnesters.add(new MapUnnester((MapType) type, null));
+                MapType mapType = (MapType) type;
+                unnesters.add(new MapUnnester(mapType.getKeyType(), mapType.getValueType()));
             }
             else {
                 throw new IllegalArgumentException("Cannot unnest type: " + type);
@@ -153,12 +138,6 @@ public class UnnestOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public final List<Type> getTypes()
-    {
-        return outputTypes;
     }
 
     @Override

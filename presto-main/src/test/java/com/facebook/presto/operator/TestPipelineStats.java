@@ -73,6 +73,8 @@ public class TestPipelineStats
             new DataSize(18, BYTE),
             19,
 
+            new DataSize(20, BYTE),
+
             ImmutableList.of(TestOperatorStats.EXPECTED),
             ImmutableList.of(TestDriverStats.EXPECTED));
 
@@ -103,7 +105,7 @@ public class TestPipelineStats
         assertEquals(actual.getBlockedDrivers(), 19);
         assertEquals(actual.getCompletedDrivers(), 4);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(5, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(6, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(7, BYTE));
 
@@ -123,6 +125,8 @@ public class TestPipelineStats
 
         assertEquals(actual.getOutputDataSize(), new DataSize(18, BYTE));
         assertEquals(actual.getOutputPositions(), 19);
+
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(20, BYTE));
 
         assertEquals(actual.getOperatorSummaries().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));

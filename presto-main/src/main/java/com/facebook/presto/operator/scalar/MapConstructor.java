@@ -19,10 +19,13 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.DuplicateMapKeyException;
+import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
@@ -49,7 +52,16 @@ public final class MapConstructor
 {
     public static final MapConstructor MAP_CONSTRUCTOR = new MapConstructor();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", MapType.class, MethodHandle.class, MethodHandle.class, State.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(
+            MapConstructor.class,
+            "createMap",
+            MapType.class,
+            MethodHandle.class,
+            MethodHandle.class,
+            State.class,
+            ConnectorSession.class,
+            Block.class,
+            Block.class);
     private static final String DESCRIPTION = "Constructs a map from the given key/value arrays";
 
     public MapConstructor()
@@ -104,7 +116,14 @@ public final class MapConstructor
     }
 
     @UsedByGeneratedCode
-    public static Block createMap(MapType mapType, MethodHandle keyEqual, MethodHandle keyHashCode, State state, Block keyBlock, Block valueBlock)
+    public static Block createMap(
+            MapType mapType,
+            MethodHandle keyEqual,
+            MethodHandle keyHashCode,
+            State state,
+            ConnectorSession session,
+            Block keyBlock,
+            Block valueBlock)
     {
         checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
         PageBuilder pageBuilder = state.getPageBuilder();
@@ -112,7 +131,7 @@ public final class MapConstructor
             pageBuilder.reset();
         }
 
-        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
@@ -124,8 +143,15 @@ public final class MapConstructor
             mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);
             mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
         }
-        mapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
+        try {
+            mapBlockBuilder.closeEntryStrict();
+        }
+        catch (DuplicateMapKeyException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getDetailedMessage(mapType.getKeyType(), session), e);
+        }
+        finally {
+            pageBuilder.declarePosition();
+        }
 
         return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }

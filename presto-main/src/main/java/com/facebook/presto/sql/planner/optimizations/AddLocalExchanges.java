@@ -55,7 +55,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +73,7 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPreferredPrope
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
+import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -249,27 +249,54 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, StreamPreferredProperties parentPreferences)
         {
-            StreamPreferredProperties requiredProperties;
-            StreamPreferredProperties preferredChildProperties;
-
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
-            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
-            // needs to know whether input was received at the query level.
-            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
+            if (node.hasSingleNodeExecutionPreference(metadata.getFunctionRegistry())) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
-            for (int i = 1; i < node.getGroupingSets().size(); i++) {
-                partitioningRequirement.retainAll(node.getGroupingSets().get(i));
+            List<Symbol> groupingKeys = node.getGroupingKeys();
+            if (node.hasDefaultOutput()) {
+                checkState(node.isDecomposable(metadata.getFunctionRegistry()));
+
+                // Put fixed local exchange directly below final aggregation to ensure that final and partial aggregations are separated by exchange (in a local runner mode)
+                // This is required so that default outputs from multiple instances of partial aggregations are passed to a single final aggregation.
+                PlanWithProperties child = planAndEnforce(node.getSource(), any(), defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                child.getNode(),
+                                groupingKeys,
+                                Optional.empty()),
+                        child.getProperties());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
-            preferredChildProperties = parentPreferences.withDefaultParallelism(session)
-                    .withPartitioning(partitioningRequirement);
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputSymbols())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(groupingKeys);
 
-            return planAndEnforceChildren(node, requiredProperties, preferredChildProperties);
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            List<Symbol> preGroupedSymbols = ImmutableList.of();
+            if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isPresent()) {
+                // !isPresent() indicates the property was satisfied completely
+                preGroupedSymbols = groupingKeys;
+            }
+
+            AggregationNode result = new AggregationNode(
+                    node.getId(),
+                    child.getNode(),
+                    node.getAggregations(),
+                    node.getGroupingSets(),
+                    preGroupedSymbols,
+                    node.getStep(),
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
+
+            return deriveProperties(result, child.getProperties());
         }
 
         @Override
@@ -286,9 +313,10 @@ public class AddLocalExchanges
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            for (Symbol symbol : node.getOrderBy()) {
-                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
-            }
+            node.getOrderingScheme().ifPresent(orderingScheme ->
+                    orderingScheme.getOrderBy().stream()
+                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
+                            .forEach(desiredProperties::add));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();
@@ -498,7 +526,7 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getProbeSource().getOutputSymbols()).withDefaultParallelism(session));
 
             // index source does not support local parallel and must produce a single stream
-            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource());
+            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), metadata, session, types, parser);
             checkArgument(indexStreamProperties.getDistribution() == SINGLE, "index source must be single stream");
             PlanWithProperties index = new PlanWithProperties(node.getIndexSource(), indexStreamProperties);
 
@@ -536,6 +564,7 @@ public class AddLocalExchanges
             // enforce the required properties
             result = enforce(result, requiredProperties);
 
+            checkState(requiredProperties.isSatisfiedBy(result.getProperties()), "required properties not enforced");
             return result;
         }
 
@@ -604,14 +633,6 @@ public class AddLocalExchanges
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
             return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser));
-        }
-
-        private StreamProperties derivePropertiesRecursively(PlanNode node)
-        {
-            List<StreamProperties> inputProperties = node.getSources().stream()
-                    .map(this::derivePropertiesRecursively)
-                    .collect(toImmutableList());
-            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
         }
     }
 

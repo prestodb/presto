@@ -23,7 +23,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.RowType.RowField;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
@@ -89,6 +89,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonUtil
@@ -109,7 +110,7 @@ public final class JsonUtil
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass an InputStreamReader instead.
-        return factory.createParser(new InputStreamReader(json.getInput()));
+        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
@@ -902,7 +903,7 @@ public final class JsonUtil
                             mapType.getKeyType());
                 case StandardTypes.ROW:
                     RowType rowType = (RowType) type;
-                    List<RowField> rowFields = rowType.getFields();
+                    List<Field> rowFields = rowType.getFields();
                     BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
                     for (int i = 0; i < fieldAppenders.length; i++) {
                         fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
@@ -1213,7 +1214,7 @@ public final class JsonUtil
         }
     }
 
-    public static Optional<Map<String, Integer>> getFieldNameToIndex(List<RowField> rowFields)
+    public static Optional<Map<String, Integer>> getFieldNameToIndex(List<Field> rowFields)
     {
         if (!rowFields.get(0).getName().isPresent()) {
             return Optional.empty();

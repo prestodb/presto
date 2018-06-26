@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.190-SNAPSHOT</version>
+        <version>0.205-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -54,32 +54,17 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>discovery</artifactId>
+            <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-server</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>jaxrs</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>jmx</artifactId>
         </dependency>
 
         <dependency>
@@ -154,7 +139,7 @@
 
         <dependency>
             <groupId>org.jdbi</groupId>
-            <artifactId>jdbi</artifactId>
+            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <dependency>
@@ -176,6 +161,11 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
         </dependency>
 
         <dependency>
@@ -204,6 +194,20 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+
+        <!-- for benchmarks -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -216,8 +220,7 @@
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
-                        <exclude>**/TestLocalQueriesIndexed.java</exclude>
-                        <exclude>**/TestLocalBinarySpilledQueries.java</exclude>
+                        <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -252,8 +255,7 @@
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
                                 <include>**/TestLocalQueries.java</include>
-                                <include>**/TestLocalQueriesIndexed.java</include>
-                                <include>**/TestLocalBinarySpilledQueries.java</include>
+                                <include>**/TestNonIterativeDistributedQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -43,7 +41,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("transform(ARRAY [5, 6], x -> 9)", new ArrayType(INTEGER), ImmutableList.of(9, 9));
         assertFunction("transform(ARRAY [5, 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
@@ -52,7 +49,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testNull()
-            throws Exception
     {
         assertFunction("transform(ARRAY [3], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(4));
         assertFunction("transform(ARRAY [NULL, NULL], x -> x + 1)", new ArrayType(INTEGER), asList(null, null));
@@ -65,7 +61,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testSessionDependent()
-            throws Exception
     {
         assertFunction("transform(ARRAY['timezone: ', 'tz: '], x -> x || current_timezone())", new ArrayType(VARCHAR), ImmutableList.of("timezone: Pacific/Kiritimati", "tz: Pacific/Kiritimati"));
     }
@@ -79,7 +74,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction("transform(ARRAY [25, 26], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(26, 27));
         assertFunction("transform(ARRAY [25, 26], x -> x + 1.0E0)", new ArrayType(DOUBLE), ImmutableList.of(26.0, 27.0));
@@ -108,7 +102,7 @@ public class TestArrayTransformFunction
         assertFunction("transform(ARRAY ['abc', 'def'], x -> x || x)", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("abcabc", "defdef"));
         assertFunction(
                 "transform(ARRAY ['123', '456'], x -> ROW(x, CAST(x AS INTEGER), x > '3'))",
-                new ArrayType(new RowType(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN))),
                 ImmutableList.of(ImmutableList.of("123", 123, false), ImmutableList.of("456", 456, true)));
 
         assertFunction(

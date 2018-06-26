@@ -28,21 +28,20 @@ public class TestInstanceFunction
     @BeforeClass
     public void setUp()
     {
-        registerScalar(PrecomputedFunction.class);
+        registerParametricScalar(PrecomputedFunction.class);
     }
 
     @Test
     public void test()
-            throws Exception
     {
         assertFunction("precomputed()", BIGINT, 42L);
     }
 
+    @ScalarFunction("precomputed")
     public static final class PrecomputedFunction
     {
         private final int value = 42;
 
-        @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public long precomputed()
         {

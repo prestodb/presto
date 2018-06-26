@@ -21,6 +21,8 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public interface LocationService
 {
     LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
@@ -28,34 +30,53 @@ public interface LocationService
     LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
     /**
-     * Target path for the specified existing partition.
+     * targetPath and writePath will be root directory of all partition and table paths
+     * that may be returned by {@link #getTableWriteInfo(LocationHandle)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.
      */
-    Path targetPath(LocationHandle locationHandle, Partition partition, String partitionName);
+    WriteInfo getQueryWriteInfo(LocationHandle locationHandle);
+
+    WriteInfo getTableWriteInfo(LocationHandle locationHandle);
 
     /**
-     * Target path for the specified new partition (or unpartitioned table).
+     * If {@code partition} is present, returns {@code WriteInfo} for appending existing partition;
+     * otherwise, returns {@code WriteInfo} for writing new partition or overwriting existing partition.
      */
-    Path targetPath(LocationHandle locationHandle, Optional<String> partitionName);
+    WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName);
 
-    /**
-     * Root directory of all paths that may be returned by targetPath.
-     */
-    Path targetPathRoot(LocationHandle locationHandle);
+    class WriteInfo
+    {
+        private final Path targetPath;
+        private final Path writePath;
+        private final LocationHandle.WriteMode writeMode;
 
-    /**
-     * Temporary path for writing to the specified partition (or unpartitioned table).
-     * <p>
-     * When temporary path is not to be used, this function may return an empty Optional or
-     * a path same as the one returned from targetPath. When it is empty, special cleanups
-     * need to be carried out. Otherwise, it is not necessary.
-     * <p>
-     * A non-empty write path is required for new tables. However, it may be the same as
-     * targetPath.
-     */
-    Optional<Path> writePath(LocationHandle locationHandle, Optional<String> partitionName);
+        public WriteInfo(Path targetPath, Path writePath, LocationHandle.WriteMode writeMode)
+        {
+            this.targetPath = requireNonNull(targetPath, "targetPath is null");
+            this.writePath = requireNonNull(writePath, "writePath is null");
+            this.writeMode = requireNonNull(writeMode, "writeMode is null");
+        }
 
-    /**
-     * Root directory of all paths that may be returned by writePath.
-     */
-    Optional<Path> writePathRoot(LocationHandle locationHandle);
+        /**
+         * Target path for the partition, unpartitioned table, or the query.
+         */
+        public Path getTargetPath()
+        {
+            return targetPath;
+        }
+
+        /**
+         * Temporary path for writing to the partition, unpartitioned table or the query.
+         * <p>
+         * It may be the same as {@code targetPath}.
+         */
+        public Path getWritePath()
+        {
+            return writePath;
+        }
+
+        public LocationHandle.WriteMode getWriteMode()
+        {
+            return writeMode;
+        }
+    }
 }

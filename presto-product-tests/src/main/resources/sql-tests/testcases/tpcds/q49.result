@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|BIGINT|DECIMAL|BIGINT|BIGINT
+-- delimiter: |; types: VARCHAR|BIGINT|DECIMAL|BIGINT|BIGINT
 catalog|17543|0.5714|1|1|
 catalog|14513|0.6354|2|2|
 catalog|12577|0.6559|3|3|

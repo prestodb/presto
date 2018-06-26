@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcWriteValidation.StatisticsValidation;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -93,15 +93,19 @@ public class OrcRecordReader
     private long filePosition;
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
+    private int currentRowGroup = -1;
     private long currentGroupRowCount;
     private long nextRowInGroup;
 
     private final Map<String, Slice> userMetadata;
 
-    private final AbstractAggregatedMemoryContext systemMemoryUsage;
+    private final AggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
+    private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
+    private final Optional<StatisticsValidation> stripeStatisticsValidation;
+    private final Optional<StatisticsValidation> fileStatisticsValidation;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
@@ -120,12 +124,11 @@ public class OrcRecordReader
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             DataSize maxMergeDistance,
-            DataSize maxReadSize,
+            DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AbstractAggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation)
-            throws IOException
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -140,6 +143,9 @@ public class OrcRecordReader
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
+        this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
+        this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
+        this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -192,7 +198,7 @@ public class OrcRecordReader
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
-        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, maxReadSize);
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
 
@@ -241,17 +247,17 @@ public class OrcRecordReader
     }
 
     @VisibleForTesting
-    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
+    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
     {
         if (dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
         for (StripeInformation stripe : stripes) {
-            if (stripe.getTotalLength() > maxReadSize.toBytes()) {
+            if (stripe.getTotalLength() > tinyStripeThreshold.toBytes()) {
                 return dataSource;
             }
         }
-        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, maxReadSize));
+        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold));
     }
 
     /**
@@ -328,6 +334,10 @@ public class OrcRecordReader
             }
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
+        if (fileStatisticsValidation.isPresent()) {
+            List<ColumnStatistics> columnStatistics = fileStatisticsValidation.get().build();
+            writeValidation.get().validateFileStatistics(orcDataSource.getId(), columnStatistics);
+        }
     }
 
     public boolean isColumnPresent(int hiveColumnIndex)
@@ -395,8 +405,17 @@ public class OrcRecordReader
     {
         nextRowInGroup = 0;
 
+        if (currentRowGroup >= 0) {
+            if (rowGroupStatisticsValidation.isPresent()) {
+                StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
+                long offset = stripes.get(currentStripe).getOffset();
+                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build());
+                statisticsValidation.reset();
+            }
+        }
         while (!rowGroups.hasNext() && currentStripe < stripes.size()) {
             advanceToNextStripe();
+            currentRowGroup = -1;
         }
 
         if (!rowGroups.hasNext()) {
@@ -404,6 +423,7 @@ public class OrcRecordReader
             return false;
         }
 
+        currentRowGroup++;
         RowGroup currentRowGroup = rowGroups.next();
         currentGroupRowCount = currentRowGroup.getRowCount();
         if (currentRowGroup.getMinAverageRowBytes() > 0) {
@@ -430,6 +450,15 @@ public class OrcRecordReader
         currentStripeSystemMemoryContext.close();
         currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
         rowGroups = ImmutableList.<RowGroup>of().iterator();
+
+        if (currentStripe >= 0) {
+            if (stripeStatisticsValidation.isPresent()) {
+                StatisticsValidation statisticsValidation = stripeStatisticsValidation.get();
+                long offset = stripes.get(currentStripe).getOffset();
+                writeValidation.get().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build());
+                statisticsValidation.reset();
+            }
+        }
 
         currentStripe++;
         if (currentStripe >= stripes.size()) {
@@ -467,7 +496,6 @@ public class OrcRecordReader
     }
 
     private void validateWriteStripe(int rowCount)
-            throws IOException
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addStripe(rowCount);
@@ -482,7 +510,11 @@ public class OrcRecordReader
             for (int columnIndex = 0; columnIndex < streamReaders.length; columnIndex++) {
                 blocks[columnIndex] = readBlock(includedColumns.get(columnIndex), columnIndex);
             }
-            writeChecksumBuilder.get().addPage(new Page(currentBatchSize, blocks));
+            Page page = new Page(currentBatchSize, blocks);
+            writeChecksumBuilder.get().addPage(page);
+            rowGroupStatisticsValidation.get().addPage(page);
+            stripeStatisticsValidation.get().addPage(page);
+            fileStatisticsValidation.get().addPage(page);
         }
     }
 
@@ -596,7 +628,7 @@ public class OrcRecordReader
             throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
         }
 
-        public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
+        public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
         {
             if (stripes.size() == 0) {
                 return new LinearProbeRangeFinder(ImmutableList.of());
@@ -605,7 +637,7 @@ public class OrcRecordReader
             List<DiskRange> scratchDiskRanges = stripes.stream()
                     .map(stripe -> new DiskRange(stripe.getOffset(), toIntExact(stripe.getTotalLength())))
                     .collect(Collectors.toList());
-            List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, maxReadSize);
+            List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, tinyStripeThreshold);
 
             return new LinearProbeRangeFinder(diskRanges);
         }

@@ -20,7 +20,6 @@ import javax.servlet.AsyncContext;
 import javax.servlet.DispatcherType;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
 import javax.servlet.ServletInputStream;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
@@ -32,8 +31,6 @@ import javax.servlet.http.HttpUpgradeHandler;
 import javax.servlet.http.Part;
 
 import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -220,42 +217,36 @@ public class MockHttpServletRequest
 
     @Override
     public boolean authenticate(HttpServletResponse response)
-            throws IOException, ServletException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void login(String username, String password)
-            throws ServletException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void logout()
-            throws ServletException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Collection<Part> getParts()
-            throws IOException, ServletException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Part getPart(String name)
-            throws IOException, ServletException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass)
-            throws IOException, ServletException
     {
         throw new UnsupportedOperationException();
     }
@@ -280,7 +271,6 @@ public class MockHttpServletRequest
 
     @Override
     public void setCharacterEncoding(String env)
-            throws UnsupportedEncodingException
     {
         throw new UnsupportedOperationException();
     }
@@ -305,7 +295,6 @@ public class MockHttpServletRequest
 
     @Override
     public ServletInputStream getInputStream()
-            throws IOException
     {
         throw new UnsupportedOperationException();
     }
@@ -360,7 +349,6 @@ public class MockHttpServletRequest
 
     @Override
     public BufferedReader getReader()
-            throws IOException
     {
         throw new UnsupportedOperationException();
     }

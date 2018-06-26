@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.google.common.base.Verify.verify;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
@@ -87,15 +89,14 @@ public class ImplementFilteredAggregations
             if (call.getFilter().isPresent()) {
                 Expression filter = call.getFilter().get();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
+                verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(symbol, filter);
                 mask = Optional.of(symbol);
             }
             aggregations.put(output, new Aggregation(
                     new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
                     entry.getValue().getSignature(),
-                    mask,
-                    entry.getValue().getOrderBy(),
-                    entry.getValue().getOrdering()));
+                    mask));
         }
 
         // identity projection for all existing inputs
@@ -110,6 +111,7 @@ public class ImplementFilteredAggregations
                                 newAssignments.build()),
                         aggregations.build(),
                         aggregation.getGroupingSets(),
+                        ImmutableList.of(),
                         aggregation.getStep(),
                         aggregation.getHashSymbol(),
                         aggregation.getGroupIdSymbol()));

@@ -13,18 +13,33 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.server.ResourceGroupStateInfo;
+import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.sql.tree.Statement;
 
-public interface ResourceGroupManager
-        extends QueryQueueManager
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.List;
+import java.util.concurrent.Executor;
+
+/**
+ * Classes implementing this interface must be thread safe. That is, all the methods listed below
+ * may be called concurrently from any thread.
+ */
+@ThreadSafe
+public interface ResourceGroupManager<C>
 {
+    void submit(Statement statement, QueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
+
+    SelectionContext<C> selectGroup(SelectionCriteria criteria);
+
     ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
 
-    ResourceGroupStateInfo getResourceGroupStateInfo(ResourceGroupId id);
+    List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id);
 
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 

@@ -33,8 +33,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Properties;
 
@@ -55,6 +57,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class RecordFileWriter
         implements HiveFileWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
+
     private final Path path;
     private final JobConf conf;
     private final int fieldCount;
@@ -66,6 +70,8 @@ public class RecordFileWriter
     private final Object row;
     private final FieldSetter[] setters;
     private final long estimatedWriterSystemMemoryUsage;
+
+    private boolean committed;
 
     public RecordFileWriter(
             Path path,
@@ -113,9 +119,29 @@ public class RecordFileWriter
     }
 
     @Override
+    public long getWrittenBytes()
+    {
+        if (recordWriter instanceof ExtendedRecordWriter) {
+            return ((ExtendedRecordWriter) recordWriter).getWrittenBytes();
+        }
+
+        if (committed) {
+            try {
+                return path.getFileSystem(conf).getFileStatus(path).getLen();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        // there is no good way to get this when RecordWriter is not yet committed
+        return 0;
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
-        return estimatedWriterSystemMemoryUsage;
+        return INSTANCE_SIZE + estimatedWriterSystemMemoryUsage;
     }
 
     @Override
@@ -151,6 +177,7 @@ public class RecordFileWriter
     {
         try {
             recordWriter.close(false);
+            committed = true;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
@@ -180,5 +207,11 @@ public class RecordFileWriter
         return toStringHelper(this)
                 .add("path", path)
                 .toString();
+    }
+
+    public interface ExtendedRecordWriter
+            extends RecordWriter
+    {
+        long getWrittenBytes();
     }
 }

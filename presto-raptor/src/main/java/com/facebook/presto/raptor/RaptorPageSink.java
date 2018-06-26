@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -45,9 +46,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
@@ -67,12 +66,14 @@ public class RaptorPageSink
     private final long maxBufferBytes;
     private final OptionalInt temporalColumnIndex;
     private final Optional<Type> temporalColumnType;
+    private final TemporalFunction temporalFunction;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
             PageSorter pageSorter,
             StorageManager storageManager,
+            TemporalFunction temporalFunction,
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
@@ -85,6 +86,7 @@ public class RaptorPageSink
     {
         this.transactionId = transactionId;
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
@@ -197,7 +199,6 @@ public class RaptorPageSink
             implements PageWriter
     {
         private final Optional<BucketFunction> bucketFunction;
-        private final Optional<TemporalFunction> temporalFunction;
         private final Long2ObjectMap<PageStore> pageStores = new Long2ObjectOpenHashMap<>();
 
         public PartitionedPageWriter()
@@ -210,7 +211,6 @@ public class RaptorPageSink
                     .collect(toList());
 
             this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt(), bucketTypes)) : Optional.empty();
-            this.temporalFunction = temporalColumnType.map(TemporalFunction::create);
         }
 
         @Override
@@ -222,7 +222,7 @@ public class RaptorPageSink
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = bucketFunction.isPresent() ? bucketFunction.get().getBucket(bucketArgs, position) : 0;
-                int day = temporalFunction.isPresent() ? temporalFunction.get().getDay(temporalBlock, position) : 0;
+                int day = temporalColumnType.isPresent() ? temporalFunction.getDay(temporalColumnType.get(), temporalBlock, position) : 0;
 
                 long partition = (((long) bucket) << 32) | (day & 0xFFFF_FFFFL);
                 PageStore store = pageStores.get(partition);
@@ -323,24 +323,6 @@ public class RaptorPageSink
                 pageBuffer.add(pageBuilder.build());
                 pageBuilder.reset();
             }
-        }
-    }
-
-    private interface TemporalFunction
-    {
-        int getDay(Block temporalBlock, int position);
-
-        static TemporalFunction create(Type temporalColumnType)
-        {
-            if (temporalColumnType.equals(DATE)) {
-                return (temporalBlock, position) -> toIntExact(DATE.getLong(temporalBlock, position));
-            }
-
-            if (temporalColumnType.equals(TIMESTAMP)) {
-                return (temporalBlock, position) -> toIntExact(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
-            }
-
-            throw new IllegalArgumentException("Wrong type for temporal column: " + temporalColumnType);
         }
     }
 }

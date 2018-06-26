@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -55,7 +56,6 @@ public class TestPhasedExecutionSchedule
 {
     @Test
     public void testExchange()
-            throws Exception
     {
         PlanFragment aFragment = createTableScanPlanFragment("a");
         PlanFragment bFragment = createTableScanPlanFragment("b");
@@ -72,7 +72,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testUnion()
-            throws Exception
     {
         PlanFragment aFragment = createTableScanPlanFragment("a");
         PlanFragment bFragment = createTableScanPlanFragment("b");
@@ -89,7 +88,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testJoin()
-            throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
@@ -101,7 +99,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testRightJoin()
-            throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
@@ -113,7 +110,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testBroadcastJoin()
-            throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment joinFragment = createBroadcastJoinPlanFragment("join", buildFragment);
@@ -124,7 +120,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testJoinWithDeepSources()
-            throws Exception
     {
         PlanFragment buildSourceFragment = createTableScanPlanFragment("buildSource");
         PlanFragment buildMiddleFragment = createExchangePlanFragment("buildMiddle", buildSourceFragment);
@@ -258,6 +253,7 @@ public class TestPhasedExecutionSchedule
                 types.build(),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()));
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
+                UNGROUPED_EXECUTION);
     }
 }

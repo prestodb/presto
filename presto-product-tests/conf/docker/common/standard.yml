@@ -10,7 +10,7 @@ services:
   hadoop-master:
     extends:
       service: java-8-base
-    image: ${HADOOP_MASTER_IMAGE}
+    image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
     hostname: hadoop-master
     ports:
       - '${HIVE_PROXY_PORT}:1180'
@@ -40,8 +40,14 @@ services:
     extends:
       service: java-8-base
     hostname: application-runner
+    command: bash -c 'echo please provide command to application-runner >&2; exit 1'
     volumes:
       - ${PRESTO_CLI_JAR}:/docker/volumes/presto-cli/presto-cli-executable.jar
       - ${PRODUCT_TESTS_JAR}:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
+      - ${PRESTO_JDBC_DRIVER_JAR}:/docker/volumes/jdbc/driver.jar
       - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
       - ../../../target/test-reports:/docker/volumes/test-reports
+    environment:
+      - PRESTO_JDBC_DRIVER_CLASS
+      - TEMPTO_EXTRA_CONFIG_FILE
+      - CLI_ARGUMENTS=--server presto-master:8080

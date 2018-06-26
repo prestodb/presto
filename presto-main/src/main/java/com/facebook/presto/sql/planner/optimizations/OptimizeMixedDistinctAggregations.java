@@ -122,7 +122,7 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            if (!node.getOrderBySymbols().isEmpty()) {
+            if (node.hasOrderings()) {
                 // Skip if any aggregation contains a order by
                 return context.defaultRewrite(node, Optional.empty());
             }
@@ -151,7 +151,7 @@ public class OptimizeMixedDistinctAggregations
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 FunctionCall functionCall = entry.getValue().getCall();
-                if (functionCall.isDistinct()) {
+                if (entry.getValue().getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
                             new FunctionCall(
                                     functionCall.getName(),
@@ -159,9 +159,7 @@ public class OptimizeMixedDistinctAggregations
                                     false,
                                     ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
                             entry.getValue().getSignature(),
-                            Optional.empty(),
-                            entry.getValue().getOrderBy(),
-                            entry.getValue().getOrdering()));
+                            Optional.empty()));
                 }
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
@@ -170,9 +168,7 @@ public class OptimizeMixedDistinctAggregations
                     aggregations.put(entry.getKey(), new Aggregation(
                             new FunctionCall(functionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
                             getFunctionSignature(functionName, argument),
-                            Optional.empty(),
-                            entry.getValue().getOrderBy(),
-                            entry.getValue().getOrdering()));
+                            Optional.empty()));
                 }
             }
 
@@ -181,6 +177,7 @@ public class OptimizeMixedDistinctAggregations
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
+                    ImmutableList.of(),
                     node.getStep(),
                     Optional.empty(),
                     node.getGroupIdSymbol());
@@ -397,7 +394,7 @@ public class OptimizeMixedDistinctAggregations
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 FunctionCall functionCall = entry.getValue().getCall();
-                if (!functionCall.isDistinct()) {
+                if (!entry.getValue().getMask().isPresent()) {
                     Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
@@ -416,7 +413,7 @@ public class OptimizeMixedDistinctAggregations
                             functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, arguments.build());
                         }
                     }
-                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty(), entry.getValue().getOrderBy(), entry.getValue().getOrdering()));
+                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty()));
                 }
             }
             return new AggregationNode(
@@ -424,6 +421,7 @@ public class OptimizeMixedDistinctAggregations
                     groupIdNode,
                     aggregations.build(),
                     ImmutableList.of(ImmutableList.copyOf(groupByKeys)),
+                    ImmutableList.of(),
                     SINGLE,
                     originalNode.getHashSymbol(),
                     Optional.empty());
@@ -470,8 +468,8 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalNonDistinctAggregateArgs()
         {
             return aggregations.values().stream()
+                    .filter(aggregation -> !aggregation.getMask().isPresent())
                     .map(Aggregation::getCall)
-                    .filter(function -> !function.isDistinct())
                     .flatMap(function -> function.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)
@@ -481,8 +479,8 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalDistinctAggregateArgs()
         {
             return aggregations.values().stream()
+                    .filter(aggregation -> aggregation.getMask().isPresent())
                     .map(Aggregation::getCall)
-                    .filter(FunctionCall::isDistinct)
                     .flatMap(function -> function.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)

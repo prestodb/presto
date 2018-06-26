@@ -16,11 +16,11 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.SingleRowBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -53,17 +53,17 @@ public class TestRowBlock
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
 
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
 
-        List<Integer> positionList = generatePositionList(expectedValues.length, expectedValues.length / 2);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, positionList);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), positionList);
+        IntArrayList positionList = generatePositionList(expectedValues.length, expectedValues.length / 2);
+        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
     }
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)
     {
-        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, new BlockBuilderStatus(), 1);
+        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
         for (List<Object> row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();
@@ -154,13 +154,14 @@ public class TestRowBlock
                     }
                 }
             }
+            testRows[i] = testRow;
         }
         return testRows;
     }
 
-    private List<Integer> generatePositionList(int numRows, int numPositions)
+    private IntArrayList generatePositionList(int numRows, int numPositions)
     {
-        List<Integer> positions = new ArrayList<>(numPositions);
+        IntArrayList positions = new IntArrayList(numPositions);
         for (int i = 0; i < numPositions; i++) {
             positions.add((7 * i + 3) % numRows);
         }

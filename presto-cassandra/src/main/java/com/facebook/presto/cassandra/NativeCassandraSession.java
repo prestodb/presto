@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.AbstractTableMetadata;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.IndexMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.MaterializedViewMetadata;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
@@ -47,18 +49,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
@@ -70,12 +73,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class NativeCassandraSession
@@ -86,6 +91,7 @@ public class NativeCassandraSession
     private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     private static final String SYSTEM = "system";
     private static final String SIZE_ESTIMATES = "size_estimates";
+    private static final VersionNumber PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = VersionNumber.parse("2.2");
 
     private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -171,6 +177,9 @@ public class NativeCassandraSession
         for (TableMetadata table : keyspace.getTables()) {
             builder.add(table.getName());
         }
+        for (MaterializedViewMetadata materializedView : keyspace.getMaterializedViews()) {
+            builder.add(materializedView.getName());
+        }
         return builder.build();
     }
 
@@ -179,7 +188,7 @@ public class NativeCassandraSession
             throws TableNotFoundException
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
-        TableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
+        AbstractTableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
 
         List<String> columnNames = new ArrayList<>();
         List<ColumnMetadata> columns = tableMeta.getColumns();
@@ -266,27 +275,33 @@ public class NativeCassandraSession
         return result;
     }
 
-    private static TableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
+    private static AbstractTableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
     {
-        TableMetadata result = null;
-        Collection<TableMetadata> tables = keyspace.getTables();
-        // Ensure that the error message is deterministic
-        List<TableMetadata> sortedTables = Ordering.from(comparing(TableMetadata::getName)).immutableSortedCopy(tables);
-        for (TableMetadata table : sortedTables) {
-            if (table.getName().equalsIgnoreCase(caseInsensitiveTableName)) {
-                if (result != null) {
-                    throw new PrestoException(
-                            NOT_SUPPORTED,
-                            format("More than one table has been found for the case insensitive table name: %s -> (%s, %s)",
-                                    caseInsensitiveTableName, result.getName(), table.getName()));
-                }
-                result = table;
-            }
-        }
-        if (result == null) {
+        List<AbstractTableMetadata> tables = Stream.concat(
+                keyspace.getTables().stream(),
+                keyspace.getMaterializedViews().stream())
+                .filter(table -> table.getName().equalsIgnoreCase(caseInsensitiveTableName))
+                .collect(toImmutableList());
+        if (tables.size() == 0) {
             throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseInsensitiveTableName));
         }
-        return result;
+        else if (tables.size() == 1) {
+            return tables.get(0);
+        }
+        String tableNames = tables.stream()
+                .map(AbstractTableMetadata::getName)
+                .sorted()
+                .collect(joining(", "));
+        throw new PrestoException(
+                NOT_SUPPORTED,
+                format("More than one table has been found for the case insensitive table name: %s -> (%s)",
+                        caseInsensitiveTableName, tableNames));
+    }
+
+    public boolean isMaterializedView(SchemaTableName schemaTableName)
+    {
+        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        return keyspace.getMaterializedView(schemaTableName.getTableName()) != null;
     }
 
     private static void checkColumnNames(List<ColumnMetadata> columns)
@@ -304,7 +319,7 @@ public class NativeCassandraSession
         }
     }
 
-    private CassandraColumnHandle buildColumnHandle(TableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
+    private CassandraColumnHandle buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
         CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType().getName());
         List<CassandraType> typeArguments = null;
@@ -322,25 +337,42 @@ public class NativeCassandraSession
             }
         }
         boolean indexed = false;
-        for (IndexMetadata idx : tableMetadata.getIndexes()) {
-            if (idx.getTarget().equals(columnMeta.getName())) {
-                indexed = true;
-                break;
+        SchemaTableName schemaTableName = new SchemaTableName(tableMetadata.getKeyspace().getName(), tableMetadata.getName());
+        if (!isMaterializedView(schemaTableName)) {
+            TableMetadata table = (TableMetadata) tableMetadata;
+            for (IndexMetadata idx : table.getIndexes()) {
+                if (idx.getTarget().equals(columnMeta.getName())) {
+                    indexed = true;
+                    break;
+                }
             }
         }
         return new CassandraColumnHandle(connectorId, columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
     }
 
     @Override
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix)
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        Iterable<Row> rows = queryPartitionKeys(table, filterPrefix);
+        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+
+        if (filterPrefixes.size() != partitionKeyColumns.size()) {
+            return ImmutableList.of(CassandraPartition.UNPARTITIONED);
+        }
+
+        Iterable<Row> rows;
+        if (getCassandraVersion().compareTo(PARTITION_FETCH_WITH_IN_PREDICATE_VERSION) > 0) {
+            log.debug("Using IN predicate to fetch partitions.");
+            rows = queryPartitionKeysWithInClauses(table, filterPrefixes);
+        }
+        else {
+            log.debug("Using combination of partition values to fetch partitions.");
+            rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
+        }
+
         if (rows == null) {
             // just split the whole partition range
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
         }
-
-        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
         HashMap<ColumnHandle, NullableValue> map = new HashMap<>();
@@ -406,18 +438,49 @@ public class NativeCassandraSession
         return executeWithSession(session -> session.execute(statement));
     }
 
-    private Iterable<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
+    private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
-        if (filterPrefix.size() != partitionKeyColumns.size()) {
-            return null;
+        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+        addWhereInClauses(partitionKeys.where(), partitionKeyColumns, filterPrefixes);
+
+        return execute(partitionKeys).all();
+    }
+
+    private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
+    {
+        CassandraTableHandle tableHandle = table.getTableHandle();
+        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+
+        Set<List<Object>> filterCombinations = Sets.cartesianProduct(filterPrefixes);
+
+        ImmutableList.Builder<Row> rowList = ImmutableList.builder();
+        for (List<Object> combination : filterCombinations) {
+            Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+            addWhereClause(partitionKeys.where(), partitionKeyColumns, combination);
+
+            List<Row> resultRows = execute(partitionKeys).all();
+            if (resultRows != null && !resultRows.isEmpty()) {
+                rowList.addAll(resultRows);
+            }
         }
 
-        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
-        addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-        return execute(partitionKeys).all();
+        return rowList.build();
+    }
+
+    private static void addWhereInClauses(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
+    {
+        for (int i = 0; i < filterPrefixes.size(); i++) {
+            CassandraColumnHandle column = partitionKeyColumns.get(i);
+            List<Object> values = filterPrefixes.get(i)
+                    .stream()
+                    .map(value -> column.getCassandraType().getJavaValue(value))
+                    .collect(toList());
+            Clause clause = QueryBuilder.in(CassandraCqlUtils.validColumnName(column.getName()), values);
+            where.and(clause);
+        }
     }
 
     private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)

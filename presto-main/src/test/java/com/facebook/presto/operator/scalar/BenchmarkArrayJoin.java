@@ -21,7 +21,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
@@ -69,7 +68,6 @@ public class BenchmarkArrayJoin
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE)
     public List<Optional<Page>> benchmark(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
@@ -103,7 +101,7 @@ public class BenchmarkArrayJoin
         {
             ArrayType arrayType = new ArrayType(BIGINT);
 
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < arraySize; i++) {
@@ -127,7 +125,6 @@ public class BenchmarkArrayJoin
 
     @Test
     public void verify()
-            throws Throwable
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();

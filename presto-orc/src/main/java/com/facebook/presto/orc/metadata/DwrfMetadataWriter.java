@@ -25,6 +25,7 @@ import com.facebook.presto.orc.proto.DwrfProto.UserMetadataItem;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.MessageLite;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -32,15 +33,21 @@ import io.airlift.slice.SliceOutput;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataWriter
         implements MetadataWriter
 {
     private static final int DWRF_WRITER_VERSION = 1;
+    public static final Map<String, Slice> STATIC_METADATA = ImmutableMap.<String, Slice>builder()
+            .put("orc.writer.name", utf8Slice("presto"))
+            .put("orc.writer.version", utf8Slice(String.valueOf(DWRF_WRITER_VERSION)))
+            .build();
 
     @Override
     public List<Integer> getOrcMetadataVersion()
@@ -65,7 +72,6 @@ public class DwrfMetadataWriter
 
     @Override
     public int writeMetadata(SliceOutput output, Metadata metadata)
-            throws IOException
     {
         return 0;
     }
@@ -87,6 +93,9 @@ public class DwrfMetadataWriter
                         .map(DwrfMetadataWriter::toColumnStatistics)
                         .collect(toImmutableList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
+                        .map(DwrfMetadataWriter::toUserMetadata)
+                        .collect(toImmutableList()))
+                .addAllMetadata(STATIC_METADATA.entrySet().stream()
                         .map(DwrfMetadataWriter::toUserMetadata)
                         .collect(toImmutableList()))
                 .build();
@@ -166,10 +175,13 @@ public class DwrfMetadataWriter
         }
 
         if (columnStatistics.getIntegerStatistics() != null) {
-            builder.setIntStatistics(DwrfProto.IntegerStatistics.newBuilder()
+            DwrfProto.IntegerStatistics.Builder integerStatistics = DwrfProto.IntegerStatistics.newBuilder()
                     .setMinimum(columnStatistics.getIntegerStatistics().getMin())
-                    .setMaximum(columnStatistics.getIntegerStatistics().getMax())
-                    .build());
+                    .setMaximum(columnStatistics.getIntegerStatistics().getMax());
+            if (columnStatistics.getIntegerStatistics().getSum() != null) {
+                integerStatistics.setSum(columnStatistics.getIntegerStatistics().getSum());
+            }
+            builder.setIntStatistics(integerStatistics.build());
         }
 
         if (columnStatistics.getDoubleStatistics() != null) {
@@ -180,9 +192,20 @@ public class DwrfMetadataWriter
         }
 
         if (columnStatistics.getStringStatistics() != null) {
-            builder.setStringStatistics(DwrfProto.StringStatistics.newBuilder()
-                    .setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()))
-                    .setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()))
+            DwrfProto.StringStatistics.Builder statisticsBuilder = DwrfProto.StringStatistics.newBuilder();
+            if (columnStatistics.getStringStatistics().getMin() != null) {
+                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()));
+            }
+            if (columnStatistics.getStringStatistics().getMax() != null) {
+                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()));
+            }
+            statisticsBuilder.setSum(columnStatistics.getStringStatistics().getSum());
+            builder.setStringStatistics(statisticsBuilder.build());
+        }
+
+        if (columnStatistics.getBinaryStatistics() != null) {
+            builder.setBinaryStatistics(DwrfProto.BinaryStatistics.newBuilder()
+                    .setSum(columnStatistics.getBinaryStatistics().getSum())
                     .build());
         }
 
@@ -275,12 +298,6 @@ public class DwrfMetadataWriter
         return writeProtobufObject(output, rowIndexProtobuf);
     }
 
-    @Override
-    public MetadataReader getMetadataReader()
-    {
-        return new DwrfMetadataReader();
-    }
-
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
         return RowIndexEntry.newBuilder()
@@ -300,6 +317,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.CompressionKind.ZLIB;
             case SNAPPY:
                 return DwrfProto.CompressionKind.SNAPPY;
+            case LZ4:
+                return DwrfProto.CompressionKind.LZ4;
         }
         throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
     }

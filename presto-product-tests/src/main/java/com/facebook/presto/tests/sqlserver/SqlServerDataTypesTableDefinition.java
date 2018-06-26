@@ -14,8 +14,8 @@
 package com.facebook.presto.tests.sqlserver;
 
 import com.google.common.collect.ImmutableList;
-import com.teradata.tempto.fulfillment.table.jdbc.RelationalDataSource;
-import com.teradata.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
+import io.prestodb.tempto.fulfillment.table.jdbc.RelationalDataSource;
+import io.prestodb.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
 
 import java.sql.Date;
 import java.sql.Timestamp;

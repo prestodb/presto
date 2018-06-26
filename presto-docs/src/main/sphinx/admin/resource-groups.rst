@@ -2,12 +2,6 @@
 Resource Groups
 ===============
 
-.. note::
-
-    Resource groups are disabled by default and must be enabled with the
-    ``experimental.resource-groups-enabled=true`` config flag. They are no
-    longer experimental and will be enabled by default in a future release.
-
 Resource groups place limits on resource usage, and can enforce queueing policies on
 queries that run within them or divide their resources among sub groups. A query
 belongs to a single resource group, and consumes resources from that group (and its ancestors).
@@ -66,6 +60,12 @@ Resource Group Properties
 
 * ``jmxExport`` (optional): If true, group statistics are exported to JMX for monitoring.
   Defaults to ``false``.
+
+* ``queuedTimeLimit`` (optional): maximum amount of time a query may be in the queue for this group
+  before it is marked as failed.
+
+* ``runningTimeLimit`` (optional): maximum amount of time a query in this group can execute
+  (not including queued time) before it is marked as failed.
 
 * ``subGroups`` (optional): list of sub groups.
 

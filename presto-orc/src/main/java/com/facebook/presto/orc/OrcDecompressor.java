@@ -14,14 +14,24 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.CompressionKind;
+import io.airlift.units.DataSize;
 
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
+
 public interface OrcDecompressor
 {
+    int MAX_BUFFER_SIZE = toIntExact(new DataSize(4, MEGABYTE).toBytes());
+
     static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize)
             throws OrcCorruptionException
     {
+        if ((compression != NONE) && ((bufferSize <= 0) || (bufferSize > MAX_BUFFER_SIZE))) {
+            throw new OrcCorruptionException(orcDataSourceId, "Invalid compression block size: " + bufferSize);
+        }
         switch (compression) {
             case NONE:
                 return Optional.empty();
@@ -29,6 +39,8 @@ public interface OrcDecompressor
                 return Optional.of(new OrcZlibDecompressor(orcDataSourceId, bufferSize));
             case SNAPPY:
                 return Optional.of(new OrcSnappyDecompressor(orcDataSourceId, bufferSize));
+            case LZ4:
+                return Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
             case ZSTD:
                 return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
             default:

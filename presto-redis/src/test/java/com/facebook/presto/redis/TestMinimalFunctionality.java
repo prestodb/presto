@@ -23,7 +23,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -64,9 +63,9 @@ public class TestMinimalFunctionality
 
     @AfterClass(alwaysRun = true)
     public void stopRedis()
-            throws Exception
     {
         embeddedRedis.close();
+        embeddedRedis = null;
     }
 
     @BeforeMethod
@@ -83,34 +82,26 @@ public class TestMinimalFunctionality
                         .build());
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     private void populateData(int count)
     {
         JsonEncoder jsonEncoder = new JsonEncoder();
-        try {
-            for (long i = 0; i < count; i++) {
-                Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-
-                try (Jedis jedis = embeddedRedis.getJedisPool().getResource()) {
-                    jedis.set(tableName + ":" + i,
-                            jsonEncoder.toString(value));
-                }
+        for (long i = 0; i < count; i++) {
+            Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
+            try (Jedis jedis = embeddedRedis.getJedisPool().getResource()) {
+                jedis.set(tableName + ":" + i, jsonEncoder.toString(value));
             }
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 
     @Test
     public void testTableExists()
-            throws Exception
     {
         QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName);
         transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
@@ -123,7 +114,6 @@ public class TestMinimalFunctionality
 
     @Test
     public void testTableHasData()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT count(1) from " + tableName);
 

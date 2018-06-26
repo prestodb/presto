@@ -14,8 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -33,13 +36,18 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestMarkDistinctOperator
@@ -47,7 +55,7 @@ public class TestMarkDistinctOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
-    private JoinCompiler joinCompiler = new JoinCompiler();
+    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     @BeforeMethod
     public void setUp()
@@ -66,6 +74,12 @@ public class TestMarkDistinctOperator
         scheduledExecutor.shutdownNow();
     }
 
+    @DataProvider
+    public Object[][] dataType()
+    {
+        return new Object[][] {{VARCHAR}, {BIGINT}};
+    }
+
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
@@ -74,7 +88,6 @@ public class TestMarkDistinctOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testMarkDistinct(boolean hashEnabled)
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
@@ -91,5 +104,28 @@ public class TestMarkDistinctOperator
         }
 
         OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected.build(), hashEnabled, Optional.of(1));
+    }
+
+    @Test(dataProvider = "dataType")
+    public void testMemoryReservationYield(Type type)
+    {
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), joinCompiler);
+
+        // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 1_400_000);
+        assertGreaterThan(result.getYieldCount(), 5);
+        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+
+        int count = 0;
+        for (Page page : result.getOutput()) {
+            assertEquals(page.getChannelCount(), 3);
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                assertEquals(page.getBlock(2).getByte(i, 0), 1);
+                count++;
+            }
+        }
+        assertEquals(count, 6_000 * 600);
     }
 }

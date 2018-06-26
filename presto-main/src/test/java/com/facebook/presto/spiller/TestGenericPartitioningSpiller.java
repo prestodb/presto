@@ -16,7 +16,7 @@ package com.facebook.presto.spiller;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.operator.TestingOperatorContext;
@@ -74,6 +74,7 @@ public class TestGenericPartitioningSpiller
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(tempDirectory.toString());
         featuresConfig.setSpillerThreads(8);
+        featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, new SpillerStats(), featuresConfig);
         factory = new GenericPartitioningSpillerFactory(singleStreamSpillerFactory);
     }
@@ -187,9 +188,9 @@ public class TestGenericPartitioningSpiller
                 assertEquals(spillResult.getRetained().getPositionCount(), 0);
                 getFutureValue(spillResult.getSpillingFuture());
                 getFutureValue(spiller.flush());
-                assertEquals(memoryContext.getBytes(), 0, "Reserved bytes should be zeroed after spill completes");
             }
         }
+        assertEquals(memoryContext.getBytes(), 0, "Reserved bytes should be zeroed after spiller is closed");
     }
 
     private void assertSpilledPages(
@@ -211,9 +212,7 @@ public class TestGenericPartitioningSpiller
     private static AggregatedMemoryContext mockMemoryContext()
     {
         // It's important to use OperatorContext's system memory context, because it does additional bookkeeping.
-        return TestingOperatorContext.create()
-                .getSystemMemoryContext()
-                .newAggregatedMemoryContext();
+        return TestingOperatorContext.create().newAggregateSystemMemoryContext();
     }
 
     private static SpillContext mockSpillContext()

@@ -36,7 +36,15 @@ public interface ConnectorSession
 
     Locale getLocale();
 
+    Optional<String> getTraceToken();
+
     long getStartTime();
+
+    @Deprecated
+    boolean isLegacyTimestamp();
+
+    @Deprecated
+    boolean isLegacyRoundNBigint();
 
     <T> T getProperty(String name, Class<T> type);
 }

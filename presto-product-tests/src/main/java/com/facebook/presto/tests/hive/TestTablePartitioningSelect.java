@@ -14,30 +14,29 @@
 package com.facebook.presto.tests.hive;
 
 import com.google.inject.Inject;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTablesState;
-import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
-import com.teradata.tempto.query.QueryExecutionException;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.MutableTablesState;
+import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestodb.tempto.query.QueryExecutionException;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.teradata.tempto.Requirements.allOf;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.Requirements.allOf;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 
 public class TestTablePartitioningSelect
         extends ProductTest
@@ -47,6 +46,7 @@ public class TestTablePartitioningSelect
     private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_ORC = singleIntColumnPartitionedTableDefinition("ORC", Optional.empty());
     private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_RCFILE = singleIntColumnPartitionedTableDefinition("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"));
     private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_PARQUET = singleIntColumnPartitionedTableDefinition("PARQUET", Optional.empty());
+    private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_AVRO = singleIntColumnPartitionedTableDefinition("AVRO", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe'"));
     private static final String TABLE_NAME = "test_table";
 
     @Inject
@@ -85,12 +85,12 @@ public class TestTablePartitioningSelect
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONEND_TEXTFILE, TABLE_NAME, LOADED),
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONED_ORC, TABLE_NAME, LOADED),
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONED_RCFILE, TABLE_NAME, LOADED),
-                mutableTable(SINGLE_INT_COLUMN_PARTITIONED_PARQUET, TABLE_NAME, LOADED));
+                mutableTable(SINGLE_INT_COLUMN_PARTITIONED_PARQUET, TABLE_NAME, LOADED),
+                mutableTable(SINGLE_INT_COLUMN_PARTITIONED_AVRO, TABLE_NAME, LOADED));
     }
 
     @Test(groups = {HIVE_CONNECTOR})
     public void testSelectPartitionedHiveTableDifferentFormats()
-            throws SQLException
     {
         String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
 

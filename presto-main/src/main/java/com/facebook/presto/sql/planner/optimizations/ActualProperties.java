@@ -42,7 +42,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
-class ActualProperties
+public class ActualProperties
 {
     private final Global global;
     private final List<LocalProperty<Symbol>> localProperties;

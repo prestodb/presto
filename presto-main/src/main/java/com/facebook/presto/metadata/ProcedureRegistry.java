@@ -95,7 +95,6 @@ public class ProcedureRegistry
         for (int i = 0; i < procedure.getArguments().size(); i++) {
             Argument argument = procedure.getArguments().get(i);
             Type type = typeManager.getType(argument.getType());
-            checkArgument(type != null, "Unknown argument type: %s", argument.getType());
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));
             Class<?> expectedType = getObjectType(type);

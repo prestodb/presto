@@ -13,23 +13,25 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
+import com.facebook.presto.orc.OrcWriterOptions;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.OutputStreamSliceOutput;
-import io.airlift.slice.SliceOutput;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
@@ -40,19 +42,14 @@ import java.util.function.Supplier;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MAX_ROW_COUNT;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MAX_SIZE;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT;
-import static com.facebook.presto.orc.OrcWriter.createDwrfWriter;
-import static com.facebook.presto.orc.OrcWriter.createOrcWriter;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter
         implements HiveFileWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
+
     private final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
@@ -60,58 +57,41 @@ public class OrcFileWriter
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
 
     public OrcFileWriter(
-            OutputStream outputStream,
+            OrcDataSink orcDataSink,
             Callable<Void> rollbackAction,
-            boolean isDwrf,
+            OrcEncoding orcEncoding,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             CompressionKind compression,
+            OrcWriterOptions options,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
             DateTimeZone hiveStorageTimeZone,
-            Optional<Supplier<OrcDataSource>> validationInputFactory)
+            Optional<Supplier<OrcDataSource>> validationInputFactory,
+            OrcWriteValidationMode validationMode,
+            OrcWriterStats stats)
     {
-        if (!(outputStream instanceof SliceOutput)) {
-            outputStream = new OutputStreamSliceOutput(outputStream);
-        }
+        requireNonNull(orcDataSink, "orcDataSink is null");
 
-        if (isDwrf) {
-            orcWriter = createDwrfWriter(
-                    (SliceOutput) outputStream,
-                    columnNames,
-                    fileColumnTypes,
-                    compression,
-                    DEFAULT_STRIPE_MAX_SIZE,
-                    DEFAULT_STRIPE_MIN_ROW_COUNT,
-                    DEFAULT_STRIPE_MAX_ROW_COUNT,
-                    DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                    DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
-                    metadata,
-                    hiveStorageTimeZone,
-                    validationInputFactory.isPresent());
-        }
-        else {
-            orcWriter = createOrcWriter(
-                    (SliceOutput) outputStream,
-                    columnNames,
-                    fileColumnTypes,
-                    compression,
-                    DEFAULT_STRIPE_MAX_SIZE,
-                    DEFAULT_STRIPE_MIN_ROW_COUNT,
-                    DEFAULT_STRIPE_MAX_ROW_COUNT,
-                    DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                    DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
-                    metadata,
-                    hiveStorageTimeZone,
-                    validationInputFactory.isPresent());
-        }
+        orcWriter = new OrcWriter(
+                orcDataSink,
+                columnNames,
+                fileColumnTypes,
+                orcEncoding,
+                compression,
+                options,
+                metadata,
+                hiveStorageTimeZone,
+                validationInputFactory.isPresent(),
+                validationMode,
+                stats);
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
 
         ImmutableList.Builder<Block> nullBlocks = ImmutableList.builder();
         for (Type fileColumnType : fileColumnTypes) {
-            BlockBuilder blockBuilder = fileColumnType.createBlockBuilder(new BlockBuilderStatus(), 1, 0);
+            BlockBuilder blockBuilder = fileColumnType.createBlockBuilder(null, 1, 0);
             blockBuilder.appendNull();
             nullBlocks.add(blockBuilder.build());
         }
@@ -120,9 +100,15 @@ public class OrcFileWriter
     }
 
     @Override
+    public long getWrittenBytes()
+    {
+        return orcWriter.getWrittenBytes() + orcWriter.getBufferedBytes();
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
-        return orcWriter.getRetainedBytes();
+        return INSTANCE_SIZE + orcWriter.getRetainedBytes();
     }
 
     @Override

@@ -17,25 +17,29 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.drift.client.DriftClient;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.connector.thrift.util.ThriftExceptions.catchingThriftException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ThriftPageSource
         implements ConnectorPageSource
@@ -50,12 +54,15 @@ public class ThriftPageSource
     private PrestoThriftId nextToken;
     private boolean firstCall = true;
     private CompletableFuture<PrestoThriftPageResult> future;
+    private final ThriftConnectorStats stats;
     private long completedBytes;
 
     public ThriftPageSource(
-            PrestoThriftServiceProvider clientProvider,
+            DriftClient<PrestoThriftService> client,
+            Map<String, String> thriftHeader,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
+            ThriftConnectorStats stats,
             long maxBytesPerResponse)
     {
         // init columns
@@ -69,6 +76,7 @@ public class ThriftPageSource
         }
         this.columnNames = columnNames.build();
         this.columnTypes = columnTypes.build();
+        this.stats = requireNonNull(stats, "stats is null");
 
         // this parameter is read from config, so it should be checked by config validation
         // however, here it's a raw constructor parameter, so adding this safety check
@@ -80,12 +88,15 @@ public class ThriftPageSource
         this.splitId = split.getSplitId();
 
         // init client
-        requireNonNull(clientProvider, "clientProvider is null");
+        requireNonNull(client, "client is null");
         if (split.getAddresses().isEmpty()) {
-            this.client = clientProvider.anyHostClient();
+            this.client = client.get(thriftHeader);
         }
         else {
-            this.client = clientProvider.selectedHostClient(split.getAddresses());
+            String hosts = split.getAddresses().stream()
+                    .map(HostAddress::toString)
+                    .collect(joining(","));
+            this.client = client.get(Optional.of(hosts), thriftHeader);
         }
     }
 
@@ -157,6 +168,7 @@ public class ThriftPageSource
                 columnNames,
                 maxBytesPerResponse,
                 new PrestoThriftNullableToken(nextToken));
+        rowsBatchFuture = catchingThriftException(rowsBatchFuture);
         rowsBatchFuture.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return toCompletableFuture(nonCancellationPropagating(rowsBatchFuture));
     }
@@ -167,7 +179,12 @@ public class ThriftPageSource
         nextToken = rowsBatch.getNextToken();
         Page page = rowsBatch.toPage(columnTypes);
         if (page != null) {
-            completedBytes += page.getSizeInBytes();
+            long pageSize = page.getSizeInBytes();
+            completedBytes += pageSize;
+            stats.addScanPageSize(pageSize);
+        }
+        else {
+            stats.addScanPageSize(0);
         }
         return page;
     }
@@ -180,11 +197,9 @@ public class ThriftPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         if (future != null) {
             future.cancel(true);
         }
-        client.close();
     }
 }

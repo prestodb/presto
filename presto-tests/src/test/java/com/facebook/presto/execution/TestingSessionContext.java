@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 
@@ -62,6 +63,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public Optional<String> getTraceToken()
+    {
+        return session.getTraceToken();
+    }
+
+    @Override
     public String getRemoteUserAddress()
     {
         return session.getRemoteUserAddress().orElse(null);
@@ -83,6 +90,12 @@ public class TestingSessionContext
     public Set<String> getClientTags()
     {
         return session.getClientTags();
+    }
+
+    @Override
+    public ResourceEstimates getResourceEstimates()
+    {
+        return session.getResourceEstimates();
     }
 
     @Override

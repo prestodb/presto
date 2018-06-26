@@ -16,7 +16,9 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -41,6 +43,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -48,10 +51,12 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -59,6 +64,7 @@ import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableList;
@@ -78,6 +84,9 @@ public class Analysis
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
+    // a map of users to the columns per table that they access
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<List<Expression>>> groupByExpressions = new LinkedHashMap<>();
@@ -89,6 +98,8 @@ public class Analysis
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
+    private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
+
     private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
@@ -113,7 +124,7 @@ public class Analysis
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
     private boolean createTableAsSelectWithData = true;
-    private boolean createTableAsSelectNoOp = false;
+    private boolean createTableAsSelectNoOp;
     private Optional<List<Identifier>> createTableColumnAliases = Optional.empty();
     private Optional<String> createTableComment = Optional.empty();
 
@@ -226,6 +237,11 @@ public class Analysis
     public Map<NodeRef<Expression>, Type> getCoercions()
     {
         return unmodifiableMap(coercions);
+    }
+
+    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
+    {
+        return unmodifiableSet(typeOnlyCoercions);
     }
 
     public Type getCoercion(Expression expression)
@@ -371,7 +387,7 @@ public class Analysis
 
     public Scope getScope(Node node)
     {
-        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException(String.format("Analysis does not contain information for node: %s", node)));
+        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException(format("Analysis does not contain information for node: %s", node)));
     }
 
     public Optional<Scope> tryGetScope(Node node)
@@ -591,6 +607,35 @@ public class Analysis
         return isDescribe;
     }
 
+    public void setJoinUsing(Join node, JoinUsingAnalysis analysis)
+    {
+        joinUsing.put(NodeRef.of(node), analysis);
+    }
+
+    public JoinUsingAnalysis getJoinUsing(Join node)
+    {
+        return joinUsing.get(NodeRef.of(node));
+    }
+
+    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    {
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        tableColumnMap.asMap()
+                .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
+    }
+
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
+    {
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+    }
+
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
+    {
+        return tableColumnReferences;
+    }
+
     @Immutable
     public static final class Insert
     {
@@ -612,6 +657,93 @@ public class Analysis
         public TableHandle getTarget()
         {
             return target;
+        }
+    }
+
+    public static final class JoinUsingAnalysis
+    {
+        private final List<Integer> leftJoinFields;
+        private final List<Integer> rightJoinFields;
+        private final List<Integer> otherLeftFields;
+        private final List<Integer> otherRightFields;
+
+        JoinUsingAnalysis(List<Integer> leftJoinFields, List<Integer> rightJoinFields, List<Integer> otherLeftFields, List<Integer> otherRightFields)
+        {
+            this.leftJoinFields = ImmutableList.copyOf(leftJoinFields);
+            this.rightJoinFields = ImmutableList.copyOf(rightJoinFields);
+            this.otherLeftFields = ImmutableList.copyOf(otherLeftFields);
+            this.otherRightFields = ImmutableList.copyOf(otherRightFields);
+
+            checkArgument(leftJoinFields.size() == rightJoinFields.size(), "Expected join fields for left and right to have the same size");
+        }
+
+        public List<Integer> getLeftJoinFields()
+        {
+            return leftJoinFields;
+        }
+
+        public List<Integer> getRightJoinFields()
+        {
+            return rightJoinFields;
+        }
+
+        public List<Integer> getOtherLeftFields()
+        {
+            return otherLeftFields;
+        }
+
+        public List<Integer> getOtherRightFields()
+        {
+            return otherRightFields;
+        }
+    }
+
+    public static final class AccessControlInfo
+    {
+        private final AccessControl accessControl;
+        private final Identity identity;
+
+        public AccessControlInfo(AccessControl accessControl, Identity identity)
+        {
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        public AccessControl getAccessControl()
+        {
+            return accessControl;
+        }
+
+        public Identity getIdentity()
+        {
+            return identity;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            AccessControlInfo that = (AccessControlInfo) o;
+            return Objects.equals(accessControl, that.accessControl) &&
+                    Objects.equals(identity, that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(accessControl, identity);
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
         }
     }
 }

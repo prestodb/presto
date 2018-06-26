@@ -28,4 +28,6 @@ public interface AccumulatorFactory
     GroupedAccumulator createGroupedIntermediateAccumulator();
 
     boolean hasOrderBy();
+
+    boolean hasDistinct();
 }

@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -41,7 +40,6 @@ public class TestPageSplitterUtil
 {
     @Test
     public void testSplitPage()
-            throws Exception
     {
         int positionCount = 10;
         int maxPageSizeInBytes = 100;
@@ -82,7 +80,7 @@ public class TestPageSplitterUtil
         List<Type> types = ImmutableList.of(VARCHAR);
 
         Slice expectedValue = wrappedBuffer("test".getBytes());
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, expectedValue.length());
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         Block rleBlock = new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
         Page initialPage = new Page(rleBlock);

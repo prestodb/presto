@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -25,7 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class RowComparator
-        implements Comparator<Block[]>
+        implements Comparator<Page>
 {
     private final List<Type> sortTypes;
     private final List<Integer> sortChannels;
@@ -41,15 +42,15 @@ public class RowComparator
     }
 
     @Override
-    public int compare(Block[] leftRow, Block[] rightRow)
+    public int compare(Page leftRow, Page rightRow)
     {
         for (int index = 0; index < sortChannels.size(); index++) {
             Type type = sortTypes.get(index);
             int channel = sortChannels.get(index);
             SortOrder sortOrder = sortOrders.get(index);
 
-            Block left = leftRow[channel];
-            Block right = rightRow[channel];
+            Block left = leftRow.getBlock(channel);
+            Block right = rightRow.getBlock(channel);
 
             int comparison = sortOrder.compareBlockValue(type, left, 0, right, 0);
             if (comparison != 0) {

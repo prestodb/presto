@@ -19,15 +19,14 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
-import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public class ByteOutputStream
         implements ValueOutputStream<ByteStreamCheckpoint>
@@ -137,6 +136,7 @@ public class ByteOutputStream
     {
         closed = true;
         flushSequence();
+        buffer.close();
     }
 
     @Override
@@ -147,17 +147,15 @@ public class ByteOutputStream
     }
 
     @Override
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
-        checkState(closed);
-        int length = buffer.writeDataTo(outputStream);
-        return Optional.of(new Stream(column, DATA, length, false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override
     public long getBufferedBytes()
     {
-        return buffer.size() + size;
+        return buffer.estimateOutputDataSize() + size;
     }
 
     @Override

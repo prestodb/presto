@@ -34,6 +34,8 @@ public class ExchangeClientConfig
     private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
     private int clientThreads = 25;
+    private int pageBufferClientMaxCallbackThreads = 25;
+    private boolean acknowledgePages = true;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -61,17 +63,16 @@ public class ExchangeClientConfig
         return this;
     }
 
-    @NotNull
-    @MinDuration("1ms")
+    @Deprecated
     public Duration getMinErrorDuration()
     {
-        return minErrorDuration;
+        return maxErrorDuration;
     }
 
+    @Deprecated
     @Config("exchange.min-error-duration")
     public ExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
     {
-        this.minErrorDuration = minErrorDuration;
         return this;
     }
 
@@ -113,6 +114,31 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setClientThreads(int clientThreads)
     {
         this.clientThreads = clientThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getPageBufferClientMaxCallbackThreads()
+    {
+        return pageBufferClientMaxCallbackThreads;
+    }
+
+    @Config("exchange.page-buffer-client.max-callback-threads")
+    public ExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
+    {
+        this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
+        return this;
+    }
+
+    public boolean isAcknowledgePages()
+    {
+        return acknowledgePages;
+    }
+
+    @Config("exchange.acknowledge-pages")
+    public ExchangeClientConfig setAcknowledgePages(boolean acknowledgePages)
+    {
+        this.acknowledgePages = acknowledgePages;
         return this;
     }
 }

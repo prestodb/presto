@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -24,6 +24,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import com.facebook.presto.util.Mergeable;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
@@ -31,11 +35,13 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -72,12 +78,6 @@ public class TableWriterOperator
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
         }
 
         @Override
@@ -121,6 +121,7 @@ public class TableWriterOperator
     private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
     private final List<Integer> inputChannels;
+    private final AtomicLong pageSinkPeakMemoryUsage = new AtomicLong();
 
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private CompletableFuture<Collection<Slice>> finishFuture;
@@ -128,15 +129,17 @@ public class TableWriterOperator
     private long rowCount;
     private boolean committed;
     private boolean closed;
+    private long writtenBytes;
 
     public TableWriterOperator(OperatorContext operatorContext,
             ConnectorPageSink pageSink,
             List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
+        this.operatorContext.setInfoSupplier(this::getInfo);
     }
 
     @Override
@@ -146,18 +149,13 @@ public class TableWriterOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return TYPES;
-    }
-
-    @Override
     public void finish()
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
             finishFuture = pageSink.finish();
             blocked = toListenableFuture(finishFuture);
+            updateWrittenBytes();
         }
     }
 
@@ -201,11 +199,12 @@ public class TableWriterOperator
         }
 
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
-        pageSinkMemoryContext.setBytes(pageSink.getSystemMemoryUsage());
+        updateMemoryUsage();
         if (!future.isDone()) {
             this.blocked = toListenableFuture(future);
         }
         rowCount += page.getPositionCount();
+        updateWrittenBytes();
     }
 
     @Override
@@ -218,8 +217,11 @@ public class TableWriterOperator
 
         Collection<Slice> fragments = getFutureValue(finishFuture);
         committed = true;
+        updateWrittenBytes();
 
-        PageBuilder page = new PageBuilder(TYPES);
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder page = new PageBuilder(fragments.size() + 1, TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
 
@@ -240,13 +242,70 @@ public class TableWriterOperator
 
     @Override
     public void close()
-            throws Exception
     {
         if (!closed) {
             closed = true;
             if (!committed) {
                 pageSink.abort();
             }
+        }
+    }
+
+    private void updateWrittenBytes()
+    {
+        long current = pageSink.getCompletedBytes();
+        operatorContext.recordPhysicalWrittenData(current - writtenBytes);
+        writtenBytes = current;
+    }
+
+    private void updateMemoryUsage()
+    {
+        long pageSinkMemoryUsage = pageSink.getSystemMemoryUsage();
+        pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
+        pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+    }
+
+    @VisibleForTesting
+    TableWriterInfo getInfo()
+    {
+        return new TableWriterInfo(pageSinkPeakMemoryUsage.get());
+    }
+
+    public static class TableWriterInfo
+            implements Mergeable<TableWriterInfo>, OperatorInfo
+    {
+        private final long pageSinkPeakMemoryUsage;
+
+        @JsonCreator
+        public TableWriterInfo(@JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage)
+        {
+            this.pageSinkPeakMemoryUsage = pageSinkPeakMemoryUsage;
+        }
+
+        @JsonProperty
+        public long getPageSinkPeakMemoryUsage()
+        {
+            return pageSinkPeakMemoryUsage;
+        }
+
+        @Override
+        public TableWriterInfo mergeWith(TableWriterInfo other)
+        {
+            return new TableWriterInfo(Math.max(pageSinkPeakMemoryUsage, other.pageSinkPeakMemoryUsage));
+        }
+
+        @Override
+        public boolean isFinal()
+        {
+            return true;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("pageSinkPeakMemoryUsage", pageSinkPeakMemoryUsage)
+                    .toString();
         }
     }
 }

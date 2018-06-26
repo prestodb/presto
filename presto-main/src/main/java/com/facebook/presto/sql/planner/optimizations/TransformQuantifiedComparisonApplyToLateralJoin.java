@@ -88,7 +88,6 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
     private static class Rewriter
             extends SimplePlanRewriter<PlanNode>
-
     {
         private static final QualifiedName MIN = QualifiedName.of("min");
         private static final QualifiedName MAX = QualifiedName.of("max");
@@ -148,28 +147,21 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                             minValue, new Aggregation(
                                     new FunctionCall(MIN, outputColumnReferences),
                                     functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty(),
-                                    ImmutableList.of(),
-                                    ImmutableList.of()),
+                                    Optional.empty()),
                             maxValue, new Aggregation(
                                     new FunctionCall(MAX, outputColumnReferences),
                                     functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty(),
-                                    ImmutableList.of(),
-                                    ImmutableList.of()),
+                                    Optional.empty()),
                             countAllValue, new Aggregation(
                                     new FunctionCall(COUNT, emptyList()),
                                     functionRegistry.resolveFunction(COUNT, emptyList()),
-                                    Optional.empty(),
-                                    ImmutableList.of(),
-                                    ImmutableList.of()),
+                                    Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
                                     functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty(),
-                                    ImmutableList.of(),
-                                    ImmutableList.of())),
+                                    Optional.empty())),
                     ImmutableList.of(ImmutableList.of()),
+                    ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     Optional.empty());

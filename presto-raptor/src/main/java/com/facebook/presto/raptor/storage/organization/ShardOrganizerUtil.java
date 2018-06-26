@@ -17,7 +17,6 @@ import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +29,6 @@ import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +41,7 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -147,8 +143,12 @@ public class ShardOrganizerUtil
                 temporalRange);
     }
 
-    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)
+    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards, TemporalFunction temporalFunction)
     {
+        if (shards.isEmpty()) {
+            return ImmutableList.of();
+        }
+
         // Neither bucketed nor temporal, no partitioning required
         if (!tableInfo.getBucketCount().isPresent() && !tableInfo.getTemporalColumnId().isPresent()) {
             return ImmutableList.of(shards);
@@ -164,7 +164,7 @@ public class ShardOrganizerUtil
         shards.stream()
                 .filter(shard -> shard.getTemporalRange().isPresent())
                 .forEach(shard -> {
-                    long day = determineDay(shard.getTemporalRange().get());
+                    long day = temporalFunction.getDayFromRange(shard.getTemporalRange().get());
                     shardsByDaysBuilder.put(day, shard);
                 });
 
@@ -180,43 +180,6 @@ public class ShardOrganizerUtil
             sets.addAll(Multimaps.index(s, ShardIndexInfo::getBucketNumber).asMap().values());
         }
         return sets.build();
-    }
-
-    private static long determineDay(ShardRange temporalRange)
-    {
-        Tuple min = temporalRange.getMinTuple();
-        Tuple max = temporalRange.getMaxTuple();
-
-        verify(min.getTypes().equals(max.getTypes()));
-        Type type = getOnlyElement(min.getTypes());
-        verify(type.equals(DATE) || type.equals(TimestampType.TIMESTAMP));
-
-        if (type.equals(DATE)) {
-            return ((Integer) getOnlyElement(min.getValues())).longValue();
-        }
-
-        Long minValue = (Long) getOnlyElement(min.getValues());
-        Long maxValue = (Long) getOnlyElement(max.getValues());
-        return determineDay(minValue, maxValue);
-    }
-
-    private static long determineDay(long rangeStart, long rangeEnd)
-    {
-        long startDay = Duration.ofMillis(rangeStart).toDays();
-        long endDay = Duration.ofMillis(rangeEnd).toDays();
-        if (startDay == endDay) {
-            return startDay;
-        }
-
-        if ((endDay - startDay) > 1) {
-            // range spans multiple days, return the first full day
-            return startDay + 1;
-        }
-
-        // range spans two days, return the day that has the larger time range
-        long millisInStartDay = Duration.ofDays(endDay).toMillis() - rangeStart;
-        long millisInEndDay = rangeEnd - Duration.ofDays(endDay).toMillis();
-        return (millisInStartDay >= millisInEndDay) ? startDay : endDay;
     }
 
     private static Optional<ShardRange> getShardRange(List<TableColumn> columns, ResultSet resultSet)

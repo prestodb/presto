@@ -33,97 +33,98 @@ import static java.util.Objects.requireNonNull;
 public class FullConnectorSession
         implements ConnectorSession
 {
-    private final String queryId;
-    private final Identity identity;
-    private final Optional<String> source;
-    private final TimeZoneKey timeZoneKey;
-    private final Locale locale;
-    private final long startTime;
+    private final Session session;
     private final Map<String, String> properties;
     private final ConnectorId connectorId;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
+    private final boolean isLegacyTimestamp;
+    private final boolean isLegacyRoundNBigint;
 
-    public FullConnectorSession(
-            String queryId,
-            Identity identity,
-            Optional<String> source,
-            TimeZoneKey timeZoneKey,
-            Locale locale,
-            long startTime)
+    public FullConnectorSession(Session session)
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
-        this.identity = requireNonNull(identity, "identity is null");
-        this.source = requireNonNull(source, "source is null");
-        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
-        this.locale = requireNonNull(locale, "locale is null");
-        this.startTime = startTime;
-
+        this.session = requireNonNull(session, "session is null");
         this.properties = null;
         this.connectorId = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
+        this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
+        this.isLegacyRoundNBigint = SystemSessionProperties.isLegacyRoundNBigint(session);
     }
 
     public FullConnectorSession(
-            String queryId,
-            Identity identity,
-            Optional<String> source,
-            TimeZoneKey timeZoneKey,
-            Locale locale,
-            long startTime,
+            Session session,
             Map<String, String> properties,
             ConnectorId connectorId,
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
-        this.identity = requireNonNull(identity, "identity is null");
-        this.source = requireNonNull(source, "source is null");
-        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
-        this.locale = requireNonNull(locale, "locale is null");
-        this.startTime = startTime;
-
+        this.session = requireNonNull(session, "session is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
+        this.isLegacyRoundNBigint = SystemSessionProperties.isLegacyRoundNBigint(session);
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     @Override
     public String getQueryId()
     {
-        return queryId;
+        return session.getQueryId().toString();
     }
 
     @Override
     public Optional<String> getSource()
     {
-        return source;
+        return session.getSource();
     }
 
     @Override
     public Identity getIdentity()
     {
-        return identity;
+        return session.getIdentity();
     }
 
     @Override
     public TimeZoneKey getTimeZoneKey()
     {
-        return timeZoneKey;
+        return session.getTimeZoneKey();
     }
 
     @Override
     public Locale getLocale()
     {
-        return locale;
+        return session.getLocale();
     }
 
     @Override
     public long getStartTime()
     {
-        return startTime;
+        return session.getStartTime();
+    }
+
+    @Override
+    public Optional<String> getTraceToken()
+    {
+        return session.getTraceToken();
+    }
+
+    @Override
+    public boolean isLegacyTimestamp()
+    {
+        return isLegacyTimestamp;
+    }
+
+    @Override
+    public boolean isLegacyRoundNBigint()
+    {
+        return isLegacyRoundNBigint;
     }
 
     @Override
@@ -140,13 +141,13 @@ public class FullConnectorSession
     public String toString()
     {
         return toStringHelper(this)
-                .omitNullValues()
-                .add("queryId", queryId)
+                .add("queryId", getQueryId())
                 .add("user", getUser())
-                .add("source", source.orElse(null))
-                .add("timeZoneKey", timeZoneKey)
-                .add("locale", locale)
-                .add("startTime", startTime)
+                .add("source", getSource().orElse(null))
+                .add("traceToken", getTraceToken().orElse(null))
+                .add("timeZoneKey", getTimeZoneKey())
+                .add("locale", getLocale())
+                .add("startTime", getStartTime())
                 .add("properties", properties)
                 .omitNullValues()
                 .toString();

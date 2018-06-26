@@ -17,11 +17,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -40,24 +37,15 @@ public class AssignUniqueIdOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
         private boolean closed;
         private final AtomicLong valuePool = new AtomicLong();
 
         public AssignUniqueIdOperatorFactory(
                 int operatorId,
-                PlanNodeId planNodeId,
-                List<? extends Type> types)
+                PlanNodeId planNodeId)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(types);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -69,7 +57,7 @@ public class AssignUniqueIdOperator
                     operatorId,
                     planNodeId,
                     AssignUniqueIdOperator.class.getSimpleName());
-            return new AssignUniqueIdOperator(operatorContext, types, valuePool);
+            return new AssignUniqueIdOperator(operatorContext, valuePool);
         }
 
         @Override
@@ -81,33 +69,26 @@ public class AssignUniqueIdOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AssignUniqueIdOperatorFactory(operatorId, planNodeId, types);
+            return new AssignUniqueIdOperatorFactory(operatorId, planNodeId);
         }
     }
 
     private final OperatorContext operatorContext;
     private boolean finishing;
     private final AtomicLong rowIdPool;
-    private final List<Type> types;
     private final long uniqueValueMask;
-    private final int inputPageChannelCount;
 
     private Page inputPage;
     private long rowIdCounter;
     private long maxRowIdCounterValue;
 
-    public AssignUniqueIdOperator(
-            OperatorContext operatorContext,
-            List<Type> types,
-            AtomicLong rowIdPool)
+    public AssignUniqueIdOperator(OperatorContext operatorContext, AtomicLong rowIdPool)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(types);
         this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
 
         TaskId fullTaskId = operatorContext.getDriverContext().getTaskId();
         uniqueValueMask = (((long) fullTaskId.getStageId().getId()) << 54) | (((long) fullTaskId.getId()) << 40);
-        inputPageChannelCount = types.size() - 1;
 
         requestValues();
     }
@@ -123,12 +104,6 @@ public class AssignUniqueIdOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -172,13 +147,7 @@ public class AssignUniqueIdOperator
 
     private Page processPage()
     {
-        Block[] outputBlocks = new Block[inputPageChannelCount + 1]; // + 1 for the unique column
-        for (int i = 0; i < inputPageChannelCount; i++) {
-            outputBlocks[i] = inputPage.getBlock(i);
-        }
-        outputBlocks[inputPageChannelCount] = generateIdColumn();
-
-        return new Page(inputPage.getPositionCount(), outputBlocks);
+        return inputPage.appendColumn(generateIdColumn());
     }
 
     private Block generateIdColumn()

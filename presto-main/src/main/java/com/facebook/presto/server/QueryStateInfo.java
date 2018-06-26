@@ -17,7 +17,6 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,9 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.server.QueryProgressStats.createQueryProgressStats;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class QueryStateInfo
@@ -44,7 +41,7 @@ public class QueryStateInfo
     private final Optional<String> clientInfo;
     private final Optional<String> catalog;
     private final Optional<String> schema;
-    private final Optional<List<ResourceGroupInfo>> resourceGroupChain;
+    private final Optional<List<ResourceGroupInfo>> pathToRoot;
     private final Optional<QueryProgressStats> progress;
 
     @JsonCreator
@@ -59,7 +56,7 @@ public class QueryStateInfo
             @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("resourceGroupChainInfo") Optional<List<ResourceGroupInfo>> resourceGroupChain,
+            @JsonProperty("pathToRoot") Optional<List<ResourceGroupInfo>> pathToRoot,
             @JsonProperty("progress") Optional<QueryProgressStats> progress)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -72,45 +69,35 @@ public class QueryStateInfo
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        requireNonNull(resourceGroupChain, "resourceGroupChain is null");
-        this.resourceGroupChain = resourceGroupChain.map(ImmutableList::copyOf);
+        requireNonNull(pathToRoot, "pathToRoot is null");
+        this.pathToRoot = pathToRoot.map(ImmutableList::copyOf);
         this.progress = requireNonNull(progress, "progress is null");
     }
 
-    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> resourceGroupId, Optional<ResourceGroupInfo> rootResourceGroupInfo)
+    public static QueryStateInfo createQueuedQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> group, Optional<List<ResourceGroupInfo>> pathToRoot)
     {
-        Optional<List<ResourceGroupInfo>> resourceGroups = Optional.empty();
+        return createQueryStateInfo(queryInfo, group, pathToRoot, Optional.empty());
+    }
+
+    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> group)
+    {
         Optional<QueryProgressStats> progress = Optional.empty();
-        if (queryInfo.getState() == QUEUED) {
-            resourceGroups = Optional.of(ImmutableList.of());
-            if (resourceGroupId.isPresent() && rootResourceGroupInfo.isPresent()) {
-                ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
-                ResourceGroupId id = resourceGroupId.get();
-                ResourceGroupInfo resourceGroupInfo = rootResourceGroupInfo.get();
-
-                while (true) {
-                    builder.add(resourceGroupInfo.createSingleNodeInfo());
-
-                    if (resourceGroupInfo.getSubGroups().isEmpty()) {
-                        break;
-                    }
-
-                    Optional<ResourceGroupInfo> subGroupInfo = resourceGroupInfo.getSubGroup(id);
-                    checkArgument(subGroupInfo.isPresent(), "No path from root resource group %s to resource group %s", rootResourceGroupInfo.get().getId(), id);
-                    resourceGroupInfo = subGroupInfo.get();
-                }
-
-                resourceGroups = Optional.of(builder.build().reverse());
-            }
-        }
-        else if (queryInfo.getState() == RUNNING) {
+        if (!queryInfo.getState().isDone() && queryInfo.getState() != QUEUED) {
             progress = Optional.of(createQueryProgressStats(queryInfo.getQueryStats()));
         }
+        return createQueryStateInfo(queryInfo, group, Optional.empty(), progress);
+    }
 
+    private static QueryStateInfo createQueryStateInfo(
+            QueryInfo queryInfo,
+            Optional<ResourceGroupId> groupId,
+            Optional<List<ResourceGroupInfo>> pathToRoot,
+            Optional<QueryProgressStats> progress)
+    {
         return new QueryStateInfo(
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
-                resourceGroupId,
+                groupId,
                 queryInfo.getQuery(),
                 queryInfo.getQueryStats().getCreateTime(),
                 queryInfo.getSession().getUser(),
@@ -118,7 +105,7 @@ public class QueryStateInfo
                 queryInfo.getSession().getClientInfo(),
                 queryInfo.getSession().getCatalog(),
                 queryInfo.getSession().getSchema(),
-                resourceGroups,
+                pathToRoot,
                 progress);
     }
 
@@ -177,9 +164,9 @@ public class QueryStateInfo
     }
 
     @JsonProperty
-    public Optional<List<ResourceGroupInfo>> getResourceGroupChain()
+    public Optional<List<ResourceGroupInfo>> getPathToRoot()
     {
-        return resourceGroupChain;
+        return pathToRoot;
     }
 
     @JsonProperty

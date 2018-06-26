@@ -20,12 +20,14 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
+import org.joda.time.LocalDate;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -85,9 +87,8 @@ public final class DateTimeFunctions
 
         // It is ok for this method to use the Object interfaces because it is constant folded during
         // plan optimization
-        DateTime currentDateTime = new DateTime(session.getStartTime(), chronology).withTimeAtStartOfDay();
-        DateTime baseDateTime = new DateTime(1970, 1, 1, 0, 0, chronology).withTimeAtStartOfDay();
-        return Days.daysBetween(baseDateTime, currentDateTime).getDays();
+        LocalDate currentDate = new DateTime(session.getStartTime(), chronology).toLocalDate();
+        return Days.daysBetween(new LocalDate(1970, 1, 1), currentDate).getDays();
     }
 
     @Description("current time with time zone")
@@ -146,7 +147,14 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType(StandardTypes.BIGINT) long hoursOffset, @SqlType(StandardTypes.BIGINT) long minutesOffset)
     {
-        return packDateTimeWithZone(Math.round(unixTime * 1000), (int) (hoursOffset * 60 + minutesOffset));
+        TimeZoneKey timeZoneKey;
+        try {
+            timeZoneKey = getTimeZoneKeyForOffset((int) (hoursOffset * 60 + minutesOffset));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+        return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
     }
 
     @ScalarFunction("from_unixtime")

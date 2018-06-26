@@ -19,13 +19,10 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.swift.codec.guice.ThriftCodecModule;
-import com.facebook.swift.service.guice.ThriftClientModule;
-import com.facebook.swift.service.guice.ThriftClientStatsModule;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
+import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -65,11 +62,8 @@ public class ThriftConnectorFactory
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new JsonModule(),
                     new MBeanModule(),
-                    new ThriftCodecModule(),
-                    new ThriftClientModule(),
-                    new ThriftClientStatsModule(),
+                    new DriftNettyClientModule(),
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());

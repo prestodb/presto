@@ -30,6 +30,11 @@ public class Patterns
 {
     private Patterns() {}
 
+    public static Pattern<AssignUniqueId> assignUniqueId()
+    {
+        return typeOf(AssignUniqueId.class);
+    }
+
     public static Pattern<AggregationNode> aggregation()
     {
         return typeOf(AggregationNode.class);
@@ -48,6 +53,11 @@ public class Patterns
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);
+    }
+
+    public static Pattern<EnforceSingleRowNode> enforceSingleRow()
+    {
+        return typeOf(EnforceSingleRowNode.class);
     }
 
     public static Pattern<FilterNode> filter()
@@ -178,6 +188,11 @@ public class Patterns
         public static Property<LateralJoinNode, List<Symbol>> correlation()
         {
             return property("correlation", LateralJoinNode::getCorrelation);
+        }
+
+        public static Property<LateralJoinNode, PlanNode> subquery()
+        {
+            return property("subquery", LateralJoinNode::getSubquery);
         }
     }
 

@@ -23,18 +23,25 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -97,34 +104,71 @@ public class TestJdbcResultSet
     public void testObjectTypes()
             throws Exception
     {
-        String sql = "SELECT 123, 12300000000, REAL '123.45', 0.1, true, 'hello', 1.0E0 / 0.0E0, 0.0E0 / 0.0E0, ARRAY[1, 2], cast('foo' as char(5)), DECIMAL '0.1'";
-        try (ResultSet rs = statement.executeQuery(sql)) {
-            ResultSetMetaData metadata = rs.getMetaData();
-            assertEquals(metadata.getColumnCount(), 11);
-            assertEquals(metadata.getColumnType(1), Types.INTEGER);
-            assertEquals(metadata.getColumnType(2), Types.BIGINT);
-            assertEquals(metadata.getColumnType(3), Types.REAL);
-            assertEquals(metadata.getColumnType(4), Types.DOUBLE);
-            assertEquals(metadata.getColumnType(5), Types.BOOLEAN);
-            assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
-            assertEquals(metadata.getColumnType(7), Types.DOUBLE);
-            assertEquals(metadata.getColumnType(8), Types.DOUBLE);
-            assertEquals(metadata.getColumnType(9), Types.ARRAY);
-            assertEquals(metadata.getColumnType(10), Types.CHAR);
-            assertEquals(metadata.getColumnType(11), Types.DECIMAL);
+        checkRepresentation("123", Types.INTEGER, 123);
+        checkRepresentation("12300000000", Types.BIGINT, 12300000000L);
+        checkRepresentation("REAL '123.45'", Types.REAL, 123.45f);
+        checkRepresentation("1e-1", Types.DOUBLE, 0.1);
+        checkRepresentation("1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
+        checkRepresentation("0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
+        checkRepresentation("0.1", Types.DECIMAL, new BigDecimal("0.1"));
+        checkRepresentation("true", Types.BOOLEAN, true);
+        checkRepresentation("'hello'", Types.VARCHAR, "hello");
+        checkRepresentation("cast('foo' as char(5))", Types.CHAR, "foo  ");
+        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
+        checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
 
+        checkRepresentation("DATE '2018-02-13'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
+            assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+            assertThrows(() -> rs.getDate(column));
+            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+            assertThrows(() -> rs.getTimestamp(column));
+        });
+
+        checkRepresentation("TIME '09:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
+            assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(14, 9, 7))); // TODO this should represent TIME '09:39:07 +01:00'
+            assertThrows(() -> rs.getDate(column));
+            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(14, 9, 7))); // TODO this should fail, or represent TIME '09:39:07 +01:00'
+            assertThrows(() -> rs.getTimestamp(column));
+        });
+
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+        });
+
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should fail or represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+        });
+    }
+
+    private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
+            throws Exception
+    {
+        checkRepresentation(expression, expectedSqlType, (rs, column) -> assertEquals(rs.getObject(column), expectedRepresentation));
+    }
+
+    private void checkRepresentation(String expression, int expectedSqlType, ResultAssertion assertion)
+            throws Exception
+    {
+        try (ResultSet rs = statement.executeQuery("SELECT " + expression)) {
+            ResultSetMetaData metadata = rs.getMetaData();
+            assertEquals(metadata.getColumnCount(), 1);
+            assertEquals(metadata.getColumnType(1), expectedSqlType);
             assertTrue(rs.next());
-            assertEquals(rs.getObject(1), 123);
-            assertEquals(rs.getObject(2), 12300000000L);
-            assertEquals(rs.getObject(3), 123.45f);
-            assertEquals(rs.getObject(4), 0.1);
-            assertEquals(rs.getObject(5), true);
-            assertEquals(rs.getObject(6), "hello");
-            assertEquals(rs.getObject(7), Double.POSITIVE_INFINITY);
-            assertEquals(rs.getObject(8), Double.NaN);
-            assertEquals(rs.getArray(9).getArray(), new int[] {1, 2});
-            assertEquals(rs.getObject(10), "foo  ");
-            assertEquals(rs.getObject(11), new BigDecimal("0.1"));
+            assertion.accept(rs, 1);
+            assertFalse(rs.next());
         }
     }
 
@@ -247,5 +291,12 @@ public class TestJdbcResultSet
             count++;
         }
         return count;
+    }
+
+    @FunctionalInterface
+    private interface ResultAssertion
+    {
+        void accept(ResultSet rs, int column)
+                throws Exception;
     }
 }

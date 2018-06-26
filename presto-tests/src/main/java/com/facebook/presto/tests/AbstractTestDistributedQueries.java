@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -42,12 +41,14 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
@@ -140,6 +141,9 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE test_create");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
 
+        assertQueryFails("CREATE TABLE test_create (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
+
         assertUpdate("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
         assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
@@ -170,16 +174,13 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTableAsSelect()
     {
-        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
-        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_ctas AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
+        assertTableColumnNames("test_ctas", "name", "regionkey");
+        assertUpdate("DROP TABLE test_ctas");
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem", 0);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
-        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
-
-        assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT orderkey, discount FROM lineitem", 0);
+        assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
 
         assertCreateTableAsSelect(
                 "test_select",
@@ -230,7 +231,7 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
                 "test_union_all",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
@@ -239,7 +240,7 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
                 "test_union_all",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
@@ -290,7 +291,15 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE only supported for statements that are queries")
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
     public void testExplainAnalyzeDDL()
     {
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
@@ -298,7 +307,7 @@ public abstract class AbstractTestDistributedQueries
 
     private void assertExplainAnalyze(@Language("SQL") String query)
     {
-        String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+        String value = (String) computeActual(query).getOnlyValue();
 
         assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
 
@@ -382,6 +391,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");
         assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_a", 1);
@@ -579,6 +589,12 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM analyze_test WHERE TRUE");
         assertQuery("SELECT COUNT(*) from analyze_test", "SELECT 0");
         assertUpdate("DROP TABLE analyze_test");
+
+        // Test DELETE access control
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertAccessDenied("DELETE FROM test_delete where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*.test_delete.*", privilege("orderkey", SELECT_COLUMN));
+        assertAccessAllowed("DELETE FROM test_delete where orderkey < 12", privilege("orderdate", SELECT_COLUMN));
+        assertAccessAllowed("DELETE FROM test_delete", privilege("orders", SELECT_COLUMN));
     }
 
     @Test
@@ -740,7 +756,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testQueryLoggingCount()
-            throws Exception
     {
         QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
         executeExclusively(() -> {
@@ -830,7 +845,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testSymbolAliasing()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4", 1);
         assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
@@ -839,7 +853,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testNonQueryAccessControl()
-            throws Exception
     {
         skipTestUnless(supportsViews());
 
@@ -867,7 +880,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testViewAccessControl()
-            throws Exception
     {
         skipTestUnless(supportsViews());
 
@@ -877,23 +889,70 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
-        // verify creation of view over a table requires special view creation privileges for the table
-        assertAccessDenied(
-                viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
-                "Cannot select from table .*.orders.*",
-                privilege("orders", CREATE_VIEW_WITH_SELECT_TABLE));
-
-        // create the view
+        // TEST COLUMN-LEVEL PRIVILEGES
+        // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW test_view_access AS SELECT * FROM orders",
-                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
                 "SELECT * FROM test_view_access",
-                "Cannot select from table .*.orders.*",
+                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
+                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // verify the view owner can select from the view even without special view creation privileges
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
+        Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        // view creation permissions are only checked at query time, not at creation
+        assertAccessAllowed(
+                nestedViewOwnerSession,
+                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
+                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
+        assertAccessDenied(
+                "SELECT * FROM test_nested_view_access",
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
+                privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
+        assertAccessAllowed(
+                "SELECT * FROM test_nested_view_access",
+                privilege(getSession().getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+        assertAccessAllowed(
+                "SELECT * FROM test_nested_view_access",
+                privilege(getSession().getUser(), "test_view_access", SELECT_COLUMN));
+
+        // TEST TABLE-LEVEL PRIVILEGES
+        // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
+                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
+
+        // verify the view owner can select from the view even without special view creation privileges
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM test_view_access",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
@@ -904,29 +963,10 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM test_view_access",
                 privilege(getSession().getUser(), "orders", SELECT_TABLE));
 
-        Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
-                .build();
-
-        // verify creation of view over a view requires special view creation privileges for the view
-        assertAccessDenied(
-                nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                "Cannot select from view .*.test_view_access.*",
-                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
-
-        // create the nested view
-        assertAccessAllowed(
-                nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
-
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
                 "SELECT * FROM test_nested_view_access",
-                "Cannot select from view .*.test_view_access.*",
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
                 privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
@@ -966,19 +1006,19 @@ public abstract class AbstractTestDistributedQueries
         String sql = "CREATE TABLE test_written_stats AS SELECT * FROM nation";
         DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = distributedQueryRunner.getQueryInfo(new QueryId(resultResultWithQueryId.getQueryId()));
+        QueryInfo queryInfo = distributedQueryRunner.getQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getWrittenDataSize().toBytes() > 0L);
+        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         sql = "INSERT INTO test_written_stats SELECT * FROM nation LIMIT 10";
         resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        queryInfo = distributedQueryRunner.getQueryInfo(new QueryId(resultResultWithQueryId.getQueryId()));
+        queryInfo = distributedQueryRunner.getQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getWrittenDataSize().toBytes() > 0L);
+        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         assertUpdate("DROP TABLE test_written_stats");
     }

@@ -107,7 +107,6 @@ public class TestWindowOperator
 
     @Test
     public void testRowNumber()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(2L, 0.3)
@@ -139,7 +138,6 @@ public class TestWindowOperator
 
     @Test
     public void testRowNumberPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1L, -0.1, true)
@@ -171,7 +169,6 @@ public class TestWindowOperator
 
     @Test
     public void testRowNumberArbitrary()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .row(1L)
@@ -207,9 +204,8 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of 10B")
     public void testMemoryLimit()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -236,7 +232,6 @@ public class TestWindowOperator
 
     @Test
     public void testFirstValuePartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, true, "")
@@ -270,7 +265,6 @@ public class TestWindowOperator
 
     @Test
     public void testLastValuePartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, true, "")
@@ -303,7 +297,6 @@ public class TestWindowOperator
 
     @Test
     public void testNthValuePartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 2L, true, "")
@@ -337,7 +330,6 @@ public class TestWindowOperator
 
     @Test
     public void testLagPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 1L, "D", true, "")
@@ -371,7 +363,6 @@ public class TestWindowOperator
 
     @Test
     public void testLeadPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 1L, "D", true, "")
@@ -405,7 +396,6 @@ public class TestWindowOperator
 
     @Test
     public void testPartiallyPreGroupedPartitionWithEmptyInput()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -430,7 +420,6 @@ public class TestWindowOperator
 
     @Test
     public void testPartiallyPreGroupedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -469,7 +458,6 @@ public class TestWindowOperator
 
     @Test
     public void testFullyPreGroupedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -510,7 +498,6 @@ public class TestWindowOperator
 
     @Test
     public void testFullyPreGroupedAndPartiallySortedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -553,7 +540,6 @@ public class TestWindowOperator
 
     @Test
     public void testFullyPreGroupedAndFullySortedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()

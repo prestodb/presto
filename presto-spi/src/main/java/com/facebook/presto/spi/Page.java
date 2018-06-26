@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,11 +26,16 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Page
 {
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize() +
+            (2 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
+
     private final Block[] blocks;
     private final int positionCount;
     private final AtomicLong sizeInBytes = new AtomicLong(-1);
@@ -72,20 +78,10 @@ public class Page
 
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = this.retainedSizeInBytes.get();
-        if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = 0;
-            for (Block block : blocks) {
-                retainedSizeInBytes += block.getRetainedSizeInBytes();
-            }
-            this.retainedSizeInBytes.set(retainedSizeInBytes);
+        if (retainedSizeInBytes.get() < 0) {
+            updateRetainedSize();
         }
-        return retainedSizeInBytes;
-    }
-
-    public Block[] getBlocks()
-    {
-        return blocks.clone();
+        return retainedSizeInBytes.get();
     }
 
     public Block getBlock(int channel)
@@ -109,7 +105,7 @@ public class Page
     public Page getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in page with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in page with %s positions", positionOffset, length, positionCount));
         }
 
         int channelCount = getChannelCount();
@@ -118,6 +114,18 @@ public class Page
             slicedBlocks[i] = blocks[i].getRegion(positionOffset, length);
         }
         return new Page(length, slicedBlocks);
+    }
+
+    public Page appendColumn(Block block)
+    {
+        requireNonNull(block, "block is null");
+        if (positionCount != block.getPositionCount()) {
+            throw new IllegalArgumentException("Block does not have same position count");
+        }
+
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
+        newBlocks[blocks.length] = block;
+        return new Page(newBlocks);
     }
 
     public void compact()
@@ -144,11 +152,7 @@ public class Page
             }
         }
 
-        long retainedSize = 0;
-        for (Block block : blocks) {
-            retainedSize += block.getRetainedSizeInBytes();
-        }
-        retainedSizeInBytes.set(retainedSize);
+        updateRetainedSize();
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -175,22 +179,22 @@ public class Page
         int dictionarySize = dictionary.getPositionCount();
 
         // determine which dictionary entries are referenced and build a reindex for them
-        List<Integer> dictionaryPositionsToCopy = new ArrayList<>(min(dictionarySize, positionCount));
+        int[] dictionaryPositionsToCopy = new int[min(dictionarySize, positionCount)];
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
 
-        int newIndex = 0;
+        int numberOfIndexes = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = firstDictionaryBlock.getId(i);
             if (remapIndex[position] == -1) {
-                dictionaryPositionsToCopy.add(position);
-                remapIndex[position] = newIndex;
-                newIndex++;
+                dictionaryPositionsToCopy[numberOfIndexes] = position;
+                remapIndex[position] = numberOfIndexes;
+                numberOfIndexes++;
             }
         }
 
         // entire dictionary is referenced
-        if (dictionaryPositionsToCopy.size() == dictionarySize) {
+        if (numberOfIndexes == dictionarySize) {
             return blocks;
         }
 
@@ -204,7 +208,7 @@ public class Page
             }
 
             try {
-                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
+                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
                 outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
@@ -262,14 +266,35 @@ public class Page
         return blocks[0].getPositionCount();
     }
 
-    public Page getPositions(int[] retainedPositions)
+    public Page getPositions(int[] retainedPositions, int offset, int length)
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
-        Block[] blocks = Arrays.stream(getBlocks())
-                .map(block -> block.getPositions(retainedPositions))
-                .toArray(Block[]::new);
-        return new Page(retainedPositions.length, blocks);
+        Block[] blocks = new Block[this.blocks.length];
+        Arrays.setAll(blocks, i -> this.blocks[i].getPositions(retainedPositions, offset, length));
+        return new Page(length, blocks);
+    }
+
+    public Page prependColumn(Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException(String.format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+        }
+
+        Block[] result = new Block[blocks.length + 1];
+        result[0] = column;
+        System.arraycopy(blocks, 0, result, 1, blocks.length);
+
+        return new Page(positionCount, result);
+    }
+
+    private void updateRetainedSize()
+    {
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        for (Block block : blocks) {
+            retainedSizeInBytes += block.getRetainedSizeInBytes();
+        }
+        this.retainedSizeInBytes.set(retainedSizeInBytes);
     }
 
     private static class DictionaryBlockIndexes

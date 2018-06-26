@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.sql.relational.RowExpression;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +34,6 @@ public class BytecodeGeneratorContext
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final FunctionRegistry registry;
-    private final PreGeneratedExpressions preGeneratedExpressions;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -42,8 +41,7 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry registry,
-            PreGeneratedExpressions preGeneratedExpressions)
+            FunctionRegistry registry)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -56,7 +54,6 @@ public class BytecodeGeneratorContext
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.registry = registry;
-        this.preGeneratedExpressions = preGeneratedExpressions;
         this.wasNull = scope.getVariable("wasNull");
     }
 

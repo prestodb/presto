@@ -23,6 +23,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 
 public final class MethodHandleUtil
@@ -33,6 +34,12 @@ public final class MethodHandleUtil
     private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
     private static final MethodHandle GET_BLOCK = methodHandle(Type.class, "getObject", Block.class, int.class).asType(methodType(Block.class, Type.class, Block.class, int.class));
     private static final MethodHandle GET_UNKNOWN = methodHandle(MethodHandleUtil.class, "unknownGetter", Type.class, Block.class, int.class);
+
+    private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
+    private static final MethodHandle WRITE_DOUBLE = methodHandle(Type.class, "writeDouble", BlockBuilder.class, double.class);
+    private static final MethodHandle WRITE_BOOLEAN = methodHandle(Type.class, "writeBoolean", BlockBuilder.class, boolean.class);
+    private static final MethodHandle WRITE_SLICE = methodHandle(Type.class, "writeSlice", BlockBuilder.class, Slice.class);
+    private static final MethodHandle WRITE_BLOCK = methodHandle(Type.class, "writeObject", BlockBuilder.class, Object.class).asType(methodType(void.class, Type.class, BlockBuilder.class, Block.class));
 
     private MethodHandleUtil()
     {
@@ -46,7 +53,7 @@ public final class MethodHandleUtil
     public static MethodHandle compose(MethodHandle f, MethodHandle g)
     {
         if (f.type().parameterType(0) != g.type().returnType()) {
-            throw new IllegalArgumentException(String.format("f.parameter(0) != g.return(). f: %s  g: %s", f.type(), g.type()));
+            throw new IllegalArgumentException(format("f.parameter(0) != g.return(). f: %s  g: %s", f.type(), g.type()));
         }
         // Semantics: f => f
         // Type: (U, S1, S2, ..., Sn)R => (U, T1, T2, ..., Tm, S1, S2, ..., Sn)R
@@ -65,13 +72,13 @@ public final class MethodHandleUtil
     public static MethodHandle compose(MethodHandle f, MethodHandle g, MethodHandle h)
     {
         if (f.type().parameterCount() != 2) {
-            throw new IllegalArgumentException(String.format("f.parameterCount != 2. f: %s", f.type()));
+            throw new IllegalArgumentException(format("f.parameterCount != 2. f: %s", f.type()));
         }
         if (f.type().parameterType(0) != g.type().returnType()) {
-            throw new IllegalArgumentException(String.format("f.parameter(0) != g.return. f: %s  g: %s", f.type(), g.type()));
+            throw new IllegalArgumentException(format("f.parameter(0) != g.return. f: %s  g: %s", f.type(), g.type()));
         }
         if (f.type().parameterType(1) != h.type().returnType()) {
-            throw new IllegalArgumentException(String.format("f.parameter(0) != h.return. f: %s  h: %s", f.type(), h.type()));
+            throw new IllegalArgumentException(format("f.parameter(0) != h.return. f: %s  h: %s", f.type(), h.type()));
         }
 
         // (V, T1, T2, ..., Tn, U)R
@@ -141,6 +148,33 @@ public final class MethodHandleUtil
         }
         else if (javaType == void.class) {
             methodHandle = GET_UNKNOWN;
+        }
+        else {
+            throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
+        }
+
+        return methodHandle.bindTo(type);
+    }
+
+    public static MethodHandle nativeValueWriter(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        MethodHandle methodHandle;
+        if (javaType == long.class) {
+            methodHandle = WRITE_LONG;
+        }
+        else if (javaType == double.class) {
+            methodHandle = WRITE_DOUBLE;
+        }
+        else if (javaType == boolean.class) {
+            methodHandle = WRITE_BOOLEAN;
+        }
+        else if (javaType == Slice.class) {
+            methodHandle = WRITE_SLICE;
+        }
+        else if (javaType == Block.class) {
+            methodHandle = WRITE_BLOCK;
         }
         else {
             throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);

@@ -57,6 +57,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestShardEjector
 {
     private IDBI dbi;
@@ -67,7 +68,6 @@ public class TestShardEjector
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();

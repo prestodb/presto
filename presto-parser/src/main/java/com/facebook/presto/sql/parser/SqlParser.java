@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SqlParser
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final BaseErrorListener LEXER_ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -49,7 +49,21 @@ public class SqlParser
         }
     };
 
+    private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
+            .specialRule(SqlBaseParser.RULE_expression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_booleanExpression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_valueExpression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_primaryExpression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_identifier, "<identifier>")
+            .specialRule(SqlBaseParser.RULE_string, "<string>")
+            .specialRule(SqlBaseParser.RULE_query, "<query>")
+            .specialRule(SqlBaseParser.RULE_type, "<type>")
+            .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
+            .ignoredRule(SqlBaseParser.RULE_nonReserved)
+            .build();
+
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
+    private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
     {
@@ -61,6 +75,7 @@ public class SqlParser
     {
         requireNonNull(options, "options is null");
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
+        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
     /**
@@ -101,10 +116,16 @@ public class SqlParser
             parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
 
             lexer.removeErrorListeners();
-            lexer.addErrorListener(ERROR_LISTENER);
+            lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(ERROR_LISTENER);
+
+            if (enhancedErrorHandlerEnabled) {
+                parser.addErrorListener(PARSER_ERROR_HANDLER);
+            }
+            else {
+                parser.addErrorListener(LEXER_ERROR_LISTENER);
+            }
 
             ParserRuleContext tree;
             try {

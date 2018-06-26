@@ -40,14 +40,12 @@ public class TestStateMachine
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
 
     @Test
     public void testNullState()
-            throws Exception
     {
         try {
             new StateMachine<>("test", executor, null);
@@ -244,7 +242,6 @@ public class TestStateMachine
     }
 
     private void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
-            throws Exception
     {
         State initialState = stateMachine.get();
         ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
@@ -272,7 +269,6 @@ public class TestStateMachine
 
     private interface StateChanger
     {
-        void run()
-                throws Exception;
+        void run();
     }
 }

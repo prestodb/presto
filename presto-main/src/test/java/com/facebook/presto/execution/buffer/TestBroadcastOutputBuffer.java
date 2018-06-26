@@ -15,25 +15,24 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.StateMachine;
-import com.facebook.presto.operator.PageAssertions;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.MemoryReservationHandler;
+import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Future;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
@@ -41,15 +40,30 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.MAX_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.addPage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFinished;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFutureIsDone;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertQueueClosed;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertQueueState;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createPage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.enqueuePage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.getBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -58,28 +72,23 @@ import static org.testng.Assert.fail;
 public class TestBroadcastOutputBuffer
 {
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
-
-    private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
-    private static final Duration MAX_WAIT = new Duration(1, SECONDS);
-    private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
+    private static final OutputBufferId THIRD = new OutputBufferId(2);
 
     private ScheduledExecutorService stateNotificationExecutor;
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (stateNotificationExecutor != null) {
             stateNotificationExecutor.shutdownNow();
@@ -89,7 +98,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testInvalidConstructorArg()
-            throws Exception
     {
         try {
             createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), new DataSize(0, BYTE));
@@ -107,7 +115,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testSimple()
-            throws Exception
     {
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
         BroadcastOutputBuffer buffer = createBroadcastBuffer(outputBuffers, sizeOfPages(10));
@@ -251,9 +258,55 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 14, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 14, true));
     }
 
+    // TODO: remove this after PR #7987 is landed
+    @Test
+    public void testAcknowledge()
+    {
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(outputBuffers, sizeOfPages(10));
+
+        // add three items
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i));
+        }
+
+        outputBuffers = createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID);
+
+        // add a queue
+        buffer.setOutputBuffers(outputBuffers);
+        assertQueueState(buffer, FIRST, 3, 0);
+
+        // get the three elements
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // acknowledge pages 0 and 1
+        acknowledgeBufferResult(buffer, FIRST, 2);
+        // only page 2 is not removed
+        assertQueueState(buffer, FIRST, 1, 2);
+        // acknowledge page 2
+        acknowledgeBufferResult(buffer, FIRST, 3);
+        // nothing left
+        assertQueueState(buffer, FIRST, 0, 3);
+        // acknowledge more pages will fail
+        try {
+            acknowledgeBufferResult(buffer, FIRST, 4);
+        }
+        catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Invalid sequence id");
+        }
+
+        // fill the buffer
+        for (int i = 3; i < 6; i++) {
+            addPage(buffer, createPage(i));
+        }
+        assertQueueState(buffer, FIRST, 3, 3);
+
+        // getting new pages will again acknowledge the previously acknowledged pages but this is ok
+        buffer.get(FIRST, 3, sizeOfPages(1)).cancel(true);
+        assertQueueState(buffer, FIRST, 3, 3);
+    }
+
     @Test
     public void testSharedBufferFull()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(2));
 
@@ -267,7 +320,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testDuplicateRequests()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -304,7 +356,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAddQueueAfterCreation()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -327,7 +378,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAddAfterFinish()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -342,38 +392,25 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAddQueueAfterNoMoreQueues()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
         assertFalse(buffer.isFinished());
 
         // tell buffer no more queues will be added
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertTrue(buffer.isFinished());
 
         // set no more queues a second time to assure that we don't get an exception or such
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertTrue(buffer.isFinished());
 
         // set no more queues a third time to assure that we don't get an exception or such
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
-
-        try {
-            OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST)
-                    .withBuffer(FIRST, BROADCAST_PARTITION_ID)
-                    .withNoMoreBufferIds();
-
-            buffer.setOutputBuffers(outputBuffers);
-            fail("Expected IllegalStateException from addQueue after noMoreQueues has been called");
-        }
-        catch (IllegalArgumentException ignored) {
-        }
+        assertTrue(buffer.isFinished());
     }
 
     @Test
     public void testAddAfterDestroy()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -388,13 +425,12 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testGetBeforeCreate()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, (long) 0, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
         assertFalse(future.isDone());
 
         // add a page and verify the future is complete
@@ -403,15 +439,14 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(33)));
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*does not contain.*\\[0\\]")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*does not contain.*\\[0]")
     public void testSetFinalBuffersWihtoutDeclaringUsedBuffer()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, (long) 0, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
         assertFalse(future.isDone());
 
         // add a page and set no more pages
@@ -432,7 +467,6 @@ public class TestBroadcastOutputBuffer
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No more buffers already set")
     public void testUseUndeclaredBufferAfterFinalBuffersSet()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -442,12 +476,11 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that was not declared, which will fail
-        buffer.get(SECOND, (long) 0, sizeOfPages(1));
+        buffer.get(SECOND, 0L, sizeOfPages(1));
     }
 
     @Test
     public void testAbortBeforeCreate()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(2));
         assertFalse(buffer.isFinished());
@@ -464,7 +497,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testFullBufferBlocksWriter()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -483,7 +515,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAcknowledgementFreesWriters()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -519,7 +550,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAbort()
-            throws Exception
     {
         BroadcastOutputBuffer bufferedBuffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -548,7 +578,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testFinishClosesEmptyQueues()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -572,7 +601,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAbortFreesReader()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -612,7 +640,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testFinishFreesReader()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -647,7 +674,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testFinishFreesWriter()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -694,7 +720,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testDestroyFreesReader()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -729,7 +754,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testDestroyFreesWriter()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -766,7 +790,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testFailDoesNotFreeReader()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -804,7 +827,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testFailFreesWriter()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -841,7 +863,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testAddBufferAfterFail()
-            throws Exception
     {
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST)
                 .withBuffer(FIRST, BROADCAST_PARTITION_ID);
@@ -886,7 +907,6 @@ public class TestBroadcastOutputBuffer
 
     @Test
     public void testBufferCompletion()
-            throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
                 createInitialEmptyOutputBuffers(BROADCAST)
@@ -907,7 +927,7 @@ public class TestBroadcastOutputBuffer
         buffer.setNoMorePages();
 
         // get and acknowledge 5 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), bufferResult(0, pages));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
         // buffer is not finished
         assertFalse(buffer.isFinished());
@@ -922,57 +942,181 @@ public class TestBroadcastOutputBuffer
         assertTrue(buffer.isFinished());
     }
 
-    public static BufferResult getBufferResult(BroadcastOutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
+    @Test
+    public void testSharedBufferBlocking()
     {
-        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
-        return getFuture(future, maxWait);
+        SettableFuture<?> blockedFuture = SettableFuture.create();
+        MockMemoryReservationHandler reservationHandler = new MockMemoryReservationHandler(blockedFuture);
+        AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
+
+        Page page = createPage(1);
+        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+
+        // create a buffer that can only hold two pages
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(pageSize * 2, BYTE), memoryContext, directExecutor());
+        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
+
+        // adding the first page will block as no memory is available (MockMemoryReservationHandler will return a future that is not done)
+        enqueuePage(buffer, page);
+
+        // more memory is available
+        blockedFuture.set(null);
+        memoryManager.onMemoryAvailable();
+        assertTrue(memoryManager.getBufferBlockedFuture().isDone(), "buffer shouldn't be blocked");
+
+        // we should be able to add one more page after more memory is available
+        addPage(buffer, page);
+
+        // the buffer is full now
+        enqueuePage(buffer, page);
     }
 
-    public static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
+    @Test
+    public void testSharedBufferBlocking2()
     {
-        return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
+        // start with a complete future
+        SettableFuture<?> blockedFuture = SettableFuture.create();
+        blockedFuture.set(null);
+        MockMemoryReservationHandler reservationHandler = new MockMemoryReservationHandler(blockedFuture);
+        AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
+
+        Page page = createPage(1);
+        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+
+        // create a buffer that can only hold two pages
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(pageSize * 2, BYTE), memoryContext, directExecutor());
+        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
+
+        // add two pages to fill up the buffer (memory is available)
+        addPage(buffer, page);
+        addPage(buffer, page);
+
+        // fill up the memory pool
+        blockedFuture = SettableFuture.create();
+        reservationHandler.updateBlockedFuture(blockedFuture);
+
+        // allocate one more byte to make the buffer full
+        memoryManager.updateMemoryUsage(1L);
+
+        // more memory is available
+        blockedFuture.set(null);
+        memoryManager.onMemoryAvailable();
+
+        // memoryManager should still return a blocked future as the buffer is still full
+        assertFalse(memoryManager.getBufferBlockedFuture().isDone(), "buffer should be blocked");
+
+        // remove all pages from the memory manager and the 1 byte that we added above
+        memoryManager.updateMemoryUsage(-pageSize * 2 - 1);
+
+        // now we have both buffer space and memory available, so memoryManager shouldn't be blocked
+        assertTrue(memoryManager.getBufferBlockedFuture().isDone(), "buffer shouldn't be blocked");
+
+        // we should be able to add two pages after more memory is available
+        addPage(buffer, page);
+        addPage(buffer, page);
+
+        // the buffer is full now
+        enqueuePage(buffer, page);
     }
 
-    private static ListenableFuture<?> enqueuePage(BroadcastOutputBuffer buffer, Page page)
+    @Test
+    public void testSharedBufferBlockingNoBlockOnFull()
     {
-        ListenableFuture<?> future = buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
-        assertFalse(future.isDone());
-        return future;
+        SettableFuture<?> blockedFuture = SettableFuture.create();
+        MockMemoryReservationHandler reservationHandler = new MockMemoryReservationHandler(blockedFuture);
+        AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
+
+        Page page = createPage(1);
+        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+
+        // create a buffer that can only hold two pages
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), new DataSize(pageSize * 2, BYTE), memoryContext, directExecutor());
+        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
+
+        memoryManager.setNoBlockOnFull();
+
+        // even if setNoBlockOnFull() is called the buffer should block on memory when we add the first page
+        // as no memory is available (MockMemoryReservationHandler will return a future that is not done)
+        enqueuePage(buffer, page);
+
+        // more memory is available
+        blockedFuture.set(null);
+        memoryManager.onMemoryAvailable();
+        assertTrue(memoryManager.getBufferBlockedFuture().isDone(), "buffer shouldn't be blocked");
+
+        // we should be able to add one more page after more memory is available
+        addPage(buffer, page);
+
+        // the buffer is full now, but setNoBlockOnFull() is called so the buffer shouldn't block
+        addPage(buffer, page);
     }
 
-    private static void addPage(BroadcastOutputBuffer buffer, Page page)
+    private static class MockMemoryReservationHandler
+            implements MemoryReservationHandler
     {
-        assertTrue(buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page))).isDone(), "Expected add page to not block");
+        private ListenableFuture<?> blockedFuture;
+
+        public MockMemoryReservationHandler(ListenableFuture<?> blockedFuture)
+        {
+            this.blockedFuture = requireNonNull(blockedFuture, "blockedFuture is null");
+        }
+
+        @Override
+        public ListenableFuture<?> reserveMemory(long delta)
+        {
+            return blockedFuture;
+        }
+
+        @Override
+        public boolean tryReserveMemory(long delta)
+        {
+            return true;
+        }
+
+        public void updateBlockedFuture(ListenableFuture<?> blockedFuture)
+        {
+            this.blockedFuture = requireNonNull(blockedFuture);
+        }
     }
 
-    private static void assertQueueState(
-            BroadcastOutputBuffer buffer,
-            OutputBufferId bufferId,
-            int bufferedPages,
-            int pagesSent)
+    private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize, AggregatedMemoryContext memoryContext, Executor notificationExecutor)
     {
-        assertEquals(
-                getBufferInfo(buffer, bufferId),
-                new BufferInfo(
-                        bufferId,
-                        false,
-                        bufferedPages,
-                        pagesSent,
-                        new PageBufferInfo(
-                                bufferId.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
+        BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
+                TASK_INSTANCE_ID,
+                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                dataSize,
+                () -> memoryContext.newLocalMemoryContext(),
+                notificationExecutor);
+        buffer.setOutputBuffers(outputBuffers);
+        return buffer;
     }
 
-    @SuppressWarnings("ConstantConditions")
-    private static void assertQueueClosed(BroadcastOutputBuffer buffer, OutputBufferId bufferId, int pagesSent)
+    @Test
+    public void testBufferFinishesWhenClientBuffersDestroyed()
     {
-        BufferInfo bufferInfo = getBufferInfo(buffer, bufferId);
-        assertEquals(bufferInfo.getBufferedPages(), 0);
-        assertEquals(bufferInfo.getPagesSent(), pagesSent);
-        assertEquals(bufferInfo.isFinished(), true);
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(
+                createInitialEmptyOutputBuffers(BROADCAST)
+                        .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                        .withBuffer(SECOND, BROADCAST_PARTITION_ID)
+                        .withBuffer(THIRD, BROADCAST_PARTITION_ID)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+
+        // add pages before closing the buffers to make sure
+        // that the buffers close even if there are pending pages
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, createPage(i));
+        }
+
+        // the buffer is in the NO_MORE_BUFFERS state now
+        // and if we abort all the buffers it should destroy itself
+        // and move to the FINISHED state
+        buffer.abort(FIRST);
+        assertFalse(buffer.isFinished());
+        buffer.abort(SECOND);
+        assertFalse(buffer.isFinished());
+        buffer.abort(THIRD);
+        assertTrue(buffer.isFinished());
     }
 
     private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize)
@@ -981,77 +1125,15 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
-                ignored -> {},
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
         return buffer;
     }
 
-    private static BufferInfo getBufferInfo(BroadcastOutputBuffer buffer, OutputBufferId bufferId)
-    {
-        for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
-            if (bufferInfo.getBufferId().equals(bufferId)) {
-                return bufferInfo;
-            }
-        }
-        return null;
-    }
-
-    private static void assertFinished(BroadcastOutputBuffer buffer)
-            throws Exception
-    {
-        assertTrue(buffer.isFinished());
-        for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
-            assertTrue(bufferInfo.isFinished());
-            assertEquals(bufferInfo.getBufferedPages(), 0);
-        }
-    }
-
-    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
-    {
-        assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size());
-        assertEquals(actual.getToken(), expected.getToken());
-        for (int i = 0; i < actual.getSerializedPages().size(); i++) {
-            Page actualPage = PAGES_SERDE.deserialize(actual.getSerializedPages().get(i));
-            Page expectedPage = PAGES_SERDE.deserialize(expected.getSerializedPages().get(i));
-            assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
-            PageAssertions.assertPageEquals(types, actualPage, expectedPage);
-        }
-        assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
-    }
-
-    private static void assertFutureIsDone(Future<?> future)
-    {
-        tryGetFutureValue(future, 5, SECONDS);
-        assertTrue(future.isDone());
-    }
-
-    public static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
+    private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
     {
         List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
-        return bufferResult(token, pages);
-    }
-
-    public static BufferResult bufferResult(long token, List<Page> pages)
-    {
-        checkArgument(!pages.isEmpty(), "pages is empty");
-        return new BufferResult(
-                TASK_INSTANCE_ID,
-                token,
-                token + pages.size(),
-                false,
-                pages.stream()
-                        .map(PAGES_SERDE::serialize)
-                        .collect(Collectors.toList()));
-    }
-
-    private static Page createPage(int i)
-    {
-        return new Page(BlockAssertions.createLongsBlock(i));
-    }
-
-    public static DataSize sizeOfPages(int count)
-    {
-        return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
+        return createBufferResult(TASK_INSTANCE_ID, token, pages);
     }
 }

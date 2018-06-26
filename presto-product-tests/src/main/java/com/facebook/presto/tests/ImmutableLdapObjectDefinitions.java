@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.google.common.collect.ImmutableMap;
-import com.teradata.tempto.fulfillment.ldap.LdapObjectDefinition;
+import io.prestodb.tempto.fulfillment.ldap.LdapObjectDefinition;
 
 import java.util.Arrays;
 import java.util.List;

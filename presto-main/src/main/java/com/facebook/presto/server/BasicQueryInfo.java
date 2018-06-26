@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
@@ -48,17 +49,18 @@ public class BasicQueryInfo
     private final ErrorType errorType;
     private final ErrorCode errorCode;
 
+    @JsonCreator
     public BasicQueryInfo(
-            QueryId queryId,
-            SessionRepresentation session,
-            QueryState state,
-            MemoryPoolId memoryPool,
-            boolean scheduled,
-            URI self,
-            String query,
-            BasicQueryStats queryStats,
-            ErrorType errorType,
-            ErrorCode errorCode)
+            @JsonProperty("queryId") QueryId queryId,
+            @JsonProperty("session") SessionRepresentation session,
+            @JsonProperty("state") QueryState state,
+            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
+            @JsonProperty("scheduled") boolean scheduled,
+            @JsonProperty("self") URI self,
+            @JsonProperty("query") String query,
+            @JsonProperty("queryStats") BasicQueryStats queryStats,
+            @JsonProperty("errorType") ErrorType errorType,
+            @JsonProperty("errorCode") ErrorCode errorCode)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");

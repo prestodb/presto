@@ -17,6 +17,10 @@ import java.util.Optional;
 
 public interface Mergeable<T>
 {
+    /**
+     * Merges the current state with the state of the other instance, and returns the merged state.
+     * @throws NullPointerException if other is null
+     */
     T mergeWith(T other);
 
     static <T extends Mergeable<T>> Optional<T> merge(Optional<T> first, Optional<T> second)

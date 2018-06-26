@@ -39,19 +39,18 @@ public class DictionaryCompressionOptimizer
     private final Set<DictionaryColumnManager> allWriters;
     private final Set<DictionaryColumnManager> dictionaryWriters = new HashSet<>();
 
+    private final int stripeMinBytes;
     private final int stripeMaxBytes;
-    private final int stripeMinRowCount;
     private final int stripeMaxRowCount;
     private final int dictionaryMemoryMaxBytesLow;
     private final int dictionaryMemoryMaxBytesHigh;
 
     private int dictionaryMemoryBytes;
-    private int stripeRowCount;
 
     public DictionaryCompressionOptimizer(
             Set<? extends DictionaryColumn> writers,
+            int stripeMinBytes,
             int stripeMaxBytes,
-            int stripeMinRowCount,
             int stripeMaxRowCount,
             int dictionaryMemoryMaxBytes)
     {
@@ -60,13 +59,13 @@ public class DictionaryCompressionOptimizer
                 .map(DictionaryColumnManager::new)
                 .collect(toSet()));
 
-        checkArgument(stripeMaxBytes >= 0, "stripeMaxBytes is negative");
+        checkArgument(stripeMinBytes >= 0, "stripeMinBytes is negative");
+        this.stripeMinBytes = stripeMinBytes;
+
+        checkArgument(stripeMaxBytes >= stripeMinBytes, "stripeMaxBytes is less than stripeMinBytes");
         this.stripeMaxBytes = stripeMaxBytes;
 
-        checkArgument(stripeMinRowCount >= 0, "stripeMinRowCount is negative");
-        this.stripeMinRowCount = stripeMinRowCount;
-
-        checkArgument(stripeMaxRowCount >= stripeMinRowCount, "stripeMaxRowCount is less than stripeMinRowCount");
+        checkArgument(stripeMaxRowCount >= 0, "stripeMaxRowCount is negative");
         this.stripeMaxRowCount = stripeMaxRowCount;
 
         checkArgument(dictionaryMemoryMaxBytes >= 0, "dictionaryMemoryMaxBytes is negative");
@@ -76,11 +75,16 @@ public class DictionaryCompressionOptimizer
         dictionaryWriters.addAll(allWriters);
     }
 
-    public boolean isFull()
+    public int getDictionaryMemoryBytes()
+    {
+        return dictionaryMemoryBytes;
+    }
+
+    public boolean isFull(long bufferedBytes)
     {
         // if the strip is big enough to flush, stop before we hit the absolute max, so we are
         // not forced to convert a dictionary to direct to fit in memory
-        if (stripeRowCount > stripeMinRowCount) {
+        if (bufferedBytes > stripeMinBytes) {
             return dictionaryMemoryBytes > dictionaryMemoryMaxBytesLow;
         }
         // strip is small, grow to the high water mark (so at the very least we have more information)
@@ -109,7 +113,6 @@ public class DictionaryCompressionOptimizer
 
         // update the dictionary growth history
         dictionaryWriters.forEach(column -> column.updateHistory(stripeRowCount));
-        this.stripeRowCount = stripeRowCount;
 
         if (dictionaryMemoryBytes <= dictionaryMemoryMaxBytesLow) {
             return;
@@ -134,11 +137,11 @@ public class DictionaryCompressionOptimizer
             if (projection.getColumnToConvert().getCompressionRatio() >= DICTIONARY_ALWAYS_KEEP_COMPRESSION_RATIO) {
                 return;
             }
-            convertToDirect(projection.getColumnToConvert());
+            nonDictionaryBufferedBytes += convertToDirect(projection.getColumnToConvert());
         }
 
         // if the stripe is larger then the minimum row count, we are not required to convert any more dictionary columns to direct
-        if (stripeRowCount >= stripeMinRowCount) {
+        if (nonDictionaryBufferedBytes + dictionaryMemoryBytes >= stripeMinBytes) {
             // check if we can get better compression by converting a dictionary column to direct.  This can happen when then there are multiple
             // dictionary columns and one does not compress well, so if we convert it to direct we can continue to use the existing dictionaries
             // for the other columns.
@@ -148,7 +151,7 @@ public class DictionaryCompressionOptimizer
                 if (projection.getPredictedFileCompressionRatio() < currentCompressionRatio) {
                     return;
                 }
-                convertToDirect(projection.getColumnToConvert());
+                nonDictionaryBufferedBytes += convertToDirect(projection.getColumnToConvert());
             }
         }
     }
@@ -161,11 +164,12 @@ public class DictionaryCompressionOptimizer
                 .forEach(this::convertToDirect);
     }
 
-    private void convertToDirect(DictionaryColumnManager dictionaryWriter)
+    private long convertToDirect(DictionaryColumnManager dictionaryWriter)
     {
         dictionaryMemoryBytes -= dictionaryWriter.getDictionaryBytes();
-        dictionaryWriter.convertToDirect();
+        long directBytes = dictionaryWriter.convertToDirect();
         dictionaryWriters.remove(dictionaryWriter);
+        return directBytes;
     }
 
     private double currentCompressionRatio(int allOtherBytes)
@@ -280,7 +284,7 @@ public class DictionaryCompressionOptimizer
 
         int getDictionaryBytes();
 
-        void convertToDirect();
+        long convertToDirect();
     }
 
     private static class DictionaryColumnManager
@@ -301,10 +305,10 @@ public class DictionaryCompressionOptimizer
             this.dictionaryColumn = dictionaryColumn;
         }
 
-        void convertToDirect()
+        long convertToDirect()
         {
             directEncoded = true;
-            dictionaryColumn.convertToDirect();
+            return dictionaryColumn.convertToDirect();
         }
 
         void reset()

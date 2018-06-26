@@ -54,13 +54,45 @@ Binary Functions
 
     Decodes ``bigint`` value from a 64-bit 2's complement big endian ``binary``.
 
+.. function:: to_big_endian_32(integer) -> varbinary
+
+    Encodes ``integer`` in a 32-bit 2's complement big endian format.
+
+.. function:: from_big_endian_32(binary) -> integer
+
+    Decodes ``integer`` value from a 32-bit 2's complement big endian ``binary``.
+
 .. function:: to_ieee754_32(real) -> varbinary
 
     Encodes ``real`` in a 32-bit big-endian binary according to IEEE 754 single-precision floating-point format.
 
+.. function:: from_ieee754_32(binary) -> real
+
+    Decodes the 32-bit big-endian ``binary`` in IEEE 754 single-precision floating-point format.
+
 .. function:: to_ieee754_64(double) -> varbinary
 
     Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
+
+.. function:: from_ieee754_64(binary) -> double
+
+    Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
+
+.. function:: lpad(binary, size, padbinary) -> varbinary
+    :noindex:
+
+    Left pads ``binary`` to ``size`` bytes with ``padbinary``.
+    If ``size`` is less than the length of ``binary``, the result is
+    truncated to ``size`` characters. ``size`` must not be negative
+    and ``padbinary`` must be non-empty.
+
+.. function:: rpad(binary, size, padbinary) -> varbinary
+    :noindex:
+
+    Right pads ``binary`` to ``size`` bytes with ``padbinary``.
+    If ``size`` is less than the length of ``binary``, the result is
+    truncated to ``size`` characters. ``size`` must not be negative
+    and ``padbinary`` must be non-empty.
 
 .. function:: crc32(binary) -> bigint
 
@@ -86,3 +118,19 @@ Binary Functions
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.
+
+.. function:: hmac_md5(binary, key) -> varbinary
+
+    Computes HMAC with md5 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha1(binary, key) -> varbinary
+
+    Computes HMAC with sha1 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha256(binary, key) -> varbinary
+
+    Computes HMAC with sha256 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha512(binary, key) -> varbinary
+
+    Computes HMAC with sha512 of ``binary`` with the given ``key``.

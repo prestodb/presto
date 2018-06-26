@@ -16,142 +16,135 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.List;
-
 public abstract class AbstractSingleRowBlock
         implements Block
 {
-    // in AbstractSingleRowBlock, offset is position-based (consider as cell-based), not entry-based.
-    protected final int startOffset;
+    protected final int rowIndex;
 
-    protected final int numFields;
-
-    protected abstract Block getFieldBlock(int fieldIndex);
-
-    protected AbstractSingleRowBlock(int startOffset, int numFields)
+    protected AbstractSingleRowBlock(int rowIndex)
     {
-        this.startOffset = startOffset;
-        this.numFields = numFields;
+        this.rowIndex = rowIndex;
     }
 
-    private int getAbsolutePosition(int position)
+    protected abstract Block getRawFieldBlock(int fieldIndex);
+
+    private void checkFieldIndex(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
+            throw new IllegalArgumentException("position is not valid: " + position);
         }
-        return position + startOffset;
     }
 
     @Override
     public boolean isNull(int position)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).isNull(position / numFields);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).isNull(rowIndex);
     }
 
     @Override
     public byte getByte(int position, int offset)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getByte(position / numFields, offset);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getByte(rowIndex, offset);
     }
 
     @Override
     public short getShort(int position, int offset)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getShort(position / numFields, offset);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getShort(rowIndex, offset);
     }
 
     @Override
     public int getInt(int position, int offset)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getInt(position / numFields, offset);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getInt(rowIndex, offset);
     }
 
     @Override
     public long getLong(int position, int offset)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getLong(position / numFields, offset);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getLong(rowIndex, offset);
     }
 
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getSlice(position / numFields, offset, length);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getSlice(rowIndex, offset, length);
     }
 
     @Override
     public int getSliceLength(int position)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getSliceLength(position / numFields);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getSliceLength(rowIndex);
     }
 
     @Override
     public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).compareTo(position / numFields, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).compareTo(rowIndex, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
     }
 
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).bytesEqual(position / numFields, offset, otherSlice, otherOffset, length);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).bytesEqual(rowIndex, offset, otherSlice, otherOffset, length);
     }
 
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).bytesCompare(position / numFields, offset, length, otherSlice, otherOffset, otherLength);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).bytesCompare(rowIndex, offset, length, otherSlice, otherOffset, otherLength);
     }
 
     @Override
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        position = getAbsolutePosition(position);
-        getFieldBlock(position % numFields).writeBytesTo(position / numFields, offset, length, blockBuilder);
+        checkFieldIndex(position);
+        getRawFieldBlock(position).writeBytesTo(rowIndex, offset, length, blockBuilder);
     }
 
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).equals(position / numFields, offset, otherBlock, otherPosition, otherOffset, length);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).equals(rowIndex, offset, otherBlock, otherPosition, otherOffset, length);
     }
 
     @Override
     public long hash(int position, int offset, int length)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).hash(position / numFields, offset, length);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).hash(rowIndex, offset, length);
     }
 
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getObject(position / numFields, clazz);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getObject(rowIndex, clazz);
     }
 
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        position = getAbsolutePosition(position);
-        getFieldBlock(position % numFields).writePositionTo(position / numFields, blockBuilder);
+        checkFieldIndex(position);
+        getRawFieldBlock(position).writePositionTo(rowIndex, blockBuilder);
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getSingleValueBlock(position / numFields);
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getSingleValueBlock(rowIndex);
     }
 
     @Override
@@ -161,7 +154,7 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
         throw new UnsupportedOperationException();
     }

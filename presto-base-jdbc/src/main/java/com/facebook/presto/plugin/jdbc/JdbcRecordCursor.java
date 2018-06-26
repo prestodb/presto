@@ -13,65 +13,77 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class JdbcRecordCursor
         implements RecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
+    private final JdbcColumnHandle[] columnHandles;
+    private final BooleanReadFunction[] booleanReadFunctions;
+    private final DoubleReadFunction[] doubleReadFunctions;
+    private final LongReadFunction[] longReadFunctions;
+    private final SliceReadFunction[] sliceReadFunctions;
 
-    private final List<JdbcColumnHandle> columnHandles;
-
+    private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
-        this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+
+        this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
+
+        booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
+        doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
+        longReadFunctions = new LongReadFunction[columnHandles.size()];
+        sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
+
+        for (int i = 0; i < this.columnHandles.length; i++) {
+            ReadMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
+                    .orElseThrow(() -> new VerifyException("Unsupported column type"));
+            Class<?> javaType = readMapping.getType().getJavaType();
+            ReadFunction readFunction = readMapping.getReadFunction();
+
+            if (javaType == boolean.class) {
+                booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
+            }
+            else if (javaType == double.class) {
+                doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
+            }
+            else if (javaType == long.class) {
+                longReadFunctions[i] = (LongReadFunction) readFunction;
+            }
+            else if (javaType == Slice.class) {
+                sliceReadFunctions[i] = (SliceReadFunction) readFunction;
+            }
+            else {
+                throw new IllegalStateException(format("Unsupported java type %s", javaType));
+            }
+        }
 
         try {
             connection = jdbcClient.getConnection(split);
@@ -99,7 +111,7 @@ public class JdbcRecordCursor
     @Override
     public Type getType(int field)
     {
-        return columnHandles.get(field).getColumnType();
+        return columnHandles[field].getColumnType();
     }
 
     @Override
@@ -110,11 +122,7 @@ public class JdbcRecordCursor
         }
 
         try {
-            boolean result = resultSet.next();
-            if (!result) {
-                close();
-            }
-            return result;
+            return resultSet.next();
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -126,7 +134,7 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            return resultSet.getBoolean(field + 1);
+            return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -138,43 +146,7 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            Type type = getType(field);
-            if (type.equals(TinyintType.TINYINT)) {
-                return (long) resultSet.getByte(field + 1);
-            }
-            if (type.equals(SmallintType.SMALLINT)) {
-                return (long) resultSet.getShort(field + 1);
-            }
-            if (type.equals(IntegerType.INTEGER)) {
-                return (long) resultSet.getInt(field + 1);
-            }
-            if (type.equals(RealType.REAL)) {
-                return (long) floatToRawIntBits(resultSet.getFloat(field + 1));
-            }
-            if (type.equals(BigintType.BIGINT)) {
-                return resultSet.getLong(field + 1);
-            }
-            if (type instanceof DecimalType) {
-                // short decimal type
-                return resultSet.getBigDecimal(field + 1).unscaledValue().longValueExact();
-            }
-            if (type.equals(DateType.DATE)) {
-                // JDBC returns a date using a timestamp at midnight in the JVM timezone
-                long localMillis = resultSet.getDate(field + 1).getTime();
-                // Convert it to a midnight in UTC
-                long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
-                // convert to days
-                return TimeUnit.MILLISECONDS.toDays(utcMillis);
-            }
-            if (type.equals(TimeType.TIME)) {
-                Time time = resultSet.getTime(field + 1);
-                return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
-            }
-            if (type.equals(TimestampType.TIMESTAMP)) {
-                Timestamp timestamp = resultSet.getTimestamp(field + 1);
-                return timestamp.getTime();
-            }
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
+            return longReadFunctions[field].readLong(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -186,7 +158,7 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            return resultSet.getDouble(field + 1);
+            return doubleReadFunctions[field].readDouble(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -198,21 +170,7 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            Type type = getType(field);
-            if (type instanceof VarcharType) {
-                return utf8Slice(resultSet.getString(field + 1));
-            }
-            if (type instanceof CharType) {
-                return utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(field + 1)));
-            }
-            if (type.equals(VarbinaryType.VARBINARY)) {
-                return wrappedBuffer(resultSet.getBytes(field + 1));
-            }
-            if (type instanceof DecimalType) {
-                // long decimal type
-                return encodeScaledValue(resultSet.getBigDecimal(field + 1));
-            }
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
+            return sliceReadFunctions[field].readSlice(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -229,7 +187,7 @@ public class JdbcRecordCursor
     public boolean isNull(int field)
     {
         checkState(!closed, "cursor is closed");
-        checkArgument(field < columnHandles.size(), "Invalid field index");
+        checkArgument(field < columnHandles.length, "Invalid field index");
 
         try {
             // JDBC is kind of dumb: we need to read the field and then ask
@@ -244,7 +202,7 @@ public class JdbcRecordCursor
         }
     }
 
-    @SuppressWarnings({"UnusedDeclaration", "EmptyTryBlock"})
+    @SuppressWarnings("UnusedDeclaration")
     @Override
     public void close()
     {
@@ -257,10 +215,10 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
-            // do nothing
+            jdbcClient.abortReadConnection(connection);
         }
         catch (SQLException e) {
-            throw new RuntimeException(e);
+            // ignore exception from close
         }
     }
 
@@ -275,6 +233,6 @@ public class JdbcRecordCursor
                 e.addSuppressed(closeException);
             }
         }
-        return Throwables.propagate(e);
+        return new PrestoException(JDBC_ERROR, e);
     }
 }

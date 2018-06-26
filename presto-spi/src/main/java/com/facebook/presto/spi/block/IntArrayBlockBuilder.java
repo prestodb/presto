@@ -18,10 +18,10 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
@@ -30,6 +30,7 @@ public class IntArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlockBuilder.class).instanceSize();
+    private static final Block NULL_VALUE_BLOCK = new IntArrayBlock(0, 1, new boolean[] {true}, new int[1]);
 
     @Nullable
     private BlockBuilderStatus blockBuilderStatus;
@@ -37,6 +38,8 @@ public class IntArrayBlockBuilder
     private int initialEntryCount;
 
     private int positionCount;
+    private boolean hasNullValue;
+    private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
     private boolean[] valueIsNull = new boolean[0];
@@ -61,6 +64,7 @@ public class IntArrayBlockBuilder
 
         values[positionCount] = value;
 
+        hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Byte.BYTES + Integer.BYTES);
@@ -83,6 +87,7 @@ public class IntArrayBlockBuilder
 
         valueIsNull[positionCount] = true;
 
+        hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Byte.BYTES + Integer.BYTES);
@@ -93,7 +98,10 @@ public class IntArrayBlockBuilder
     @Override
     public Block build()
     {
-        return new IntArrayBlock(positionCount, valueIsNull, values);
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
+        return new IntArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
@@ -169,6 +177,12 @@ public class IntArrayBlockBuilder
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -180,6 +194,7 @@ public class IntArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeInt(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -187,23 +202,34 @@ public class IntArrayBlockBuilder
     {
         checkReadablePosition(position);
         return new IntArrayBlock(
+                0,
                 1,
-                new boolean[] {valueIsNull[position]},
+                valueIsNull[position] ? new boolean[] {true} : null,
                 new int[] {values[position]});
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        boolean[] newValueIsNull = new boolean[positions.size()];
-        int[] newValues = new int[positions.size()];
-        for (int i = 0; i < positions.size(); i++) {
-            int position = positions.get(i);
+        checkArrayRange(positions, offset, length);
+
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
+        boolean[] newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = new boolean[length];
+        }
+        int[] newValues = new int[length];
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position];
+            if (hasNullValue) {
+                newValueIsNull[i] = valueIsNull[position];
+            }
             newValues[i] = values[position];
         }
-        return new IntArrayBlock(positions.size(), newValueIsNull, newValues);
+        return new IntArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -211,7 +237,10 @@ public class IntArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new IntArrayBlock(positionOffset, length, valueIsNull, values);
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
+        return new IntArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
@@ -219,15 +248,21 @@ public class IntArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
+        boolean[] newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        }
         int[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
-        return new IntArrayBlock(length, newValueIsNull, newValues);
+        return new IntArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new IntArrayBlockEncoding();
+        return IntArrayBlockEncoding.NAME;
     }
 
     @Override

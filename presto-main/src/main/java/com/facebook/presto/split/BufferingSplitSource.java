@@ -14,9 +14,10 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -25,7 +26,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 
 public class BufferingSplitSource
@@ -53,25 +53,10 @@ public class BufferingSplitSource
     }
 
     @Override
-    public ListenableFuture<List<Split>> getNextBatch(int maxSize)
+    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
     {
         checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
-        List<Split> result = synchronizedList(new ArrayList<>(maxSize));
-        ListenableFuture<?> future = fetchSplits(Math.min(bufferSize, maxSize), maxSize, result);
-        return Futures.transform(future, ignored -> ImmutableList.copyOf(result));
-    }
-
-    private ListenableFuture<?> fetchSplits(int min, int max, List<Split> output)
-    {
-        checkArgument(min <= max, "Min splits greater than max splits");
-        if (source.isFinished() || output.size() >= min) {
-            return immediateFuture(null);
-        }
-        ListenableFuture<List<Split>> future = source.getNextBatch(max - output.size());
-        return Futures.transformAsync(future, splits -> {
-            output.addAll(splits);
-            return fetchSplits(min, max, output);
-        });
+        return GetNextBatch.fetchNextBatchAsync(source, Math.min(bufferSize, maxSize), maxSize, partitionHandle, lifespan);
     }
 
     @Override
@@ -84,5 +69,55 @@ public class BufferingSplitSource
     public boolean isFinished()
     {
         return source.isFinished();
+    }
+
+    private static class GetNextBatch
+    {
+        private final SplitSource splitSource;
+        private final int min;
+        private final int max;
+        private final ConnectorPartitionHandle partitionHandle;
+        private final Lifespan lifespan;
+
+        private final List<Split> splits = new ArrayList<>();
+        private boolean noMoreSplits;
+
+        public static ListenableFuture<SplitBatch> fetchNextBatchAsync(
+                SplitSource splitSource,
+                int min,
+                int max,
+                ConnectorPartitionHandle partitionHandle,
+                Lifespan lifespan)
+        {
+            GetNextBatch getNextBatch = new GetNextBatch(splitSource, min, max, partitionHandle, lifespan);
+            ListenableFuture<?> future = getNextBatch.fetchSplits();
+            return Futures.transform(future, ignored -> new SplitBatch(getNextBatch.splits, getNextBatch.noMoreSplits));
+        }
+
+        private GetNextBatch(SplitSource splitSource, int min, int max, ConnectorPartitionHandle partitionHandle, Lifespan lifespan)
+        {
+            this.splitSource = requireNonNull(splitSource, "splitSource is null");
+            checkArgument(min <= max, "Min splits greater than max splits");
+            this.min = min;
+            this.max = max;
+            this.partitionHandle = requireNonNull(partitionHandle, "partitionHandle is null");
+            this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        }
+
+        private ListenableFuture<?> fetchSplits()
+        {
+            if (splits.size() >= min) {
+                return immediateFuture(null);
+            }
+            ListenableFuture<SplitBatch> future = splitSource.getNextBatch(partitionHandle, lifespan, max - splits.size());
+            return Futures.transformAsync(future, splitBatch -> {
+                splits.addAll(splitBatch.getSplits());
+                if (splitBatch.isLastBatch()) {
+                    noMoreSplits = true;
+                    return immediateFuture(null);
+                }
+                return fetchSplits();
+            });
+        }
     }
 }

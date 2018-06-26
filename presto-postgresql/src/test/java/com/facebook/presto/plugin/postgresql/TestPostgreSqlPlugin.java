@@ -25,7 +25,6 @@ public class TestPostgreSqlPlugin
 {
     @Test
     public void testCreateConnector()
-            throws Exception
     {
         Plugin plugin = new PostgreSqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());

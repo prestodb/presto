@@ -15,7 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
-import com.google.common.base.Throwables;
+import com.google.common.net.HostAndPort;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.Objects;
@@ -26,24 +26,22 @@ public class TestingHiveCluster
         implements HiveCluster
 {
     private final HiveClientConfig config;
-    private final String host;
-    private final int port;
+    private final HostAndPort address;
 
     public TestingHiveCluster(HiveClientConfig config, String host, int port)
     {
         this.config = requireNonNull(config, "config is null");
-        this.host = requireNonNull(host, "host is null");
-        this.port = port;
+        this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
     }
 
     @Override
     public HiveMetastoreClient createMetastoreClient()
     {
         try {
-            return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(host, port);
+            return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address);
         }
         catch (TTransportException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -58,13 +56,12 @@ public class TestingHiveCluster
         }
         TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        return Objects.equals(this.host, o.host) &&
-                Objects.equals(this.port, o.port);
+        return Objects.equals(this.address, o.address);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(host, port);
+        return Objects.hash(address);
     }
 }

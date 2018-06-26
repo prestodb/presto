@@ -74,7 +74,6 @@ public class TestConditions
 
     @Test
     public void testDistinctFrom()
-            throws Exception
     {
         assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
         assertFunction("NULL IS DISTINCT FROM 1", BOOLEAN, true);
@@ -274,26 +273,23 @@ public class TestConditions
                         "end",
                 decimal("0000000002.2"));
 
-        assertFunction("case " +
+        assertDecimalFunction("case " +
                         "when false then 2.2 " +
                         "when true then 2.2 " +
                         "end",
-                DOUBLE,
-                2.2);
+                decimal("2.2"));
 
-        assertFunction("case " +
+        assertDecimalFunction("case " +
                         "when false then 1234567890.0987654321 " +
                         "when true then 3.3 " +
                         "end",
-                DOUBLE,
-                3.3);
+                decimal("0000000003.3000000000"));
 
-        assertFunction("case " +
+        assertDecimalFunction("case " +
                         "when false then 1 " +
                         "when true then 2.2 " +
                         "end",
-                DOUBLE,
-                2.2);
+                decimal("0000000002.2"));
 
         assertFunction("case " +
                         "when false then DECIMAL '1.1' " +
@@ -421,26 +417,23 @@ public class TestConditions
                 DOUBLE,
                 33.0);
 
-        assertFunction("case true " +
+        assertDecimalFunction("case true " +
                         "when false then 2.2 " +
                         "when true then 2.2 " +
                         "end",
-                DOUBLE,
-                2.2);
+                decimal("2.2"));
 
-        assertFunction("case true " +
+        assertDecimalFunction("case true " +
                         "when false then 1234567890.0987654321 " +
                         "when true then 3.3 " +
                         "end",
-                DOUBLE,
-                3.3);
+                decimal("0000000003.3000000000"));
 
-        assertFunction("case true " +
+        assertDecimalFunction("case true " +
                         "when false then 1 " +
                         "when true then 2.2 " +
                         "end",
-                DOUBLE,
-                2.2);
+                decimal("0000000002.2"));
 
         assertFunction("case true " +
                         "when false then 1.1 " +

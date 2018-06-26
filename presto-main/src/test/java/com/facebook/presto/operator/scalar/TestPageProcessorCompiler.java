@@ -20,7 +20,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -41,6 +40,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.metadata.Signature.internalOperator;
@@ -78,7 +78,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testNoCaching()
-            throws Throwable
     {
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
@@ -93,7 +92,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityRLE()
-            throws Exception
     {
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
 
@@ -114,7 +112,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnDictionary()
-            throws Exception
     {
         CallExpression lengthVarchar = new CallExpression(
                 new Signature("length", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
@@ -144,7 +141,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnRLE()
-            throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
@@ -163,7 +159,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityColumnarDictionary()
-            throws Exception
     {
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
@@ -179,7 +174,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testNonDeterministicProject()
-            throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
@@ -204,7 +198,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(createSlicesBlock(expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

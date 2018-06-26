@@ -42,7 +42,6 @@ public class TestFileStorageService
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         temporary = createTempDir();
         store = new FileStorageService(temporary);
@@ -58,7 +57,6 @@ public class TestFileStorageService
 
     @Test
     public void testGetFileSystemPath()
-            throws Exception
     {
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
         File expected = new File("/test", format("70/1e/%s.orc", uuid));

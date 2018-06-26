@@ -36,11 +36,11 @@ public final class BitwiseFunctions
         if (bits <= 1 || bits > 64) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bits specified in bit_count must be between 2 and 64, got " + bits);
         }
-        long lowBitsMask = (1 << (bits - 1)) - 1; // set the least (bits - 1) bits
+        long lowBitsMask = (1L << (bits - 1)) - 1; // set the least (bits - 1) bits
         if (num > lowBitsMask || num < ~lowBitsMask) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Number must be representable with the bits specified. " + num + " can not be represented with " + bits + " bits");
         }
-        long mask = lowBitsMask | 0x8000_0000_0000_0000L; // set the least (bits - 1) bits and the sign bit
+        long mask = (1L << bits) - 1;
         return Long.bitCount(num & mask);
     }
 

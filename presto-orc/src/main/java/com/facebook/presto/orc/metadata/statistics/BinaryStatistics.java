@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
+import org.openjdk.jol.info.ClassLayout;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class BinaryStatistics
+        implements Hashable
 {
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long BINARY_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
+
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryStatistics.class).instanceSize();
 
     private final long sum;
 
@@ -32,11 +38,22 @@ public class BinaryStatistics
         return sum;
     }
 
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("sum", sum)
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putLong(sum);
     }
 }

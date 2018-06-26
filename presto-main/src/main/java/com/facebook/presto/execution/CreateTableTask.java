@@ -102,9 +102,15 @@ public class CreateTableTask
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
-                Type type = metadata.getType(parseTypeSignature(column.getType()));
-                if ((type == null) || type.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, column, "Unknown type for column '%s' ", column.getName());
+                Type type;
+                try {
+                    type = metadata.getType(parseTypeSignature(column.getType()));
+                }
+                catch (IllegalArgumentException e) {
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                }
+                if (type.equals(UNKNOWN)) {
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
                 if (columns.containsKey(name)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());

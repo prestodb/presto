@@ -23,25 +23,30 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig("experimental.cluster-memory-manager-enabled")
+@DefunctConfig({
+        "experimental.cluster-memory-manager-enabled",
+        "query.low-memory-killer.enabled"})
 public class MemoryManagerConfig
 {
+    // enforced against user memory allocations
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
-    private boolean killOnOutOfMemory;
+    // enforced against user + system memory allocations (default is maxQueryMemory * 2)
+    private DataSize maxQueryTotalMemory;
+    private String lowMemoryKillerPolicy = LowMemoryKillerPolicy.NONE;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
-    public boolean isKillOnOutOfMemory()
+    public String getLowMemoryKillerPolicy()
     {
-        return killOnOutOfMemory;
+        return lowMemoryKillerPolicy;
     }
 
-    @Config("query.low-memory-killer.enabled")
-    @ConfigDescription("Enable low memory killer")
-    public MemoryManagerConfig setKillOnOutOfMemory(boolean killOnOutOfMemory)
+    @Config("query.low-memory-killer.policy")
+    public MemoryManagerConfig setLowMemoryKillerPolicy(String lowMemoryKillerPolicy)
     {
-        this.killOnOutOfMemory = killOnOutOfMemory;
+        this.lowMemoryKillerPolicy = lowMemoryKillerPolicy;
         return this;
     }
 
@@ -71,5 +76,28 @@ public class MemoryManagerConfig
     {
         this.maxQueryMemory = maxQueryMemory;
         return this;
+    }
+
+    @NotNull
+    public DataSize getMaxQueryTotalMemory()
+    {
+        if (maxQueryTotalMemory == null) {
+            return succinctBytes(maxQueryMemory.toBytes() * 2);
+        }
+        return maxQueryTotalMemory;
+    }
+
+    @Config("query.max-total-memory")
+    public MemoryManagerConfig setMaxQueryTotalMemory(DataSize maxQueryTotalMemory)
+    {
+        this.maxQueryTotalMemory = maxQueryTotalMemory;
+        return this;
+    }
+
+    public static class LowMemoryKillerPolicy
+    {
+        public static final String NONE = "none";
+        public static final String TOTAL_RESERVATION = "total-reservation";
+        public static final String TOTAL_RESERVATION_ON_BLOCKED_NODES = "total-reservation-on-blocked-nodes";
     }
 }

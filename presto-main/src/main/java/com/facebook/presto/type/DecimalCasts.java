@@ -134,6 +134,7 @@ public final class DecimalCasts
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods(methodNames)
                         .withExtraParameters((context) -> {
@@ -166,6 +167,7 @@ public final class DecimalCasts
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods(methodNames)
                         .withExtraParameters((context) -> {
@@ -495,8 +497,14 @@ public final class DecimalCasts
 
     private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
     {
+        if (Double.isInfinite(value) || Double.isNaN(value)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
+
         try {
-            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(value, precision, intScale(scale));
+            // todo consider changing this implementation to more performant one which does not use intermediate String objects
+            BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
+            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (overflows(decimal, intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -535,9 +543,14 @@ public final class DecimalCasts
     private static Slice realToLongDecimal(long value, long precision, long scale)
     {
         float floatValue = intBitsToFloat(intScale(value));
+        if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+        }
+
         try {
-            //TODO: optimize, implement specialized float to decimal conversion instead of using double to decimal
-            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(floatValue, precision, intScale(scale));
+            // todo consider changing this implementation to more performant one which does not use intermediate String objects
+            BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
+            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (overflows(decimal, intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
             }
@@ -600,14 +613,12 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Slice shortDecimalToJson(long decimal, long precision, long scale, long tenToScale)
-            throws IOException
     {
         return decimalToJson(BigDecimal.valueOf(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static Slice longDecimalToJson(Slice decimal, long precision, long scale, BigInteger tenToScale)
-            throws IOException
     {
         return decimalToJson(new BigDecimal(decodeUnscaledValue(decimal), intScale(scale)));
     }
@@ -628,7 +639,6 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Slice jsonToLongDecimal(Slice json, long precision, long scale, BigInteger tenToScale)
-            throws IOException
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
@@ -643,7 +653,6 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Long jsonToShortDecimal(Slice json, long precision, long scale, long tenToScale)
-            throws IOException
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();

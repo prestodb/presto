@@ -20,15 +20,14 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class LongOutputStreamDwrf
@@ -68,6 +67,7 @@ public class LongOutputStreamDwrf
     public void close()
     {
         closed = true;
+        buffer.close();
     }
 
     @Override
@@ -78,17 +78,15 @@ public class LongOutputStreamDwrf
     }
 
     @Override
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
-        checkState(closed);
-        int length = buffer.writeDataTo(outputStream);
-        return Optional.of(new Stream(column, streamKind, length, true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override
     public long getBufferedBytes()
     {
-        return buffer.size();
+        return buffer.estimateOutputDataSize();
     }
 
     @Override

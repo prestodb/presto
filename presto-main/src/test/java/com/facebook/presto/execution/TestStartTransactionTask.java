@@ -31,14 +31,12 @@ import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -67,7 +65,6 @@ public class TestStartTransactionTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
@@ -75,7 +72,6 @@ public class TestStartTransactionTask
 
     @Test
     public void testNonTransactionalClient()
-            throws Exception
     {
         Session session = sessionBuilder().build();
         TransactionManager transactionManager = createTestTransactionManager();
@@ -84,13 +80,8 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         try {
-            try {
-                getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-                fail();
-            }
-            catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
-            }
+            getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            fail();
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode());
@@ -103,7 +94,6 @@ public class TestStartTransactionTask
 
     @Test
     public void testNestedTransaction()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
@@ -115,13 +105,8 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
 
         try {
-            try {
-                getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-                fail();
-            }
-            catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
-            }
+            getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            fail();
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
@@ -134,7 +119,6 @@ public class TestStartTransactionTask
 
     @Test
     public void testStartTransaction()
-            throws Exception
     {
         Session session = sessionBuilder()
                 .setClientTransactionSupport()
@@ -155,7 +139,6 @@ public class TestStartTransactionTask
 
     @Test
     public void testStartTransactionExplicitModes()
-            throws Exception
     {
         Session session = sessionBuilder()
                 .setClientTransactionSupport()
@@ -184,7 +167,6 @@ public class TestStartTransactionTask
 
     @Test
     public void testStartTransactionTooManyIsolationLevels()
-            throws Exception
     {
         Session session = sessionBuilder()
                 .setClientTransactionSupport()
@@ -195,19 +177,14 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         try {
-            try {
-                getFutureValue(new StartTransactionTask().execute(
-                        new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
-                        transactionManager,
-                        metadata,
-                        new AllowAllAccessControl(),
-                        stateMachine,
-                        emptyList()));
-                fail();
-            }
-            catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
-            }
+            getFutureValue(new StartTransactionTask().execute(
+                    new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
+                    transactionManager,
+                    metadata,
+                    new AllowAllAccessControl(),
+                    stateMachine,
+                    emptyList()));
+            fail();
         }
         catch (SemanticException e) {
             assertEquals(e.getCode(), INVALID_TRANSACTION_MODE);
@@ -220,7 +197,6 @@ public class TestStartTransactionTask
 
     @Test
     public void testStartTransactionTooManyAccessModes()
-            throws Exception
     {
         Session session = sessionBuilder()
                 .setClientTransactionSupport()
@@ -231,19 +207,14 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         try {
-            try {
-                getFutureValue(new StartTransactionTask().execute(
-                        new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
-                        transactionManager,
-                        metadata,
-                        new AllowAllAccessControl(),
-                        stateMachine,
-                        emptyList()));
-                fail();
-            }
-            catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
-            }
+            getFutureValue(new StartTransactionTask().execute(
+                    new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
+                    transactionManager,
+                    metadata,
+                    new AllowAllAccessControl(),
+                    stateMachine,
+                    emptyList()));
+            fail();
         }
         catch (SemanticException e) {
             assertEquals(e.getCode(), INVALID_TRANSACTION_MODE);

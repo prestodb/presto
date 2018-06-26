@@ -16,19 +16,25 @@ package com.facebook.presto.resourceGroups.db;
 import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.SelectorSpec;
+import com.facebook.presto.resourceGroups.VariableMap;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -48,11 +54,15 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -70,8 +80,12 @@ public class DbResourceGroupConfigurationManager
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
     private final ScheduledExecutorService configExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DbResourceGroupConfigurationManager"));
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicLong lastRefresh = new AtomicLong();
     private final String environment;
+    private final Duration maxRefreshInterval;
     private final boolean exactMatchSelectorEnabled;
+
+    private final CounterStat refreshFailures = new CounterStat();
 
     @Inject
     public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, DbResourceGroupConfig config, ResourceGroupsDao dao, @ForEnvironment String environment)
@@ -81,6 +95,7 @@ public class DbResourceGroupConfigurationManager
         requireNonNull(config, "config is null");
         requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
+        this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
         this.dao.createResourceGroupsGlobalPropertiesTable();
@@ -101,6 +116,13 @@ public class DbResourceGroupConfigurationManager
     @Override
     protected List<ResourceGroupSpec> getRootGroups()
     {
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Root groups cannot be fetched from database");
+        }
+        if (this.selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No root groups are configured");
+        }
+
         return rootGroups.get();
     }
 
@@ -119,9 +141,9 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionContext context)
+    public void configure(ResourceGroup group, SelectionContext<VariableMap> criteria)
     {
-        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, context);
+        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, criteria);
         if (groups.putIfAbsent(group.getId(), group) == null) {
             // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
             configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
@@ -132,9 +154,32 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
+    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    {
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+        }
+        if (selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+        }
+
+        return selectors.get().stream()
+                .map(s -> s.match(criteria))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+    }
+
+    @VisibleForTesting
     public List<ResourceGroupSelector> getSelectors()
     {
-        return this.selectors.get();
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+        }
+        if (selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+        }
+        return selectors.get();
     }
 
     private synchronized Optional<Duration> getCpuQuotaPeriodFromDb()
@@ -176,8 +221,26 @@ public class DbResourceGroupConfigurationManager
 
             configureChangedGroups(changedSpecs);
             disableDeletedGroups(deletedSpecs);
+
+            if (lastRefresh.get() > 0) {
+                for (ResourceGroupIdTemplate deleted : deletedSpecs) {
+                    log.info("Resource group spec deleted %s", deleted);
+                }
+                for (ResourceGroupIdTemplate changed : changedSpecs) {
+                    log.info("Resource group spec %s changed to %s", changed, resourceGroupSpecs.get(changed));
+                }
+            }
+            else {
+                log.info("Loaded %s selectors and %s resource groups from database", this.selectors.get().size(), this.resourceGroupSpecs.size());
+            }
+
+            lastRefresh.set(System.nanoTime());
         }
         catch (Throwable e) {
+            if (succinctNanos(System.nanoTime() - lastRefresh.get()).compareTo(maxRefreshInterval) > 0) {
+                lastRefresh.set(0);
+            }
+            refreshFailures.update(1);
             log.error(e, "Error loading configuration from db");
         }
     }
@@ -253,13 +316,14 @@ public class DbResourceGroupConfigurationManager
         List<SelectorSpec> selectors = dao.getSelectors(environment)
                 .stream()
                 .map(selectorRecord ->
-                new SelectorSpec(
-                        selectorRecord.getUserRegex(),
-                        selectorRecord.getSourceRegex(),
-                        selectorRecord.getClientTags(),
-                        Optional.empty(),
-                        resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
-        ).collect(Collectors.toList());
+                        new SelectorSpec(
+                                selectorRecord.getUserRegex(),
+                                selectorRecord.getSourceRegex(),
+                                selectorRecord.getQueryType(),
+                                selectorRecord.getClientTags(),
+                                selectorRecord.getSelectorResourceEstimate(),
+                                resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
+                ).collect(Collectors.toList());
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, getCpuQuotaPeriodFromDb());
         validateRootGroups(managerSpec);
         return new AbstractMap.SimpleImmutableEntry<>(managerSpec, resourceGroupSpecs);
@@ -301,5 +365,12 @@ public class DbResourceGroupConfigurationManager
         }
         // GroupId is guaranteed to be in groups: it is added before the first call to this method in configure()
         return groups.get(groupId);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getRefreshFailures()
+    {
+        return refreshFailures;
     }
 }

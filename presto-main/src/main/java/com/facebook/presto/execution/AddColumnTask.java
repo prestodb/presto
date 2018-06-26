@@ -65,15 +65,23 @@ public class AddColumnTask
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
-        Type type = metadata.getType(parseTypeSignature(element.getType()));
-        if ((type == null) || type.equals(UNKNOWN)) {
-            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
+        Type type;
+        try {
+            type = metadata.getType(parseTypeSignature(element.getType()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+        }
+        if (type.equals(UNKNOWN)) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
 
-        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName().getValue(), type));
+        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), false);
+
+        metadata.addColumn(session, tableHandle.get(), column);
 
         return immediateFuture(null);
     }

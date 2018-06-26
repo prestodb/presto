@@ -41,6 +41,11 @@ public interface OutputBuffer
     double getUtilization();
 
     /**
+     * Check if the buffer is blocking producers.
+     */
+    boolean isOverutilized();
+
+    /**
      * Add a listener which fires anytime the buffer state changes.
      */
     void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener);
@@ -60,21 +65,31 @@ public interface OutputBuffer
     ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
 
     /**
+     * Acknowledges the previously received pages from the output buffer.
+     */
+    void acknowledge(OutputBufferId bufferId, long token);
+
+    /**
      * Closes the specified output buffer.
      */
     void abort(OutputBufferId bufferId);
 
     /**
+     * Get a future that will be completed when the buffer is not full.
+     */
+    ListenableFuture<?> isFull();
+
+    /**
      * Adds a split-up page to an unpartitioned buffer. If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    ListenableFuture<?> enqueue(List<SerializedPage> pages);
+    void enqueue(List<SerializedPage> pages);
 
     /**
      * Adds a split-up page to a specific partition.  If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    ListenableFuture<?> enqueue(int partition, List<SerializedPage> pages);
+    void enqueue(int partition, List<SerializedPage> pages);
 
     /**
      * Notify buffer that no more pages will be added. Any future calls to enqueue a
@@ -92,4 +107,9 @@ public interface OutputBuffer
      * readers will be unblocked when the failed query is cleaned up.
      */
     void fail();
+
+    /**
+     * @return the peak memory usage of this output buffer.
+     */
+    long getPeakMemoryUsage();
 }

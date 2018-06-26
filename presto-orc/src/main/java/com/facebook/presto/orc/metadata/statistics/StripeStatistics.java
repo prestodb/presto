@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,16 +23,25 @@ import static java.util.Objects.requireNonNull;
 
 public class StripeStatistics
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StripeStatistics.class).instanceSize();
+
     private final List<ColumnStatistics> columnStatistics;
+    private final long retainedSizeInBytes;
 
     public StripeStatistics(List<ColumnStatistics> columnStatistics)
     {
         this.columnStatistics = ImmutableList.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        this.retainedSizeInBytes = INSTANCE_SIZE + columnStatistics.stream().mapToLong(ColumnStatistics::getRetainedSizeInBytes).sum();
     }
 
     public List<ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return retainedSizeInBytes;
     }
 
     @Override

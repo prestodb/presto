@@ -40,12 +40,11 @@ public class TestDictionaryCompressionOptimizer
 {
     @Test
     public void testNoDictionariesBytesLimit()
-            throws Exception
     {
         int stripeMaxBytes = megabytes(100);
         int bytesPerRow = 1024;
         int expectedMaxRowCount = stripeMaxBytes / bytesPerRow;
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, 10_000, expectedMaxRowCount * 2, megabytes(16), bytesPerRow);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCount * 2, megabytes(16), bytesPerRow);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -71,7 +70,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testSingleDictionaryColumnRowLimit()
-            throws Exception
     {
         int bytesPerEntry = 1024;
         TestDictionaryColumn column = dictionaryColumn(bytesPerEntry, 1024);
@@ -79,7 +77,7 @@ public class TestDictionaryCompressionOptimizer
         // construct a simulator that will hit the row limit first
         int stripeMaxBytes = megabytes(1000);
         int expectedMaxRowCount = 1_000_000;
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, 10_000, expectedMaxRowCount, megabytes(16), 0, column);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCount, megabytes(16), 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -108,7 +106,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testSingleDictionaryColumnByteLimit()
-            throws Exception
     {
         int bytesPerEntry = 1024;
         int dictionaryEntries = 1024;
@@ -118,7 +115,7 @@ public class TestDictionaryCompressionOptimizer
         int stripeMaxBytes = megabytes(100);
         int bytesPerRow = estimateIndexBytesPerValue(dictionaryEntries);
         int expectedMaxRowCount = stripeMaxBytes / bytesPerRow;
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, 10_000, expectedMaxRowCount * 10, megabytes(16), 0, column);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCount * 10, megabytes(16), 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -147,7 +144,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testSingleDictionaryColumnMemoryLimit()
-            throws Exception
     {
         int bytesPerEntry = 1024;
         int dictionaryMaxMemoryBytes = megabytes(32);
@@ -158,7 +154,7 @@ public class TestDictionaryCompressionOptimizer
         int stripeMaxBytes = megabytes(100);
         int dictionaryMaxMemoryBytesLow = dictionaryMaxMemoryBytes - (int) DICTIONARY_MEMORY_MAX_RANGE.toBytes();
         int expectedMaxRowCount = (int) (dictionaryMaxMemoryBytesLow / bytesPerEntry / uniquePercentage);
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, expectedMaxRowCount / 2, expectedMaxRowCount * 2, dictionaryMaxMemoryBytes, 0, column);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCount * 2, dictionaryMaxMemoryBytes, 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -187,7 +183,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testSingleDictionaryColumnMemoryLimitHighlyCompressed()
-            throws Exception
     {
         int bytesPerEntry = 1024 * 1024;
         int dictionaryMaxMemoryBytes = megabytes(8) + 100;
@@ -197,7 +192,7 @@ public class TestDictionaryCompressionOptimizer
         // construct a simulator that will hit the dictionary memory before hitting the minimum row limit
         int stripeMaxBytes = megabytes(100);
         int expectedMaxRowCount = (int) (dictionaryMaxMemoryBytes / bytesPerEntry / uniquePercentage);
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, Integer.MAX_VALUE, Integer.MAX_VALUE, dictionaryMaxMemoryBytes, 0, column);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, Integer.MAX_VALUE, dictionaryMaxMemoryBytes, 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -226,7 +221,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testSingleDirectBytesLimit()
-            throws Exception
     {
         int bytesPerEntry = 1024;
         int dictionaryMaxMemoryBytes = megabytes(16);
@@ -236,7 +230,7 @@ public class TestDictionaryCompressionOptimizer
         int stripeMaxBytes = megabytes(100);
         int expectedRowCountAtFlip = (int) ((dictionaryMaxMemoryBytes - DICTIONARY_MEMORY_MAX_RANGE.toBytes()) / bytesPerEntry);
         int expectedMaxRowCountAtFull = stripeMaxBytes / bytesPerEntry;
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, 1, expectedMaxRowCountAtFull, dictionaryMaxMemoryBytes, 0, column);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCountAtFull, dictionaryMaxMemoryBytes, 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -273,7 +267,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testDictionaryAndDirectBytesLimit()
-            throws Exception
     {
         int bytesPerEntry = 1024;
         int dictionaryMaxMemoryBytes = megabytes(8);
@@ -285,7 +278,7 @@ public class TestDictionaryCompressionOptimizer
         int stripeMaxBytes = megabytes(100);
         int expectedRowCountAtFlip = (int) (dictionaryMaxMemoryBytes / (bytesPerEntry * 2 * directUniquePercentage));
         int expectedMaxRowCountAtFull = stripeMaxBytes / (bytesPerEntry * 2);
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, expectedMaxRowCountAtFull, expectedMaxRowCountAtFull * 2, dictionaryMaxMemoryBytes, 0, directColumn, dictionaryColumn);
+        DataSimulator simulator = new DataSimulator(stripeMaxBytes / 2, stripeMaxBytes, expectedMaxRowCountAtFull * 2, dictionaryMaxMemoryBytes, 0, directColumn, dictionaryColumn);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -326,7 +319,6 @@ public class TestDictionaryCompressionOptimizer
 
     @Test
     public void testWideDictionaryAndNarrowDirectBytesLimit()
-            throws Exception
     {
         int dictionaryMaxMemoryBytes = megabytes(32);
         int directBytesPerEntry = 100;
@@ -342,7 +334,7 @@ public class TestDictionaryCompressionOptimizer
         int dictionaryMaxMemoryBytesLow = (int) (dictionaryMaxMemoryBytes - DICTIONARY_MEMORY_MAX_RANGE.toBytes());
         int expectedRowCountAtFlip = (int) ((dictionaryMaxMemoryBytesLow - (dictionaryEntries * dictionaryBytesPerEntry)) / (directBytesPerEntry * directUniquePercentage));
         int maxRowCount = 10_000_000;
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes, 1, maxRowCount, dictionaryMaxMemoryBytes, 0, directColumn, dictionaryColumn);
+        DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, maxRowCount, dictionaryMaxMemoryBytes, 0, directColumn, dictionaryColumn);
 
         for (int loop = 0; loop < 3; loop++) {
             assertFalse(simulator.isDictionaryMemoryFull());
@@ -399,8 +391,8 @@ public class TestDictionaryCompressionOptimizer
         private int rowCount;
 
         public DataSimulator(
+                int stripeMinBytes,
                 int stripeMaxBytes,
-                int stripeMinRowCount,
                 int stripeMaxRowCount,
                 int dictionaryMemoryMaxBytes,
                 int otherColumnsBytesPerRow,
@@ -411,13 +403,13 @@ public class TestDictionaryCompressionOptimizer
             this.otherColumnsBytesPerRow = otherColumnsBytesPerRow;
             this.dictionaryColumns = ImmutableSet.copyOf(dictionaryColumns);
 
-            this.optimizer = new DictionaryCompressionOptimizer(this.dictionaryColumns, stripeMaxBytes, stripeMinRowCount, stripeMaxRowCount, dictionaryMemoryMaxBytes);
+            this.optimizer = new DictionaryCompressionOptimizer(this.dictionaryColumns, stripeMinBytes, stripeMaxBytes, stripeMaxRowCount, dictionaryMemoryMaxBytes);
         }
 
         public void advanceToNextStateChange()
         {
             List<Boolean> directColumnFlags = getDirectColumnFlags();
-            while (!optimizer.isFull() && getBufferedBytes() < stripeMaxBytes && getRowCount() < stripeMaxRowCount && directColumnFlags.equals(getDirectColumnFlags())) {
+            while (!optimizer.isFull(getBufferedBytes()) && getBufferedBytes() < stripeMaxBytes && getRowCount() < stripeMaxRowCount && directColumnFlags.equals(getDirectColumnFlags())) {
                 rowCount += 1024;
                 for (TestDictionaryColumn dictionaryColumn : dictionaryColumns) {
                     dictionaryColumn.advanceTo(rowCount);
@@ -428,7 +420,7 @@ public class TestDictionaryCompressionOptimizer
 
         public boolean isDictionaryMemoryFull()
         {
-            return optimizer.isFull();
+            return optimizer.isFull(getBufferedBytes());
         }
 
         public void finalOptimize()
@@ -567,10 +559,11 @@ public class TestDictionaryCompressionOptimizer
         }
 
         @Override
-        public void convertToDirect()
+        public long convertToDirect()
         {
             assertFalse(direct);
             direct = true;
+            return getBufferedBytes();
         }
 
         public boolean isDirect()

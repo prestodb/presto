@@ -44,7 +44,6 @@ public class TestQuerySpillLimits
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         this.spillPath = Files.createTempDir();
     }
@@ -58,7 +57,6 @@ public class TestQuerySpillLimits
 
     @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local spill limit of 10B")
     public void testMaxSpillPerNodeLimit()
-            throws Exception
     {
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
@@ -67,7 +65,6 @@ public class TestQuerySpillLimits
 
     @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-query local spill limit of 10B")
     public void testQueryMaxSpillPerNodeLimit()
-            throws Exception
     {
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
@@ -75,7 +72,6 @@ public class TestQuerySpillLimits
     }
 
     private LocalQueryRunner createLocalQueryRunner(NodeSpillConfig nodeSpillConfig)
-            throws Exception
     {
         LocalQueryRunner queryRunner = new LocalQueryRunner(
                 SESSION,

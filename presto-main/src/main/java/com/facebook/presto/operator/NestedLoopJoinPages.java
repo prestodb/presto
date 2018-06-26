@@ -17,29 +17,22 @@ import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPages
 {
-    private final TaskContext taskContext;
     private final ImmutableList<Page> pages;
     private final DataSize estimatedSize;
-    @GuardedBy("this")
-    private boolean freed;
 
     NestedLoopJoinPages(List<Page> pages, DataSize estimatedSize, OperatorContext operatorContext)
     {
         requireNonNull(pages, "pages is null");
         requireNonNull(operatorContext, "operatorContext is null");
+        requireNonNull(estimatedSize, "estimatedSize is null");
         this.pages = ImmutableList.copyOf(pages);
-        this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        this.estimatedSize = requireNonNull(estimatedSize, "estimatedSize is null");
-        operatorContext.transferMemoryToTaskContext(estimatedSize.toBytes());
+        this.estimatedSize = estimatedSize;
     }
 
     public List<Page> getPages()
@@ -47,10 +40,8 @@ public final class NestedLoopJoinPages
         return pages;
     }
 
-    synchronized void freeMemory()
+    public DataSize getEstimatedSize()
     {
-        checkState(!freed, "Memory already freed");
-        freed = true;
-        taskContext.freeMemory(estimatedSize.toBytes());
+        return estimatedSize;
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark.driver;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
 import io.airlift.units.Duration;
@@ -90,15 +91,17 @@ public class BenchmarkDriverOptions
                 parseServer(server),
                 user,
                 "presto-benchmark",
+                Optional.empty(),
+                ImmutableSet.of(),
                 null,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
+                ImmutableMap.of(),
                 toProperties(this.sessionProperties),
                 ImmutableMap.of(),
                 null,
-                debug,
                 clientRequestTimeout);
     }
 

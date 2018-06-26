@@ -16,7 +16,6 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
@@ -44,7 +43,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class OrcType
 {
@@ -227,10 +225,11 @@ public class OrcType
             return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
         }
         if (type.getTypeSignature().getBase().equals(ROW)) {
-            List<String> fieldNames = type.getTypeSignature().getParameters().stream()
-                    .map(TypeSignatureParameter::getNamedTypeSignature)
-                    .map(NamedTypeSignature::getName)
-                    .collect(toList());
+            List<String> fieldNames = new ArrayList<>();
+            for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
+            }
             List<Type> fieldTypes = type.getTypeParameters();
 
             return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes);

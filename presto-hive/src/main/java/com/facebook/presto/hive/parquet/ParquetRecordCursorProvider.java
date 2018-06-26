@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
@@ -47,17 +48,19 @@ public class ParquetRecordCursorProvider
 
     private final boolean useParquetColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
+    private final FileFormatDataSourceStats stats;
 
     @Inject
-    public ParquetRecordCursorProvider(HiveClientConfig hiveClientConfig, HdfsEnvironment hdfsEnvironment)
+    public ParquetRecordCursorProvider(HiveClientConfig hiveClientConfig, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(requireNonNull(hiveClientConfig, "hiveClientConfig is null").isUseParquetColumnNames(), hdfsEnvironment);
+        this(requireNonNull(hiveClientConfig, "hiveClientConfig is null").isUseParquetColumnNames(), hdfsEnvironment, stats);
     }
 
-    public ParquetRecordCursorProvider(boolean useParquetColumnNames, HdfsEnvironment hdfsEnvironment)
+    public ParquetRecordCursorProvider(boolean useParquetColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.useParquetColumnNames = useParquetColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -91,6 +94,7 @@ public class ParquetRecordCursorProvider
                 useParquetColumnNames,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
-                effectivePredicate));
+                effectivePredicate,
+                stats));
     }
 }

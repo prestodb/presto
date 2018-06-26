@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.google.common.base.Throwables;
+import io.airlift.bytecode.DynamicClassLoader;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
@@ -34,7 +33,7 @@ public final class Bootstrap
             BOOTSTRAP_METHOD = Bootstrap.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, long.class);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new AssertionError(e);
         }
     }
 
@@ -44,21 +43,13 @@ public final class Bootstrap
 
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
-        try {
-            ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
-            checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
+        ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
+        checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
 
-            DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
-            MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
-            checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+        DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
+        MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
+        checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
-            return new ConstantCallSite(target);
-        }
-        catch (Throwable e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
-        }
+        return new ConstantCallSite(target);
     }
 }

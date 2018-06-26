@@ -70,6 +70,12 @@ public class TestingTypeManager
     }
 
     @Override
+    public boolean canCoerce(Type actualType, Type expectedType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
     {
         return false;

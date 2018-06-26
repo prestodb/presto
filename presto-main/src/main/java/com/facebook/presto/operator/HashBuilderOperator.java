@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +30,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +41,6 @@ import java.util.Queue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
@@ -56,7 +56,7 @@ public class HashBuilderOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final PartitionedLookupSourceFactory lookupSourceFactory;
+        private final JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager;
         private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
         private final OptionalInt preComputedHashChannel;
@@ -69,23 +69,21 @@ public class HashBuilderOperator
         private final boolean spillEnabled;
         private final SingleStreamSpillerFactory singleStreamSpillerFactory;
 
-        private int partitionIndex;
+        private final Map<Lifespan, Integer> partitionIndexManager = new HashMap<>();
+
         private boolean closed;
 
         public HashBuilderOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<Type> types,
+                JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactory,
                 List<Integer> outputChannels,
-                Map<Symbol, Integer> layout,
                 List<Integer> hashChannels,
                 OptionalInt preComputedHashChannel,
-                boolean outer,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
                 List<JoinFilterFunctionFactory> searchFunctionFactories,
                 int expectedPositions,
-                int partitionCount,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
                 SingleStreamSpillerFactory singleStreamSpillerFactory)
@@ -95,16 +93,7 @@ public class HashBuilderOperator
             requireNonNull(sortChannel, "sortChannel can not be null");
             requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
             checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
-            checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
-            lookupSourceFactory = new PartitionedLookupSourceFactory(
-                    types,
-                    outputChannels.stream()
-                            .map(types::get)
-                            .collect(toImmutableList()),
-                    hashChannels,
-                    partitionCount,
-                    requireNonNull(layout, "layout is null"),
-                    outer);
+            this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactory, "lookupSourceFactoryManager");
 
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
@@ -119,23 +108,16 @@ public class HashBuilderOperator
             this.expectedPositions = expectedPositions;
         }
 
-        public LookupSourceFactory getLookupSourceFactory()
-        {
-            return lookupSourceFactory;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return lookupSourceFactory.getTypes();
-        }
-
         @Override
         public HashBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
-            HashBuilderOperator operator = new HashBuilderOperator(
+
+            LookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.forLifespan(driverContext.getLifespan());
+            int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
+            verify(partitionIndex < lookupSourceFactory.partitions());
+            return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,
                     partitionIndex,
@@ -149,9 +131,6 @@ public class HashBuilderOperator
                     pagesIndexFactory,
                     spillEnabled,
                     singleStreamSpillerFactory);
-
-            partitionIndex++;
-            return operator;
         }
 
         @Override
@@ -164,6 +143,11 @@ public class HashBuilderOperator
         public OperatorFactory duplicate()
         {
             throw new UnsupportedOperationException("Parallel hash build can not be duplicated");
+        }
+
+        private int getAndIncrementPartitionIndex(Lifespan lifespan)
+        {
+            return partitionIndexManager.compute(lifespan, (k, v) -> v == null ? 1 : v + 1) - 1;
         }
     }
 
@@ -203,13 +187,15 @@ public class HashBuilderOperator
         /**
          * No longer needed
          */
-        DISPOSED
+        CLOSED
     }
 
     private static final double INDEX_COMPACTION_ON_REVOCATION_TARGET = 0.8;
 
     private final OperatorContext operatorContext;
-    private final PartitionedLookupSourceFactory lookupSourceFactory;
+    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localRevocableMemoryContext;
+    private final LookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<?> lookupSourceFactoryDestroyed;
     private final int partitionIndex;
 
@@ -241,7 +227,7 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            PartitionedLookupSourceFactory lookupSourceFactory,
+            LookupSourceFactory lookupSourceFactory,
             int partitionIndex,
             List<Integer> outputChannels,
             List<Integer> hashChannels,
@@ -261,6 +247,8 @@ public class HashBuilderOperator
         this.filterFunctionFactory = filterFunctionFactory;
         this.sortChannel = sortChannel;
         this.searchFunctionFactories = searchFunctionFactories;
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.localRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
 
         this.index = pagesIndexFactory.newPagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
         this.lookupSourceFactory = lookupSourceFactory;
@@ -281,12 +269,6 @@ public class HashBuilderOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return lookupSourceFactory.getTypes();
     }
 
     @VisibleForTesting
@@ -317,8 +299,8 @@ public class HashBuilderOperator
             case INPUT_UNSPILLED_AND_BUILT:
                 return spilledLookupSourceHandle.getDisposeRequested();
 
-            case DISPOSED:
-                return lookupSourceFactoryDestroyed;
+            case CLOSED:
+                return NOT_BLOCKED;
         }
         throw new IllegalStateException("Unhandled state: " + state);
     }
@@ -356,12 +338,12 @@ public class HashBuilderOperator
         index.addPage(page);
 
         if (spillEnabled) {
-            operatorContext.setRevocableMemoryReservation(index.getEstimatedSize().toBytes());
+            localRevocableMemoryContext.setBytes(index.getEstimatedSize().toBytes());
         }
         else {
-            if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
+            if (!localUserMemoryContext.trySetBytes(index.getEstimatedSize().toBytes())) {
                 index.compact();
-                operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
             }
         }
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
@@ -390,8 +372,8 @@ public class HashBuilderOperator
 
             finishMemoryRevoke = Optional.of(() -> {
                 index.clear();
-                operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
-                operatorContext.setRevocableMemoryReservation(0L);
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localRevocableMemoryContext.setBytes(0);
                 lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
                 state = State.SPILLING_INPUT;
             });
@@ -402,8 +384,8 @@ public class HashBuilderOperator
                 lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
                 lookupSourceNotNeeded = Optional.empty();
                 index.clear();
-                operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
-                operatorContext.setRevocableMemoryReservation(0L);
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localRevocableMemoryContext.setBytes(0);
                 lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
                 lookupSourceSupplier = null;
                 state = State.INPUT_SPILLED;
@@ -425,7 +407,7 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.getSystemMemoryContext().newLocalMemoryContext()));
+                operatorContext.newLocalSystemMemoryContext()));
         return getSpiller().spill(index.getPages());
     }
 
@@ -485,7 +467,7 @@ public class HashBuilderOperator
                 disposeUnspilledLookupSourceIfRequested();
                 return;
 
-            case DISPOSED:
+            case CLOSED:
                 // no-op
                 return;
         }
@@ -503,10 +485,10 @@ public class HashBuilderOperator
 
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {
-            operatorContext.setRevocableMemoryReservation(partition.get().getInMemorySizeInBytes());
+            localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
         }
         else {
-            operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
+            localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
         }
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
@@ -522,10 +504,10 @@ public class HashBuilderOperator
         }
 
         index.clear();
-        operatorContext.setRevocableMemoryReservation(0L);
-        operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+        localRevocableMemoryContext.setBytes(0);
+        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
         lookupSourceSupplier = null;
-        state = State.DISPOSED;
+        close();
     }
 
     private void finishSpilledInput()
@@ -550,7 +532,7 @@ public class HashBuilderOperator
         verify(spiller.isPresent());
         verify(!unspillInProgress.isPresent());
 
-        operatorContext.setMemoryReservation(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes());
+        localUserMemoryContext.setBytes(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes());
         unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());
 
         state = State.INPUT_UNSPILLING;
@@ -569,20 +551,20 @@ public class HashBuilderOperator
         long memoryRetainedByRemainingPages = pages.stream()
                 .mapToLong(Page::getRetainedSizeInBytes)
                 .sum();
-        operatorContext.setMemoryReservation(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
+        localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
 
         while (!pages.isEmpty()) {
             Page next = pages.remove();
             index.addPage(next);
             // There is no attempt to compact index, since unspilled pages are unlikely to have blocks with retained size > logical size.
             memoryRetainedByRemainingPages -= next.getRetainedSizeInBytes();
-            operatorContext.setMemoryReservation(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
+            localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
         }
 
         LookupSourceSupplier partition = buildLookupSource();
         lookupSourceChecksum.ifPresent(checksum ->
                 checkState(partition.checksum() == checksum, "Unspilled lookupSource checksum does not match original one"));
-        operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
+        localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
 
         spilledLookupSourceHandle.setLookupSource(partition);
 
@@ -597,9 +579,9 @@ public class HashBuilderOperator
         }
 
         index.clear();
-        operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
 
-        state = State.DISPOSED;
+        close();
     }
 
     private LookupSourceSupplier buildLookupSource()
@@ -620,7 +602,7 @@ public class HashBuilderOperator
             return true;
         }
 
-        return state == State.DISPOSED;
+        return state == State.CLOSED;
     }
 
     private SingleStreamSpiller getSpiller()
@@ -631,17 +613,20 @@ public class HashBuilderOperator
     @Override
     public void close()
     {
+        if (state == State.CLOSED) {
+            return;
+        }
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
 
         lookupSourceSupplier = null;
-        state = State.DISPOSED;
+        state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);
             spiller.ifPresent(closer::register);
-            closer.register(() -> operatorContext.setMemoryReservation(0));
-            closer.register(() -> operatorContext.setRevocableMemoryReservation(0));
+            closer.register(() -> localUserMemoryContext.setBytes(0));
+            closer.register(() -> localRevocableMemoryContext.setBytes(0));
         }
         catch (IOException e) {
             throw new RuntimeException(e);
