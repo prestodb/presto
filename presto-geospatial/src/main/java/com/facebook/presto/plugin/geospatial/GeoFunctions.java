@@ -46,8 +46,10 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.linearref.LengthIndexedLine;
+import org.locationtech.jts.operation.distance.DistanceOp;
 
 import java.util.EnumSet;
 import java.util.Map;
@@ -913,6 +915,24 @@ public final class GeoFunctions
         double t2 = cos1 * sin2 - sin1 * cos2 * cosDeltaLongitude;
         double t3 = sin1 * sin2 + cos1 * cos2 * cosDeltaLongitude;
         return atan2(sqrt(t1 * t1 + t2 * t2), t3) * EARTH_RADIUS_KM;
+    }
+
+    @SqlNullable
+    @ScalarFunction
+    @Description("Calculates the point on the first geometry that is closest to the second geometry")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice closestPoint(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    {
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
+            return null;
+        }
+
+        DistanceOp distOp = new DistanceOp(leftGeometry, rightGeometry);
+        Coordinate[] closestPt = distOp.nearestPoints();
+        OGCGeometry geometry = createFromEsriGeometry(new Point(closestPt[0].x, closestPt[0].y), null);
+        return serialize(geometry);
     }
 
     private static void checkLatitude(double latitude)

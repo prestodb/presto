@@ -834,4 +834,25 @@ public class TestGeoFunctions
         assertFunction("ST_GeometryType(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6, 7 10))'))", VARCHAR, "ST_GeomCollection");
         assertFunction("ST_GeometryType(ST_Envelope(ST_GeometryFromText('LINESTRING (1 1, 2 2)')))", VARCHAR, "ST_Polygon");
     }
+
+    @Test
+    public void testClosestPoint()
+    {
+        assertClosestPoint("POLYGON ((1 1, 2 1, 2 2, 1 2, 1 1))", "POINT (1.5 2.5)", "POINT (1.5 2)");
+
+        // Test an intersection
+        assertClosestPoint("LINESTRING (1 1, 1 3)", "LINESTRING (-1 2, 2 2)", "POINT (1 2)");
+
+        // Test point inside polygon
+        assertClosestPoint("POLYGON ((1 1, 2 1, 2 2, 1 2, 1 1))", "POINT (1.5 1.5)", "POINT (1.5 1.5)");
+
+        assertClosestPoint("POLYGON ((1 1, 2 1, 2 2, 1 2, 1 1))", "POINT EMPTY", null);
+        assertClosestPoint("POLYGON EMPTY", "POINT (1.5 2.5)", null);
+    }
+
+    private void assertClosestPoint(String wkt1, String wkt2, String expected)
+    {
+        String sql = format("ST_AsText(CLOSEST_POINT(ST_GeometryFromText('%s'), ST_GeometryFromText('%s')))", wkt1, wkt2);
+        assertFunction(sql, VARCHAR, expected);
+    }
 }
