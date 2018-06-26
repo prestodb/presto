@@ -94,12 +94,14 @@ public class TestSqlStandardAccessControlChecks
     {
         String createTableAsSelect = "bob_create_table_as_select";
 
+        bobExecutor.executeQuery("DROP TABLE IF EXISTS " + createTableAsSelect);
         assertThat(() -> bobExecutor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName)))
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
 
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
         bobExecutor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", createTableAsSelect))).hasNoRows();
+        bobExecutor.executeQuery("DROP TABLE " + createTableAsSelect);
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
@@ -134,6 +136,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
 
         // Bob needs SELECT on the table to create the view
+        bobExecutor.executeQuery("DROP VIEW IF EXISTS " + viewName);
         assertThat(() -> bobExecutor.executeQuery(createViewSql))
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
 
@@ -158,6 +161,8 @@ public class TestSqlStandardAccessControlChecks
         // Bob has GRANT OPTION, so both Bob and Charlie can access the view
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
         assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+
+        bobExecutor.executeQuery("DROP VIEW " + viewName);
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
@@ -165,6 +170,7 @@ public class TestSqlStandardAccessControlChecks
     {
         String viewName = "alice_view_for_drop";
 
+        aliceExecutor.executeQuery("DROP VIEW IF EXISTS " + viewName);
         aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
         assertThat(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
                 .failsWithMessage(format("Access Denied: Cannot drop view default.%s", viewName));
