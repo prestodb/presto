@@ -331,7 +331,7 @@ public final class FunctionAssertions
         catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
+                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern), format("Error message [%s] doesn't match [%s]", e.getMessage(), messagePattern));
             }
             catch (Throwable failure) {
                 failure.addSuppressed(e);

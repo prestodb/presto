@@ -497,6 +497,29 @@ public final class GeoFunctions
         return ((OGCGeometryCollection) geometry).numGeometries();
     }
 
+    @Description("Returns a geometry that represents the point set union of the input geometries. This function doesn't support geometry collections.")
+    @ScalarFunction("ST_Union")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stUnion(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    {
+        // Only supports Geometry but not GeometryCollection due to ESRI library limitation
+        // https://github.com/Esri/geometry-api-java/issues/176
+        // https://github.com/Esri/geometry-api-java/issues/177
+        OGCGeometry leftGeometry = deserialize(left);
+        validateType("ST_Union", leftGeometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
+        if (leftGeometry.isEmpty()) {
+            return right;
+        }
+
+        OGCGeometry rightGeometry = deserialize(right);
+        validateType("ST_Union", rightGeometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
+        if (rightGeometry.isEmpty()) {
+            return left;
+        }
+
+        return serialize(leftGeometry.union(rightGeometry));
+    }
+
     @SqlNullable
     @Description("Returns the geometry element at the specified index (indices started with 1)")
     @ScalarFunction("ST_GeometryN")
