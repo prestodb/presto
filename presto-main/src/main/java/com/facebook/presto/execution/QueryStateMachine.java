@@ -495,7 +495,7 @@ public class QueryStateMachine
                 inputs.get(),
                 output.get(),
                 completeInfo,
-                getResourceGroup().map(ResourceGroupId::toString));
+                getResourceGroup());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -877,7 +877,7 @@ public class QueryStateMachine
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),
-                queryInfo.getResourceGroupName());
+                queryInfo.getResourceGroupId());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

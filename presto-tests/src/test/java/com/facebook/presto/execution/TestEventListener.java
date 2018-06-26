@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.TestQueues.createResourceGroupId;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.toSet;
@@ -108,8 +109,8 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupName().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupName().get(), "global.user-user");
+        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
+        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
@@ -136,8 +137,8 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupName().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupName().get(), "global.user-user");
+        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
+        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
         assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");

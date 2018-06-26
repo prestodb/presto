@@ -16,9 +16,11 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -40,6 +42,8 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryStat
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -203,9 +207,9 @@ public class TestQueues
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_client_tags_based_config.json")));
-            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, "global.a.default");
-            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, "global.b");
-            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a", "c")), LONG_LASTING_QUERY, "global.a.c");
+            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "default"));
+            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
+            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a", "c")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "c"));
         }
     }
 
@@ -225,7 +229,7 @@ public class TestQueues
                             Optional.empty(),
                             Optional.of(DataSize.valueOf("400MB")))),
                     LONG_LASTING_QUERY,
-                    "global.small");
+                    createResourceGroupId("global", "small"));
 
             assertResourceGroup(
                     queryRunner,
@@ -234,7 +238,7 @@ public class TestQueues
                             Optional.empty(),
                             Optional.of(DataSize.valueOf("600MB")))),
                     LONG_LASTING_QUERY,
-                    "global.other");
+                    createResourceGroupId("global", "other"));
 
             assertResourceGroup(
                     queryRunner,
@@ -243,7 +247,7 @@ public class TestQueues
                             Optional.empty(),
                             Optional.empty())),
                     LONG_LASTING_QUERY,
-                    "global.other");
+                    createResourceGroupId("global", "other"));
 
             assertResourceGroup(
                     queryRunner,
@@ -252,7 +256,7 @@ public class TestQueues
                             Optional.of(Duration.valueOf("1s")),
                             Optional.of(DataSize.valueOf("6TB")))),
                     LONG_LASTING_QUERY,
-                    "global.huge_memory");
+                    createResourceGroupId("global", "huge_memory"));
 
             assertResourceGroup(
                     queryRunner,
@@ -261,7 +265,7 @@ public class TestQueues
                             Optional.empty(),
                             Optional.of(DataSize.valueOf("4TB")))),
                     LONG_LASTING_QUERY,
-                    "global.other");
+                    createResourceGroupId("global", "other"));
         }
     }
 
@@ -273,22 +277,22 @@ public class TestQueues
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
-            assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, "global.select");
-            assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", "global.describe");
-            assertResourceGroup(queryRunner, newAdhocSession(), "EXPLAIN " + LONG_LASTING_QUERY, "global.explain");
-            assertResourceGroup(queryRunner, newAdhocSession(), "DESCRIBE lineitem", "global.describe");
-            assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + HASH_PARTITION_COUNT, "global.data_definition");
+            assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, createResourceGroupId("global", "select"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", createResourceGroupId("global", "describe"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "EXPLAIN " + LONG_LASTING_QUERY, createResourceGroupId("global", "explain"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "DESCRIBE lineitem", createResourceGroupId("global", "describe"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + HASH_PARTITION_COUNT, createResourceGroupId("global", "data_definition"));
         }
     }
 
-    private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, String expectedResourceGroup)
+    private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, ResourceGroupId expectedResourceGroup)
             throws InterruptedException
     {
         QueryId queryId = createQuery(queryRunner, session, query);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
-        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupName.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupName.get()));
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
     }
 
     private void testRejection()
@@ -349,5 +353,13 @@ public class TestQueues
                 .setClientTags(clientTags)
                 .setResourceEstimates(resourceEstimates)
                 .build();
+    }
+
+    public static ResourceGroupId createResourceGroupId(String root, String... subGroups)
+    {
+        return new ResourceGroupId(ImmutableList.<String>builder()
+                .add(requireNonNull(root, "root is null"))
+                .addAll(asList(subGroups))
+                .build());
     }
 }
