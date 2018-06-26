@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -35,7 +36,7 @@ public class QueryContext
     private final Optional<String> catalog;
     private final Optional<String> schema;
 
-    private final Optional<String> resourceGroupName;
+    private final Optional<ResourceGroupId> resourceGroupId;
 
     private final Map<String, String> sessionProperties;
     private final ResourceEstimates resourceEstimates;
@@ -54,7 +55,7 @@ public class QueryContext
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
-            Optional<String> resourceGroupName,
+            Optional<ResourceGroupId> resourceGroupId,
             Map<String, String> sessionProperties,
             ResourceEstimates resourceEstimates,
             String serverAddress,
@@ -70,7 +71,7 @@ public class QueryContext
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        this.resourceGroupName = requireNonNull(resourceGroupName, "resourceGroupName is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
@@ -133,9 +134,9 @@ public class QueryContext
     }
 
     @JsonProperty
-    public Optional<String> getResourceGroupName()
+    public Optional<ResourceGroupId> getResourceGroupId()
     {
-        return resourceGroupName;
+        return resourceGroupId;
     }
 
     @JsonProperty
