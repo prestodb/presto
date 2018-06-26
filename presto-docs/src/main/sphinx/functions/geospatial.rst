@@ -126,6 +126,13 @@ Operations
 
     Returns the geometry value that represents the point set symmetric difference of two geometries.
 
+.. function:: ST_Union(Geometry, Geometry) -> Geometry
+
+    Returns a geometry that represents the point set union of the input geometries.
+
+    This function doesn't support geometry collections.
+
+
 Accessors
 ---------
 

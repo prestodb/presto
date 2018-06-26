@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -770,6 +772,77 @@ public class TestGeoFunctions
     private void assertSTNumGeometries(String wkt, int expected)
     {
         assertFunction("ST_NumGeometries(ST_GeometryFromText('" + wkt + "'))", INTEGER, expected);
+    }
+
+    @Test
+    public void testSTUnion()
+    {
+        List<String> emptyWkts =
+                ImmutableList.of(
+                        "POINT EMPTY",
+                        "MULTIPOINT EMPTY",
+                        "LINESTRING EMPTY",
+                        "MULTILINESTRING EMPTY",
+                        "POLYGON EMPTY",
+                        "MULTIPOLYGON EMPTY");
+        List<String> simpleWkts =
+                ImmutableList.of(
+                        "POINT (1 2)",
+                        "MULTIPOINT ((1 2), (3 4))",
+                        "LINESTRING (0 0, 2 2, 4 4)",
+                        "MULTILINESTRING ((0 0, 2 2, 4 4), (5 5, 7 7, 9 9))",
+                        "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))",
+                        "MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
+
+        // invalid type GEOMETRYCOLLECTION
+        for (String simpleWkt : simpleWkts) {
+            assertInvalidGeometryCollectionUnion(simpleWkt);
+        }
+
+        // empty geometry
+        for (String emptyWkt : emptyWkts) {
+            for (String simpleWkt : simpleWkts) {
+                assertUnion(emptyWkt, simpleWkt, simpleWkt);
+            }
+        }
+
+        // self union
+        for (String simpleWkt : simpleWkts) {
+            assertUnion(simpleWkt, simpleWkt, simpleWkt);
+        }
+
+        // touching union
+        assertUnion("POINT (1 2)", "MULTIPOINT ((1 2), (3 4))", "MULTIPOINT ((1 2), (3 4))");
+        assertUnion("MULTIPOINT ((1 2))", "MULTIPOINT ((1 2), (3 4))", "MULTIPOINT ((1 2), (3 4))");
+        assertUnion("LINESTRING (0 1, 1 2)", "LINESTRING (1 2, 3 4)", "LINESTRING (0 1, 1 2, 3 4)");
+        assertUnion("MULTILINESTRING ((0 0, 2 2, 4 4), (5 5, 7 7, 9 9))", "MULTILINESTRING ((5 5, 7 7, 9 9), (11 11, 13 13, 15 15))", "MULTILINESTRING ((0 0, 2 2, 4 4), (5 5, 7 7, 9 9), (11 11, 13 13, 15 15))");
+        assertUnion("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "POLYGON ((1 0, 2 0, 2 1, 1 1, 1 0))", "POLYGON ((0 0, 1 0, 2 0, 2 1, 1 1, 0 1, 0 0))");
+        assertUnion("MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)))", "MULTIPOLYGON (((1 0, 2 0, 2 1, 1 1, 1 0)))", "POLYGON ((0 0, 1 0, 2 0, 2 1, 1 1, 0 1, 0 0))");
+
+        // within union
+        assertUnion("MULTIPOINT ((20 20), (25 25))", "POINT (25 25)", "MULTIPOINT ((20 20), (25 25))");
+        assertUnion("LINESTRING (20 20, 30 30)", "POINT (25 25)", "LINESTRING (20 20, 30 30)");
+        assertUnion("LINESTRING (20 20, 30 30)", "LINESTRING (25 25, 27 27)", "LINESTRING (20 20, 25 25, 27 27, 30 30)");
+        assertUnion("POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))", "POLYGON ((1 1, 1 2, 2 2, 2 1, 1 1))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
+        assertUnion("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", "POLYGON ((2 2, 2 3, 3 3, 3 2))", "MULTIPOLYGON (((2 2, 3 2, 4 2, 4 4, 2 4, 2 3, 2 2)), ((0 0, 2 0, 2 2, 0 2, 0 0)))");
+
+        // overlap union
+        assertUnion("LINESTRING (1 1, 3 1)", "LINESTRING (2 1, 4 1)", "LINESTRING (1 1, 2 1, 3 1, 4 1)");
+        assertUnion("MULTILINESTRING ((1 1, 3 1))", "MULTILINESTRING ((2 1, 4 1))", "LINESTRING (1 1, 2 1, 3 1, 4 1)");
+        assertUnion("POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POLYGON ((2 2, 4 2, 4 4, 2 4, 2 2))", "POLYGON ((1 1, 3 1, 3 2, 4 2, 4 4, 2 4, 2 3, 1 3, 1 1))");
+        assertUnion("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)))", "MULTIPOLYGON (((2 2, 4 2, 4 4, 2 4, 2 2)))", "POLYGON ((1 1, 3 1, 3 2, 4 2, 4 4, 2 4, 2 3, 1 3, 1 1))");
+    }
+
+    private void assertUnion(String leftWkt, String rightWkt, String expectWkt)
+    {
+        assertFunction(format("ST_ASText(ST_Union(ST_GeometryFromText('%s'), ST_GeometryFromText('%s')))", leftWkt, rightWkt), VARCHAR, expectWkt);
+        assertFunction(format("ST_ASText(ST_Union(ST_GeometryFromText('%s'), ST_GeometryFromText('%s')))", rightWkt, leftWkt), VARCHAR, expectWkt);
+    }
+
+    private void assertInvalidGeometryCollectionUnion(String validWkt)
+    {
+        assertInvalidFunction(format("ST_Union(ST_GeometryFromText('%s'), ST_GeometryFromText('GEOMETRYCOLLECTION (POINT(2 3))'))", validWkt), "ST_Union only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertInvalidFunction(format("ST_Union(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT(2 3))'), ST_GeometryFromText('%s'))", validWkt), "ST_Union only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
     }
 
     @Test
