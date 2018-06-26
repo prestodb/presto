@@ -50,6 +50,7 @@ system| runtime| queries| state| varchar| YES| null| null|
 system| runtime| queries| user| varchar| YES| null| null|
 system| runtime| queries| source| varchar| YES| null| null|
 system| runtime| queries| query| varchar| YES| null| null|
+system| runtime| queries| resource_group_id| array(varchar)| YES| null| null|
 system| runtime| queries| queued_time_ms| bigint| YES| null| null|
 system| runtime| queries| analysis_time_ms| bigint| YES| null| null|
 system| runtime| queries| distributed_planning_time_ms| bigint| YES| null| null|
