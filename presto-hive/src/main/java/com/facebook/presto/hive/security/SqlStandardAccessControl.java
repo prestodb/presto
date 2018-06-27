@@ -402,7 +402,6 @@ public class SqlStandardAccessControl
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), identity)
-                .stream()
                 .filter(privilegeInfo -> !grantOptionRequired || privilegeInfo.isGrantOption())
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(requiredPrivilege));
     }
@@ -419,7 +418,6 @@ public class SqlStandardAccessControl
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 identity.getUser())
-                .stream()
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(toHivePrivilege(privilege)) && privilegeInfo.isGrantOption());
     }
 
