@@ -166,15 +166,15 @@ environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
 
 HADOOP_LOGS_PID=$!
 
-# wait until hadoop processes is started
-retry check_hadoop
-
 # start presto containers
 environment_compose up -d ${PRESTO_SERVICES}
 
 # start docker logs for presto containers
 environment_compose logs --no-color -f ${PRESTO_SERVICES} &
 PRESTO_LOGS_PID=$!
+
+# wait until hadoop processes are started
+retry check_hadoop
 
 # wait until presto is started
 retry check_presto
