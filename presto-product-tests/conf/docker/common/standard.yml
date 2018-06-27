@@ -31,6 +31,7 @@ services:
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
       - '8080:8080'
+      - '5005:5005'
     depends_on:
        - hadoop-master
     volumes:
