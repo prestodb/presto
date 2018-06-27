@@ -250,7 +250,6 @@ public class SqlStandardAccessControl
     {
         // TODO: when this is updated to have a transaction, use isAdmin()
         Set<String> roles = listApplicableRoles(new PrestoPrincipal(USER, identity.getUser()), metastore::listRoleGrants)
-                .stream()
                 .map(RoleGrant::getRoleName)
                 .collect(toSet());
         if (!roles.contains(ADMIN_ROLE_NAME)) {
@@ -448,8 +447,7 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<RoleGrant> grants = listApplicableRoles(new PrestoPrincipal(USER, identity.getUser()), metastore::listRoleGrants);
-        Set<String> rolesWithGrantOption = grants.stream()
+        Set<String> rolesWithGrantOption = listApplicableRoles(new PrestoPrincipal(USER, identity.getUser()), metastore::listRoleGrants)
                 .filter(RoleGrant::isGrantable)
                 .map(RoleGrant::getRoleName)
                 .collect(toSet());
