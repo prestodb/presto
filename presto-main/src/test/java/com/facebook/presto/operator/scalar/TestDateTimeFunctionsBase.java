@@ -1089,16 +1089,6 @@ public abstract class TestDateTimeFunctionsBase
         return millis().getField(getInstantChronology(start)).getDifferenceAsLong(end.getMillis(), start.getMillis());
     }
 
-    private SqlTime toTime(long milliseconds)
-    {
-        if (isLegacyTimestamp(session)) {
-            return new SqlTime(milliseconds, session.getTimeZoneKey());
-        }
-        else {
-            return new SqlTime(milliseconds);
-        }
-    }
-
     private SqlTime toTime(DateTime dateTime)
     {
         if (isLegacyTimestamp(session)) {
