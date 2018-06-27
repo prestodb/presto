@@ -36,6 +36,12 @@ public final class TestingSession
         }
 
         @Override
+        public String getPath()
+        {
+            return "path";
+        }
+
+        @Override
         public Optional<String> getSource()
         {
             return Optional.of("TestSource");

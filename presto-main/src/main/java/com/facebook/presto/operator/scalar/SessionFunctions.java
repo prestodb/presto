@@ -14,12 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class SessionFunctions
@@ -32,5 +34,16 @@ public final class SessionFunctions
     public static Slice currentUser(ConnectorSession session)
     {
         return utf8Slice(session.getUser());
+    }
+
+    @ScalarFunction(value = "$current_path", hidden = true)
+    @Description("retrieve current path")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentPath(ConnectorSession session)
+    {
+        if (session.getPath() == null) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Session path is null");
+        }
+        return utf8Slice(session.getPath());
     }
 }

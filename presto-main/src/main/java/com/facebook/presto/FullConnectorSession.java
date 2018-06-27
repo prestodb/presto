@@ -86,6 +86,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public String getPath()
+    {
+        return session.getPath().toString();
+    }
+
+    @Override
     public Identity getIdentity()
     {
         return session.getIdentity();
