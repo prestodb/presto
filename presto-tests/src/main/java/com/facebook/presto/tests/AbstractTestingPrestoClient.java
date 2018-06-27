@@ -150,6 +150,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 resourceEstimates.build(),
                 properties.build(),
                 session.getPreparedStatements(),
+                session.getIdentity().getRoles(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout);
     }

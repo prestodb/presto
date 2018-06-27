@@ -1,4 +1,8 @@
 -- delimiter: |; trimValues:true;
+system| information_schema| applicable_roles| grantee| varchar| YES| null| null|
+system| information_schema| applicable_roles| grantee_type| varchar| YES| null| null|
+system| information_schema| applicable_roles| role_name| varchar| YES| null| null|
+system| information_schema| applicable_roles| is_grantable| varchar| YES| null| null|
 system| information_schema| columns| table_catalog| varchar| YES| null| null|
 system| information_schema| columns| table_schema| varchar| YES| null| null|
 system| information_schema| columns| table_name| varchar| YES| null| null|
@@ -9,16 +13,20 @@ system| information_schema| columns| is_nullable| varchar| YES| null| null|
 system| information_schema| columns| data_type| varchar| YES| null| null|
 system| information_schema| columns| comment| varchar| YES| null| null|
 system| information_schema| columns| extra_info| varchar| YES| null| null|
+system| information_schema| enabled_roles| role_name| varchar| YES| null| null|
+system| information_schema| roles| role_name| varchar| YES| null| null|
 system| information_schema| schemata| catalog_name| varchar| YES| null| null|
 system| information_schema| schemata| schema_name| varchar| YES| null| null|
 system| information_schema| table_privileges| grantor| varchar| YES| null| null|
+system| information_schema| table_privileges| grantor_type| varchar| YES| null| null|
 system| information_schema| table_privileges| grantee| varchar| YES| null| null|
-system| information_schema| table_privileges| table_catalog| varchar| YES| null| null  |
-system| information_schema| table_privileges| table_schema| varchar| YES| null| null  |
+system| information_schema| table_privileges| grantee_type| varchar| YES| null| null|
+system| information_schema| table_privileges| table_catalog| varchar| YES| null| null|
+system| information_schema| table_privileges| table_schema| varchar| YES| null| null|
 system| information_schema| table_privileges| table_name| varchar| YES| null| null|
-system| information_schema| table_privileges| privilege_type| varchar| YES| null| null  |
-system| information_schema| table_privileges| is_grantable| boolean| YES| null| null  |
-system| information_schema| table_privileges| with_hierarchy| boolean| YES| null| null  |
+system| information_schema| table_privileges| privilege_type| varchar| YES| null| null|
+system| information_schema| table_privileges| is_grantable| varchar| YES| null| null|
+system| information_schema| table_privileges| with_hierarchy| varchar| YES| null| null|
 system| information_schema| tables| table_catalog| varchar| YES| null| null|
 system| information_schema| tables| table_schema| varchar| YES| null| null|
 system| information_schema| tables| table_name| varchar| YES| null| null|
