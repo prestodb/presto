@@ -39,8 +39,10 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Longs;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
@@ -81,6 +83,8 @@ import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
@@ -127,7 +131,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
@@ -218,22 +221,41 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    public static Set<RoleGrant> listApplicableRoles(PrestoPrincipal principal, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    public static Stream<RoleGrant> listApplicableRoles(PrestoPrincipal principal, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        Set<RoleGrant> result = new HashSet<>();
         Queue<PrestoPrincipal> queue = new ArrayDeque<>();
         queue.add(principal);
-        while (!queue.isEmpty()) {
-            PrestoPrincipal current = queue.poll();
-            Set<RoleGrant> grants = listRoleGrants.apply(current);
-            for (RoleGrant grant : grants) {
-                if (!result.contains(grant)) {
-                    result.add(grant);
-                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+        Queue<RoleGrant> output = new ArrayDeque<>();
+        Set<RoleGrant> seenRoles = new HashSet<>();
+        return Streams.stream(new AbstractIterator<RoleGrant>() {
+            @Override
+            protected RoleGrant computeNext()
+            {
+                if (!output.isEmpty()) {
+                    return output.remove();
                 }
+                if (queue.isEmpty()) {
+                    return endOfData();
+                }
+
+                while (!queue.isEmpty()) {
+                    Set<RoleGrant> grants = listRoleGrants.apply(queue.remove());
+                    if (!grants.isEmpty()) {
+                        for (RoleGrant grant : grants) {
+                            if (seenRoles.add(grant)) {
+                                output.add(grant);
+                                queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+                            }
+                        }
+                        break;
+                    }
+                }
+                if (output.isEmpty()) {
+                    return endOfData();
+                }
+                return output.remove();
             }
-        }
-        return ImmutableSet.copyOf(result);
+        });
     }
 
     public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal, String role)
@@ -241,29 +263,14 @@ public final class ThriftMetastoreUtil
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
         }
-        Set<String> seenRoles = new HashSet<>();
-        Queue<PrestoPrincipal> queue = new ArrayDeque<>();
-        queue.add(principal);
-        while (!queue.isEmpty()) {
-            Set<RoleGrant> grants = metastore.listRoleGrants(queue.poll());
-            for (RoleGrant grant : grants) {
-                if (grant.getRoleName().equals(role)) {
-                    return true;
-                }
-                if (seenRoles.add(grant.getRoleName())) {
-                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
-                }
-            }
-        }
-        return false;
+        return listApplicableRoles(metastore, principal)
+                .anyMatch(role::equals);
     }
 
-    public static Set<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
+    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
     {
         return listApplicableRoles(principal, metastore::listRoleGrants)
-                .stream()
-                .map(RoleGrant::getRoleName)
-                .collect(toSet());
+                .map(RoleGrant::getRoleName);
     }
 
     public static Set<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
@@ -271,7 +278,9 @@ public final class ThriftMetastoreUtil
         ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
         PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, identity.getUser());
         principals.add(userPrincipal);
-        listEnabledRoles(identity, metastore::listRoleGrants).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        listEnabledRoles(identity, metastore::listRoleGrants)
+                .map(role -> new PrestoPrincipal(ROLE, role))
+                .forEach(principals::add);
         return principals.build();
     }
 
@@ -285,7 +294,9 @@ public final class ThriftMetastoreUtil
         ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
         PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, user);
         principals.add(userPrincipal);
-        listApplicableRoles(metastore, userPrincipal).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        listApplicableRoles(metastore, userPrincipal)
+                .map(role -> new PrestoPrincipal(ROLE, role))
+                .forEach(principals::add);
         return listTablePrivileges(metastore, databaseName, tableName, principals.build());
     }
 
@@ -325,54 +336,37 @@ public final class ThriftMetastoreUtil
             return false;
         }
 
-        Set<String> seenRoles = new HashSet<>();
-        Queue<PrestoPrincipal> queue = new ArrayDeque<>();
-        queue.add(principal);
-        while (!queue.isEmpty()) {
-            Set<RoleGrant> grants = listRoleGrants.apply(queue.poll());
-            for (RoleGrant grant : grants) {
-                if (grant.getRoleName().equals(role)) {
-                    return true;
-                }
-                if (seenRoles.add(grant.getRoleName())) {
-                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
-                }
-            }
-        }
-        return false;
+        // all the above code could be removed and method semantic would remain the same, however it would be more expensive for some negative cases (see above)
+        return listEnabledRoles(identity, listRoleGrants)
+                .anyMatch(role::equals);
     }
 
-    public static Set<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
     {
         Optional<SelectedRole> role = identity.getRole();
-
         if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
-            return ImmutableSet.of(PUBLIC_ROLE_NAME);
+            return Stream.of(PUBLIC_ROLE_NAME);
         }
-
         PrestoPrincipal principal;
         if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
             principal = new PrestoPrincipal(USER, identity.getUser());
         }
         else {
-            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+            principal = new PrestoPrincipal(ROLE, role.get().getRole().get());
         }
 
-        Set<String> roles = listApplicableRoles(principal, listRoleGrants)
-                .stream()
-                .map(RoleGrant::getRoleName)
-                .collect(toSet());
-
-        // The admin role must be enabled explicitly. If it is, will be re-added below.
-        roles.remove(ADMIN_ROLE_NAME);
-
-        roles.add(PUBLIC_ROLE_NAME);
+        Stream<String> roles = Stream.of(PUBLIC_ROLE_NAME);
 
         if (principal.getType() == ROLE) {
-            roles.add(principal.getName());
+            roles = Stream.concat(roles, Stream.of(principal.getName()));
         }
 
-        return ImmutableSet.copyOf(roles);
+        return Stream.concat(
+                roles,
+                listApplicableRoles(principal, listRoleGrants)
+                        .map(RoleGrant::getRoleName)
+                        // The admin role must be enabled explicitly. If it is, it was added above.
+                        .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()));
     }
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
