@@ -30,6 +30,8 @@ public interface ConnectorSession
         return getIdentity().getUser();
     }
 
+    String getPath();
+
     Identity getIdentity();
 
     TimeZoneKey getTimeZoneKey();

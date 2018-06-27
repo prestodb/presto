@@ -88,6 +88,10 @@ public final class SqlPath
     @Override
     public String toString()
     {
-        return Joiner.on(", ").join(getParsedPath());
+        if (rawPath.isPresent()) {
+            return Joiner.on(", ").join(getParsedPath());
+        }
+        //empty string is only used for an uninitialized path, as an empty path would be \"\"
+        return "";
     }
 }
