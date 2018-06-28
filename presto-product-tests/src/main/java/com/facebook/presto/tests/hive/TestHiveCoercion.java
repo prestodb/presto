@@ -31,6 +31,7 @@ import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +42,8 @@ import java.util.Optional;
 import static com.facebook.presto.tests.TestGroups.HIVE_COERCION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -49,6 +52,7 @@ import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestodb.tempto.fulfillment.table.TableHandle.tableHandle;
+import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
@@ -275,38 +279,82 @@ public class TestHiveCoercion
 
         QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
-        List<Row> expectedRows = ImmutableList.of(
-                row(
-                        -1,
-                        2,
-                        -3L,
-                        100,
-                        -101L,
-                        2323L,
-                        "12345",
-                        0.5,
-                        asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
-                        ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
-                        ImmutableMap.of(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
-                        1),
-                row(
-                        1,
-                        -2,
-                        null,
-                        -100,
-                        101L,
-                        -2323L,
-                        "-12345",
-                        -1.5,
-                        asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
-                        ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
-                        ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
-                        1));
+        List<Row> expectedRows;
+        Connection connection = defaultQueryExecutor().getConnection();
+        if (usingPrestoJdbcDriver(connection)) {
+            expectedRows = ImmutableList.of(
+                        row(
+                                -1,
+                                2,
+                                -3L,
+                                100,
+                                -101L,
+                                2323L,
+                                "12345",
+                                0.5,
+                                asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
+                                ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
+                                asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
+                                1),
+                        row(
+                                1,
+                                -2,
+                                null,
+                                -100,
+                                101L,
+                                -2323L,
+                                "-12345",
+                                -1.5,
+                                asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
+                                ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
+                                ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
+                                1));
+        }
+        else if (usingTeradataJdbcDriver(connection)) {
+            expectedRows = ImmutableList.of(
+                    row(
+                            -1,
+                            2,
+                            -3L,
+                            100,
+                            -101L,
+                            2323L,
+                            "12345",
+                            0.5,
+                            "[\"as is\",-1,100,2323,\"12345\"]",
+                            "[[2,-101,\"12345\"]]",
+                            "{\"2\":[-3,2323,0.5,null]}",
+                            1),
+                    row(
+                            1,
+                            -2,
+                            null,
+                            -100,
+                            101L,
+                            -2323L,
+                            "-12345",
+                            -1.5,
+                            "[null,1,-100,-2323,\"-12345\"]",
+                            "[[-2,101,\"-12345\"]]",
+                            "{\"-2\":[null,-2323,-1.5,null]}",
+                            1));
+        }
+        else {
+            throw new IllegalStateException();
+        }
         // test primitive values
         assertThat(queryResult.project(1, 2, 3, 4, 5, 6, 7, 8, 12)).containsOnly(project(expectedRows, 1, 2, 3, 4, 5, 6, 7, 8, 12));
         // test structural values (tempto can't handle map and row)
         assertEqualsIgnoreOrder(queryResult.column(9), column(expectedRows, 9), "row_to_row field is not equal");
-        assertEqualsIgnoreOrder(extract(queryResult.column(10)), column(expectedRows, 10), "list_to_list field is not equal");
+        if (usingPrestoJdbcDriver(connection)) {
+            assertEqualsIgnoreOrder(extract(queryResult.column(10)), column(expectedRows, 10), "list_to_list field is not equal");
+        }
+        else if (usingTeradataJdbcDriver(connection)) {
+            assertEqualsIgnoreOrder(queryResult.column(10), column(expectedRows, 10), "list_to_list field is not equal");
+        }
+        else {
+            throw new IllegalStateException();
+        }
         assertEqualsIgnoreOrder(queryResult.column(11), column(expectedRows, 11), "map_to_map field is not equal");
     }
 
@@ -329,19 +377,40 @@ public class TestHiveCoercion
 
     private void assertColumnTypes(QueryResult queryResult)
     {
-        assertThat(queryResult).hasColumns(
-                SMALLINT,
-                INTEGER,
-                BIGINT,
-                INTEGER,
-                BIGINT,
-                BIGINT,
-                VARCHAR,
-                DOUBLE,
-                JAVA_OBJECT,
-                ARRAY,
-                JAVA_OBJECT,
-                BIGINT);
+        Connection connection = defaultQueryExecutor().getConnection();
+        if (usingPrestoJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    SMALLINT,
+                    INTEGER,
+                    BIGINT,
+                    INTEGER,
+                    BIGINT,
+                    BIGINT,
+                    VARCHAR,
+                    DOUBLE,
+                    JAVA_OBJECT,
+                    ARRAY,
+                    JAVA_OBJECT,
+                    BIGINT);
+        }
+        else if (usingTeradataJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    SMALLINT,
+                    INTEGER,
+                    BIGINT,
+                    INTEGER,
+                    BIGINT,
+                    BIGINT,
+                    VARCHAR,
+                    DOUBLE,
+                    VARCHAR,
+                    VARCHAR,
+                    VARCHAR,
+                    BIGINT);
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     private static void alterTableColumnTypes(String tableName)
