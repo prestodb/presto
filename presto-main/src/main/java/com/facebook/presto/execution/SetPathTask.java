@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ClientCapabilities;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
@@ -46,7 +48,11 @@ public class SetPathTask
     public ListenableFuture<?> execute(SetPath statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        
+
+        if (!session.getClientCapabilities().contains(ClientCapabilities.PATH.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "SET PATH not supported by client");
+        }
+
         // convert to IR before setting HTTP headers - ensures that the representations of all path objects outside the parser remain consistent
         SqlPath sqlPath = new SqlPath(Optional.of(statement.getPathSpecification().toString()));
 
