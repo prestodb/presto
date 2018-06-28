@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -117,7 +116,7 @@ public class BenchmarkPartitionedOutputOperator
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}), PARTITION_COUNT);
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(TYPES))), false);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
             for (int partition = 0; partition < PARTITION_COUNT; partition++) {
                 buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);

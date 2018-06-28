@@ -23,7 +23,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -65,7 +64,7 @@ public class TestFileSingleStreamSpiller
     public void testSpill()
             throws Exception
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(TYPES))), false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext();

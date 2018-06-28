@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -64,7 +63,7 @@ public class TestBinaryFileSpiller
     @BeforeMethod
     public void setUp()
     {
-        blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
+        blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
         spillerStats = new SpillerStats();
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
