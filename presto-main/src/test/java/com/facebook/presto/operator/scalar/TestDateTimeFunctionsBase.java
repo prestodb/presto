@@ -872,8 +872,6 @@ public abstract class TestDateTimeFunctionsBase
             localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 오전', 'yyyy-MM-dd hh:mm:ss aaa')",
                     TIMESTAMP_WITH_TIME_ZONE,
                     toTimestampWithTimeZone(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
-
-            localeAssertions.close();
         }
     }
 
