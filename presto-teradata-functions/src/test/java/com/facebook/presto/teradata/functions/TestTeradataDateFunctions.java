@@ -24,12 +24,13 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
+
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 
@@ -132,12 +133,6 @@ public class TestTeradataDateFunctions
         assertDate("to_date('1988-04-08 TEXT','yyyy-mm-dd \"TEXT\"')", 1988, 4, 8);
     }
 
-    private static SqlDate sqlDate(DateTime from)
-    {
-        int days = toIntExact(castToDate(SESSION.toConnectorSession(), from.getMillis()));
-        return new SqlDate(days);
-    }
-
     @SuppressWarnings("SameParameterValue")
     private void assertTimestamp(String projection, int year, int month, int day, int hour, int minutes, int seconds)
     {
@@ -152,7 +147,7 @@ public class TestTeradataDateFunctions
         assertFunction(
                 projection,
                 DateType.DATE,
-                sqlDate(new DateTime(year, month, day, 0, 0, DateTimeZone.UTC)));
+                new SqlDate(toIntExact(LocalDate.of(year, month, day).toEpochDay())));
     }
 
     private void assertVarchar(String projection, String expected)
