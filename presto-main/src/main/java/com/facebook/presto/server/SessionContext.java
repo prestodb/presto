@@ -49,6 +49,8 @@ public interface SessionContext
 
     Set<String> getClientTags();
 
+    Set<String> getClientCapabilities();
+
     ResourceEstimates getResourceEstimates();
 
     @Nullable

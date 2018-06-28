@@ -43,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
@@ -157,6 +158,27 @@ public class TestQuerySessionSupplier
                 "remoteAddress");
         HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
         assertEquals(context2.getClientTags(), ImmutableSet.of());
+    }
+
+    @Test
+    public void testClientCapabilities()
+    {
+        HttpServletRequest request1 = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
+                        .build(),
+                "remoteAddress");
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1);
+        assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
+
+        HttpServletRequest request2 = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "remoteAddress");
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
+        assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
     @Test(expectedExceptions = PrestoException.class)

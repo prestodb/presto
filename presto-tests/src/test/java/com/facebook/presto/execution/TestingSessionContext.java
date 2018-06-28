@@ -99,6 +99,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public Set<String> getClientCapabilities()
+    {
+        return session.getClientCapabilities();
+    }
+
+    @Override
     public ResourceEstimates getResourceEstimates()
     {
         return session.getResourceEstimates();

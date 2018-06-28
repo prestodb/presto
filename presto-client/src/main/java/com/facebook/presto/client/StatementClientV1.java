@@ -49,6 +49,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
@@ -106,6 +107,7 @@ class StatementClientV1
     private final TimeZoneKey timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
+    private final String clientCapabilities;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -120,6 +122,7 @@ class StatementClientV1
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
+        this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
 
         Request request = buildQueryRequest(session, query);
 
@@ -185,6 +188,8 @@ class StatementClientV1
         }
 
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
+
+        builder.addHeader(PRESTO_CLIENT_CAPABILITIES, clientCapabilities);
 
         return builder.build();
     }

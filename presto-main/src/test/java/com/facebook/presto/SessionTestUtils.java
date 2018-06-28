@@ -13,14 +13,21 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.client.ClientCapabilities;
+
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Arrays.stream;
 
 public final class SessionTestUtils
 {
     public static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema(TINY_SCHEMA_NAME)
+            .setClientCapabilities(stream(ClientCapabilities.values())
+                    .map(ClientCapabilities::toString)
+                    .collect(toImmutableSet()))
             .build();
 
     private SessionTestUtils()
