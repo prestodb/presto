@@ -41,7 +41,6 @@ import java.util.function.IntPredicate;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -60,7 +59,7 @@ public class TestGenericPartitioningSpiller
     private static final int FOURTH_PARTITION_START = 20;
 
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 
     private Path tempDirectory;
     private SingleStreamSpillerFactory singleStreamSpillerFactory;

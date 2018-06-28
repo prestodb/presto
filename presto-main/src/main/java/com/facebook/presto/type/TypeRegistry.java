@@ -109,12 +109,6 @@ public final class TypeRegistry
         this(ImmutableSet.of(), new FeaturesConfig());
     }
 
-    @VisibleForTesting
-    public TypeRegistry(Set<Type> types)
-    {
-        this(ImmutableSet.of(), new FeaturesConfig());
-    }
-
     @Inject
     public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
     {
