@@ -52,6 +52,7 @@ public final class SessionRepresentation
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
+    private final Set<String> clientCapabilities;
     private final long startTime;
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
@@ -76,6 +77,7 @@ public final class SessionRepresentation
             @JsonProperty("userAgent") Optional<String> userAgent,
             @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("clientTags") Set<String> clientTags,
+            @JsonProperty("clientCapabilities") Set<String> clientCapabilities,
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
@@ -98,6 +100,7 @@ public final class SessionRepresentation
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
+        this.clientCapabilities = requireNonNull(clientCapabilities, "clientCapabilities is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
@@ -207,6 +210,12 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public Set<String> getClientCapabilities()
+    {
+        return clientCapabilities;
+    }
+
+    @JsonProperty
     public long getStartTime()
     {
         return startTime;
@@ -254,6 +263,7 @@ public final class SessionRepresentation
                 userAgent,
                 clientInfo,
                 clientTags,
+                clientCapabilities,
                 resourceEstimates,
                 startTime,
                 systemProperties,

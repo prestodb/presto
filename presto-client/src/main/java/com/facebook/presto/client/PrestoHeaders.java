@@ -37,6 +37,7 @@ public final class PrestoHeaders
     public static final String PRESTO_CLEAR_TRANSACTION_ID = "X-Presto-Clear-Transaction-Id";
     public static final String PRESTO_CLIENT_INFO = "X-Presto-Client-Info";
     public static final String PRESTO_CLIENT_TAGS = "X-Presto-Client-Tags";
+    public static final String PRESTO_CLIENT_CAPABILITIES = "X-Presto-Client-Capabilities";
     public static final String PRESTO_RESOURCE_ESTIMATE = "X-Presto-Resource-Estimate";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";

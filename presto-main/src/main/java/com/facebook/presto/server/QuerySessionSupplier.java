@@ -137,6 +137,7 @@ public class QuerySessionSupplier
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
                 .setClientTags(context.getClientTags())
+                .setClientCapabilities(context.getClientCapabilities())
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates());
 
