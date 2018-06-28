@@ -23,6 +23,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
+// run single threaded to avoid creating multiple query runners at once
+@Test(singleThreaded = true)
 public class TestLegacyLogFunction
 {
     private static final String QUERY = "SELECT LOG(25, 5)";
