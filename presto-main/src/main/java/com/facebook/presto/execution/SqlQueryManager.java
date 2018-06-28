@@ -453,7 +453,7 @@ public class SqlQueryManager
                 session = Session.builder(new SessionPropertyManager())
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
-                        .setPath(new SqlPath(null))
+                        .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
             QueryExecution execution = new FailedQueryExecution(

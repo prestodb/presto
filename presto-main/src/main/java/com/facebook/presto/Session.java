@@ -422,7 +422,7 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
-        private SqlPath path;
+        private SqlPath path = new SqlPath(Optional.empty());
         private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();

@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public final class SqlPath
 {
@@ -34,6 +35,7 @@ public final class SqlPath
     @JsonCreator
     public SqlPath(@JsonProperty("rawPath") Optional<String> path)
     {
+        requireNonNull(path, "path is null");
         this.rawPath = path;
     }
 
