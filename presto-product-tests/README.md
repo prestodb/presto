@@ -394,7 +394,7 @@ with the following parameters:
     - Use classpath of module: `presto-main`
     - Main class: `com.facebook.presto.server.PrestoServer`
     - Working directory: `presto-product-tests/conf/presto`
-    - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=Asia/Kathmandu`
+    - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=America/Bahia_Banderas`
 
 5. MAKE SURE PRESTO CONFIGURATION IS ALIGNED WITH THE ONE IN `presto-product-tests/conf/presto`!
 

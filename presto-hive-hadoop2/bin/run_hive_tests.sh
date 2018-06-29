@@ -17,13 +17,12 @@ stop_unnecessary_hadoop_services
 pushd ${PROJECT_ROOT}
 set +e
 ./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2 \
-  -Dhive.hadoop2.timeZone=UTC \
   -DHADOOP_USER_NAME=hive \
   -Dhive.hadoop2.metastoreHost=localhost \
   -Dhive.hadoop2.metastorePort=9083 \
   -Dhive.hadoop2.databaseName=default \
   -Dhive.hadoop2.metastoreHost=hadoop-master \
-  -Dhive.hadoop2.timeZone=Asia/Kathmandu \
+  -Dhive.hadoop2.timeZone=America/Bahia_Banderas \
   -Dhive.metastore.thrift.client.socks-proxy=${PROXY}:1180 \
   -Dsun.net.spi.nameservice.provider.1=default \
   -Dsun.net.spi.nameservice.provider.2=dns,dnsjava \
