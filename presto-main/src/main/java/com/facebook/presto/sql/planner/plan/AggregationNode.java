@@ -70,11 +70,11 @@ public class AggregationNode
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = listOfListsCopy(groupingSets);
 
-        boolean hasOrderBy = aggregations.values().stream()
+        boolean noOrderBy = aggregations.values().stream()
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getOrderBy)
                 .noneMatch(Optional::isPresent);
-        checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
+        checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
         this.step = step;
         this.hashSymbol = hashSymbol;
