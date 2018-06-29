@@ -18,6 +18,7 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,9 +29,11 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.security.FileBasedSystemAccessControl.Factory.CONFIG_FILE_NAME;
 import static com.facebook.presto.spi.security.Privilege.SELECT;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
@@ -192,5 +195,17 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", path));
 
         return accessControlManager;
+    }
+
+    @Test
+    public void parseUnknownRules()
+    {
+        assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
+                .hasMessageContaining("Invalid JSON");
+    }
+
+    private SystemAccessControl parse(String path)
+    {
+        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(CONFIG_FILE_NAME, path));
     }
 }
