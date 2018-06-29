@@ -37,22 +37,19 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import org.apache.avro.Schema;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.shade.org.apache.avro.Schema;
 
 import javax.inject.Inject;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertColumnHandle;
@@ -60,27 +57,6 @@ import static com.facebook.presto.pulsar.PulsarHandleResolver.convertTableHandle
 import static java.util.Objects.requireNonNull;
 
 public class PulsarMetadata implements ConnectorMetadata {
-
-//    private static Map<String, List<SchemaTableName>> schemaToTableMap = new HashMap<>();
-//    static {
-//        schemaToTableMap.put("schema1", Arrays.asList(new SchemaTableName("schema1", "schema1_table1"), new SchemaTableName("schema1", "schema1_table2")));
-//        schemaToTableMap.put("schema2", Arrays.asList(new SchemaTableName("schema2", "schema1_table1")));
-//    }
-//
-//    private static Map<SchemaTableName, PulsarTopicDescription> schemaTableNameToTopicMap = new HashMap<>();
-//    static {
-//        schemaTableNameToTopicMap.put(new SchemaTableName("schema1", "schema1_table1"), new PulsarTopicDescription("schema1_table1", "schema1", "schema1_table1_topic"));
-//        schemaTableNameToTopicMap.put(new SchemaTableName("schema1", "schema1_table2"), new PulsarTopicDescription("schema1_table2", "schema1", "schema1_table2_topic"));
-//        schemaTableNameToTopicMap.put(new SchemaTableName("schema2", "schema2_table1"), new PulsarTopicDescription("schema2_table1", "schema1", "schema2_table1_topic"));
-//    }
-//
-//    private static Map<SchemaTableName, List<ColumnMetadata>> schemaTableNameToColumnMetadataMap = new HashMap<>();
-//    static {
-//        schemaTableNameToColumnMetadataMap.put(new SchemaTableName("schema1", "schema1_table1"), Arrays.asList(new ColumnMetadata("id", IntegerType.INTEGER), new ColumnMetadata("field1", VarcharType.VARCHAR)));
-//        schemaTableNameToColumnMetadataMap.put(new SchemaTableName("schema1", "schema1_table2"), Arrays.asList(new ColumnMetadata("id", IntegerType.INTEGER), new ColumnMetadata("field1", VarcharType.VARCHAR)));
-//        schemaTableNameToColumnMetadataMap.put(new SchemaTableName("schema2", "schema2_table1"), Arrays.asList(new ColumnMetadata("id", IntegerType.INTEGER), new ColumnMetadata("field1", VarcharType.VARCHAR), new ColumnMetadata("field2", VarcharType.VARCHAR)));
-//    }
-
 
     private final String connectorId;
     private final PulsarAdmin pulsarAdmin;
@@ -145,10 +121,108 @@ public class PulsarMetadata implements ConnectorMetadata {
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
         log.info("getTableMetadata: %s", table);
-        return getTableMetadata(convertTableHandle(table).toSchemaTableName());
+        return getTableMetadata(convertTableHandle(table).toSchemaTableName(), true);
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName) {
+    @Override
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull) {
+        log.info("listTables: %s", schemaNameOrNull);
+
+        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+
+        if (schemaNameOrNull != null) {
+            List<String> pulsarTopicList = null;
+            try {
+                pulsarTopicList = this.pulsarAdmin.topics().getList(schemaNameOrNull);
+            } catch (PulsarAdminException e) {
+                log.error(e, "Failed to get a list of topics for schema %s", schemaNameOrNull);
+            }
+            if (pulsarTopicList != null) {
+                pulsarTopicList.forEach(topic -> builder.add(
+                        new SchemaTableName(schemaNameOrNull, TopicName.get(topic).getLocalName())));
+            }
+        }
+        return builder.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
+        log.info("getColumnHandles: %s", tableHandle);
+
+        PulsarTableHandle pulsarTableHandle = convertTableHandle(tableHandle);
+
+        ConnectorTableMetadata tableMetaData = getTableMetadata(pulsarTableHandle.toSchemaTableName(), false);
+
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        
+        tableMetaData.getColumns().forEach(new Consumer<ColumnMetadata>() {
+            @Override
+            public void accept(ColumnMetadata columnMetadata) {
+                    PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
+                            connectorId,
+                            columnMetadata.getName(),
+                            columnMetadata.getType(),
+                            false,
+                            false);
+                    log.info("using connectorId: %s", connectorId);
+                    log.info("setting pulsarColumnHandle: %s", pulsarColumnHandle);
+
+                    columnHandles.put(
+                            columnMetadata.getName(),
+                            pulsarColumnHandle);
+            }
+        });
+
+        PulsarInternalColumn.getInternalFields().stream().forEach(new Consumer<PulsarInternalColumn>() {
+            @Override
+            public void accept(PulsarInternalColumn pulsarInternalColumn) {
+                PulsarColumnHandle pulsarColumnHandle = pulsarInternalColumn.getColumnHandle(connectorId, false);
+                columnHandles.put(pulsarColumnHandle.getName(), pulsarColumnHandle);
+            }
+        });
+
+        return columnHandles.build();
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle) {
+        log.info("getColumnMetadata: %s - %s", tableHandle, columnHandle);
+
+        convertTableHandle(tableHandle);
+        return convertColumnHandle(columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix) {
+        log.info("listTableColumns: %s", prefix);
+
+        requireNonNull(prefix, "prefix is null");
+
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() == null) {
+            tableNames = listTables(session, prefix.getSchemaName());
+        }
+        else {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+
+        for (SchemaTableName tableName : tableNames) {
+            try {
+                columns.put(tableName, getTableMetadata(tableName, true).getColumns());
+            }
+            catch (TableNotFoundException e) {
+               throw new RuntimeException(e);
+            }
+        }
+
+
+
+        return columns.build();
+    }
+
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColums) {
         log.info("getTableMetadata - schemaTableName: %s", schemaTableName);
 
         List<String> topics;
@@ -163,7 +237,7 @@ public class PulsarMetadata implements ConnectorMetadata {
                 throw new TableNotFoundException(schemaTableName);
             }
         } catch (PulsarAdminException e) {
-           throw new RuntimeException(e);
+            throw new RuntimeException(e);
         }
 
 
@@ -187,11 +261,20 @@ public class PulsarMetadata implements ConnectorMetadata {
         for (Schema.Field field : schema.getFields()) {
             builder.addAll(getColumns(field.name(), field.schema()));
         }
-        
+
+        if (withInternalColums) {
+            PulsarInternalColumn.getInternalFields().stream().forEach(new Consumer<PulsarInternalColumn>() {
+                @Override
+                public void accept(PulsarInternalColumn pulsarInternalColumn) {
+                    builder.add(pulsarInternalColumn.getColumnMetadata(false));
+                }
+            });
+        }
+
         return new ConnectorTableMetadata(schemaTableName, builder.build());
     }
 
-    public List<ColumnMetadata> getColumns(String name, Schema fieldSchema) {
+    private List<ColumnMetadata> getColumns(String name, Schema fieldSchema) {
 
         List<ColumnMetadata> columnMetadataList = new LinkedList<>();
 
@@ -264,95 +347,5 @@ public class PulsarMetadata implements ConnectorMetadata {
                 || Schema.Type.DOUBLE == type
                 || Schema.Type.BYTES == type
                 || Schema.Type.STRING == type;
-    }
-
-
-
-    @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull) {
-        log.info("listTables: %s", schemaNameOrNull);
-
-        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-
-        if (schemaNameOrNull != null) {
-            List<String> pulsarTopicList = null;
-            try {
-                pulsarTopicList = this.pulsarAdmin.topics().getList(schemaNameOrNull);
-            } catch (PulsarAdminException e) {
-                log.error(e, "Failed to get a list of topics for schema %s", schemaNameOrNull);
-            }
-            if (pulsarTopicList != null) {
-                pulsarTopicList.forEach(topic -> builder.add(
-                        new SchemaTableName(schemaNameOrNull, TopicName.get(topic).getLocalName())));
-            }
-        }
-        return builder.build();
-    }
-
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
-        log.info("getColumnHandles: %s", tableHandle);
-
-        PulsarTableHandle pulsarTableHandle = convertTableHandle(tableHandle);
-
-        ConnectorTableMetadata tableMetaData = getTableMetadata(pulsarTableHandle.toSchemaTableName());
-
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        
-        tableMetaData.getColumns().forEach(new Consumer<ColumnMetadata>() {
-            @Override
-            public void accept(ColumnMetadata columnMetadata) {
-                    PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
-                            connectorId,
-                            columnMetadata.getName(),
-                            columnMetadata.getType(),
-                            false,
-                            false);
-                    log.info("using connectorId: %s", connectorId);
-                    log.info("setting pulsarColumnHandle: %s", pulsarColumnHandle);
-
-                    columnHandles.put(
-                            columnMetadata.getName(),
-                            pulsarColumnHandle);
-            }
-        });
-
-        return columnHandles.build();
-    }
-
-    @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle) {
-        log.info("getColumnMetadata: %s - %s", tableHandle, columnHandle);
-
-        convertTableHandle(tableHandle);
-        return convertColumnHandle(columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix) {
-        log.info("listTableColumns: %s", prefix);
-
-        requireNonNull(prefix, "prefix is null");
-
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-
-        List<SchemaTableName> tableNames;
-        if (prefix.getTableName() == null) {
-            tableNames = listTables(session, prefix.getSchemaName());
-        }
-        else {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-        }
-
-        for (SchemaTableName tableName : tableNames) {
-            try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
-            }
-            catch (TableNotFoundException e) {
-               
-            }
-        }
-
-        return columns.build();
     }
 }

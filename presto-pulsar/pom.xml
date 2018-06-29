@@ -19,6 +19,7 @@
         <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
         <air.check.skip-dependency>true</air.check.skip-dependency>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <avro.version>1.8.2</avro.version>
     </properties>
 
     <dependencies>
@@ -73,28 +74,73 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>${avro.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-admin</artifactId>
-            <version>2.1.0-incubating-SNAPSHOT</version>
+            <version>2.2.0-incubating-SNAPSHOT</version>
+            <exclusions>
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-databind</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-annotations</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-core</artifactId>-->
+                <!--</exclusion>-->
+            </exclusions>
+        </dependency>
+
+
+        <dependency>
+            <groupId>org.apache.pulsar</groupId>
+            <artifactId>pulsar-client</artifactId>
+            <version>2.2.0-incubating-SNAPSHOT</version>
+            <exclusions>
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-databind</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-annotations</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-core</artifactId>-->
+                <!--</exclusion>-->
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>managed-ledger</artifactId>
-            <version>2.1.0-incubating-SNAPSHOT</version>
+            <version>2.2.0-incubating-SNAPSHOT</version>
             <exclusions>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.zookeeper</groupId>
-                    <artifactId>zookeeper</artifactId>
-                </exclusion>
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-databind</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-annotations</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>org.apache.zookeeper</groupId>-->
+                    <!--<artifactId>zookeeper</artifactId>-->
+                <!--</exclusion>-->
+                <!--<exclusion>-->
+                    <!--<groupId>com.fasterxml.jackson.core</groupId>-->
+                    <!--<artifactId>jackson-core</artifactId>-->
+                <!--</exclusion>-->
             </exclusions>
         </dependency>
         <!-- Presto SPI -->

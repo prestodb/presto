@@ -17,8 +17,15 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.common.collect.ImmutableList;
+import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 
+import java.io.IOException;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -31,6 +38,11 @@ public class PulsarSplit implements ConnectorSplit {
     private final String tableName;
     private final long splitSize;
     private final String schema;
+    private final long startPositionEntryId;
+    private final long endPositionEntryId;
+    private final long startPositionLedgerId;
+    private final long endPositionLedgerId;
+
 
     @JsonCreator
     public PulsarSplit(
@@ -39,7 +51,11 @@ public class PulsarSplit implements ConnectorSplit {
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("splitSize") long splitSize,
-            @JsonProperty("schema") String schema)
+            @JsonProperty("schema") String schema,
+            @JsonProperty("startPositionEntryId") long startPositionEntryId,
+            @JsonProperty("endPositionEntryId") long endPositionEntryId,
+            @JsonProperty("startPositionLedgerId") long startPositionLedgerId,
+            @JsonProperty("endPositionLedgerId") long endPositionLedgerId)
     {
         this.splitId = splitId;
         this.schemaName = requireNonNull(schemaName, "schema name is null");
@@ -47,6 +63,10 @@ public class PulsarSplit implements ConnectorSplit {
         this.tableName = requireNonNull(tableName, "table name is null");
         this.splitSize = splitSize;
         this.schema = schema;
+        this.startPositionEntryId = startPositionEntryId;
+        this.endPositionEntryId = endPositionEntryId;
+        this.startPositionLedgerId = startPositionLedgerId;
+        this.endPositionLedgerId = endPositionLedgerId;
     }
 
     @JsonProperty
@@ -80,6 +100,34 @@ public class PulsarSplit implements ConnectorSplit {
     @JsonProperty
     public String getSchema() {
         return schema;
+    }
+
+    @JsonProperty
+    public long getStartPositionEntryId() {
+        return startPositionEntryId;
+    }
+
+    @JsonProperty
+    public long getEndPositionEntryId() {
+        return endPositionEntryId;
+    }
+
+    @JsonProperty
+    public long getStartPositionLedgerId() {
+        return startPositionLedgerId;
+    }
+
+    @JsonProperty
+    public long getEndPositionLedgerId() {
+        return endPositionLedgerId;
+    }
+
+    public PositionImpl getStartPosition() {
+        return PositionImpl.get(startPositionLedgerId, startPositionEntryId);
+    }
+
+    public PositionImpl getEndPosition() {
+        return PositionImpl.get(endPositionLedgerId, endPositionEntryId);
     }
 
     @Override

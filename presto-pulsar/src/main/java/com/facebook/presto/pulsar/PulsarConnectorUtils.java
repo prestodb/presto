@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pulsar;
 
-import org.apache.pulsar.shade.org.apache.avro.Schema;
+import org.apache.avro.Schema;
 
 public class PulsarConnectorUtils {
 

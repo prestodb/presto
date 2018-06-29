@@ -14,33 +14,29 @@
 package com.facebook.presto.pulsar;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import io.airlift.log.Logger;
-import org.apache.bookkeeper.conf.ClientConfiguration;
-import org.apache.bookkeeper.mledger.ManagedCursor;
 import org.apache.bookkeeper.mledger.ManagedLedger;
 import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
 import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
-import org.apache.bookkeeper.mledger.ManagedLedgerFactoryConfig;
+import org.apache.bookkeeper.mledger.ReadOnlyCursor;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerFactoryImpl;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerImpl;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
-import org.apache.bookkeeper.mledger.proto.MLDataFormats;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.shade.org.apache.avro.Schema;
+import org.apache.pulsar.shade.org.apache.bookkeeper.conf.ClientConfiguration;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -55,100 +51,86 @@ public class PulsarSplitManager implements ConnectorSplitManager {
 
 
     @Inject
-    public PulsarSplitManager(PulsarConnectorId connectorId, PulsarConnectorConfig pulsarConnectorConfig)
-    {
+    public PulsarSplitManager(PulsarConnectorId connectorId, PulsarConnectorConfig pulsarConnectorConfig) {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy) {
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
+                                          ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy) {
+
+        int numSplits = 3;
 
         PulsarTableLayoutHandle layoutHandle = (PulsarTableLayoutHandle) layout;
         PulsarTableHandle tableHandle = layoutHandle.getTable();
 
-        List<ConnectorSplit> splits = new ArrayList<>();
+        TopicName topicName = TopicName.get("persistent", NamespaceName.get(tableHandle.getSchemaName()),
+ tableHandle.getTableName());
 
-        int numSplits = 5;
-        TopicName topicName = TopicName.get("persistent", NamespaceName.get(tableHandle.getSchemaName()), tableHandle.getTableName());
-        long numEntries;
+        SchemaInfo schemaInfo;
         try {
-            numEntries = getNumEntries(topicName, this.pulsarConnectorConfig.getZookeeperUri());
-        } catch (Exception e) {
-            log.error(e, "Failed to get number of entries for topic %s", topicName);
+            schemaInfo = pulsarConnectorConfig.getPulsarAdmin().schemas().getSchemaInfo(
+                    String.format("%s/%s", tableHandle.getSchemaName(), tableHandle.getTableName()));
+        } catch (PulsarAdminException | PulsarClientException e) {
+            log.error(e);
             throw new RuntimeException(e);
         }
+        String schemaJson = new String(schemaInfo.getSchema());
 
-        long remainder = numEntries % numSplits;
-
-        long avgEntriesPerSplit = numEntries / numSplits;
-
-        for (int i = 0; i < 1; i ++) {
-            long entriesPerSplit = (remainder > i) ? avgEntriesPerSplit + 1 : avgEntriesPerSplit;
-
-            log.info("i: %s entriesPerSplit: %s",i, entriesPerSplit);
-
-            SchemaInfo schemaInfo = null;
-            try {
-                schemaInfo = pulsarConnectorConfig.getPulsarAdmin().schemas().getSchemaInfo(
-                        String.format("%s/%s", tableHandle.getSchemaName(), tableHandle.getTableName()));
-            } catch (PulsarAdminException | PulsarClientException e) {
-                log.error(e);
-                throw new RuntimeException(e);
-            }
-
-            log.info("schema: " + new String(schemaInfo.getSchema()));
-            String schemaJson = new String(schemaInfo.getSchema());
-
-            splits.add(new PulsarSplit(i, this.connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(), entriesPerSplit, schemaJson));
+        Collection<PulsarSplit> splits;
+        try {
+           splits = getSplits(numSplits, topicName, tableHandle, schemaJson);
+        } catch (Exception e) {
+            log.error(e, "Failed to get splits");
+           throw new RuntimeException(e);
         }
-        Collections.shuffle(splits);
-
 
         return new FixedSplitSource(splits);
     }
 
-    private long getNumEntries(TopicName topicName, String zookeeperUri) throws Exception {
-
+    private Collection<PulsarSplit> getSplits(int numSplits, TopicName topicName, PulsarTableHandle
+            tableHandle, String schemaJson) throws Exception {
+        List<PulsarSplit> splits = new ArrayList<>(numSplits);
         ManagedLedgerFactory managedLedgerFactory = null;
-        ManagedLedger managedLedger = null;
-        ManagedCursor managedCursor = null;
+        ReadOnlyCursor readOnlyCursor = null;
         try {
-            ClientConfiguration bkClientConfiguration = new ClientConfiguration().setZkServers(zookeeperUri);
-
+            ClientConfiguration bkClientConfiguration = new ClientConfiguration()
+                    .setZkServers(pulsarConnectorConfig.getZookeeperUri())
+                    .setAllowShadedLedgerManagerFactoryClass(true)
+                    .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
             managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
+            ManagedLedgerConfig managedLedgerConfig = new ManagedLedgerConfig().setEnsembleSize(1).setWriteQuorumSize
+                    (1).setAckQuorumSize(1).setMetadataEnsembleSize(1).setMetadataWriteQuorumSize(1)
+                    .setMetadataAckQuorumSize(1);
 
-            ManagedLedgerConfig managedLedgerConfig = new ManagedLedgerConfig().setEnsembleSize(1).setWriteQuorumSize(1).setAckQuorumSize(1).setMetadataEnsembleSize(1).setMetadataWriteQuorumSize(1).setMetadataAckQuorumSize(1);
+            readOnlyCursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
+                    PositionImpl.earliest, managedLedgerConfig);
 
+            long numEntries = readOnlyCursor.getNumberOfEntries();
+            log.info("numEntries: %s", numEntries);
+            long remainder = numEntries % numSplits;
 
-            managedLedger = managedLedgerFactory.open(topicName.getPersistenceNamingEncoding(), managedLedgerConfig);
+            long avgEntriesPerSplit = numEntries / numSplits;
 
-            ManagedLedgerImpl managedLedgerImpl = (ManagedLedgerImpl) managedLedger;
+            for (int i = 0; i < numSplits; i++) {
+                long entriesForSplit = (remainder > i) ? avgEntriesPerSplit + 1 : avgEntriesPerSplit;
+                log.info("i: %s entriesPerSplit: %s", i, entriesForSplit);
+                PositionImpl startPosition = (PositionImpl) readOnlyCursor.getReadPosition();
+                log.info("startPosition: %s", startPosition);
+                readOnlyCursor.skipEntries(Math.toIntExact(entriesForSplit));
+                PositionImpl endPosition = (PositionImpl) readOnlyCursor.getReadPosition();
+                log.info("endPosition: %s", endPosition);
 
-            List<MLDataFormats.ManagedLedgerInfo.LedgerInfo> managedListLedgers = managedLedgerImpl.getLedgersInfoAsList();
-            log.info("managedListLedgers: %s", managedListLedgers);
-
-            managedCursor = managedLedgerImpl.newNonDurableCursor(PositionImpl.earliest);
-            long entries = managedCursor.getNumberOfEntriesInBacklog();
-
-            log.info("num of entries: %s", entries);
-
-
-
-            return entries;
-        } finally {
-            if (managedCursor != null) {
-                try
-                {
-                    managedCursor.close();
-                } catch (Exception e) {
-                    log.error(e);
-                }
+                splits.add(new PulsarSplit(i, this.connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(),
+                        entriesForSplit, schemaJson, startPosition.getEntryId(),
+                        endPosition.getEntryId(), startPosition.getLedgerId(), endPosition.getLedgerId()));
             }
-
-            if (managedLedger != null) {
+            return splits;
+        } finally {
+            if (readOnlyCursor != null) {
                 try {
-                    managedLedger.close();
+                    readOnlyCursor.close();
                 } catch (Exception e) {
                     log.error(e);
                 }
