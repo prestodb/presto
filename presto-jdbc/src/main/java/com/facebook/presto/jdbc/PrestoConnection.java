@@ -54,7 +54,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
@@ -83,6 +82,7 @@ public class PrestoConnection
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
@@ -98,6 +98,7 @@ public class PrestoConnection
         this.schema.set(uri.getSchema());
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
+        this.applicationNamePrefix = uri.getApplicationNamePrefix();
 
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
@@ -636,7 +637,18 @@ public class PrestoConnection
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
-        String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+        String source = "presto-jdbc";
+        String applicationName = clientInfo.get("ApplicationName");
+        if (applicationNamePrefix.isPresent()) {
+            source = applicationNamePrefix.get();
+            if (applicationName != null) {
+                source += applicationName;
+            }
+        }
+        else if (applicationName != null) {
+            source = applicationName;
+        }
+
         Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get("ClientTags")));

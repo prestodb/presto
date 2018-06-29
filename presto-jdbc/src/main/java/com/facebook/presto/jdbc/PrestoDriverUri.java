@@ -39,6 +39,7 @@ import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
 import static com.facebook.presto.jdbc.ConnectionProperties.ACCESS_TOKEN;
+import static com.facebook.presto.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -123,6 +124,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return USER.getRequiredValue(properties);
+    }
+
+    public Optional<String> getApplicationNamePrefix()
+            throws SQLException
+    {
+        return APPLICATION_NAME_PREFIX.getValue(properties);
     }
 
     public Properties getProperties()
