@@ -326,7 +326,7 @@ public class PipelineContext
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
         PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator());
 
-        int totalDriers = completedDrivers.get() + driverContexts.size();
+        int totalDrivers = completedDrivers.get() + driverContexts.size();
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -412,7 +412,7 @@ public class PipelineContext
                 inputPipeline,
                 outputPipeline,
 
-                totalDriers,
+                totalDrivers,
                 pipelineStatus.getQueuedDrivers(),
                 pipelineStatus.getQueuedPartitionedDrivers(),
                 pipelineStatus.getRunningDrivers(),
