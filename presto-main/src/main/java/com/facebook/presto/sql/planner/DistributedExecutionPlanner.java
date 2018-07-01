@@ -209,11 +209,18 @@ public class DistributedExecutionPlanner
                     return node.getSource().accept(this, context);
                 case SYSTEM:
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
-                    // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
                         PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
                         return ImmutableMap.of(planNodeId, sampledSplitSource);
+                    }
+                    else if (nodeSplits.size() > 1) {
+                        ImmutableMap.Builder<PlanNodeId, SplitSource> nodeSampledSplitsBuilder = new ImmutableMap.Builder<>();
+                        for (PlanNodeId planNodeId : nodeSplits.keySet()) {
+                            SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
+                            nodeSampledSplitsBuilder.put(planNodeId, sampledSplitSource);
+                        }
+                        return nodeSampledSplitsBuilder.build();
                     }
                     // table sampling on a sub query without splits is meaningless
                     return nodeSplits;
