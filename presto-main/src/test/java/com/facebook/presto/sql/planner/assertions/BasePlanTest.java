@@ -138,6 +138,11 @@ public class BasePlanTest
         });
     }
 
+    protected void assertDistributedPlan(String sql, PlanMatchPattern pattern)
+    {
+        assertPlanWithSession(sql, getQueryRunner().getDefaultSession(), false, pattern);
+    }
+
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
