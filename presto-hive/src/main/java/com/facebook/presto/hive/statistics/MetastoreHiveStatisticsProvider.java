@@ -33,10 +33,13 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.HashFunction;
 import org.joda.time.DateTimeZone;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -47,6 +50,7 @@ import java.util.PrimitiveIterator;
 import java.util.function.Function;
 import java.util.stream.DoubleStream;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.util.Statistics.getMinMaxAsPrestoNativeValues;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
@@ -61,6 +65,9 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.hash.Hashing.goodFastHash;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class MetastoreHiveStatisticsProvider
@@ -78,16 +85,20 @@ public class MetastoreHiveStatisticsProvider
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<HivePartition> hivePartitions, Map<String, ColumnHandle> tableColumns)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<HivePartition> queriedPartitions, Map<String, ColumnHandle> tableColumns)
     {
         if (!isStatisticsEnabled(session)) {
             return TableStatistics.EMPTY_STATISTICS;
         }
 
-        Map<String, PartitionStatistics> partitionStatistics = getPartitionsStatistics((HiveTableHandle) tableHandle, hivePartitions);
+        int queriedPartitionsCount = queriedPartitions.size();
+        int sampleSize = getPartitionStatisticsSampleSize(session);
+        List<HivePartition> samplePartitions = getPartitionsSample(queriedPartitions, sampleSize);
+
+        Map<String, PartitionStatistics> statisticsSample = getPartitionsStatistics((HiveTableHandle) tableHandle, samplePartitions);
 
         TableStatistics.Builder tableStatistics = TableStatistics.builder();
-        Estimate rowCount = calculateRowsCount(partitionStatistics);
+        Estimate rowCount = calculateRowsCount(statisticsSample, queriedPartitionsCount);
         tableStatistics.setRowCount(rowCount);
         for (Map.Entry<String, ColumnHandle> columnEntry : tableColumns.entrySet()) {
             String columnName = columnEntry.getKey();
@@ -100,10 +111,10 @@ public class MetastoreHiveStatisticsProvider
             Type prestoType = typeManager.getType(hiveColumnHandle.getTypeSignature());
             Estimate nullsFraction;
             if (hiveColumnHandle.isPartitionKey()) {
-                rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, hivePartitions));
-                nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatistics);
+                rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, queriedPartitions));
+                nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, queriedPartitions, statisticsSample);
                 if (isLowHighSupportedForType(prestoType)) {
-                    lowValueCandidates = hivePartitions.stream()
+                    lowValueCandidates = queriedPartitions.stream()
                             .map(HivePartition::getKeys)
                             .map(keys -> keys.get(hiveColumnHandle))
                             .filter(value -> !value.isNull())
@@ -113,11 +124,11 @@ public class MetastoreHiveStatisticsProvider
                 }
             }
             else {
-                rangeStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatistics, columnName));
-                nullsFraction = calculateNullsFraction(partitionStatistics, columnName, rowCount);
+                rangeStatistics.setDistinctValuesCount(calculateDistinctValuesCount(statisticsSample, columnName));
+                nullsFraction = calculateNullsFraction(statisticsSample, queriedPartitionsCount, columnName, rowCount);
 
                 if (isLowHighSupportedForType(prestoType)) {
-                    List<Range> ranges = partitionStatistics.values().stream()
+                    List<Range> ranges = statisticsSample.values().stream()
                             .map(PartitionStatistics::getColumnStatistics)
                             .filter(stats -> stats.containsKey(columnName))
                             .map(stats -> stats.get(columnName))
@@ -173,9 +184,9 @@ public class MetastoreHiveStatisticsProvider
         return false;
     }
 
-    private Estimate calculateRowsCount(Map<String, PartitionStatistics> partitionStatistics)
+    private Estimate calculateRowsCount(Map<String, PartitionStatistics> statisticsSample, int queriedPartitionsCount)
     {
-        List<Long> knownPartitionRowCounts = partitionStatistics.values().stream()
+        List<Long> knownPartitionRowCounts = statisticsSample.values().stream()
                 .map(stats -> stats.getBasicStatistics().getRowCount())
                 .filter(OptionalLong::isPresent)
                 .map(OptionalLong::getAsLong)
@@ -183,18 +194,17 @@ public class MetastoreHiveStatisticsProvider
 
         long knownPartitionRowCountsSum = knownPartitionRowCounts.stream().mapToLong(a -> a).sum();
         long partitionsWithStatsCount = knownPartitionRowCounts.size();
-        long allPartitionsCount = partitionStatistics.size();
 
         if (partitionsWithStatsCount == 0) {
             return Estimate.unknownValue();
         }
-        return new Estimate(1.0 * knownPartitionRowCountsSum / partitionsWithStatsCount * allPartitionsCount);
+        return new Estimate(1.0 * knownPartitionRowCountsSum / partitionsWithStatsCount * queriedPartitionsCount);
     }
 
-    private Estimate calculateDistinctValuesCount(Map<String, PartitionStatistics> statisticsByPartitionName, String column)
+    private Estimate calculateDistinctValuesCount(Map<String, PartitionStatistics> statisticsSample, String column)
     {
         return summarizePartitionStatistics(
-                statisticsByPartitionName.values(),
+                statisticsSample.values(),
                 column,
                 columnStatistics -> {
                     if (columnStatistics.getDistinctValuesCount().isPresent()) {
@@ -212,10 +222,10 @@ public class MetastoreHiveStatisticsProvider
                 DoubleStream::max);
     }
 
-    private Estimate calculateNullsFraction(Map<String, PartitionStatistics> statisticsByPartitionName, String column, Estimate totalRowsCount)
+    private Estimate calculateNullsFraction(Map<String, PartitionStatistics> statisticsSample, int totalPartitionsCount, String column, Estimate totalRowsCount)
     {
         Estimate totalNullsCount = summarizePartitionStatistics(
-                statisticsByPartitionName.values(),
+                statisticsSample.values(),
                 column,
                 columnStatistics -> {
                     if (columnStatistics.getNullsCount().isPresent()) {
@@ -237,8 +247,7 @@ public class MetastoreHiveStatisticsProvider
                         return OptionalDouble.empty();
                     }
                     else {
-                        int allPartitionsCount = statisticsByPartitionName.size();
-                        return OptionalDouble.of(allPartitionsCount / partitionsWithStatisticsCount * nullsCount);
+                        return OptionalDouble.of(totalPartitionsCount / partitionsWithStatisticsCount * nullsCount);
                     }
                 });
 
@@ -261,9 +270,9 @@ public class MetastoreHiveStatisticsProvider
                 .count());
     }
 
-    private Estimate calculateNullsFractionForPartitioningKey(HiveColumnHandle partitionColumn, List<HivePartition> partitions, Map<String, PartitionStatistics> partitionStatistics)
+    private Estimate calculateNullsFractionForPartitioningKey(HiveColumnHandle partitionColumn, List<HivePartition> partitions, Map<String, PartitionStatistics> statisticsSample)
     {
-        OptionalDouble rowsPerPartition = partitionStatistics.values().stream()
+        OptionalDouble rowsPerPartition = statisticsSample.values().stream()
                 .map(stats -> stats.getBasicStatistics().getRowCount())
                 .filter(OptionalLong::isPresent)
                 .mapToLong(OptionalLong::getAsLong)
@@ -280,7 +289,7 @@ public class MetastoreHiveStatisticsProvider
         double estimatedNullsCount = partitions.stream()
                 .filter(partition -> partition.getKeys().get(partitionColumn).isNull())
                 .map(HivePartition::getPartitionId)
-                .mapToLong(partitionId -> partitionStatistics.get(partitionId).getBasicStatistics().getRowCount().orElse((long) rowsPerPartition.getAsDouble()))
+                .mapToLong(partitionId -> statisticsSample.get(partitionId).getBasicStatistics().getRowCount().orElse((long) rowsPerPartition.getAsDouble()))
                 .sum();
         return new Estimate(estimatedNullsCount / estimatedTotalRowsCount);
     }
@@ -330,5 +339,53 @@ public class MetastoreHiveStatisticsProvider
                             .map(HivePartition::getPartitionId)
                             .collect(toImmutableSet()));
         }
+    }
+
+    @VisibleForTesting
+    static List<HivePartition> getPartitionsSample(List<HivePartition> partitions, int sampleSize)
+    {
+        checkArgument(sampleSize > 0, "sampleSize is expected to be greater than zero");
+
+        if (partitions.size() <= sampleSize) {
+            return partitions;
+        }
+
+        List<HivePartition> result = new ArrayList<>();
+
+        int samplesLeft = sampleSize;
+
+        if (samplesLeft > 0) {
+            HivePartition min = partitions.get(0);
+            HivePartition max = partitions.get(0);
+            for (HivePartition partition : partitions) {
+                if (partition.getPartitionId().compareTo(min.getPartitionId()) < 0) {
+                    min = partition;
+                }
+                else if (partition.getPartitionId().compareTo(max.getPartitionId()) > 0) {
+                    max = partition;
+                }
+            }
+            result.add(min);
+            samplesLeft--;
+            if (samplesLeft > 0) {
+                result.add(max);
+                samplesLeft--;
+            }
+        }
+
+        if (samplesLeft > 0) {
+            HashFunction hashFunction = goodFastHash(32);
+            Comparator<Map.Entry<HivePartition, Integer>> hashComparator = Comparator
+                    .<Map.Entry<HivePartition, Integer>, Integer>comparing(Map.Entry::getValue)
+                    .thenComparing(entry -> entry.getKey().getPartitionId());
+            partitions.stream()
+                    .filter(partition -> !result.contains(partition))
+                    .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asInt()))
+                    .sorted(hashComparator)
+                    .limit(sampleSize)
+                    .forEach(entry -> result.add(entry.getKey()));
+        }
+
+        return unmodifiableList(result);
     }
 }
