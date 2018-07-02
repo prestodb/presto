@@ -104,7 +104,7 @@ script:
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
