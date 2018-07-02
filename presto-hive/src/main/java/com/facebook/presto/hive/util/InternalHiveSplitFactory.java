@@ -86,18 +86,19 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.empty());
+        return createInternalHiveSplit(status, OptionalInt.empty(), splittable);
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber));
+        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber), false);
     }
 
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber)
+    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable)
     {
+        splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
@@ -105,7 +106,7 @@ public class InternalHiveSplitFactory
                 status.getLen(),
                 status.getLen(),
                 bucketNumber,
-                isSplittable(inputFormat, fileSystem, status.getPath()));
+                splittable);
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
