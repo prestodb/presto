@@ -25,8 +25,10 @@ import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
+import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
@@ -491,6 +493,62 @@ public class TestJdbcPreparedStatement
         assertInvalidConversion((ps, i) -> ps.setObject(i, String.class), "Unsupported object type: java.lang.Class");
         assertInvalidConversion((ps, i) -> ps.setObject(i, String.class, Types.BIGINT), "Cannot convert instance of java.lang.Class to SQL type " + Types.BIGINT);
         assertInvalidConversion((ps, i) -> ps.setObject(i, "abc", Types.SMALLINT), "Cannot convert instance of java.lang.String to SQL type " + Types.SMALLINT);
+    }
+
+    @Test
+    public void testGetMetadata()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT 1 as intval, ? as unknownval")) {
+                ResultSetMetaData metadata = statement.getMetaData();
+                assertEquals(metadata.getColumnCount(), 2);
+
+                assertEquals(metadata.getCatalogName(1), "");
+                assertEquals(metadata.getSchemaName(1), "");
+                assertEquals(metadata.getTableName(1), "");
+                assertEquals(metadata.getColumnClassName(1), "java.lang.Integer");
+                assertEquals(metadata.getColumnDisplaySize(1), 11);
+                assertEquals(metadata.getColumnLabel(1), "intval");
+                assertEquals(metadata.getColumnName(1), "intval");
+                assertEquals(metadata.getColumnType(1), Types.INTEGER);
+                assertEquals(metadata.getColumnTypeName(1), "integer");
+                assertEquals(metadata.getPrecision(1), 10);
+                assertEquals(metadata.getScale(1), 0);
+                assertTrue(metadata.isSigned(1));
+
+                assertEquals(metadata.getColumnLabel(2), "unknownval");
+                assertEquals(metadata.getColumnName(2), "unknownval");
+                assertEquals(metadata.getColumnTypeName(2), "unknown");
+            }
+        }
+    }
+
+    @Test
+    public void testGetParameterMetadata()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT *, ? as unknownval FROM (SELECT true as c_boolean, 1 as c_int) WHERE c_boolean = ? AND c_int > ?")) {
+                ParameterMetaData metadata = statement.getParameterMetaData();
+                assertEquals(metadata.getParameterCount(), 3);
+
+                assertEquals(metadata.getParameterTypeName(1), "unknown");
+
+                assertEquals(metadata.getParameterTypeName(2), "boolean");
+                assertEquals(metadata.getParameterType(2), Types.BOOLEAN);
+                assertEquals(metadata.getParameterClassName(2), "java.lang.Boolean");
+                assertEquals(metadata.getParameterMode(2), ParameterMetaData.parameterModeIn);
+
+                assertEquals(metadata.getParameterTypeName(3), "integer");
+                assertEquals(metadata.getParameterType(3), Types.INTEGER);
+                assertEquals(metadata.getParameterClassName(3), "java.lang.Integer");
+                assertEquals(metadata.getParameterMode(3), ParameterMetaData.parameterModeIn);
+                assertEquals(metadata.getPrecision(3), 10);
+                assertEquals(metadata.getScale(3), 0);
+                assertTrue(metadata.isSigned(3));
+            }
+        }
     }
 
     private void assertInvalidConversion(Binder binder, String message)

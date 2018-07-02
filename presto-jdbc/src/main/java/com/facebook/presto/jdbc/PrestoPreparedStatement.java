@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.io.InputStream;
@@ -44,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.jdbc.AbstractInfo.Nullable.NULLABLE;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBigDecimal;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBinary;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBoolean;
@@ -59,6 +61,7 @@ import static com.facebook.presto.jdbc.ObjectCasts.castToTimestamp;
 import static com.facebook.presto.jdbc.PrestoResultSet.DATE_FORMATTER;
 import static com.facebook.presto.jdbc.PrestoResultSet.TIMESTAMP_FORMATTER;
 import static com.facebook.presto.jdbc.PrestoResultSet.TIME_FORMATTER;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -455,7 +458,26 @@ public class PrestoPreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getMetaData");
+        try (PrestoStatement statement = (PrestoStatement) getConnection().createStatement()) {
+            ResultSet rs = statement.executeQuery("DESCRIBE OUTPUT " + statementName);
+
+            ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
+
+            while (rs.next()) {
+                ColumnInfo.Builder builder = new ColumnInfo.Builder()
+                        .setCatalogName(rs.getString(2))
+                        .setSchemaName(rs.getString(3))
+                        .setTableName(rs.getString(4))
+                        .setColumnLabel(rs.getString(1))
+                        .setColumnName(rs.getString(1))
+                        .setColumnTypeSignature(parseTypeSignature(rs.getString(5)))
+                        .setNullable(NULLABLE)
+                        .setCurrency(false);
+                ColumnInfo.setTypeInfo(builder, parseTypeSignature(rs.getString(5)));
+                list.add(builder.build());
+            }
+            return new PrestoResultSetMetaData(list.build());
+        }
     }
 
     @Override
@@ -497,7 +519,21 @@ public class PrestoPreparedStatement
     public ParameterMetaData getParameterMetaData()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "getParameterMetaData");
+        try (PrestoStatement statement = (PrestoStatement) getConnection().createStatement()) {
+            ResultSet rs = statement.executeQuery("DESCRIBE INPUT " + statementName);
+
+            ImmutableList.Builder<ParameterInfo> list = ImmutableList.builder();
+
+            while (rs.next()) {
+                ParameterInfo.Builder builder = new ParameterInfo.Builder()
+                        .setPosition(rs.getInt(1))
+                        .setParameterTypeSignature(parseTypeSignature(rs.getString(2)))
+                        .setNullable(NULLABLE);
+                ParameterInfo.setTypeInfo(builder, parseTypeSignature(rs.getString(2)));
+                list.add(builder.build());
+            }
+            return new PrestoParameterMetaData(list.build());
+        }
     }
 
     @Override

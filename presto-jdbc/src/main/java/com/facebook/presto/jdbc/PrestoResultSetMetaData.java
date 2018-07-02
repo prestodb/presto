@@ -15,22 +15,14 @@ package com.facebook.presto.jdbc;
 
 import com.google.common.collect.ImmutableList;
 
-import java.math.BigDecimal;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSetMetaData
-        implements ResultSetMetaData
+        extends AbstractMetaData implements ResultSetMetaData
 {
     private final List<ColumnInfo> columnInfo;
 
@@ -78,7 +70,7 @@ public class PrestoResultSetMetaData
     public int isNullable(int column)
             throws SQLException
     {
-        ColumnInfo.Nullable nullable = column(column).getNullable();
+        AbstractInfo.Nullable nullable = column(column).getNullable();
         switch (nullable) {
             case NO_NULLS:
                 return columnNoNulls;
@@ -192,45 +184,7 @@ public class PrestoResultSetMetaData
     public String getColumnClassName(int column)
             throws SQLException
     {
-        // see javax.sql.rowset.RowSetMetaDataImpl
-        switch (column(column).getColumnType()) {
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                return BigDecimal.class.getName();
-            case Types.BOOLEAN:
-            case Types.BIT:
-                return Boolean.class.getName();
-            case Types.TINYINT:
-                return Byte.class.getName();
-            case Types.SMALLINT:
-                return Short.class.getName();
-            case Types.INTEGER:
-                return Integer.class.getName();
-            case Types.BIGINT:
-                return Long.class.getName();
-            case Types.REAL:
-                return Float.class.getName();
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return Double.class.getName();
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return "byte[]";
-            case Types.DATE:
-                return Date.class.getName();
-            case Types.TIME:
-                return Time.class.getName();
-            case Types.TIMESTAMP:
-                return Timestamp.class.getName();
-            case Types.BLOB:
-                return Blob.class.getName();
-            case Types.CLOB:
-                return Clob.class.getName();
-            case Types.ARRAY:
-                return Array.class.getName();
-        }
-        return String.class.getName();
+        return getClassNameByType(column(column).getColumnType());
     }
 
     @SuppressWarnings("unchecked")
