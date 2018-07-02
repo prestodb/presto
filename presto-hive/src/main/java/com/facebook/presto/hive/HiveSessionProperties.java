@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -26,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -69,6 +71,7 @@ public final class HiveSessionProperties
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String WRITER_SORT_BUFFER_SIZE = "writer_sort_buffer_size";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -252,6 +255,11 @@ public final class HiveSessionProperties
                         STATISTICS_ENABLED,
                         "Experimental: Expose table statistics",
                         hiveClientConfig.isTableStatisticsEnabled(),
+                        false),
+                integerProperty(
+                        PARTITION_STATISTICS_SAMPLE_SIZE,
+                        "Maximum sample size of the partitions column statistics",
+                        hiveClientConfig.getPartitionStatisticsSampleSize(),
                         false));
     }
 
@@ -423,6 +431,15 @@ public final class HiveSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static int getPartitionStatisticsSampleSize(ConnectorSession session)
+    {
+        int size = session.getProperty(PARTITION_STATISTICS_SAMPLE_SIZE, Integer.class);
+        if (size < 1) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
+        }
+        return size;
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
