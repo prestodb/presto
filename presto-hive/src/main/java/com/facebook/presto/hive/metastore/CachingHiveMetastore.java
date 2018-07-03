@@ -199,6 +199,9 @@ public class CachingHiveMetastore
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
         userTablePrivileges.invalidateAll();
+        tableColumnStatisticsCache.invalidateAll();
+        partitionColumnStatisticsCache.invalidateAll();
+        userRolesCache.invalidateAll();
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
