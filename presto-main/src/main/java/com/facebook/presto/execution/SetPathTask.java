@@ -45,7 +45,13 @@ public class SetPathTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetPath statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(
+            SetPath statement,
+            TransactionManager transactionManager,
+            Metadata metadata,
+            AccessControl accessControl,
+            QueryStateMachine stateMachine,
+            List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
 
