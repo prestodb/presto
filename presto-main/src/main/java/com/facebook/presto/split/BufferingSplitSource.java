@@ -118,7 +118,7 @@ public class BufferingSplitSource
                     return immediateFuture(null);
                 }
                 return fetchSplits();
-            });
+            }, directExecutor());
         }
     }
 }
