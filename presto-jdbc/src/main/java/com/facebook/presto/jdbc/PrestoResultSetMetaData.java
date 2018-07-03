@@ -19,7 +19,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
-import static com.facebook.presto.jdbc.PrestoParameterMetaData.getClassNameByType;
+import static com.facebook.presto.jdbc.util.MetaDataUtils.getClassNameByType;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSetMetaData

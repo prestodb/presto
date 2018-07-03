@@ -15,18 +15,11 @@ package com.facebook.presto.jdbc;
 
 import com.google.common.collect.ImmutableList;
 
-import java.math.BigDecimal;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.List;
 
+import static com.facebook.presto.jdbc.util.MetaDataUtils.getClassNameByType;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoParameterMetaData
@@ -101,49 +94,6 @@ public class PrestoParameterMetaData
     public int getParameterMode(int param) throws SQLException
     {
         return parameterModeIn;
-    }
-
-    public static String getClassNameByType(int type)
-    {
-        // see javax.sql.rowset.RowSetMetaDataImpl
-        switch (type) {
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                return BigDecimal.class.getName();
-            case Types.BOOLEAN:
-            case Types.BIT:
-                return Boolean.class.getName();
-            case Types.TINYINT:
-                return Byte.class.getName();
-            case Types.SMALLINT:
-                return Short.class.getName();
-            case Types.INTEGER:
-                return Integer.class.getName();
-            case Types.BIGINT:
-                return Long.class.getName();
-            case Types.REAL:
-                return Float.class.getName();
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return Double.class.getName();
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return "byte[]";
-            case Types.DATE:
-                return Date.class.getName();
-            case Types.TIME:
-                return Time.class.getName();
-            case Types.TIMESTAMP:
-                return Timestamp.class.getName();
-            case Types.BLOB:
-                return Blob.class.getName();
-            case Types.CLOB:
-                return Clob.class.getName();
-            case Types.ARRAY:
-                return Array.class.getName();
-        }
-        return String.class.getName();
     }
 
     @SuppressWarnings("unchecked")
