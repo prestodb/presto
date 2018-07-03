@@ -472,6 +472,7 @@ public class CachingHiveMetastore
         userTablePrivileges.asMap().keySet().stream()
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(userTablePrivileges::invalidate);
+        tableColumnStatisticsCache.invalidate(new HiveTableName(databaseName, tableName));
         invalidatePartitionCache(databaseName, tableName);
     }
 
@@ -608,6 +609,9 @@ public class CachingHiveMetastore
         partitionFilterCache.asMap().keySet().stream()
                 .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
                 .forEach(partitionFilterCache::invalidate);
+        partitionColumnStatisticsCache.asMap().keySet().stream()
+                .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionColumnStatisticsCache::invalidate);
     }
 
     @Override
