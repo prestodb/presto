@@ -56,6 +56,7 @@ import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
@@ -310,7 +311,7 @@ public class SqlTask
         }
 
         ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskStatus());
+        return Futures.transform(futureTaskState, input -> getTaskStatus(), directExecutor());
     }
 
     public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
@@ -326,7 +327,7 @@ public class SqlTask
         }
 
         ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskInfo());
+        return Futures.transform(futureTaskState, input -> getTaskInfo(), directExecutor());
     }
 
     public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
