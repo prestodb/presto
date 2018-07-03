@@ -1456,7 +1456,7 @@ public class TestExpressionCompiler
                 Boolean expected = null;
                 if (value != null && pattern != null) {
                     Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
-                    expected = LikeFunctions.like(utf8Slice(value), regex);
+                    expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
             }

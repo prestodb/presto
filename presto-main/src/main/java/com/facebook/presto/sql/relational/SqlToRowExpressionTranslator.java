@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.RowType;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -106,8 +108,9 @@ import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.dereferenceSignature;
+import static com.facebook.presto.sql.relational.Signatures.likeCharSignature;
 import static com.facebook.presto.sql.relational.Signatures.likePatternSignature;
-import static com.facebook.presto.sql.relational.Signatures.likeSignature;
+import static com.facebook.presto.sql.relational.Signatures.likeVarcharSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
 import static com.facebook.presto.sql.relational.Signatures.rowConstructorSignature;
@@ -700,10 +703,20 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape() != null) {
                 RowExpression escape = process(node.getEscape(), context);
-                return call(likeSignature(), BOOLEAN, value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
+                return likeFunctionCall(value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
             }
 
-            return call(likeSignature(), BOOLEAN, value, call(castSignature(LIKE_PATTERN, VARCHAR), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(castSignature(LIKE_PATTERN, VARCHAR), LIKE_PATTERN, pattern));
+        }
+
+        private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
+        {
+            if (value.getType() instanceof VarcharType) {
+                return call(likeVarcharSignature(), BOOLEAN, value, pattern);
+            }
+
+            checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
+            return call(likeCharSignature(value.getType()), BOOLEAN, value, pattern);
         }
 
         @Override

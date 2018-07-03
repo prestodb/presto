@@ -16,6 +16,7 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -36,6 +37,7 @@ import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class Signatures
@@ -68,9 +70,15 @@ public final class Signatures
         return internalOperator("BETWEEN", parseTypeSignature(StandardTypes.BOOLEAN), valueType.getTypeSignature(), minType.getTypeSignature(), maxType.getTypeSignature());
     }
 
-    public static Signature likeSignature()
+    public static Signature likeVarcharSignature()
     {
         return internalScalarFunction("LIKE", parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(LikePatternType.NAME));
+    }
+
+    public static Signature likeCharSignature(Type valueType)
+    {
+        checkArgument(valueType instanceof CharType, "Expected CHAR value type");
+        return internalScalarFunction("LIKE", parseTypeSignature(StandardTypes.BOOLEAN), valueType.getTypeSignature(), parseTypeSignature(LikePatternType.NAME));
     }
 
     public static Signature likePatternSignature()
