@@ -615,9 +615,12 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLikePredicate(LikePredicate node, StackableAstVisitorContext<Context> context)
         {
-            Type valueType = getVarcharType(node.getValue(), context);
+            Type valueType = process(node.getValue(), context);
+            if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
+                coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
+            }
+
             Type patternType = getVarcharType(node.getPattern(), context);
-            coerceType(context, node.getValue(), valueType, "Left side of LIKE expression");
             coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
             if (node.getEscape() != null) {
                 Type escapeType = getVarcharType(node.getEscape(), context);

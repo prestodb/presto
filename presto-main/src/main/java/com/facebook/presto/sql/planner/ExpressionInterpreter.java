@@ -28,11 +28,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -1015,7 +1017,7 @@ public class ExpressionInterpreter
                     node.getPattern() instanceof StringLiteral &&
                     (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
                 // fast path when we know the pattern and escape are constant
-                return LikeFunctions.like((Slice) value, getConstantPattern(node));
+                return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
             }
 
             Object pattern = process(node.getPattern(), context);
@@ -1044,7 +1046,7 @@ public class ExpressionInterpreter
                     regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
                 }
 
-                return LikeFunctions.like((Slice) value, regex);
+                return evaluateLikePredicate(node, (Slice) value, regex);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -1076,6 +1078,17 @@ public class ExpressionInterpreter
                     toExpression(value, type(node.getValue())),
                     toExpression(pattern, type(node.getPattern())),
                     optimizedEscape);
+        }
+
+        private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)
+        {
+            if (type(node.getValue()) instanceof VarcharType) {
+                return LikeFunctions.likeVarchar(value, regex);
+            }
+
+            Type type = type(node.getValue());
+            checkState(type instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
+            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
         }
 
         private Regex getConstantPattern(LikePredicate node)
