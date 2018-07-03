@@ -200,7 +200,7 @@ public class MockRemoteTaskFactory
                     taskId,
                     TASK_INSTANCE_ID,
                     executor,
-                    requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"),
+                    new DataSize(1, BYTE),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
