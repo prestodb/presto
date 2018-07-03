@@ -19,7 +19,6 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.jdbc.AbstractInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1826,7 +1825,7 @@ public class PrestoResultSet
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
                     .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
-                    .setNullable(Nullable.UNKNOWN)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN)
                     .setCurrency(false);
             setTypeInfo(builder, parseTypeSignature(column.getType()));
             list.add(builder.build());

@@ -23,8 +23,16 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 class ColumnInfo
-        extends AbstractInfo
 {
+    public static final int VARCHAR_MAX = 1024 * 1024 * 1024;
+    public static final int VARBINARY_MAX = 1024 * 1024 * 1024;
+    public static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
+    public static final int TIME_MAX = "HH:mm:ss.SSS".length();
+    public static final int TIME_WITH_TIME_ZONE_MAX = TIME_MAX + TIME_ZONE_MAX;
+    public static final int TIMESTAMP_MAX = "yyyy-MM-dd HH:mm:ss.SSS".length();
+    public static final int TIMESTAMP_WITH_TIME_ZONE_MAX = TIMESTAMP_MAX + TIME_ZONE_MAX;
+    public static final int DATE_MAX = "yyyy-MM-dd".length();
+
     private final int columnType;
     private final List<Integer> columnParameterTypes;
     private final TypeSignature columnTypeSignature;
@@ -39,6 +47,11 @@ class ColumnInfo
     private final String tableName;
     private final String schemaName;
     private final String catalogName;
+
+    public enum Nullable
+    {
+        NO_NULLS, NULLABLE, UNKNOWN
+    }
 
     public ColumnInfo(
             int columnType,
@@ -181,6 +194,51 @@ class ColumnInfo
         switch (typeParameter.getKind()) {
             case TYPE:
                 return getType(typeParameter.getTypeSignature());
+            default:
+                return Types.JAVA_OBJECT;
+        }
+    }
+
+    public static int getType(TypeSignature type)
+    {
+        if (type.getBase().equals("array")) {
+            return Types.ARRAY;
+        }
+        switch (type.getBase()) {
+            case "boolean":
+                return Types.BOOLEAN;
+            case "bigint":
+                return Types.BIGINT;
+            case "integer":
+                return Types.INTEGER;
+            case "smallint":
+                return Types.SMALLINT;
+            case "tinyint":
+                return Types.TINYINT;
+            case "real":
+                return Types.REAL;
+            case "double":
+                return Types.DOUBLE;
+            case "varchar":
+                return Types.VARCHAR;
+            case "char":
+                return Types.CHAR;
+            case "varbinary":
+                return Types.VARBINARY;
+            case "time":
+                return Types.TIME;
+            case "time with time zone":
+                return Types.TIME;
+            case "timestamp":
+                return Types.TIMESTAMP;
+            case "timestamp with time zone":
+                return Types.TIMESTAMP;
+            case "date":
+                return Types.DATE;
+            case "decimal":
+                return Types.DECIMAL;
+            case "unknown":
+                return Types.NULL;
             default:
                 return Types.JAVA_OBJECT;
         }

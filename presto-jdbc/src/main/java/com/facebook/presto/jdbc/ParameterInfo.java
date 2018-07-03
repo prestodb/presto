@@ -15,10 +15,10 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.spi.type.TypeSignature;
 
+import static com.facebook.presto.jdbc.ColumnInfo.*;
 import static java.util.Objects.requireNonNull;
 
 public class ParameterInfo
-        extends AbstractInfo
 {
     private final int position;
     private final int parameterType;

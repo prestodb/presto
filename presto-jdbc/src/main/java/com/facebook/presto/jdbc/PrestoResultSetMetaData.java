@@ -19,10 +19,11 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.jdbc.PrestoParameterMetaData.getClassNameByType;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSetMetaData
-        extends AbstractMetaData implements ResultSetMetaData
+        implements ResultSetMetaData
 {
     private final List<ColumnInfo> columnInfo;
 
@@ -70,7 +71,7 @@ public class PrestoResultSetMetaData
     public int isNullable(int column)
             throws SQLException
     {
-        AbstractInfo.Nullable nullable = column(column).getNullable();
+        ColumnInfo.Nullable nullable = column(column).getNullable();
         switch (nullable) {
             case NO_NULLS:
                 return columnNoNulls;
