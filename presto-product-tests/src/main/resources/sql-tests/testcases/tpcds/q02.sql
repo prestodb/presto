@@ -22,13 +22,13 @@ UNION ALL (
 , wswscs AS (
    SELECT
      "d_week_seq"
-   , "sum"((CASE WHEN ("d_day_name" = 'Sunday   ') THEN "sales_price" ELSE null END)) "sun_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Monday   ') THEN "sales_price" ELSE null END)) "mon_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Tuesday  ') THEN "sales_price" ELSE null END)) "tue_sales"
+   , "sum"((CASE WHEN ("d_day_name" = 'Sunday') THEN "sales_price" ELSE null END)) "sun_sales"
+   , "sum"((CASE WHEN ("d_day_name" = 'Monday') THEN "sales_price" ELSE null END)) "mon_sales"
+   , "sum"((CASE WHEN ("d_day_name" = 'Tuesday') THEN "sales_price" ELSE null END)) "tue_sales"
    , "sum"((CASE WHEN ("d_day_name" = 'Wednesday') THEN "sales_price" ELSE null END)) "wed_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Thursday ') THEN "sales_price" ELSE null END)) "thu_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Friday   ') THEN "sales_price" ELSE null END)) "fri_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Saturday ') THEN "sales_price" ELSE null END)) "sat_sales"
+   , "sum"((CASE WHEN ("d_day_name" = 'Thursday') THEN "sales_price" ELSE null END)) "thu_sales"
+   , "sum"((CASE WHEN ("d_day_name" = 'Friday') THEN "sales_price" ELSE null END)) "fri_sales"
+   , "sum"((CASE WHEN ("d_day_name" = 'Saturday') THEN "sales_price" ELSE null END)) "sat_sales"
    FROM
      wscs
    , date_dim
