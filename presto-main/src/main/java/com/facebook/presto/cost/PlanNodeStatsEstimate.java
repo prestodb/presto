@@ -70,11 +70,12 @@ public class PlanNodeStatsEstimate
     private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics)
     {
         double averageRowSize = symbolStatistics.getAverageRowSize();
+        double numberOfNonNullRows = outputRowCount * (1.0 - symbolStatistics.getNullsFraction());
         if (isNaN(averageRowSize)) {
             // TODO take into consideration data type of column
-            return outputRowCount * DEFAULT_DATA_SIZE_PER_COLUMN;
+            return numberOfNonNullRows * DEFAULT_DATA_SIZE_PER_COLUMN;
         }
-        return outputRowCount * averageRowSize;
+        return numberOfNonNullRows * averageRowSize;
     }
 
     public PlanNodeStatsEstimate mapOutputRowCount(Function<Double, Double> mappingFunction)
