@@ -50,6 +50,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIO
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -201,7 +202,7 @@ public class HivePageSink
             List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
                     .map(future -> (ListenableFuture<?>) future)
                     .collect(toList());
-            return Futures.transform(Futures.allAsList(futures), input -> result);
+            return Futures.transform(Futures.allAsList(futures), input -> result, directExecutor());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -59,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -412,7 +413,7 @@ class HiveSplitSource
             else {
                 return new ConnectorSplitBatch(splits, false);
             }
-        });
+        }, directExecutor());
 
         return toCompletableFuture(transform);
     }
