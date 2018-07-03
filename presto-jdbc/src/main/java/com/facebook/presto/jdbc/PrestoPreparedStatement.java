@@ -46,7 +46,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.jdbc.ColumnInfo.Nullable.NULLABLE;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBigDecimal;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBinary;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBoolean;
@@ -62,6 +61,7 @@ import static com.facebook.presto.jdbc.ObjectCasts.castToTimestamp;
 import static com.facebook.presto.jdbc.PrestoResultSet.DATE_FORMATTER;
 import static com.facebook.presto.jdbc.PrestoResultSet.TIMESTAMP_FORMATTER;
 import static com.facebook.presto.jdbc.PrestoResultSet.TIME_FORMATTER;
+import static com.facebook.presto.jdbc.TypeInfo.Nullable.NULLABLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
@@ -470,10 +470,9 @@ public class PrestoPreparedStatement
                             .setTableName(rs.getString(4))
                             .setColumnLabel(rs.getString(1))
                             .setColumnName(rs.getString(1))
-                            .setColumnTypeSignature(parseTypeSignature(rs.getString(5)))
+                            .setTypeSignature(parseTypeSignature(rs.getString(5)))
                             .setNullable(NULLABLE)
                             .setCurrency(false);
-                    ColumnInfo.setTypeInfo(builder, parseTypeSignature(rs.getString(5)));
                     list.add(builder.build());
                 }
                 return new PrestoResultSetMetaData(list.build());
@@ -527,9 +526,8 @@ public class PrestoPreparedStatement
                 while (rs.next()) {
                     ParameterInfo.Builder builder = new ParameterInfo.Builder()
                             .setPosition(rs.getInt(1))
-                            .setParameterTypeSignature(parseTypeSignature(rs.getString(2)))
+                            .setTypeSignature(parseTypeSignature(rs.getString(2)))
                             .setNullable(NULLABLE);
-                    ParameterInfo.setTypeInfo(builder, parseTypeSignature(rs.getString(2)));
                     list.add(builder.build());
                 }
                 return new PrestoParameterMetaData(list.build());

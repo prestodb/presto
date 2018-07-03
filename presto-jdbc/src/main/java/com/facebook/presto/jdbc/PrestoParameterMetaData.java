@@ -49,7 +49,7 @@ public class PrestoParameterMetaData
     public int isNullable(int param)
             throws SQLException
     {
-        ColumnInfo.Nullable nullable = parameter(param).getNullable();
+        TypeInfo.Nullable nullable = parameter(param).getNullable();
         switch (nullable) {
             case NO_NULLS:
                 return parameterNoNulls;

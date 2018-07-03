@@ -71,7 +71,7 @@ public class PrestoResultSetMetaData
     public int isNullable(int column)
             throws SQLException
     {
-        ColumnInfo.Nullable nullable = column(column).getNullable();
+        TypeInfo.Nullable nullable = column(column).getNullable();
         switch (nullable) {
             case NO_NULLS:
                 return columnNoNulls;

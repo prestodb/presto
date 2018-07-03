@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
+import static com.facebook.presto.jdbc.TypeInfo.Nullable.UNKNOWN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -1824,10 +1824,9 @@ public class PrestoResultSet
                     .setTableName("") // TODO
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
-                    .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
-                    .setNullable(ColumnInfo.Nullable.UNKNOWN)
-                    .setCurrency(false);
-            setTypeInfo(builder, parseTypeSignature(column.getType()));
+                    .setNullable(UNKNOWN)
+                    .setCurrency(false)
+                    .setTypeSignature(parseTypeSignature(column.getType()));
             list.add(builder.build());
         }
         return list.build();
