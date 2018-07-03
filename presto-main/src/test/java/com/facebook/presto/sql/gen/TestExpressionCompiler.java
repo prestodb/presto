@@ -1033,7 +1033,7 @@ public class TestExpressionCompiler
                         expected = "else";
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' else 'else' end",
-                            Arrays.<Object>asList(value, firstTest, value, secondTest),
+                            Arrays.asList(value, firstTest, value, secondTest),
                             ImmutableList.of("double", "bigint", "double", "decimal(1,0)"));
                     assertExecute(expressions, createVarcharType(6), expected);
                 }
@@ -1088,7 +1088,7 @@ public class TestExpressionCompiler
                         expected = null;
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' end",
-                            Arrays.<Object>asList(value, firstTest, value, secondTest),
+                            Arrays.asList(value, firstTest, value, secondTest),
                             ImmutableList.of("decimal(14,4)", "bigint", "decimal(14,4)", "double"));
                     assertExecute(expressions, createVarcharType(6), expected);
                 }
