@@ -49,4 +49,40 @@ public class TestHiveClientGlueMetastore
     {
         // rename table is not yet supported by Glue
     }
+
+    @Override
+    public void testUpdateTableColumnStatistics()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
+
+    @Override
+    public void testUpdateTableColumnStatisticsEmptyOptionalFields()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
+
+    @Override
+    public void testUpdatePartitionColumnStatistics()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
+
+    @Override
+    public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
+
+    @Override
+    public void testMigrateTableColumnStatistics()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
+
+    @Override
+    public void testMigratePartitionColumnStatistics()
+    {
+        // column level statistics are not supported by the Glue Metastore
+    }
 }

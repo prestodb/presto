@@ -14,21 +14,21 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.util.Statistics.ReduceOperator;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
+
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
-import static com.facebook.presto.hive.HiveBasicStatistics.createFromPartitionParameters;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
-import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
-import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
+import static com.facebook.presto.hive.util.Statistics.merge;
 import static com.facebook.presto.hive.util.Statistics.reduce;
-import static com.facebook.presto.hive.util.Statistics.updateStatistics;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatistics
@@ -53,74 +53,102 @@ public class TestStatistics
     }
 
     @Test
-    public void testUpdateTableStatistics()
+    public void testMergeHiveColumnStatistics()
     {
-        testUpdateTableStatistics(ADD, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(SUBTRACT, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(ADD, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(SUBTRACT, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(ADD, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(SUBTRACT, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(
-                ADD,
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(2, 3, 4, 5),
-                new HiveBasicStatistics(3, 5, 7, 9));
-        testUpdateTableStatistics(
-                SUBTRACT,
-                new HiveBasicStatistics(11, 9, 7, 5),
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(10, 7, 4, 1));
+        assertMergeHiveColumnStatistics(
+                new HiveColumnStatistics(
+                        Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()),
+                OptionalLong.empty(),
+                new HiveColumnStatistics(
+                        Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()),
+                OptionalLong.empty(),
+                new HiveColumnStatistics(
+                        Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+
+        assertMergeHiveColumnStatistics(
+                new HiveColumnStatistics(
+                        Optional.empty(), Optional.empty(), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()),
+                OptionalLong.empty(),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(1), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                OptionalLong.empty(),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.empty(), OptionalDouble.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+
+        assertMergeHiveColumnStatistics(
+                new HiveColumnStatistics(
+                        Optional.of(6L), Optional.of(4L), OptionalLong.of(5), OptionalDouble.of(3), OptionalLong.of(7), OptionalLong.of(9), OptionalLong.of(2), OptionalLong.of(8)),
+                OptionalLong.of(1),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(3), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                OptionalLong.of(1),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(5), OptionalDouble.of(2.5), OptionalLong.of(10), OptionalLong.of(13), OptionalLong.of(7), OptionalLong.of(8)));
+
+        assertMergeHiveColumnStatistics(
+                new HiveColumnStatistics(
+                        Optional.of(6L), Optional.of(4L), OptionalLong.of(5), OptionalDouble.of(3), OptionalLong.of(7), OptionalLong.of(9), OptionalLong.of(2), OptionalLong.of(8)),
+                OptionalLong.empty(),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(3), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                OptionalLong.of(1),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(5), OptionalDouble.empty(), OptionalLong.of(10), OptionalLong.of(13), OptionalLong.of(7), OptionalLong.of(8)));
+
+        assertMergeHiveColumnStatistics(
+                new HiveColumnStatistics(
+                        Optional.of(6L), Optional.of(4L), OptionalLong.of(5), OptionalDouble.of(3), OptionalLong.of(7), OptionalLong.of(9), OptionalLong.of(2), OptionalLong.of(8)),
+                OptionalLong.of(4),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(3), OptionalDouble.of(4), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                OptionalLong.of(1),
+                new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(5), OptionalDouble.of(3.2), OptionalLong.of(10), OptionalLong.of(13), OptionalLong.of(7), OptionalLong.of(8)));
+
+        assertMergeHiveColumnStatistics(
+                new HiveColumnStatistics(
+                        Optional.of("5"), Optional.of("5"), OptionalLong.of(3), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                OptionalLong.of(1),
+                new HiveColumnStatistics(
+                        Optional.of("6"), Optional.of("4"), OptionalLong.of(5), OptionalDouble.of(3), OptionalLong.of(7), OptionalLong.of(9), OptionalLong.of(2), OptionalLong.of(8)),
+                OptionalLong.of(1),
+                new HiveColumnStatistics(
+                        Optional.of("5"), Optional.of("5"), OptionalLong.of(5), OptionalDouble.of(2.5), OptionalLong.of(10), OptionalLong.of(13), OptionalLong.of(7), OptionalLong.of(8)));
     }
 
     @Test
-    public void testUpdatePartitionStatistics()
+    public void testMergeHiveColumnStatisticsMap()
     {
-        testUpdatePartitionStatistics(ADD, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(SUBTRACT, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(ADD, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(SUBTRACT, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(ADD, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(SUBTRACT, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(
-                ADD,
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(2, 3, 4, 5),
-                new HiveBasicStatistics(3, 5, 7, 9));
-        testUpdatePartitionStatistics(
-                SUBTRACT,
-                new HiveBasicStatistics(11, 9, 7, 5),
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(10, 7, 4, 1));
+        Map<String, HiveColumnStatistics> first = ImmutableMap.of(
+                "column1", new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(1), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                "column2", new HiveColumnStatistics(
+                        Optional.of(6L), Optional.of(4L), OptionalLong.of(5), OptionalDouble.of(3), OptionalLong.of(7), OptionalLong.of(9), OptionalLong.of(2), OptionalLong.of(8)),
+                "column3", new HiveColumnStatistics(
+                        Optional.of("5"), Optional.of("5"), OptionalLong.of(3), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                "column4", new HiveColumnStatistics(
+                        Optional.of("5"), Optional.of("5"), OptionalLong.of(3), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)));
+        Map<String, HiveColumnStatistics> second = ImmutableMap.of(
+                "column5", new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(1), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                "column2", new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(3), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)),
+                "column3", new HiveColumnStatistics(
+                        Optional.of("6"), Optional.of("4"), OptionalLong.of(5), OptionalDouble.of(3), OptionalLong.of(7), OptionalLong.of(9), OptionalLong.of(2), OptionalLong.of(8)),
+                "column6", new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(1), OptionalDouble.of(2), OptionalLong.of(3), OptionalLong.of(4), OptionalLong.of(5), OptionalLong.of(6)));
+        Map<String, HiveColumnStatistics> expected = ImmutableMap.of(
+                "column2", new HiveColumnStatistics(
+                        Optional.of(5L), Optional.of(5L), OptionalLong.of(5), OptionalDouble.of(2.5), OptionalLong.of(10), OptionalLong.of(13), OptionalLong.of(7), OptionalLong.of(8)),
+                "column3", new HiveColumnStatistics(
+                        Optional.of("5"), Optional.of("5"), OptionalLong.of(5), OptionalDouble.of(2.5), OptionalLong.of(10), OptionalLong.of(13), OptionalLong.of(7), OptionalLong.of(8)));
+        assertThat(merge(first, OptionalLong.of(5), second, OptionalLong.of(5))).isEqualTo(expected);
+        assertThat(merge(ImmutableMap.of(), OptionalLong.empty(), ImmutableMap.of(), OptionalLong.empty())).isEqualTo(ImmutableMap.of());
     }
 
-    private static void testUpdateTableStatistics(ReduceOperator operator, HiveBasicStatistics initial, HiveBasicStatistics update, HiveBasicStatistics expected)
+    private static void assertMergeHiveColumnStatistics(
+            HiveColumnStatistics first, OptionalLong firstRowCount, HiveColumnStatistics second, OptionalLong secondRowCount, HiveColumnStatistics expected)
     {
-        Table initialTable = table(initial);
-        Table updatedTable = updateStatistics(initialTable, update, operator);
-        HiveBasicStatistics updatedStatistics = createFromPartitionParameters(updatedTable.getParameters());
-        assertThat(updatedStatistics).isEqualTo(expected);
-    }
-
-    private static void testUpdatePartitionStatistics(ReduceOperator operator, HiveBasicStatistics initial, HiveBasicStatistics update, HiveBasicStatistics expected)
-    {
-        Partition initialPartition = partition(initial);
-        Partition updatedPartition = updateStatistics(initialPartition, update, operator);
-        HiveBasicStatistics updatedStatistics = createFromPartitionParameters(updatedPartition.getParameters());
-        assertThat(updatedStatistics).isEqualTo(expected);
-    }
-
-    private static Table table(HiveBasicStatistics statistics)
-    {
-        return Table.builder(getPrestoTestTable("test_database"))
-                .setParameters(statistics.toPartitionParameters())
-                .build();
-    }
-
-    private static Partition partition(HiveBasicStatistics statistics)
-    {
-        return Partition.builder(getPrestoTestPartition("test_database", "test_table", ImmutableList.of("test_partition")))
-                .setParameters(statistics.toPartitionParameters())
-                .build();
+        assertThat(merge(first, firstRowCount, second, secondRowCount)).isEqualTo(expected);
     }
 }

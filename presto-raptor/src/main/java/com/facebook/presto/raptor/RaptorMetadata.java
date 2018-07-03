@@ -46,6 +46,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -424,7 +425,7 @@ public class RaptorMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of());
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -626,7 +627,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         RaptorOutputTableHandle table = (RaptorOutputTableHandle) outputTableHandle;
         long transactionId = table.getTransactionId();
@@ -729,7 +730,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         RaptorInsertTableHandle handle = (RaptorInsertTableHandle) insertHandle;
         long transactionId = handle.getTransactionId();

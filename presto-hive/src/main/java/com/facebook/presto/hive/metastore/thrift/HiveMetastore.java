@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
@@ -72,9 +73,15 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    Set<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+    boolean supportsColumnStatistics();
 
-    Map<String, Set<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
+    PartitionStatistics getTableStatistics(String databaseName, String tableName);
+
+    Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames);
+
+    void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
+
+    void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     Set<String> getRoles(String user);
 

@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveClientConfig.CollectColumnStatisticsOnWriteOption.ENABLED_FOR_MARKED_TABLES;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
@@ -133,6 +134,8 @@ public class HiveClientConfig
     private boolean createsOfNonManagedTablesEnabled = true;
 
     private boolean tableStatisticsEnabled = true;
+
+    private CollectColumnStatisticsOnWriteOption collectColumnStatisticsOnWrite = ENABLED_FOR_MARKED_TABLES;
 
     public int getMaxInitialSplits()
     {
@@ -1043,5 +1046,26 @@ public class HiveClientConfig
     public boolean isTableStatisticsEnabled()
     {
         return tableStatisticsEnabled;
+    }
+
+    @NotNull
+    public CollectColumnStatisticsOnWriteOption getCollectColumnStatisticsOnWrite()
+    {
+        return collectColumnStatisticsOnWrite;
+    }
+
+    @Config("hive.collect-column-statistics-on-write")
+    @ConfigDescription("Enables automatic column level statistics collection on write")
+    public HiveClientConfig setCollectColumnStatisticsOnWrite(CollectColumnStatisticsOnWriteOption collectColumnStatisticsOnWrite)
+    {
+        this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
+        return this;
+    }
+
+    public enum CollectColumnStatisticsOnWriteOption
+    {
+        ENABLED,
+        ENABLED_FOR_MARKED_TABLES,
+        DISABLED
     }
 }

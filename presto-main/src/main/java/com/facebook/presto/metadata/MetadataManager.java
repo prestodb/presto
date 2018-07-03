@@ -44,7 +44,9 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -602,6 +604,24 @@ public class MetadataManager
     }
 
     @Override
+    public TableStatisticsMetadata getNewTableStatisticsMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        return metadata.getNewTableStatisticsMetadata(session.toConnectorSession(connectorId), tableMetadata);
+    }
+
+    @Override
+    public TableStatisticsMetadata getInsertStatisticsMetadata(Session session, TableHandle table)
+    {
+        ConnectorId connectorId = table.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        return metadata.getInsertIntoTableStatisticsMetadata(session.toConnectorSession(connectorId), table.getConnectorHandle());
+    }
+
+    @Override
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -663,11 +683,11 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.finishCreateTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments);
+        return metadata.finishCreateTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 
     @Override
@@ -682,11 +702,11 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.finishInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments);
+        return metadata.finishInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 
     @Override

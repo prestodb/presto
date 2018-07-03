@@ -14,14 +14,23 @@
 
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
+import static com.fasterxml.jackson.annotation.JsonTypeInfo.Id.NAME;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+
 public class HiveColumnStatistics
 {
-    private final Optional<?> lowValue;
-    private final Optional<?> highValue;
+    private final Optional<? extends Comparable<?>> lowValue;
+    private final Optional<? extends Comparable<?>> highValue;
     private final OptionalLong maxColumnLength;
     private final OptionalDouble averageColumnLength;
     private final OptionalLong trueCount;
@@ -29,63 +38,201 @@ public class HiveColumnStatistics
     private final OptionalLong nullsCount;
     private final OptionalLong distinctValuesCount;
 
+    @JsonCreator
     public HiveColumnStatistics(
-            Optional<?> lowValue,
-            Optional<?> highValue,
-            OptionalLong maxColumnLength,
-            OptionalDouble averageColumnLength,
-            OptionalLong trueCount,
-            OptionalLong falseCount,
-            OptionalLong nullsCount,
-            OptionalLong distinctValuesCount)
+            @JsonProperty("lowValue") Optional<? extends Comparable<?>> lowValue,
+            @JsonProperty("highValue") Optional<? extends Comparable<?>> highValue,
+            @JsonProperty("maxColumnLength") OptionalLong maxColumnLength,
+            @JsonProperty("averageColumnLength") OptionalDouble averageColumnLength,
+            @JsonProperty("trueCount") OptionalLong trueCount,
+            @JsonProperty("falseCount") OptionalLong falseCount,
+            @JsonProperty("nullsCount") OptionalLong nullsCount,
+            @JsonProperty("distinctValuesCount") OptionalLong distinctValuesCount)
     {
-        this.lowValue = lowValue;
-        this.highValue = highValue;
-        this.maxColumnLength = maxColumnLength;
-        this.averageColumnLength = averageColumnLength;
-        this.trueCount = trueCount;
-        this.falseCount = falseCount;
-        this.nullsCount = nullsCount;
-        this.distinctValuesCount = distinctValuesCount;
+        this.lowValue = requireNonNull(lowValue, "lowValue is null");
+        this.highValue = requireNonNull(highValue, "highValue is null");
+        this.maxColumnLength = requireNonNull(maxColumnLength, "maxColumnLength is null");
+        this.averageColumnLength = requireNonNull(averageColumnLength, "averageColumnLength is null");
+        this.trueCount = requireNonNull(trueCount, "trueCount is null");
+        this.falseCount = requireNonNull(falseCount, "falseCount is null");
+        this.nullsCount = requireNonNull(nullsCount, "nullsCount is null");
+        this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
     }
 
-    public Optional<?> getLowValue()
+    @JsonProperty
+    @JsonTypeInfo(use = NAME, property = "@lowValueClass")
+    public Optional<? extends Comparable<?>> getLowValue()
     {
         return lowValue;
     }
 
-    public Optional<?> getHighValue()
+    @JsonProperty
+    @JsonTypeInfo(use = NAME, property = "@highValueClass")
+    public Optional<? extends Comparable<?>> getHighValue()
     {
         return highValue;
     }
 
+    @JsonProperty
     public OptionalLong getMaxColumnLength()
     {
         return maxColumnLength;
     }
 
+    @JsonProperty
     public OptionalDouble getAverageColumnLength()
     {
         return averageColumnLength;
     }
 
+    @JsonProperty
     public OptionalLong getTrueCount()
     {
         return trueCount;
     }
 
+    @JsonProperty
     public OptionalLong getFalseCount()
     {
         return falseCount;
     }
 
+    @JsonProperty
     public OptionalLong getNullsCount()
     {
         return nullsCount;
     }
 
+    @JsonProperty
     public OptionalLong getDistinctValuesCount()
     {
         return distinctValuesCount;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        HiveColumnStatistics that = (HiveColumnStatistics) o;
+        return Objects.equals(lowValue, that.lowValue) &&
+                Objects.equals(highValue, that.highValue) &&
+                Objects.equals(maxColumnLength, that.maxColumnLength) &&
+                Objects.equals(averageColumnLength, that.averageColumnLength) &&
+                Objects.equals(trueCount, that.trueCount) &&
+                Objects.equals(falseCount, that.falseCount) &&
+                Objects.equals(nullsCount, that.nullsCount) &&
+                Objects.equals(distinctValuesCount, that.distinctValuesCount);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                lowValue,
+                highValue,
+                maxColumnLength,
+                averageColumnLength,
+                trueCount,
+                falseCount,
+                nullsCount,
+                distinctValuesCount);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("lowValue", lowValue)
+                .add("highValue", highValue)
+                .add("maxColumnLength", maxColumnLength)
+                .add("averageColumnLength", averageColumnLength)
+                .add("trueCount", trueCount)
+                .add("falseCount", falseCount)
+                .add("nullsCount", nullsCount)
+                .add("distinctValuesCount", distinctValuesCount)
+                .toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private Optional<Comparable<?>> lowValue = Optional.empty();
+        private Optional<Comparable<?>> highValue = Optional.empty();
+        private OptionalLong maxColumnLength = OptionalLong.empty();
+        private OptionalDouble averageColumnLength = OptionalDouble.empty();
+        private OptionalLong trueCount = OptionalLong.empty();
+        private OptionalLong falseCount = OptionalLong.empty();
+        private OptionalLong nullsCount = OptionalLong.empty();
+        private OptionalLong distinctValuesCount = OptionalLong.empty();
+
+        public Builder setLowValue(Comparable<?> lowValue)
+        {
+            this.lowValue = Optional.of(lowValue);
+            return this;
+        }
+
+        public Builder setHighValue(Comparable<?> highValue)
+        {
+            this.highValue = Optional.of(highValue);
+            return this;
+        }
+
+        public Builder setMaxColumnLength(long maxColumnLength)
+        {
+            this.maxColumnLength = OptionalLong.of(maxColumnLength);
+            return this;
+        }
+
+        public Builder setAverageColumnLength(double averageColumnLength)
+        {
+            this.averageColumnLength = OptionalDouble.of(averageColumnLength);
+            return this;
+        }
+
+        public Builder setTrueCount(long trueCount)
+        {
+            this.trueCount = OptionalLong.of(trueCount);
+            return this;
+        }
+
+        public Builder setFalseCount(long falseCount)
+        {
+            this.falseCount = OptionalLong.of(falseCount);
+            return this;
+        }
+
+        public Builder setNullsCount(long nullsCount)
+        {
+            this.nullsCount = OptionalLong.of(nullsCount);
+            return this;
+        }
+
+        public Builder setDistinctValuesCount(long distinctValuesCount)
+        {
+            this.distinctValuesCount = OptionalLong.of(distinctValuesCount);
+            return this;
+        }
+
+        public HiveColumnStatistics build()
+        {
+            return new HiveColumnStatistics(
+                    lowValue,
+                    highValue,
+                    maxColumnLength,
+                    averageColumnLength,
+                    trueCount,
+                    falseCount,
+                    nullsCount,
+                    distinctValuesCount);
+        }
     }
 }

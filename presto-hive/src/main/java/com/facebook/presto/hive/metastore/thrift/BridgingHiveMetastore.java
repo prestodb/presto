@@ -16,10 +16,9 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.PartitionNotFoundException;
-import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -29,7 +28,8 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
@@ -47,9 +47,9 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMe
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
+import static com.facebook.presto.hive.util.Statistics.migrateStatistics;
+import static com.facebook.presto.hive.util.Statistics.removeStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -83,35 +83,33 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
+    public boolean supportsColumnStatistics()
     {
-        Table table = getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        Set<String> dataColumns = table.getDataColumns().stream()
-                .map(Column::getName)
-                .collect(toImmutableSet());
-        return groupStatisticsByColumn(delegate.getTableColumnStatistics(databaseName, tableName, dataColumns));
+        return delegate.supportsColumnStatistics();
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        Table table = getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        Set<String> dataColumns = table.getDataColumns().stream()
-                .map(Column::getName)
-                .collect(toImmutableSet());
-        Map<String, Set<ColumnStatisticsObj>> statistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, dataColumns);
-        return statistics.entrySet()
-                .stream()
-                .filter(entry -> !entry.getValue().isEmpty())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> groupStatisticsByColumn(entry.getValue())));
+        return delegate.getTableStatistics(databaseName, tableName);
     }
 
-    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(Set<ColumnStatisticsObj> statistics)
+    @Override
+    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        return statistics.stream()
-                .collect(toImmutableMap(ColumnStatisticsObj::getColName, ThriftMetastoreUtil::fromMetastoreApiColumnStatistics));
+        return delegate.getPartitionStatistics(databaseName, tableName, partitionNames);
+    }
+
+    @Override
+    public void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        delegate.updateTableStatistics(databaseName, tableName, update);
+    }
+
+    @Override
+    public void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        delegate.updatePartitionStatistics(databaseName, tableName, partitionName, update);
     }
 
     @Override
@@ -228,7 +226,14 @@ public class BridgingHiveMetastore
                 fieldSchema.setName(newColumnName);
             }
         }
+
+        PartitionStatistics tableStatistics = getTableStatistics(databaseName, tableName);
+        Map<String, PartitionStatistics> partitionStatistics = loadPartitionStatisticsInSmallBatches(databaseName, tableName);
+
         alterTable(databaseName, tableName, table);
+
+        updateTableStatistics(databaseName, tableName, statistics -> migrateStatistics(tableStatistics, oldColumnName, newColumnName));
+        partitionStatistics.forEach((partitionName, statistics) -> updatePartitionStatistics(databaseName, tableName, partitionName, stats -> migrateStatistics(statistics, oldColumnName, newColumnName)));
     }
 
     @Override
@@ -238,12 +243,29 @@ public class BridgingHiveMetastore
         org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().removeIf(fieldSchema -> fieldSchema.getName().equals(columnName));
+
+        PartitionStatistics tableStatistics = getTableStatistics(databaseName, tableName);
+        Map<String, PartitionStatistics> partitionStatistics = loadPartitionStatisticsInSmallBatches(databaseName, tableName);
+
         alterTable(databaseName, tableName, table);
+
+        updateTableStatistics(databaseName, tableName, statistics -> removeStatistics(tableStatistics, columnName));
+        partitionStatistics.forEach((partitionName, statistics) -> updatePartitionStatistics(databaseName, tableName, partitionName, stats -> removeStatistics(statistics, columnName)));
     }
 
     private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);
+    }
+
+    private Map<String, PartitionStatistics> loadPartitionStatisticsInSmallBatches(String databaseName, String tableName)
+    {
+        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
+        List<String> partitionNames = getPartitionNames(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Lists.partition(partitionNames, 100)
+                .forEach(batch -> result.putAll(getPartitionStatistics(databaseName, tableName, ImmutableSet.copyOf(batch))));
+        return result.build();
     }
 
     @Override

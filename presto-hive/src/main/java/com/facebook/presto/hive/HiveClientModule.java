@@ -19,6 +19,7 @@ import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.hive.util.Statistics;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -60,6 +61,7 @@ public class HiveClientModule
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
         binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
+        binder.bind(CollectibleStatisticsProvider.class).toInstance(Statistics::getSupportedStatistics);
 
         binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);

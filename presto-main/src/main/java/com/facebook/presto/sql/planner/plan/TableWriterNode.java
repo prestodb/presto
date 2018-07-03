@@ -46,6 +46,8 @@ public class TableWriterNode
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
+    private final Optional<StatisticAggregations> statisticsAggregation;
+    private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
 
     @JsonCreator
     public TableWriterNode(
@@ -55,7 +57,9 @@ public class TableWriterNode
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs,
-            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme)
+            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
+            @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
+            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
     {
         super(id);
 
@@ -69,6 +73,9 @@ public class TableWriterNode
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
+        this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
+        checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must be either present or absent");
     }
 
     @JsonProperty
@@ -108,6 +115,18 @@ public class TableWriterNode
         return partitioningScheme;
     }
 
+    @JsonProperty
+    public Optional<StatisticAggregations> getStatisticsAggregation()
+    {
+        return statisticsAggregation;
+    }
+
+    @JsonProperty
+    public Optional<StatisticAggregationsDescriptor<Symbol>> getStatisticsAggregationDescriptor()
+    {
+        return statisticsAggregationDescriptor;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -123,7 +142,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, columns, columnNames, outputs, partitioningScheme);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, columns, columnNames, outputs, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")

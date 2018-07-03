@@ -14,37 +14,29 @@
 
 package com.facebook.presto.hive.statistics;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.CollectibleStatisticsProvider;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTimeZone;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -53,23 +45,18 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.PrimitiveIterator;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.DoubleStream;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
+import static com.facebook.presto.hive.util.Statistics.getMinMaxAsPrestoTypeValue;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class MetastoreHiveStatisticsProvider
@@ -78,12 +65,18 @@ public class MetastoreHiveStatisticsProvider
     private final TypeManager typeManager;
     private final SemiTransactionalHiveMetastore metastore;
     private final DateTimeZone timeZone;
+    private final CollectibleStatisticsProvider collectibleStatisticsProvider;
 
-    public MetastoreHiveStatisticsProvider(TypeManager typeManager, SemiTransactionalHiveMetastore metastore, DateTimeZone timeZone)
+    public MetastoreHiveStatisticsProvider(
+            TypeManager typeManager,
+            SemiTransactionalHiveMetastore metastore,
+            DateTimeZone timeZone,
+            CollectibleStatisticsProvider collectibleStatisticsProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.timeZone = timeZone;
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.collectibleStatisticsProvider = requireNonNull(collectibleStatisticsProvider, "collectibleStatisticsProvider is null");
     }
 
     @Override
@@ -93,7 +86,7 @@ public class MetastoreHiveStatisticsProvider
             return TableStatistics.EMPTY_STATISTICS;
         }
 
-        Map<String, PartitionStatistics> partitionStatistics = getPartitionsStatistics((HiveTableHandle) tableHandle, hivePartitions, tableColumns);
+        Map<String, PartitionStatistics> partitionStatistics = getPartitionsStatistics((HiveTableHandle) tableHandle, hivePartitions);
 
         TableStatistics.Builder tableStatistics = TableStatistics.builder();
         Estimate rowCount = calculateRowsCount(partitionStatistics);
@@ -111,7 +104,7 @@ public class MetastoreHiveStatisticsProvider
             if (hiveColumnHandle.isPartitionKey()) {
                 rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, hivePartitions));
                 nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatistics);
-                if (isLowHighSupportedForType(prestoType)) {
+                if (isMinMaxSupportedForType(prestoType)) {
                     lowValueCandidates = hivePartitions.stream()
                             .map(HivePartition::getKeys)
                             .map(keys -> keys.get(hiveColumnHandle))
@@ -129,7 +122,7 @@ public class MetastoreHiveStatisticsProvider
                 //          partitions. And return unknown if most of the partitions we are working with do not have
                 //          statistics computed.
 
-                if (isLowHighSupportedForType(prestoType)) {
+                if (isMinMaxSupportedForType(prestoType)) {
                     lowValueCandidates = partitionStatistics.values().stream()
                             .map(PartitionStatistics::getColumnStatistics)
                             .filter(stats -> stats.containsKey(columnName))
@@ -137,7 +130,7 @@ public class MetastoreHiveStatisticsProvider
                             .map(HiveColumnStatistics::getLowValue)
                             .filter(Optional::isPresent)
                             .map(Optional::get)
-                            .map(value -> lowHighValueAsPrestoType(value, prestoType))
+                            .map(value -> getMinMaxAsPrestoTypeValue(value, prestoType, timeZone))
                             .collect(toImmutableList());
 
                     highValueCandidates = partitionStatistics.values().stream()
@@ -147,7 +140,7 @@ public class MetastoreHiveStatisticsProvider
                             .map(HiveColumnStatistics::getHighValue)
                             .filter(Optional::isPresent)
                             .map(Optional::get)
-                            .map(value -> lowHighValueAsPrestoType(value, prestoType))
+                            .map(value -> getMinMaxAsPrestoTypeValue(value, prestoType, timeZone))
                             .collect(toImmutableList());
                 }
             }
@@ -167,67 +160,6 @@ public class MetastoreHiveStatisticsProvider
             tableStatistics.setColumnStatistics(hiveColumnHandle, columnStatistics.build());
         }
         return tableStatistics.build();
-    }
-
-    private boolean isLowHighSupportedForType(Type type)
-    {
-        if (type instanceof DecimalType) {
-            return true;
-        }
-        if (type.equals(TINYINT)
-                || type.equals(SMALLINT)
-                || type.equals(INTEGER)
-                || type.equals(BIGINT)
-                || type.equals(REAL)
-                || type.equals(DOUBLE)
-                || type.equals(DATE)
-                || type.equals(TIMESTAMP)) {
-            return true;
-        }
-        return false;
-    }
-
-    private Object lowHighValueAsPrestoType(Object value, Type prestoType)
-    {
-        checkArgument(isLowHighSupportedForType(prestoType), "Unsupported type " + prestoType);
-        requireNonNull(value, "high/low value connot be null");
-
-        if (prestoType.equals(BIGINT)
-                || prestoType.equals(INTEGER)
-                || prestoType.equals(SMALLINT)
-                || prestoType.equals(TINYINT)) {
-            checkArgument(value instanceof Long, "expected Long value but got " + value.getClass());
-            return value;
-        }
-        else if (prestoType.equals(DOUBLE)) {
-            checkArgument(value instanceof Double, "expected Double value but got " + value.getClass());
-            return value;
-        }
-        else if (prestoType.equals(REAL)) {
-            checkArgument(value instanceof Double, "expected Double value but got " + value.getClass());
-            return (long) floatToRawIntBits((float) (double) value);
-        }
-        else if (prestoType.equals(DATE)) {
-            checkArgument(value instanceof LocalDate, "expected LocalDate value but got " + value.getClass());
-            return ((LocalDate) value).toEpochDay();
-        }
-        else if (prestoType.equals(TIMESTAMP)) {
-            checkArgument(value instanceof Long, "expected Long value but got " + value.getClass());
-            return timeZone.convertLocalToUTC((long) value * 1000, false);
-        }
-        else if (prestoType instanceof DecimalType) {
-            checkArgument(value instanceof BigDecimal, "expected BigDecimal value but got " + value.getClass());
-            BigInteger unscaled = Decimals.rescale((BigDecimal) value, (DecimalType) prestoType).unscaledValue();
-            if (Decimals.isShortDecimal(prestoType)) {
-                return unscaled.longValueExact();
-            }
-            else {
-                return Decimals.encodeUnscaledValue(unscaled);
-            }
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported presto type " + prestoType);
-        }
     }
 
     private Estimate calculateRowsCount(Map<String, PartitionStatistics> partitionStatistics)
@@ -366,7 +298,7 @@ public class MetastoreHiveStatisticsProvider
         }
     }
 
-    private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions, Map<String, ColumnHandle> tableColumns)
+    private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -377,50 +309,21 @@ public class MetastoreHiveStatisticsProvider
         }
 
         if (unpartitioned) {
-            return ImmutableMap.of(HivePartition.UNPARTITIONED_ID, getTableStatistics(tableHandle.getSchemaTableName()));
+            return ImmutableMap.of(HivePartition.UNPARTITIONED_ID, metastore.getTableStatistics(tableHandle.getSchemaName(), tableHandle.getTableName()));
         }
         else {
-            return getPartitionsStatistics(tableHandle.getSchemaTableName(), hivePartitions);
+            return metastore.getPartitionStatistics(
+                    tableHandle.getSchemaName(),
+                    tableHandle.getTableName(),
+                    hivePartitions.stream()
+                            .map(HivePartition::getPartitionId)
+                            .collect(toImmutableSet()));
         }
     }
 
-    private Map<String, PartitionStatistics> getPartitionsStatistics(SchemaTableName schemaTableName, List<HivePartition> hivePartitions)
+    private boolean isMinMaxSupportedForType(Type type)
     {
-        String databaseName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        ImmutableMap.Builder<String, PartitionStatistics> resultMap = ImmutableMap.builder();
-
-        List<String> partitionNames = hivePartitions.stream().map(HivePartition::getPartitionId).collect(toImmutableList());
-        Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatisticsMap =
-                metastore.getPartitionColumnStatistics(databaseName, tableName, ImmutableSet.copyOf(partitionNames));
-
-        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(databaseName, tableName, partitionNames);
-        for (String partitionName : partitionNames) {
-            Map<String, String> partitionParameters = partitionsByNames.get(partitionName)
-                    .map(Partition::getParameters)
-                    .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for partition %s.%s.%s", databaseName, tableName, partitionName)));
-            Map<String, HiveColumnStatistics> partitionColumnStatistics = partitionColumnStatisticsMap.getOrDefault(partitionName, ImmutableMap.of());
-            resultMap.put(partitionName, readStatisticsFromParameters(partitionParameters, partitionColumnStatistics));
-        }
-
-        return resultMap.build();
-    }
-
-    private PartitionStatistics getTableStatistics(SchemaTableName schemaTableName)
-    {
-        String databaseName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-        Table table = metastore.getTable(databaseName, tableName)
-                .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for table %s.%s", databaseName, tableName)));
-
-        Map<String, HiveColumnStatistics> tableColumnStatistics = metastore.getTableColumnStatistics(databaseName, tableName);
-
-        return readStatisticsFromParameters(table.getParameters(), tableColumnStatistics);
-    }
-
-    private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters, Map<String, HiveColumnStatistics> columnStatistics)
-    {
-        return new PartitionStatistics(HiveBasicStatistics.createFromPartitionParameters(parameters), columnStatistics);
+        Set<ColumnStatisticType> statisticTypes = collectibleStatisticsProvider.get(type);
+        return statisticTypes.contains(MIN) && statisticTypes.contains(MAX);
     }
 }

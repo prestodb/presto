@@ -38,7 +38,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -95,6 +97,22 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getInsertLayout(session, tableHandle);
+        }
+    }
+
+    @Override
+    public TableStatisticsMetadata getNewTableStatisticsMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getNewTableStatisticsMetadata(session, tableMetadata);
+        }
+    }
+
+    @Override
+    public TableStatisticsMetadata getInsertIntoTableStatisticsMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getInsertIntoTableStatisticsMetadata(session, tableHandle);
         }
     }
 
@@ -267,10 +285,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishCreateTable(session, tableHandle, fragments);
+            return delegate.finishCreateTable(session, tableHandle, fragments, computedStatistics);
         }
     }
 
@@ -299,10 +317,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishInsert(session, insertHandle, fragments);
+            return delegate.finishInsert(session, insertHandle, fragments, computedStatistics);
         }
     }
 

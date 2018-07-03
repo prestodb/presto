@@ -28,7 +28,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -243,13 +245,25 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableStatisticsMetadata getNewTableStatisticsMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableStatisticsMetadata getInsertStatisticsMetadata(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -273,7 +287,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, List<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
