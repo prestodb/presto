@@ -61,10 +61,6 @@ public class PlanNodeStatsEstimate
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 
-        if (isNaN(outputRowCount)) {
-            return Double.NaN;
-        }
-
         return outputSymbols.stream()
                 .map(this::getSymbolStatistics)
                 .mapToDouble(this::getOutputSizeForSymbol)
