@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -968,5 +969,24 @@ public class TestStringFunctions
 
         assertInvalidFunction("from_utf8(to_utf8('hello'), 'foo')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("from_utf8(to_utf8('hello'), 1114112)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testCharConcat()
+    {
+        assertFunction("concat('ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");
+        assertFunction("concat('ab ', cast(' ' as char(1))) = 'ab'", BOOLEAN, true);
+
+        assertFunction("concat('ab ', cast('a' as char(2)))", createCharType(5), "ab a ");
+        assertFunction("concat('ab ', cast('a' as char(2))) = 'ab a'", BOOLEAN, true);
+
+        assertFunction("concat('ab ', cast('' as char(0)))", createCharType(3), "ab ");
+        assertFunction("concat('ab ', cast('' as char(0))) = 'ab'", BOOLEAN, true);
+
+        assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
+
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "CHAR length scale must be in range [0, 65536]");
+
+        assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }
 }

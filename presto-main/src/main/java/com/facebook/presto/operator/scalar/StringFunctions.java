@@ -814,4 +814,27 @@ public final class StringFunctions
     {
         return slice;
     }
+
+    // TODO: implement N arguments char concat
+    @Description("concatenates given character strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y", "u"})
+    @Constraint(variable = "u", expression = "x + y")
+    @SqlType("char(u)")
+    public static Slice concat(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
+    {
+        int rightLength = right.length();
+        if (rightLength == 0) {
+            return left;
+        }
+
+        Slice paddedLeft = padSpaces(left, x.intValue());
+        int leftLength = paddedLeft.length();
+
+        Slice result = Slices.allocate(leftLength + rightLength);
+        result.setBytes(0, paddedLeft);
+        result.setBytes(leftLength, right);
+
+        return result;
+    }
 }
