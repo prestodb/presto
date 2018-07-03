@@ -70,16 +70,18 @@ public class PlanNodeStatsEstimateMath
 
         double nullsCountLeft = leftStats.getNullsFraction() * leftRowCount;
         double nullsCountRight = rightStats.getNullsFraction() * rightRowCount;
-        double totalSizeLeft = leftRowCount * leftStats.getAverageRowSize();
-        double totalSizeRight = rightRowCount * rightStats.getAverageRowSize();
+        double totalSizeLeft = (leftRowCount - nullsCountLeft) * leftStats.getAverageRowSize();
+        double totalSizeRight = (rightRowCount - nullsCountRight) * rightStats.getAverageRowSize();
+        double newNullsFraction = (nullsCountLeft - nullsCountRight) / newRowCount;
+        double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
         StatisticRange range = strategy.range(leftRange, rightRange);
 
         return SymbolStatsEstimate.builder()
                 .setDistinctValuesCount(leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount())
                 .setHighValue(range.getHigh())
                 .setLowValue(range.getLow())
-                .setAverageRowSize((totalSizeLeft - totalSizeRight) / newRowCount)
-                .setNullsFraction((nullsCountLeft - nullsCountRight) / newRowCount)
+                .setAverageRowSize((totalSizeLeft - totalSizeRight) / newNonNullsRowCount)
+                .setNullsFraction(newNullsFraction)
                 .build();
     }
 
@@ -133,13 +135,15 @@ public class PlanNodeStatsEstimateMath
         StatisticRange sum = strategy.add(leftRange, rightRange);
         double nullsCountRight = rightStats.getNullsFraction() * rightRows;
         double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
-        double totalSizeLeft = leftRows * leftStats.getAverageRowSize();
-        double totalSizeRight = rightRows * rightStats.getAverageRowSize();
+        double totalSizeLeft = (leftRows - nullsCountLeft) * leftStats.getAverageRowSize();
+        double totalSizeRight = (rightRows - nullsCountRight) * rightStats.getAverageRowSize();
+        double newNullsFraction = (nullsCountLeft + nullsCountRight) / newRowCount;
+        double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
 
         return SymbolStatsEstimate.builder()
                 .setStatisticsRange(sum)
-                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
-                .setNullsFraction((nullsCountLeft + nullsCountRight) / newRowCount)
+                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newNonNullsRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
+                .setNullsFraction(newNullsFraction)
                 .build();
     }
 }
