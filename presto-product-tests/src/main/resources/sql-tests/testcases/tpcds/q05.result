@@ -1,4 +1,4 @@
--- delimiter: |; types: VARCHAR|VARCHAR|DECIMAL|DECIMAL|DECIMAL
+-- delimiter: |; types: VARCHAR|CHAR|DECIMAL|DECIMAL|DECIMAL
 catalog channel|catalog_pageAAAAAAAAAAABAAAA|202313.40|16399.02|-47694.75|
 catalog channel|catalog_pageAAAAAAAAAACBAAAA|0.00|40.67|-580.23|
 catalog channel|catalog_pageAAAAAAAAABABAAAA|99963.73|0.00|-9123.42|
