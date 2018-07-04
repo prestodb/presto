@@ -14,21 +14,28 @@
 
 package com.facebook.presto.block;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -41,10 +48,36 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     @Test
     public void test()
     {
         testWith(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
+        Block compactKeyBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(16).getBytes());
+        Block compactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(16).getBytes());
+        Block inCompactKeyBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
+        Block inCompactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
+        int[] offsets = {0, 1, 1, 2, 4, 8, 16};
+        boolean[] mapIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(new boolean[0], new int[1], emptyBlock, emptyBlock));
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(mapIsNull, offsets, compactKeyBlock, compactValueBlock));
+        // TODO: Add test case for a sliced MapBlock
+
+        // underlying key/value block is not compact
+        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(mapIsNull, offsets, inCompactKeyBlock, inCompactValueBlock));
     }
 
     private Map<String, Long>[] createTestMap(int... entryCounts)

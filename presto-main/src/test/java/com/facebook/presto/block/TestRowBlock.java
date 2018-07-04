@@ -16,6 +16,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.SingleRowBlock;
 import com.facebook.presto.spi.type.Type;
@@ -26,7 +27,9 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -73,6 +76,25 @@ public class TestRowBlock
         size += row.get(0) == null ? 0 : ((String) row.get(0)).length();
         size += row.get(1) == null ? 0 : Long.BYTES;
         return size;
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
+        Block compactFieldBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
+        Block compactFieldBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
+        Block incompactFiledBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
+        Block incompactFiledBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
+        boolean[] rowIsNull = {false, true, false, false, false, false};
+
+        assertCompact(fromFieldBlocks(new boolean[0], new Block[] {emptyBlock, emptyBlock}));
+        assertCompact(fromFieldBlocks(rowIsNull, new Block[] {compactFieldBlock1, compactFieldBlock2}));
+        // TODO: add test case for a sliced RowBlock
+
+        // underlying field blocks are not compact
+        testIncompactBlock(fromFieldBlocks(rowIsNull, new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
+        testIncompactBlock(fromFieldBlocks(rowIsNull, new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
     }
 
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)

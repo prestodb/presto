@@ -14,9 +14,12 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.block.IntArrayBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
@@ -65,6 +68,17 @@ public class TestIntArrayBlock
     {
         Slice[] expectedValues = createTestValue(100);
         assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        int[] intArray = {0, 0, 1, 2, 3, 4};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(new IntArrayBlock(0, Optional.empty(), new int[0]));
+        testCompactBlock(new IntArrayBlock(intArray.length, Optional.of(valueIsNull), intArray));
+        testIncompactBlock(new IntArrayBlock(intArray.length - 1, Optional.of(valueIsNull), intArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)

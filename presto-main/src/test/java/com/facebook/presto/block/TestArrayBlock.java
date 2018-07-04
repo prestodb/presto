@@ -16,12 +16,15 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Random;
 
+import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
@@ -167,6 +170,21 @@ public class TestArrayBlock
             }
         }
         return size;
+    }
+
+    public void testCompactBlock()
+    {
+        Block emptyValueBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
+        Block compactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(16).getBytes());
+        Block inCompactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
+        int[] offsets = {0, 1, 1, 2, 4, 8, 16};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(fromElementBlock(0, new boolean[0], new int[1], emptyValueBlock));
+        testCompactBlock(fromElementBlock(valueIsNull.length, valueIsNull, offsets, compactValueBlock));
+        testIncompactBlock(fromElementBlock(valueIsNull.length - 1, valueIsNull, offsets, compactValueBlock));
+        // underlying value block is not compact
+        testIncompactBlock(fromElementBlock(valueIsNull.length, valueIsNull, offsets, inCompactValueBlock));
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
