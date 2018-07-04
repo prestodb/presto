@@ -12,7 +12,7 @@ WITH
       SELECT "i_manufact_id"
       FROM
         ${database}.${schema}.item
-      WHERE ("i_category" IN ('Electronics                                       '))
+      WHERE ("i_category" IN ('Electronics'))
    ))
       AND ("ss_item_sk" = "i_item_sk")
       AND ("ss_sold_date_sk" = "d_date_sk")
@@ -35,7 +35,7 @@ WITH
       SELECT "i_manufact_id"
       FROM
         ${database}.${schema}.item
-      WHERE ("i_category" IN ('Electronics                                       '))
+      WHERE ("i_category" IN ('Electronics'))
    ))
       AND ("cs_item_sk" = "i_item_sk")
       AND ("cs_sold_date_sk" = "d_date_sk")
@@ -58,7 +58,7 @@ WITH
       SELECT "i_manufact_id"
       FROM
         ${database}.${schema}.item
-      WHERE ("i_category" IN ('Electronics                                       '))
+      WHERE ("i_category" IN ('Electronics'))
    ))
       AND ("ws_item_sk" = "i_item_sk")
       AND ("ws_sold_date_sk" = "d_date_sk")

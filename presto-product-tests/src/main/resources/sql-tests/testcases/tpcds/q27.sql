@@ -19,7 +19,7 @@ WHERE ("ss_sold_date_sk" = "d_date_sk")
    AND ("ss_cdemo_sk" = "cd_demo_sk")
    AND ("cd_gender" = 'M')
    AND ("cd_marital_status" = 'S')
-   AND ("cd_education_status" = 'College             ')
+   AND ("cd_education_status" = 'College')
    AND ("d_year" = 2002)
    AND ("s_state" IN (
      'TN'

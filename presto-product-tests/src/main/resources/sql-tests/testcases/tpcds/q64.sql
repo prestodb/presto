@@ -72,7 +72,7 @@ WITH
       AND ("hd1"."hd_income_band_sk" = "ib1"."ib_income_band_sk")
       AND ("hd2"."hd_income_band_sk" = "ib2"."ib_income_band_sk")
       AND ("cd1"."cd_marital_status" <> "cd2"."cd_marital_status")
-      AND ("i_color" IN ('purple              '   , 'burlywood           '   , 'indian              '   , 'spring              '   , 'floral              '   , 'medium              '))
+      AND ("i_color" IN ('purple'   , 'burlywood'   , 'indian'   , 'spring'   , 'floral'   , 'medium'))
       AND ("i_current_price" BETWEEN 64 AND (64 + 10))
       AND ("i_current_price" BETWEEN (64 + 1) AND (64 + 15))
    GROUP BY "i_product_name", "i_item_sk", "s_store_name", "s_zip", "ad1"."ca_street_number", "ad1"."ca_street_name", "ad1"."ca_city", "ad1"."ca_zip", "ad2"."ca_street_number", "ad2"."ca_street_name", "ad2"."ca_city", "ad2"."ca_zip", "d1"."d_year", "d2"."d_year", "d3"."d_year"
