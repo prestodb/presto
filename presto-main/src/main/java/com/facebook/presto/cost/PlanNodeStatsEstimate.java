@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.util.MoreMath.firstNonNaN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
@@ -70,7 +71,7 @@ public class PlanNodeStatsEstimate
     private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics)
     {
         double averageRowSize = symbolStatistics.getAverageRowSize();
-        double numberOfNonNullRows = outputRowCount * (1.0 - symbolStatistics.getNullsFraction());
+        double numberOfNonNullRows = outputRowCount * (1.0 - firstNonNaN(symbolStatistics.getNullsFraction(), 0d));
         if (isNaN(averageRowSize)) {
             // TODO take into consideration data type of column
             return numberOfNonNullRows * DEFAULT_DATA_SIZE_PER_COLUMN;
