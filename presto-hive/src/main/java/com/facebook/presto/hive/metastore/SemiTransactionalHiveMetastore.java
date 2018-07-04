@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -1609,7 +1608,7 @@ public class SemiTransactionalHiveMetastore
         boolean allDescendentsDeleted = true;
         ImmutableList.Builder<String> notDeletedEligibleItems = ImmutableList.builder();
         for (FileStatus fileStatus : allFiles) {
-            if (HadoopFileStatus.isFile(fileStatus)) {
+            if (fileStatus.isFile()) {
                 Path filePath = fileStatus.getPath();
                 String fileName = filePath.getName();
                 boolean eligible = false;
@@ -1627,7 +1626,7 @@ public class SemiTransactionalHiveMetastore
                     allDescendentsDeleted = false;
                 }
             }
-            else if (HadoopFileStatus.isDirectory(fileStatus)) {
+            else if (fileStatus.isDirectory()) {
                 RecursiveDeleteResult subResult = doRecursiveDeleteFiles(fileSystem, fileStatus.getPath(), filePrefixes, deleteEmptyDirectories);
                 if (!subResult.isDirectoryNoLongerExists()) {
                     allDescendentsDeleted = false;

@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -2839,10 +2838,10 @@ public abstract class AbstractTestHiveClient
                 if (fileStatus.getPath().getName().startsWith(".presto")) {
                     // skip hidden files
                 }
-                else if (HadoopFileStatus.isFile(fileStatus)) {
+                else if (fileStatus.isFile()) {
                     result.add(fileStatus.getPath().toString());
                 }
-                else if (HadoopFileStatus.isDirectory(fileStatus)) {
+                else if (fileStatus.isDirectory()) {
                     result.addAll(listAllDataFiles(context, fileStatus.getPath()));
                 }
             }

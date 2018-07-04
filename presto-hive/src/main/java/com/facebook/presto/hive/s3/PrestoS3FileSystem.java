@@ -47,7 +47,6 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
@@ -444,7 +443,7 @@ public class PrestoS3FileSystem
     private boolean directory(Path path)
             throws IOException
     {
-        return HadoopFileStatus.isDirectory(getFileStatus(path));
+        return getFileStatus(path).isDirectory();
     }
 
     private boolean deleteObject(String key)
