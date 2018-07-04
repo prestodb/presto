@@ -13,7 +13,7 @@ WITH
       SELECT "i_item_id"
       FROM
         item
-      WHERE ("i_color" IN ('slate               '      , 'blanched            '      , 'burnished           '))
+      WHERE ("i_color" IN ('slate'      , 'blanched'      , 'burnished'))
    ))
       AND ("ss_item_sk" = "i_item_sk")
       AND ("ss_sold_date_sk" = "d_date_sk")
@@ -36,7 +36,7 @@ WITH
       SELECT "i_item_id"
       FROM
         item
-      WHERE ("i_color" IN ('slate               '      , 'blanched            '      , 'burnished           '))
+      WHERE ("i_color" IN ('slate'      , 'blanched'      , 'burnished'))
    ))
       AND ("cs_item_sk" = "i_item_sk")
       AND ("cs_sold_date_sk" = "d_date_sk")
@@ -59,7 +59,7 @@ WITH
       SELECT "i_item_id"
       FROM
         item
-      WHERE ("i_color" IN ('slate               '      , 'blanched            '      , 'burnished           '))
+      WHERE ("i_color" IN ('slate'      , 'blanched'      , 'burnished'))
    ))
       AND ("ws_item_sk" = "i_item_sk")
       AND ("ws_sold_date_sk" = "d_date_sk")
