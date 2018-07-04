@@ -14,10 +14,15 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -74,6 +79,21 @@ public class TestFixedWidthBlock
             writeValues(expectedValues, blockBuilder);
             assertEstimatedDataSizeForStats(blockBuilder, expectedValues);
         }
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        Slice compactSlice = Slices.copyOf(createExpectedValue(24));
+        Slice incompactSlice = Slices.copyOf(createExpectedValue(30)).slice(0, 24);
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(new FixedWidthBlock(4, 0, EMPTY_SLICE, Optional.empty()));
+        testCompactBlock(new FixedWidthBlock(4, valueIsNull.length, compactSlice, Optional.of(Slices.wrappedBooleanArray(valueIsNull))));
+
+        testIncompactBlock(new FixedWidthBlock(4, valueIsNull.length - 1, compactSlice, Optional.of(Slices.wrappedBooleanArray(valueIsNull))));
+        // underlying slice is not compact
+        testIncompactBlock(new FixedWidthBlock(4, valueIsNull.length, incompactSlice, Optional.of(Slices.wrappedBooleanArray(valueIsNull))));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
