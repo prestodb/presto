@@ -80,14 +80,14 @@ public class TableScanStatsRule
 
     private SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics, Session session, Type type)
     {
+        double nullsFraction = columnStatistics.getNullsFraction().getValue();
+        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
         return SymbolStatsEstimate.builder()
                 .setLowValue(asDouble(session, type, columnStatistics.getOnlyRangeColumnStatistics().getLowValue()).orElse(NEGATIVE_INFINITY))
                 .setHighValue(asDouble(session, type, columnStatistics.getOnlyRangeColumnStatistics().getHighValue()).orElse(POSITIVE_INFINITY))
-                .setNullsFraction(
-                        columnStatistics.getNullsFraction().getValue()
-                                / (columnStatistics.getNullsFraction().getValue() + columnStatistics.getOnlyRangeColumnStatistics().getFraction().getValue()))
+                .setNullsFraction(nullsFraction)
                 .setDistinctValuesCount(columnStatistics.getOnlyRangeColumnStatistics().getDistinctValuesCount().getValue())
-                .setAverageRowSize(columnStatistics.getOnlyRangeColumnStatistics().getDataSize().getValue() / tableStatistics.getRowCount().getValue())
+                .setAverageRowSize(columnStatistics.getOnlyRangeColumnStatistics().getDataSize().getValue() / nonNullRowsCount)
                 .build();
     }
 
