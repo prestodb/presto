@@ -32,7 +32,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -65,16 +64,14 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveSessionProperties.getWriterSortBufferSize;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
-import static com.facebook.presto.hive.HiveWriteUtils.getField;
+import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -84,10 +81,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -270,7 +265,7 @@ public class HiveWriterFactory
             fileName = filePrefix + "_" + randomUUID();
         }
 
-        List<String> partitionValues = toPartitionValues(partitionColumns, position);
+        List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
 
         Optional<String> partitionName;
         if (!partitionColumnNames.isEmpty()) {
@@ -579,27 +574,6 @@ public class HiveWriterFactory
                         fileColumnHiveType));
             }
         }
-    }
-
-    private List<String> toPartitionValues(Page partitionColumns, int position)
-    {
-        ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
-        for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
-            Object value = getField(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
-            if (value == null) {
-                partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
-            }
-            else {
-                String valueString = value.toString();
-                if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
-                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE,
-                            "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " +
-                                    base16().withSeparator(" ", 2).encode(valueString.getBytes(UTF_8)));
-                }
-                partitionValues.add(valueString);
-            }
-        }
-        return partitionValues.build();
     }
 
     public static String computeBucketedFileName(String filePrefix, int bucket)
