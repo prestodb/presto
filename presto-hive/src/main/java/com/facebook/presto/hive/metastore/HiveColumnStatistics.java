@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -38,16 +41,17 @@ public class HiveColumnStatistics
     private final OptionalLong nullsCount;
     private final OptionalLong distinctValuesCount;
 
+    @JsonCreator
     public HiveColumnStatistics(
-            Optional<IntegerStatistics> integerStatistics,
-            Optional<DoubleStatistics> doubleStatistics,
-            Optional<DecimalStatistics> decimalStatistics,
-            Optional<DateStatistics> dateStatistics,
-            Optional<BooleanStatistics> booleanStatistics,
-            OptionalLong maxColumnLength,
-            OptionalDouble averageColumnLength,
-            OptionalLong nullsCount,
-            OptionalLong distinctValuesCount)
+            @JsonProperty("integerStatistics") Optional<IntegerStatistics> integerStatistics,
+            @JsonProperty("doubleStatistics") Optional<DoubleStatistics> doubleStatistics,
+            @JsonProperty("decimalStatistics") Optional<DecimalStatistics> decimalStatistics,
+            @JsonProperty("dateStatistics") Optional<DateStatistics> dateStatistics,
+            @JsonProperty("booleanStatistics") Optional<BooleanStatistics> booleanStatistics,
+            @JsonProperty("maxColumnLength") OptionalLong maxColumnLength,
+            @JsonProperty("averageColumnLength") OptionalDouble averageColumnLength,
+            @JsonProperty("nullsCount") OptionalLong nullsCount,
+            @JsonProperty("distinctValuesCount") OptionalLong distinctValuesCount)
     {
         this.integerStatistics = requireNonNull(integerStatistics, "integerStatistics is null");
         this.doubleStatistics = requireNonNull(doubleStatistics, "doubleStatistics is null");
@@ -68,46 +72,55 @@ public class HiveColumnStatistics
         checkArgument(presentStatistics.size() <= 1, "multiple type specific statistic objects are present: %s", presentStatistics);
     }
 
+    @JsonProperty
     public Optional<IntegerStatistics> getIntegerStatistics()
     {
         return integerStatistics;
     }
 
+    @JsonProperty
     public Optional<DoubleStatistics> getDoubleStatistics()
     {
         return doubleStatistics;
     }
 
+    @JsonProperty
     public Optional<DecimalStatistics> getDecimalStatistics()
     {
         return decimalStatistics;
     }
 
+    @JsonProperty
     public Optional<DateStatistics> getDateStatistics()
     {
         return dateStatistics;
     }
 
+    @JsonProperty
     public Optional<BooleanStatistics> getBooleanStatistics()
     {
         return booleanStatistics;
     }
 
+    @JsonProperty
     public OptionalLong getMaxColumnLength()
     {
         return maxColumnLength;
     }
 
+    @JsonProperty
     public OptionalDouble getAverageColumnLength()
     {
         return averageColumnLength;
     }
 
+    @JsonProperty
     public OptionalLong getNullsCount()
     {
         return nullsCount;
     }
 
+    @JsonProperty
     public OptionalLong getDistinctValuesCount()
     {
         return distinctValuesCount;

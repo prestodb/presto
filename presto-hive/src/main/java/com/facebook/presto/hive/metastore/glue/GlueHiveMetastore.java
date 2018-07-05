@@ -95,11 +95,13 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -212,6 +214,12 @@ public class GlueHiveMetastore
         }
     }
 
+    @Override
+    public boolean supportsColumnStatistics()
+    {
+        return false;
+    }
+
     private Table getTableOrElseThrow(String databaseName, String tableName)
     {
         return getTable(databaseName, tableName)
@@ -237,6 +245,64 @@ public class GlueHiveMetastore
             result.put(partitionName, partitionStatistics);
         });
         return result.build();
+    }
+
+    @Override
+    public void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
+        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
+        }
+
+        Table table = getTableOrElseThrow(databaseName, tableName);
+
+        try {
+            TableInput tableInput = GlueInputConverter.convertTable(table);
+            tableInput.setParameters(updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics()));
+            glueClient.updateTable(new UpdateTableRequest()
+                    .withDatabaseName(databaseName)
+                    .withTableInput(tableInput));
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (AmazonServiceException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        PartitionStatistics currentStatistics = getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+        if (currentStatistics == null) {
+            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
+        }
+        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
+        }
+
+        List<String> partitionValues = toPartitionValues(partitionName);
+        Partition partition = getPartition(databaseName, tableName, partitionValues)
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+        try {
+            PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
+            partitionInput.setParameters(updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics()));
+            glueClient.updatePartition(new UpdatePartitionRequest()
+                    .withDatabaseName(databaseName)
+                    .withTableName(tableName)
+                    .withPartitionValueList(partition.getValues())
+                    .withPartitionInput(partitionInput));
+        }
+        catch (EntityNotFoundException e) {
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
+        }
+        catch (AmazonServiceException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override

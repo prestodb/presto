@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.file;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -51,6 +52,8 @@ public class TableMetadata
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
 
+    private final Map<String, HiveColumnStatistics> columnStatistics;
+
     @JsonCreator
     public TableMetadata(
             @JsonProperty("owner") String owner,
@@ -63,7 +66,8 @@ public class TableMetadata
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
-            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText)
+            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
+            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.owner = requireNonNull(owner, "owner is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -84,9 +88,16 @@ public class TableMetadata
 
         this.viewOriginalText = requireNonNull(viewOriginalText, "viewOriginalText is null");
         this.viewExpandedText = requireNonNull(viewExpandedText, "viewExpandedText is null");
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        checkArgument(partitionColumns.isEmpty() || columnStatistics.isEmpty(), "column statistics cannot be set for partitioned table");
     }
 
     public TableMetadata(Table table)
+    {
+        this(table, ImmutableMap.of());
+    }
+
+    public TableMetadata(Table table, Map<String, HiveColumnStatistics> columnStatistics)
     {
         owner = table.getOwner();
         tableType = table.getTableType();
@@ -110,6 +121,7 @@ public class TableMetadata
 
         viewOriginalText = table.getViewOriginalText();
         viewExpandedText = table.getViewExpandedText();
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
     @JsonProperty
@@ -193,6 +205,12 @@ public class TableMetadata
         return viewExpandedText;
     }
 
+    @JsonProperty
+    public Map<String, HiveColumnStatistics> getColumnStatistics()
+    {
+        return columnStatistics;
+    }
+
     public TableMetadata withDataColumns(List<Column> dataColumns)
     {
         return new TableMetadata(
@@ -206,7 +224,8 @@ public class TableMetadata
                 serdeParameters,
                 externalLocation,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                columnStatistics);
     }
 
     public TableMetadata withParameters(Map<String, String> parameters)
@@ -222,7 +241,25 @@ public class TableMetadata
                 serdeParameters,
                 externalLocation,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                columnStatistics);
+    }
+
+    public TableMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        return new TableMetadata(
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                parameters,
+                storageFormat,
+                bucketProperty,
+                serdeParameters,
+                externalLocation,
+                viewOriginalText,
+                viewExpandedText,
+                columnStatistics);
     }
 
     public Table toTable(String databaseName, String tableName, String location)

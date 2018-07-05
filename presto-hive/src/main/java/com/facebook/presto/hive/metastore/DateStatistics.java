@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,17 +28,22 @@ public class DateStatistics
     private final Optional<LocalDate> min;
     private final Optional<LocalDate> max;
 
-    public DateStatistics(Optional<LocalDate> min, Optional<LocalDate> max)
+    @JsonCreator
+    public DateStatistics(
+            @JsonProperty("min") Optional<LocalDate> min,
+            @JsonProperty("max") Optional<LocalDate> max)
     {
         this.min = requireNonNull(min, "min is null");
         this.max = requireNonNull(max, "max is null");
     }
 
+    @JsonProperty
     public Optional<LocalDate> getMin()
     {
         return min;
     }
 
+    @JsonProperty
     public Optional<LocalDate> getMax()
     {
         return max;

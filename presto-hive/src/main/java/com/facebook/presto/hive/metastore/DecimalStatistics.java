@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,17 +28,22 @@ public class DecimalStatistics
     private final Optional<BigDecimal> min;
     private final Optional<BigDecimal> max;
 
-    public DecimalStatistics(Optional<BigDecimal> min, Optional<BigDecimal> max)
+    @JsonCreator
+    public DecimalStatistics(
+            @JsonProperty("min") Optional<BigDecimal> min,
+            @JsonProperty("max") Optional<BigDecimal> max)
     {
         this.min = requireNonNull(min, "min is null");
         this.max = requireNonNull(max, "max is null");
     }
 
+    @JsonProperty
     public Optional<BigDecimal> getMin()
     {
         return min;
     }
 
+    @JsonProperty
     public Optional<BigDecimal> getMax()
     {
         return max;

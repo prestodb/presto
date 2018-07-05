@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.OptionalLong;
 
@@ -24,17 +27,22 @@ public class BooleanStatistics
     private final OptionalLong trueCount;
     private final OptionalLong falseCount;
 
-    public BooleanStatistics(OptionalLong trueCount, OptionalLong falseCount)
+    @JsonCreator
+    public BooleanStatistics(
+            @JsonProperty("trueCount") OptionalLong trueCount,
+            @JsonProperty("falseCount") OptionalLong falseCount)
     {
         this.trueCount = requireNonNull(trueCount, "trueCount is null");
         this.falseCount = requireNonNull(falseCount, "falseCount is null");
     }
 
+    @JsonProperty
     public OptionalLong getTrueCount()
     {
         return trueCount;
     }
 
+    @JsonProperty
     public OptionalLong getFalseCount()
     {
         return falseCount;

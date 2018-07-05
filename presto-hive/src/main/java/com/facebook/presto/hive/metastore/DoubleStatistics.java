@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.OptionalDouble;
 
@@ -24,17 +27,22 @@ public class DoubleStatistics
     private final OptionalDouble min;
     private final OptionalDouble max;
 
-    public DoubleStatistics(OptionalDouble min, OptionalDouble max)
+    @JsonCreator
+    public DoubleStatistics(
+            @JsonProperty("min") OptionalDouble min,
+            @JsonProperty("max") OptionalDouble max)
     {
         this.min = requireNonNull(min, "min is null");
         this.max = requireNonNull(max, "max is null");
     }
 
+    @JsonProperty
     public OptionalDouble getMin()
     {
         return min;
     }
 
+    @JsonProperty
     public OptionalDouble getMax()
     {
         return max;

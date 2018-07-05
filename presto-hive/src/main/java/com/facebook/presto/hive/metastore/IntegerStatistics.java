@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.OptionalLong;
 
@@ -24,17 +27,22 @@ public class IntegerStatistics
     private final OptionalLong min;
     private final OptionalLong max;
 
-    public IntegerStatistics(OptionalLong min, OptionalLong max)
+    @JsonCreator
+    public IntegerStatistics(
+            @JsonProperty("min") OptionalLong min,
+            @JsonProperty("max") OptionalLong max)
     {
         this.min = requireNonNull(min, "min is null");
         this.max = requireNonNull(max, "max is null");
     }
 
+    @JsonProperty
     public OptionalLong getMin()
     {
         return min;
     }
 
+    @JsonProperty
     public OptionalLong getMax()
     {
         return max;

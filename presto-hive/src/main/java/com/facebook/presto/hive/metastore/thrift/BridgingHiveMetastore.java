@@ -79,6 +79,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public boolean supportsColumnStatistics()
+    {
+        return delegate.supportsColumnStatistics();
+    }
+
+    @Override
     public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         return delegate.getTableStatistics(databaseName, tableName);
@@ -88,6 +94,18 @@ public class BridgingHiveMetastore
     public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         return delegate.getPartitionStatistics(databaseName, tableName, partitionNames);
+    }
+
+    @Override
+    public void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        delegate.updateTableStatistics(databaseName, tableName, update);
+    }
+
+    @Override
+    public void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        delegate.updatePartitionStatistics(databaseName, tableName, partitionName, update);
     }
 
     @Override

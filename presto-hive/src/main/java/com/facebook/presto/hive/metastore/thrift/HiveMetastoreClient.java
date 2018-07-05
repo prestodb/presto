@@ -71,7 +71,19 @@ public interface HiveMetastoreClient
     List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
             throws TException;
 
+    void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+            throws TException;
+
+    void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+            throws TException;
+
     Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
+            throws TException;
+
+    void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+            throws TException;
+
+    void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
             throws TException;
 
     List<String> getPartitionNames(String databaseName, String tableName)
