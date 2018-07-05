@@ -20,6 +20,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -27,6 +28,7 @@ import com.facebook.presto.tpcds.TpcdsColumnHandle;
 import com.teradata.tpcds.Table;
 import io.airlift.slice.Slices;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
@@ -96,7 +98,10 @@ public class TpcdsTableStatisticsFactory
         else if (tpcdsValue instanceof String && type.equals(DATE)) {
             return LocalDate.parse((CharSequence) tpcdsValue).toEpochDay();
         }
-        else if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || (type instanceof DecimalType && isShortDecimal(type))) {
+        else if (type instanceof DecimalType && isShortDecimal(type)) {
+            return Decimals.encodeShortScaledValue(BigDecimal.valueOf((Double) tpcdsValue), ((DecimalType) type).getScale());
+        }
+        else if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE)) {
             return ((Number) tpcdsValue).longValue();
         }
         else if (type.equals(DOUBLE)) {
