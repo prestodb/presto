@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.PartitionNotFoundException;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -149,25 +150,25 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
+    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return delegate.getTableColumnStatistics(databaseName, tableName);
+            return delegate.getTableStatistics(databaseName, tableName);
         }
         switch (tableAction.getType()) {
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case DROP:
-                return ImmutableMap.of();
+                return PartitionStatistics.empty();
             default:
                 throw new IllegalStateException("Unknown action type");
         }
     }
 
-    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         checkReadable();
         Optional<Table> table = getTable(databaseName, tableName);
@@ -177,7 +178,7 @@ public class SemiTransactionalHiveMetastore
         TableSource tableSource = getTableSource(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
-        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> resultBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, PartitionStatistics> resultBuilder = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             List<String> partitionValues = toPartitionValues(partitionName);
             Action<PartitionAndMore> partitionAction = partitionActionsOfTable.get(partitionValues);
@@ -187,23 +188,23 @@ public class SemiTransactionalHiveMetastore
                         partitionNamesToQuery.add(partitionName);
                         break;
                     case CREATED_IN_THIS_TRANSACTION:
-                        resultBuilder.put(partitionName, ImmutableMap.of());
+                        resultBuilder.put(partitionName, PartitionStatistics.empty());
                         break;
                     default:
                         throw new UnsupportedOperationException("unknown table source");
                 }
             }
             else {
-                resultBuilder.put(partitionName, ImmutableMap.of());
+                resultBuilder.put(partitionName, PartitionStatistics.empty());
             }
         }
 
-        Map<String, Map<String, HiveColumnStatistics>> delegateResult = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesToQuery.build());
+        Map<String, PartitionStatistics> delegateResult = delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build());
         if (!delegateResult.isEmpty()) {
             resultBuilder.putAll(delegateResult);
         }
         else {
-            partitionNamesToQuery.build().forEach(partionName -> resultBuilder.put(partionName, ImmutableMap.of()));
+            partitionNamesToQuery.build().forEach(partitionName -> resultBuilder.put(partitionName, PartitionStatistics.empty()));
         }
         return resultBuilder.build();
     }

@@ -23,8 +23,15 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitionStatistics
 {
+    private static final PartitionStatistics EMPTY = new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of());
+
     private final HiveBasicStatistics basicStatistics;
     private final Map<String, HiveColumnStatistics> columnStatistics;
+
+    public static PartitionStatistics empty()
+    {
+        return EMPTY;
+    }
 
     public PartitionStatistics(
             HiveBasicStatistics basicStatistics,
