@@ -62,6 +62,13 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -245,97 +252,57 @@ public final class ThriftMetastoreUtil
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
+            OptionalLong min = longStatsData.isSetLowValue() ? OptionalLong.of(longStatsData.getLowValue()) : OptionalLong.empty();
+            OptionalLong max = longStatsData.isSetHighValue() ? OptionalLong.of(longStatsData.getHighValue()) : OptionalLong.empty();
             OptionalLong nullsCount = longStatsData.isSetNumNulls() ? OptionalLong.of(longStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    longStatsData.isSetLowValue() ? Optional.of(longStatsData.getLowValue()) : Optional.empty(),
-                    longStatsData.isSetHighValue() ? Optional.of(longStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createIntegerColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetDoubleStats()) {
+        if (columnStatistics.getStatsData().isSetDoubleStats()) {
             DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
+            OptionalDouble min = doubleStatsData.isSetLowValue() ? OptionalDouble.of(doubleStatsData.getLowValue()) : OptionalDouble.empty();
+            OptionalDouble max = doubleStatsData.isSetHighValue() ? OptionalDouble.of(doubleStatsData.getHighValue()) : OptionalDouble.empty();
             OptionalLong nullsCount = doubleStatsData.isSetNumNulls() ? OptionalLong.of(doubleStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = doubleStatsData.isSetNumDVs() ? OptionalLong.of(doubleStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    doubleStatsData.isSetLowValue() ? Optional.of(doubleStatsData.getLowValue()) : Optional.empty(),
-                    doubleStatsData.isSetHighValue() ? Optional.of(doubleStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createDoubleColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetDecimalStats()) {
+        if (columnStatistics.getStatsData().isSetDecimalStats()) {
             DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
+            Optional<BigDecimal> min = decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty();
+            Optional<BigDecimal> max = decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty();
             OptionalLong nullsCount = decimalStatsData.isSetNumNulls() ? OptionalLong.of(decimalStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = decimalStatsData.isSetNumDVs() ? OptionalLong.of(decimalStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty(),
-                    decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createDecimalColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetBooleanStats()) {
-            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
-            return new HiveColumnStatistics(
-                    Optional.empty(),
-                    Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumFalses() ? OptionalLong.of(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumNulls() ? OptionalLong.of(booleanStatsData.getNumNulls()) : OptionalLong.empty(),
-                    OptionalLong.empty());
-        }
-        else if (columnStatistics.getStatsData().isSetDateStats()) {
+        if (columnStatistics.getStatsData().isSetDateStats()) {
             DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
+            Optional<LocalDate> min = dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty();
+            Optional<LocalDate> max = dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty();
             OptionalLong nullsCount = dateStatsData.isSetNumNulls() ? OptionalLong.of(dateStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = dateStatsData.isSetNumDVs() ? OptionalLong.of(dateStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty(),
-                    dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createDateColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetStringStats()) {
+        if (columnStatistics.getStatsData().isSetBooleanStats()) {
+            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            return createBooleanColumnStatistics(
+                    booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
+                    booleanStatsData.isSetNumFalses() ? OptionalLong.of(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
+                    booleanStatsData.isSetNumNulls() ? OptionalLong.of(booleanStatsData.getNumNulls()) : OptionalLong.empty());
+        }
+        if (columnStatistics.getStatsData().isSetStringStats()) {
             StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
+            OptionalLong maxColumnLength = stringStatsData.isSetMaxColLen() ? OptionalLong.of(stringStatsData.getMaxColLen()) : OptionalLong.empty();
+            OptionalDouble averageColumnLength = stringStatsData.isSetAvgColLen() ? OptionalDouble.of(stringStatsData.getAvgColLen()) : OptionalDouble.empty();
             OptionalLong nullsCount = stringStatsData.isSetNumNulls() ? OptionalLong.of(stringStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = stringStatsData.isSetNumDVs() ? OptionalLong.of(stringStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    Optional.empty(),
-                    Optional.empty(),
-                    stringStatsData.isSetMaxColLen() ? OptionalLong.of(stringStatsData.getMaxColLen()) : OptionalLong.empty(),
-                    stringStatsData.isSetAvgColLen() ? OptionalDouble.of(stringStatsData.getAvgColLen()) : OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createStringColumnStatistics(maxColumnLength, averageColumnLength, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetBinaryStats()) {
+        if (columnStatistics.getStatsData().isSetBinaryStats()) {
             BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
-            return new HiveColumnStatistics(
-                    Optional.empty(),
-                    Optional.empty(),
-                    binaryStatsData.isSetMaxColLen() ? OptionalLong.of(binaryStatsData.getMaxColLen()) : OptionalLong.empty(),
-                    binaryStatsData.isSetAvgColLen() ? OptionalDouble.of(binaryStatsData.getAvgColLen()) : OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    binaryStatsData.isSetNumNulls() ? OptionalLong.of(binaryStatsData.getNumNulls()) : OptionalLong.empty(),
-                    OptionalLong.empty());
+            OptionalLong maxColumnLength = binaryStatsData.isSetMaxColLen() ? OptionalLong.of(binaryStatsData.getMaxColLen()) : OptionalLong.empty();
+            OptionalDouble averageColumnLength = binaryStatsData.isSetAvgColLen() ? OptionalDouble.of(binaryStatsData.getAvgColLen()) : OptionalDouble.empty();
+            OptionalLong nullsCount = binaryStatsData.isSetNumNulls() ? OptionalLong.of(binaryStatsData.getNumNulls()) : OptionalLong.empty();
+            return createBinaryColumnStatistics(maxColumnLength, averageColumnLength, nullsCount);
         }
         else {
             throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
