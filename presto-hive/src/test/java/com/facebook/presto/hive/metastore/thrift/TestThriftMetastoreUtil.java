@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
@@ -34,6 +35,8 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticsParameters;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
@@ -260,6 +263,19 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BINARY_TYPE_NAME, binaryStats(emptyBinaryColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
         assertEmptyColumnStats(actual);
+    }
+
+    @Test
+    public void testBasicStatisticsRoundTrip()
+    {
+        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.empty()));
+        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+    }
+
+    private static void testBasicStatisticsRoundTrip(HiveBasicStatistics expected)
+    {
+        assertEquals(getHiveBasicStatistics(toStatisticsParameters(expected)), expected);
     }
 
     private static void assertEmptyColumnStats(HiveColumnStatistics actual)

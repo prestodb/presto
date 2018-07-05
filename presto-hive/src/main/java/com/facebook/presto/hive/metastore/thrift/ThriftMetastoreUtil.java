@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
@@ -28,6 +29,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Longs;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -68,6 +70,11 @@ import static java.util.stream.Collectors.toList;
 
 public final class ThriftMetastoreUtil
 {
+    private static final String NUM_FILES = "numFiles";
+    private static final String NUM_ROWS = "numRows";
+    private static final String RAW_DATA_SIZE = "rawDataSize";
+    private static final String TOTAL_SIZE = "totalSize";
+
     private ThriftMetastoreUtil() {}
 
     public static org.apache.hadoop.hive.metastore.api.Database toMetastoreApiDatabase(Database database)
@@ -430,5 +437,36 @@ public final class ThriftMetastoreUtil
         }
 
         return sd;
+    }
+
+    public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
+    {
+        OptionalLong numFiles = parse(parameters.get(NUM_FILES));
+        OptionalLong numRows = parse(parameters.get(NUM_ROWS));
+        OptionalLong inMemoryDataSizeInBytes = parse(parameters.get(RAW_DATA_SIZE));
+        OptionalLong onDiskDataSizeInBytes = parse(parameters.get(TOTAL_SIZE));
+        return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+    }
+
+    private static OptionalLong parse(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return OptionalLong.empty();
+        }
+        Long longValue = Longs.tryParse(parameterValue);
+        if (longValue == null || longValue < 0) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(longValue);
+    }
+
+    public static Map<String, String> toStatisticsParameters(HiveBasicStatistics statistics)
+    {
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        statistics.getFileCount().ifPresent(count -> properties.put(NUM_FILES, Long.toString(count)));
+        statistics.getRowCount().ifPresent(count -> properties.put(NUM_ROWS, Long.toString(count)));
+        statistics.getInMemoryDataSizeInBytes().ifPresent(size -> properties.put(RAW_DATA_SIZE, Long.toString(size)));
+        statistics.getOnDiskDataSizeInBytes().ifPresent(size -> properties.put(TOTAL_SIZE, Long.toString(size)));
+        return properties.build();
     }
 }

@@ -23,6 +23,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticsParameters;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static java.util.Collections.unmodifiableMap;
@@ -32,7 +34,7 @@ public final class Statistics
 {
     private Statistics() {}
 
-    private static final Set<String> STATISTICS_PARAMETERS = ImmutableSet.copyOf(createZeroStatistics().toPartitionParameters().keySet());
+    private static final Set<String> STATISTICS_PARAMETERS = ImmutableSet.copyOf(toStatisticsParameters(createZeroStatistics()).keySet());
 
     public static Table updateStatistics(Table table, HiveBasicStatistics statistics, ReduceOperator operator)
     {
@@ -54,13 +56,13 @@ public final class Statistics
 
     public static Map<String, String> updateStatistics(Map<String, String> parameters, HiveBasicStatistics update, ReduceOperator operator)
     {
-        HiveBasicStatistics currentStatistics = HiveBasicStatistics.createFromPartitionParameters(parameters);
+        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(parameters);
         HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
         Map<String, String> updatedParameters = parameters.entrySet()
                 .stream()
                 .filter(entry -> !STATISTICS_PARAMETERS.contains(entry.getKey()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
-        updatedParameters.putAll(updatedStatistics.toPartitionParameters());
+        updatedParameters.putAll(toStatisticsParameters(updatedStatistics));
         return unmodifiableMap(updatedParameters);
     }
 

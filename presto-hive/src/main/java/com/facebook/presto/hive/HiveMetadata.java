@@ -159,6 +159,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticsParameters;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.updateStatistics;
@@ -669,7 +670,7 @@ public class HiveMetadata
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
 
         if (!partitioned) {
-            tableProperties.putAll(createZeroStatistics().toPartitionParameters());
+            tableProperties.putAll(toStatisticsParameters(createZeroStatistics()));
         }
 
         return tableProperties.build();
@@ -1159,7 +1160,7 @@ public class HiveMetadata
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                        .putAll(partitionUpdate.getStatistics().toPartitionParameters())
+                        .putAll(toStatisticsParameters(partitionUpdate.getStatistics()))
                         .build())
                 .withStorage(storage -> storage
                         .setStorageFormat(isRespectTableFormat(session) ?
