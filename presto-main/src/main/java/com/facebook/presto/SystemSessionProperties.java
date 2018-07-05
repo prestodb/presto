@@ -20,6 +20,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,6 +30,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -35,13 +38,19 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProp
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
@@ -67,6 +76,8 @@ public final class SystemSessionProperties
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
+    public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
+    public static final String MAX_REORDERED_TABLES = "max_reordered_tables";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -121,9 +132,22 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         DISTRIBUTED_JOIN,
-                        "Use a distributed join instead of a broadcast join",
-                        featuresConfig.isDistributedJoinsEnabled(),
+                        "(DEPRECATED) Use a distributed join instead of a broadcast join. If this is set join_distribution_type is ignored.",
+                        null,
                         false),
+
+                new PropertyMetadata<>(
+                        JOIN_DISTRIBUTION_TYPE,
+                        format("The join method to use. Options are %s",
+                                Stream.of(JoinDistributionType.values())
+                                        .map(FeaturesConfig.JoinDistributionType::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinDistributionType.class,
+                        featuresConfig.getJoinDistributionType(),
+                        false,
+                        value -> JoinDistributionType.valueOf(((String) value).toUpperCase()),
+                        JoinDistributionType::name),
                 booleanSessionProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
@@ -277,8 +301,25 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         REORDER_JOINS,
-                        "Experimental: Reorder joins to optimize plan",
-                        featuresConfig.isJoinReorderingEnabled(),
+                        "(DEPRECATED) Reorder joins to remove unnecessary cross joins. If this is set, join_reordering_strategy will be ignored",
+                        null,
+                        false),
+                new PropertyMetadata<>(
+                        JOIN_REORDERING_STRATEGY,
+                        format("The join reordering strategy to use. Options are %s",
+                                Stream.of(JoinReorderingStrategy.values())
+                                        .map(FeaturesConfig.JoinReorderingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinReorderingStrategy.class,
+                        featuresConfig.getJoinReorderingStrategy(),
+                        false,
+                        value -> JoinReorderingStrategy.valueOf(((String) value).toUpperCase()),
+                        JoinReorderingStrategy::name),
+                integerSessionProperty(
+                        MAX_REORDERED_TABLES,
+                        "The maximum number of tables to reorder in cost-based join reordering",
+                        featuresConfig.getMaxReorderedTables(),
                         false),
                 booleanSessionProperty(
                         FAST_INEQUALITY_JOINS,
@@ -446,9 +487,18 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
-    public static boolean isDistributedJoinEnabled(Session session)
+    public static JoinDistributionType getJoinDistributionType(Session session)
     {
-        return session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        // distributed_join takes precedence until we remove it
+        Boolean distributedJoin = session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        if (distributedJoin != null) {
+            if (!distributedJoin) {
+                return BROADCAST;
+            }
+            return REPARTITIONED;
+        }
+
+        return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
@@ -551,9 +601,21 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAST_INEQUALITY_JOINS, Boolean.class);
     }
 
-    public static boolean isJoinReorderingEnabled(Session session)
+    public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
-        return session.getSystemProperty(REORDER_JOINS, Boolean.class);
+        Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
+        if (reorderJoins != null) {
+            if (!reorderJoins) {
+                return NONE;
+            }
+            return ELIMINATE_CROSS_JOINS;
+        }
+        return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
+    }
+
+    public static int getMaxReorderedTables(Session session)
+    {
+        return session.getSystemProperty(MAX_REORDERED_TABLES, Integer.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)
