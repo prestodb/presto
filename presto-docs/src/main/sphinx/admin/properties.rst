@@ -515,3 +515,209 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     to hit the limit on matches for subsequent rows as well, you want to use the
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
+
+
+Query Execution Properties
+--------------------------
+
+``query.execution-policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``all-at-once``, ``phased``
+    * **Default value:** ``all-at-once``
+
+    Setting this property to ``phased`` will allow the query scheduler to
+    split a single query execution between different time slots or phases.
+    During scheduling, one phase is fully started before the next phase is scheduled.
+    Setting this property to ``all-at-once`` will schedule multiple stages at the same
+    time thus reducing latency, but may increase the peak resource usage on the system.
+    This can also be specified on a per-query basis using the ``execution_policy``
+    session property.
+
+
+``query.initial-hash-partitions``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``1``
+    * **Default value:** ``100``
+
+    Determines how many nodes share the same query when fixed partitioning
+    is chosen by Presto. Presto may ignore this setting if
+    ``node-scheduler.multiple-tasks-per-node-enabled`` is set to false - in this case,
+    the value is internally capped at the number of available worker nodes.
+    This can also be specified on a per-query basis using the ``hash_partition_count``
+    session property.
+
+
+``query.low-memory-killer.delay``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Minimum Value:** ``5s``
+    * **Default value:** ``5m``
+
+    Delay between a cluster running low on memory and invoking a query killer.
+    A lower value may cause more queries to fail fast, but fewer queries to fail
+    in an unexpected way.
+
+
+``query.manager-executor-pool-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``1``
+    * **Default value:** ``5``
+
+    The size of the thread pool which is used for freeing resources
+    from canceled or abandoned queries, as well as enforcing query level memory limits,
+    query timeouts, etc.
+
+
+``query.min-expire-age``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``15m``
+
+    The minimum time after which the query metadata may be removed from the server.
+    The value describes minimum time, but if there is space
+    available in the history queue the query data will be kept longer.
+    The size of the history queue is defined by the ``query.max-history`` property.
+
+
+.. _query-max-memory:
+
+``query.max-memory``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``20GB``
+
+    It sets the strict limit of total memory that may be used to process a
+    single query. A query is killed if the limit is reached unless the
+    ``resource_overcommit`` session property is set. It should be set higher than
+    the expected memory requirement for a typical query in the system.
+    It is possible to decrease the query memory limit for
+    a session by setting session property ``query_max_memory`` to a smaller value.
+    Setting ``query_max_memory`` to a larger value than ``query.max-memory`` will not
+    have any effect.
+
+
+``query.max-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory`` * ``0.1``
+
+    Same as of :ref:`query.max-memory<query-max-memory>` but the memory is not
+    computed cluster-wise but node-wise instead. This should not be any lower than
+    ``query.max-memory / number of nodes``. It may be required to increase
+    this value if data is skewed.
+
+
+``query.max-run-time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``100d``
+
+    The default value for the ``query_max_run_time`` session property .
+    Queries that last longer than the duration set with ``query.max-run-time``
+    will be cancelled. As the query timed out by this limit
+    immediately returns all the used resources this may be particularly useful in query
+    management systems to force user limits.
+
+``query.max-cpu-time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Minimum Value:** ``1ns``
+    * **Default value:** ``1000000000d``
+
+    The default for session property ``query_max_cpu_time``.
+    Similar to ``query.max-run-time`` property but this sets a maximum CPU time limit of a
+    query.
+
+
+``query.max-execution-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``100d``
+
+    The default for session property ``query_max_execution_time``.
+    Unlike ``query.max-run-time``, this property does not consider the queueing time of a query.
+
+
+``query.remote-task.max-callback-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``1``
+    * **Default value:** ``1000``
+
+    The maximum size of the thread pool used to run callbacks generated while
+    processing HTTP requests for each task. Increasing this value will cause
+    more resources to be used for handling HTTP communication itself, but may
+    also improve the response time when Presto is distributed across many hosts or
+    when running queries which creates large number of tasks.
+
+
+``query.remote-task.max-error-duration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Minimum Value:** ``1s``
+    * **Default value:** ``5m``
+
+    The maximum time that the worker can be unavailable before
+    the coordinator assumes the worker crashed. Use this property to increase the error
+    tolerance for communication between coordinator and worker based on the duration
+    that the query has run without errors.
+
+
+``query.schedule-split-batch-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``1``
+    * **Default value:** ``1000``
+
+    The number of splits that will be attempted to fetch in a single stage.
+    Higher value may be used if system works in reliable environment
+    and the responsiveness is less important than the average response time.
+    Decreasing this value may have a positive effect if there are lots of nodes in the cluster
+    and processing of each split is relatively expensive.
+
+``query.max-length``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``0``
+    * **Maximum Value:** ``1000000000``
+    * **Default value:** ``1000000``
+
+    The maximum length of a SQL query allowed. Limiting the size
+    of the SQL query will prevent gigantic SQL statements in the generated events.
+
+``query-manager.initialization-required-workers``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``1``
+    * **Default value:** ``1``
+
+
+    Minimum number of workers that must be available before the cluster will accept queries.
+
+``query-manager.initialization-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``5m``
+
+    This is the maximum time that the cluster will wait before accepting queries. The queries
+    will be accepted even if the minimum required workers, set by property
+    ``query-manager.initialization-required-workers``, are not available.
