@@ -14,27 +14,22 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toStatisticsParameters;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -50,39 +45,11 @@ public final class Statistics
 {
     private Statistics() {}
 
-    public static Table updateStatistics(Table table, HiveBasicStatistics update, ReduceOperator operator)
+    public static PartitionStatistics merge(PartitionStatistics first, PartitionStatistics second)
     {
-        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(table.getParameters());
-        HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
-        return Table.builder(table)
-                .setParameters(updateStatisticsParameters(table.getParameters(), updatedStatistics))
-                .build();
-    }
-
-    public static Partition updateStatistics(Partition partition, HiveBasicStatistics update, ReduceOperator operator)
-    {
-        HiveBasicStatistics currentStatistics = getHiveBasicStatistics(partition.getParameters());
-        HiveBasicStatistics updatedStatistics = reduce(currentStatistics, update, operator);
-        return Partition.builder(partition)
-                .setParameters(updateStatisticsParameters(partition.getParameters(), updatedStatistics))
-                .build();
-    }
-
-    public static Map<String, String> updateStatistics(Map<String, String> parameters, HiveBasicStatistics statistics, ReduceOperator operator)
-    {
-        HiveBasicStatistics originalStatistics = getHiveBasicStatistics(parameters);
-        HiveBasicStatistics updatedStatistics = reduce(originalStatistics, statistics, operator);
-        return toStatisticsParameters(updatedStatistics);
-    }
-
-    public static HiveBasicStatistics add(HiveBasicStatistics first, HiveBasicStatistics second)
-    {
-        return reduce(first, second, ADD);
-    }
-
-    public static HiveBasicStatistics subtract(HiveBasicStatistics first, HiveBasicStatistics second)
-    {
-        return reduce(first, second, SUBTRACT);
+        return new PartitionStatistics(
+                reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
+                ImmutableMap.of());
     }
 
     public static HiveBasicStatistics reduce(HiveBasicStatistics first, HiveBasicStatistics second, ReduceOperator operator)
@@ -180,19 +147,7 @@ public final class Statistics
     public enum ReduceOperator
     {
         ADD,
-        SUBTRACT;
-
-        public ReduceOperator flip()
-        {
-            switch (this) {
-                case SUBTRACT:
-                    return ADD;
-                case ADD:
-                    return SUBTRACT;
-                default:
-                    throw new UnsupportedOperationException("flip is not implemented for operation type: " + this);
-            }
-        }
+        SUBTRACT,
     }
 
     public static class Range

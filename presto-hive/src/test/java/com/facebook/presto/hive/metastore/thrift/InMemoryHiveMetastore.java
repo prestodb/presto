@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -54,14 +53,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Locale.US;
@@ -455,9 +453,7 @@ public class InMemoryHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         PartitionStatistics statistics = columnStatistics.get(schemaTableName);
         if (statistics == null) {
-            // TODO: remove this after basic statistics are migrated to updateTableStatistics
-            HiveBasicStatistics hiveBasicStatistics = getHiveBasicStatistics(getTable(databaseName, tableName).get().getParameters());
-            statistics = new PartitionStatistics(hiveBasicStatistics, ImmutableMap.of());
+            statistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
         return statistics;
     }
@@ -470,10 +466,7 @@ public class InMemoryHiveMetastore
             PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
             PartitionStatistics statistics = partitionColumnStatistics.get(partitionKey);
             if (statistics == null) {
-                // TODO: remove this after basic statistics are migrated to updatePartitionStatistics
-                Partition partition = getOnlyElement(getPartitionsByNames(databaseName, tableName, ImmutableList.of(partitionName)));
-                HiveBasicStatistics hiveBasicStatistics = getHiveBasicStatistics(partition.getParameters());
-                statistics = new PartitionStatistics(hiveBasicStatistics, ImmutableMap.of());
+                statistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
             }
             result.put(partitionName, statistics);
         }
