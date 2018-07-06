@@ -24,11 +24,9 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 
-public class ConstantExpressionVerifier
+public final class ConstantExpressionVerifier
 {
-    private ConstantExpressionVerifier()
-    {
-    }
+    private ConstantExpressionVerifier() {}
 
     public static void verifyExpressionIsConstant(Set<NodeRef<Expression>> columnReferences, Expression expression)
     {
