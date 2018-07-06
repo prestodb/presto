@@ -320,11 +320,20 @@ public class Console
                 schemaChanged.run();
             }
 
+            // update transaction ID if necessary
+            if (query.isClearTransactionId()) {
+                session = stripTransactionId(session);
+            }
+
+            ClientSession.Builder builder = ClientSession.builder(session);
+
+            if (query.getStartedTransactionId() != null) {
+                builder = builder.withTransactionId(query.getStartedTransactionId());
+            }
+
             // update path if present
             if (query.getSetPath().isPresent()) {
-                session = ClientSession.builder(session)
-                        .withPath(query.getSetPath().get())
-                        .build();
+                builder = builder.withPath(query.getSetPath().get());
             }
 
             // update session properties if present
@@ -332,9 +341,7 @@ public class Console
                 Map<String, String> sessionProperties = new HashMap<>(session.getProperties());
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
-                session = ClientSession.builder(session)
-                        .withProperties(sessionProperties)
-                        .build();
+                builder = builder.withProperties(sessionProperties);
             }
 
             // update prepared statements if present
@@ -342,21 +349,10 @@ public class Console
                 Map<String, String> preparedStatements = new HashMap<>(session.getPreparedStatements());
                 preparedStatements.putAll(query.getAddedPreparedStatements());
                 preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
-                session = ClientSession.builder(session)
-                        .withPreparedStatements(preparedStatements)
-                        .build();
+                builder = builder.withPreparedStatements(preparedStatements);
             }
 
-            // update transaction ID if necessary
-            if (query.isClearTransactionId()) {
-                session = stripTransactionId(session);
-            }
-            if (query.getStartedTransactionId() != null) {
-                session = ClientSession.builder(session)
-                        .withTransactionId(query.getStartedTransactionId())
-                        .build();
-            }
-
+            session = builder.build();
             queryRunner.setSession(session);
 
             return success;
