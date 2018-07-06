@@ -187,6 +187,17 @@ Statistical Functions
     Returns the upper bound of the Wilson score interval of a Bernoulli trial process
     at a confidence specified by the z-score ``z``.
 
+.. function:: kleinberg_burst_detection(time[, s, gamma]) -> array<integer)
+
+    Given an array of sorted timestamps, returns an array with the same length
+    as the input where a 0 value indicates no-burst, and any other value
+    indicates that the timestamp at this index corresponds to a burst whose
+    center is located in the index pointed to by the value. The default value for
+    ``s`` is ``2.0`` and for ``gamma`` is ``1.0``.::
+
+    SELECT kleinberg_burst_detection(ARRAY [100, 100.1, 101, 110, 110.1, 110.2, 110.3, 110.35, 110.40, 150, 304.35]); -- [0, 2, 2, 2, 6, 6, 6, 6, 6, 0, 0]
+    SELECT kleinberg_burst_detection(ARRAY [100, 100.1, 101, 110, 110.1, 110.2, 110.3, 110.35, 110.40, 150, 304.35], 2.0, 1.0); -- [0, 2, 2, 2, 6, 6, 6, 6, 6, 0, 0]
+
 Trigonometric Functions
 -----------------------
 
