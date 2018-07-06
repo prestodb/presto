@@ -67,6 +67,9 @@ import static org.testng.Assert.assertTrue;
 public class TestCostCalculator
 {
     private static final int NUMBER_OF_NODES = 10;
+    private static final double AVERAGE_ROW_SIZE = 8.;
+    private static final double IS_NULL_OVERHEAD = 9. / AVERAGE_ROW_SIZE;
+    private static final double OFFSET_AND_IS_NULL_OVERHEAD = 13. / AVERAGE_ROW_SIZE;
     private final CostCalculator costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(() -> NUMBER_OF_NODES);
     private final CostCalculator costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, () -> NUMBER_OF_NODES);
     private Session session = testSessionBuilder().build();
@@ -78,12 +81,12 @@ public class TestCostCalculator
         Map<String, Type> types = ImmutableMap.of("orderkey", BIGINT);
 
         assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
-                .cpu(1000)
+                .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
         assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
-                .cpu(1000)
+                .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
@@ -104,12 +107,12 @@ public class TestCostCalculator
                 "string", VARCHAR);
 
         assertCost(project, costs, stats, types)
-                .cpu(1000 + 4000)
+                .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
         assertCostEstimatedExchanges(project, costs, stats, types)
-                .cpu(1000 + 4000)
+                .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
@@ -141,14 +144,14 @@ public class TestCostCalculator
                 "orderkey_0", BIGINT);
 
         assertCost(join, costs, stats, types)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000)
-                .memory(1000)
+                .cpu(6000 + 1000 + (12000 + 6000 + 1000) * IS_NULL_OVERHEAD)
+                .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
 
         assertCostEstimatedExchanges(join, costs, stats, types)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000 + 1000)
-                .memory(1000)
-                .network(6000 + 1000);
+                .cpu(6000 + 1000 + (12000 + 6000 + 1000 + 6000 + 1000 + 1000) * IS_NULL_OVERHEAD)
+                .memory(1000 * IS_NULL_OVERHEAD)
+                .network((6000 + 1000) * IS_NULL_OVERHEAD);
 
         assertCostHasUnknownComponentsForUnknownStats(join, types);
     }
@@ -179,14 +182,14 @@ public class TestCostCalculator
                 "orderkey_0", BIGINT);
 
         assertCost(join, costs, stats, types)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * (NUMBER_OF_NODES - 1))
-                .memory(1000 * NUMBER_OF_NODES)
+                .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * (NUMBER_OF_NODES - 1)) * IS_NULL_OVERHEAD)
+                .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
 
         assertCostEstimatedExchanges(join, costs, stats, types)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * NUMBER_OF_NODES)
-                .memory(1000 * NUMBER_OF_NODES)
-                .network(1000 * NUMBER_OF_NODES);
+                .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * NUMBER_OF_NODES) * IS_NULL_OVERHEAD)
+                .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
+                .network(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD);
 
         assertCostHasUnknownComponentsForUnknownStats(join, types);
     }
@@ -206,14 +209,14 @@ public class TestCostCalculator
                 "count", BIGINT);
 
         assertCost(aggregation, costs, stats, types)
-                .cpu(6000 + 6000)
-                .memory(13)
+                .cpu(6000 * IS_NULL_OVERHEAD + 6000)
+                .memory(13 * IS_NULL_OVERHEAD)
                 .network(0);
 
         assertCostEstimatedExchanges(aggregation, costs, stats, types)
-                .cpu(6000 + 6000 + 6000 + 6000)
-                .memory(13)
-                .network(6000);
+                .cpu((6000 + 6000 + 6000) * IS_NULL_OVERHEAD + 6000)
+                .memory(13 * IS_NULL_OVERHEAD)
+                .network(6000 * IS_NULL_OVERHEAD);
 
         assertCostHasUnknownComponentsForUnknownStats(aggregation, types);
     }
@@ -335,8 +338,7 @@ public class TestCostCalculator
         checkArgument(symbols.size() > 0, "No symbols");
         checkArgument(ImmutableSet.copyOf(symbols).size() == symbols.size(), "Duplicate symbols");
 
-        double rowCount = outputSizeInBytes / symbols.size() / 8;
-        double averageRowSizePerSymbol = outputSizeInBytes / rowCount / symbols.size();
+        double rowCount = outputSizeInBytes / symbols.size() / AVERAGE_ROW_SIZE;
 
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(rowCount);
@@ -345,7 +347,7 @@ public class TestCostCalculator
                     symbol,
                     SymbolStatsEstimate.builder()
                             .setNullsFraction(0)
-                            .setAverageRowSize(averageRowSizePerSymbol)
+                            .setAverageRowSize(AVERAGE_ROW_SIZE)
                             .build());
         }
         return builder.build();
