@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VariableWidthType;
 import com.facebook.presto.sql.planner.Symbol;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
@@ -74,7 +75,9 @@ public class PlanNodeStatsEstimate
         checkArgument(type != null, "type is null");
 
         double averageRowSize = symbolStatistics.getAverageRowSize();
-        double numberOfNonNullRows = outputRowCount * (1.0 - firstNonNaN(symbolStatistics.getNullsFraction(), 0d));
+        double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
+        double numberOfNonNullRows = outputRowCount * (1.0 - nullsFraction);
+
         if (isNaN(averageRowSize)) {
             if (type instanceof FixedWidthType) {
                 averageRowSize = ((FixedWidthType) type).getFixedSize();
@@ -83,7 +86,18 @@ public class PlanNodeStatsEstimate
                 averageRowSize = DEFAULT_DATA_SIZE_PER_COLUMN;
             }
         }
-        return numberOfNonNullRows * averageRowSize;
+
+        double outputSize = numberOfNonNullRows * averageRowSize;
+
+        // account for "is null" boolean array
+        outputSize += outputRowCount * Byte.BYTES;
+
+        // account for offsets array for variable width types
+        if (type instanceof VariableWidthType) {
+            outputSize += outputRowCount * Integer.BYTES;
+        }
+
+        return outputSize;
     }
 
     public PlanNodeStatsEstimate mapOutputRowCount(Function<Double, Double> mappingFunction)
