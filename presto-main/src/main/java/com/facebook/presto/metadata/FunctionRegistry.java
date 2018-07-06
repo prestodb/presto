@@ -96,6 +96,7 @@ import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
+import com.facebook.presto.operator.scalar.KleinbergBurstDetectionFunction;
 import com.facebook.presto.operator.scalar.MapCardinalityFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
 import com.facebook.presto.operator.scalar.MapEntriesFunction;
@@ -501,6 +502,7 @@ public class FunctionRegistry
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
+                .scalars(KleinbergBurstDetectionFunction.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
                 .scalar(ArrayFilterFunction.class)
