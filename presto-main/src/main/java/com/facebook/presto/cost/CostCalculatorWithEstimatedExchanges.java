@@ -69,7 +69,7 @@ public class CostCalculatorWithEstimatedExchanges
     @Override
     public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(numberOfNodes.getAsInt(), stats, lookup);
+        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(numberOfNodes.getAsInt(), stats, lookup, types);
         PlanNodeCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
         return costCalculator.calculateCost(node, stats, lookup, session, types).add(estimatedExchangeCost);
     }
@@ -80,12 +80,14 @@ public class CostCalculatorWithEstimatedExchanges
         private final int numberOfNodes;
         private final StatsProvider stats;
         private final Lookup lookup;
+        private final Map<Symbol, Type> types;
 
-        ExchangeCostEstimator(int numberOfNodes, StatsProvider stats, Lookup lookup)
+        ExchangeCostEstimator(int numberOfNodes, StatsProvider stats, Lookup lookup, Map<Symbol, Type> types)
         {
             this.numberOfNodes = numberOfNodes;
             this.stats = requireNonNull(stats, "stats is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -112,13 +114,15 @@ public class CostCalculatorWithEstimatedExchanges
                     sourceStats,
                     sourceSymbols,
                     REPARTITION,
-                    REMOTE);
+                    REMOTE,
+                    types);
             PlanNodeCostEstimate localRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                     numberOfNodes,
                     sourceStats,
                     sourceSymbols,
                     REPARTITION,
-                    LOCAL);
+                    LOCAL,
+                    types);
 
             // TODO consider cost of aggregation itself, not only exchanges, based on aggregation's properties
             return remoteRepartitionCost.add(localRepartitionCost);
@@ -150,14 +154,16 @@ public class CostCalculatorWithEstimatedExchanges
                         getStats(build),
                         build.getOutputSymbols(),
                         REPLICATE,
-                        REMOTE);
+                        REMOTE,
+                        types);
                 // cost of the copies repartitioning is added in CostCalculatorUsingExchanges#calculateJoinCost
                 PlanNodeCostEstimate localRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
                         getStats(build),
                         build.getOutputSymbols(),
                         REPARTITION,
-                        LOCAL);
+                        LOCAL,
+                        types);
                 return replicateCost.add(localRepartitionCost);
             }
             else {
@@ -166,19 +172,22 @@ public class CostCalculatorWithEstimatedExchanges
                         getStats(probe),
                         probe.getOutputSymbols(),
                         REPARTITION,
-                        REMOTE);
+                        REMOTE,
+                        types);
                 PlanNodeCostEstimate buildRemoteRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
                         getStats(build),
                         build.getOutputSymbols(),
                         REPARTITION,
-                        REMOTE);
+                        REMOTE,
+                        types);
                 PlanNodeCostEstimate buildLocalRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
                         getStats(build),
                         build.getOutputSymbols(),
                         REPARTITION,
-                        LOCAL);
+                        LOCAL,
+                        types);
                 return probeCost
                         .add(buildRemoteRepartitionCost)
                         .add(buildLocalRepartitionCost);

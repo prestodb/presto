@@ -1377,7 +1377,7 @@ public class PlanPrinter
             PlanNodeCostEstimate cost = costProvider.getCumulativeCost(node);
             return String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
-                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputSymbols())),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputSymbols(), types)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMemoryCost()),
                     formatDouble(cost.getNetworkCost()));

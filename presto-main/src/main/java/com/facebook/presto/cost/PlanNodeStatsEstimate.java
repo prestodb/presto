@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
@@ -58,23 +60,28 @@ public class PlanNodeStatsEstimate
      * Returns estimated data size.
      * Unknown value is represented by {@link Double#NaN}
      */
-    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols)
+    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols, Map<Symbol, Type> types)
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 
         return outputSymbols.stream()
-                .map(this::getSymbolStatistics)
-                .mapToDouble(this::getOutputSizeForSymbol)
+                .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), types.get(symbol)))
                 .sum();
     }
 
-    private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics)
+    private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics, Type type)
     {
+        checkArgument(type != null, "type is null");
+
         double averageRowSize = symbolStatistics.getAverageRowSize();
         double numberOfNonNullRows = outputRowCount * (1.0 - firstNonNaN(symbolStatistics.getNullsFraction(), 0d));
         if (isNaN(averageRowSize)) {
-            // TODO take into consideration data type of column
-            return numberOfNonNullRows * DEFAULT_DATA_SIZE_PER_COLUMN;
+            if (type instanceof FixedWidthType) {
+                averageRowSize = ((FixedWidthType) type).getFixedSize();
+            }
+            else {
+                averageRowSize = DEFAULT_DATA_SIZE_PER_COLUMN;
+            }
         }
         return numberOfNonNullRows * averageRowSize;
     }
