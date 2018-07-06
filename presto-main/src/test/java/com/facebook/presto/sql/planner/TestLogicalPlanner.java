@@ -76,6 +76,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -97,6 +99,36 @@ import static org.testng.Assert.assertFalse;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    @Test
+    public void testAggregation()
+    {
+        // simple group by
+        assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                        PARTIAL,
+                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+
+        // simple group by over filter that keeps at most one group
+        assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders WHERE orderstatus='O' GROUP BY orderstatus",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                        PARTIAL,
+                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+    }
+
     @Test
     public void testDistinctLimitOverInequalityJoin()
     {
