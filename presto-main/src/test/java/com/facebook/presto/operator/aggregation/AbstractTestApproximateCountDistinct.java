@@ -108,7 +108,7 @@ public abstract class AbstractTestApproximateCountDistinct
         }
 
         assertLessThan(stats.getMean(), 1.0e-2);
-        assertLessThan(Math.abs(stats.getStandardDeviation() - maxStandardError), 1.0e-2);
+        assertLessThan(stats.getStandardDeviation(), 1.0e-2 + maxStandardError);
     }
 
     @Test(dataProvider = "provideStandardErrors")
