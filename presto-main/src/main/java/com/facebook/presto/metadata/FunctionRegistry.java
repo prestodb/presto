@@ -514,6 +514,7 @@ public class FunctionRegistry
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
                 .scalar(DecimalOperators.Indeterminate.class)
+                .scalar(DecimalOperators.XxHash64Operator.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayLessThanOperator.class)
                 .scalar(ArrayLessThanOrEqualOperator.class)
