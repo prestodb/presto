@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import org.joda.time.chrono.ISOChronology;
 
 import java.time.Instant;
@@ -39,6 +40,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -165,6 +167,13 @@ public final class TimeWithTimeZoneOperators
     public static long hashCode(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
         return AbstractLongType.hash(unpackMillisUtc(value));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    {
+        return XxHash64.hash(unpackMillisUtc(value));
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
