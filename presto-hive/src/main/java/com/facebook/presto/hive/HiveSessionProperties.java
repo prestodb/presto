@@ -26,6 +26,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -195,7 +197,7 @@ public final class HiveSessionProperties
                 stringSessionProperty(
                         HIVE_STORAGE_FORMAT,
                         "Default storage format for new tables or partitions",
-                        hiveClientConfig.getHiveStorageFormat().toString(),
+                        DWRF.toString(),
                         false),
                 booleanSessionProperty(
                         RESPECT_TABLE_FORMAT,
