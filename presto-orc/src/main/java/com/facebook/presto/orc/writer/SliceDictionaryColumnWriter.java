@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
@@ -72,6 +71,15 @@ public class SliceDictionaryColumnWriter
     private final int bufferSize;
     private final OrcEncoding orcEncoding;
     private final int stringStatisticsLimitInBytes;
+
+    /**
+     * To get a good estimate of dictionary id data stream in the stripe, we write
+     * temporary dictionary ids to this stream and use its buffer size as an estimation.
+     * <p>
+     * Dictionary will be sorted and dictionary ids has to be re-indexed and written to
+     * <code>dataStream</code> when flushing data.
+     */
+    private final LongOutputStream tempDictionaryIdDataStream;
 
     private final LongOutputStream dataStream;
     private final PresentOutputStream presentStream;
@@ -106,14 +114,14 @@ public class SliceDictionaryColumnWriter
         this.bufferSize = bufferSize;
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.stringStatisticsLimitInBytes = toIntExact(requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null").toBytes());
-        LongOutputStream result;
         if (orcEncoding == DWRF) {
-            result = new LongOutputStreamV1(compression, bufferSize, false, DATA);
+            this.dataStream = new LongOutputStreamV1(compression, bufferSize, false, DATA);
+            this.tempDictionaryIdDataStream = new LongOutputStreamV1(compression, bufferSize, false, DATA);
         }
         else {
-            result = new LongOutputStreamV2(compression, bufferSize, false, DATA);
+            this.dataStream = new LongOutputStreamV2(compression, bufferSize, false, DATA);
+            this.tempDictionaryIdDataStream = new LongOutputStreamV2(compression, bufferSize, false, DATA);
         }
-        this.dataStream = result;
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.dictionaryDataStream = new ByteArrayOutputStream(compression, bufferSize, StreamKind.DICTIONARY_DATA);
         this.dictionaryLengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
@@ -185,6 +193,7 @@ public class SliceDictionaryColumnWriter
         rawBytes = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
+        tempDictionaryIdDataStream.close();
 
         rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
@@ -244,6 +253,7 @@ public class SliceDictionaryColumnWriter
         for (int position = 0; position < block.getPositionCount(); position++) {
             int index = dictionary.putIfAbsent(block, position);
             values.set(rowGroupValueCount, index);
+            tempDictionaryIdDataStream.writeLong(index);
             rowGroupValueCount++;
             totalValueCount++;
 
@@ -358,6 +368,7 @@ public class SliceDictionaryColumnWriter
         dictionaryDataStream.close();
         dictionaryLengthStream.close();
 
+        tempDictionaryIdDataStream.close();
         dataStream.close();
         presentStream.close();
     }
@@ -464,8 +475,7 @@ public class SliceDictionaryColumnWriter
             return directColumnWriter.getBufferedBytes();
         }
         // for dictionary columns we report the data we expect to write to the output stream
-        int indexBytes = estimateIndexBytesPerValue(dictionary.getEntryCount()) * getNonNullValueCount();
-        return indexBytes + getDictionaryBytes();
+        return tempDictionaryIdDataStream.getBufferedBytes() + getDictionaryBytes();
     }
 
     @Override
@@ -474,6 +484,7 @@ public class SliceDictionaryColumnWriter
         // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
         return INSTANCE_SIZE +
                 values.sizeOf() +
+                tempDictionaryIdDataStream.getRetainedBytes() +
                 dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
                 dictionaryDataStream.getRetainedBytes() +
@@ -487,6 +498,7 @@ public class SliceDictionaryColumnWriter
     {
         checkState(closed);
         closed = false;
+        tempDictionaryIdDataStream.reset();
         dataStream.reset();
         presentStream.reset();
         dictionaryDataStream.reset();
