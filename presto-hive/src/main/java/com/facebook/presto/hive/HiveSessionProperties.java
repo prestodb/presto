@@ -27,7 +27,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
-import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;

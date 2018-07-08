@@ -79,7 +79,6 @@ public class OrcWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
     private static final Logger log = Logger.get(OrcWriter.class);
 
-
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
     private final OrcWriterStats stats;
