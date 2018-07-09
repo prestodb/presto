@@ -186,6 +186,7 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -857,19 +858,8 @@ public class LocalQueryRunner
 
     private static List<TableScanNode> findTableScanNodes(PlanNode node)
     {
-        ImmutableList.Builder<TableScanNode> tableScanNodes = ImmutableList.builder();
-        findTableScanNodes(node, tableScanNodes);
-        return tableScanNodes.build();
-    }
-
-    private static void findTableScanNodes(PlanNode node, ImmutableList.Builder<TableScanNode> builder)
-    {
-        for (PlanNode source : node.getSources()) {
-            findTableScanNodes(source, builder);
-        }
-
-        if (node instanceof TableScanNode) {
-            builder.add((TableScanNode) node);
-        }
+        return searchFrom(node)
+                .where(TableScanNode.class::isInstance)
+                .findAll();
     }
 }
