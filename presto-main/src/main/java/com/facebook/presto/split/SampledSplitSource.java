@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class SampledSplitSource
@@ -60,7 +61,7 @@ public class SampledSplitSource
                 splitBatch.getSplits().stream()
                         .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
                         .collect(toImmutableList()),
-                splitBatch.isLastBatch()));
+                splitBatch.isLastBatch()), directExecutor());
     }
 
     @Override

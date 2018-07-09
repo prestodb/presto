@@ -617,6 +617,21 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetPath(SetPath node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitPathSpecification(PathSpecification node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPathElement(PathElement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitTransactionMode(TransactionMode node, C context)
     {
         return visitNode(node, context);
@@ -703,6 +718,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitCurrentUser(CurrentUser node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitCurrentPath(CurrentPath node, C context)
     {
         return visitExpression(node, context);
     }

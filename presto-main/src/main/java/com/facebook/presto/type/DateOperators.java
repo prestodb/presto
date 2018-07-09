@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -104,12 +105,17 @@ public final class DateOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
     {
-        long utcMillis = TimeUnit.DAYS.toMillis(value);
+        if (session.isLegacyTimestamp()) {
+            long utcMillis = TimeUnit.DAYS.toMillis(value);
 
-        // date is encoded as milliseconds at midnight in UTC
-        // convert to midnight if the session timezone
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        return utcMillis - chronology.getZone().getOffset(utcMillis);
+            // date is encoded as milliseconds at midnight in UTC
+            // convert to midnight in the session timezone
+            ISOChronology chronology = getChronology(session.getTimeZoneKey());
+            return utcMillis - chronology.getZone().getOffset(utcMillis);
+        }
+        else {
+            return TimeUnit.DAYS.toMillis(value);
+        }
     }
 
     @ScalarOperator(CAST)
@@ -119,7 +125,7 @@ public final class DateOperators
         long utcMillis = TimeUnit.DAYS.toMillis(value);
 
         // date is encoded as milliseconds at midnight in UTC
-        // convert to midnight if the session timezone
+        // convert to midnight in the session timezone
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         long millis = utcMillis - chronology.getZone().getOffset(utcMillis);
         return packDateTimeWithZone(millis, session.getTimeZoneKey());
@@ -169,5 +175,12 @@ public final class DateOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(StandardTypes.DATE) long value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 }

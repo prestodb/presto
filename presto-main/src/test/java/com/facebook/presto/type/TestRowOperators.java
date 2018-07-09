@@ -23,7 +23,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -45,6 +44,7 @@ import java.util.Set;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_ROW_FIELD_ORDINAL_ACCESS;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -52,12 +52,14 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
@@ -65,6 +67,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestRowOperators
@@ -137,9 +140,9 @@ public class TestRowOperators
                 "[\"2001-08-22\",\"2001-08-23\",null]");
 
         assertFunction(
-                "CAST(ROW(from_unixtime(1), cast(null as TIMESTAMP)) AS JSON)",
+                "CAST(ROW(TIMESTAMP '1970-01-01 00:00:01', cast(null as TIMESTAMP)) AS JSON)",
                 JSON,
-                format("[\"%s\",null]", sqlTimestamp(1000).toString()));
+                format("[\"%s\",null]", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION)));
 
         assertFunction(
                 "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY<BIGINT>)) AS JSON)",
@@ -530,6 +533,39 @@ public class TestRowOperators
         assertRowHashOperator("ROW(true, 2)", ImmutableList.of(BOOLEAN, INTEGER), ImmutableList.of(true, 2));
     }
 
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as row(col0 bigint))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(1)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(1,2)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(1,null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(null,2)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(null,null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row('111',null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(null,'222')", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row('111','222')", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1), row(2), row(3))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1), row(null), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1), row(cast(null as bigint)), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(row(1)), row(2), row(3))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(row(null)), row(2), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(row(cast(null as boolean))), row(2), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[3,4,5]))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(3,4)]))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(null,2),row(array[row(3,4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,null),row(array[row(3,4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[cast(row(3,4) as row(a integer, b integer)), cast(null as row(a integer, b integer))]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(null,4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(map(array[8], array[9]),4)]))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(map(array[8], array[null]),4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(1E0,2E0)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(1E0,null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(true,false)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(true,null)", BOOLEAN, true);
+    }
+
     private void assertRowHashOperator(String inputString, List<Type> types, List<Object> elements)
     {
         checkArgument(types.size() == elements.size(), "types and elements must have the same size");
@@ -554,10 +590,5 @@ public class TestRowOperators
             assertFunction(base + operator + greater, BOOLEAN, lessOrInequalityOperators.contains(operator));
             assertFunction(greater + operator + base, BOOLEAN, greaterOrInequalityOperators.contains(operator));
         }
-    }
-
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

@@ -229,9 +229,6 @@ public class TestRaptorIntegrationSmokeTest
     @Test
     public void testShardingByTemporalTimestampColumn()
     {
-        // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
-
         assertUpdate("CREATE TABLE test_shard_temporal_timestamp(col1 BIGINT, col2 TIMESTAMP) WITH (temporal_column = 'col2')");
 
         int rows = 20;
@@ -262,9 +259,6 @@ public class TestRaptorIntegrationSmokeTest
     @Test
     public void testShardingByTemporalTimestampColumnBucketed()
     {
-        // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
-
         assertUpdate("" +
                 "CREATE TABLE test_shard_temporal_timestamp_bucketed(col1 BIGINT, col2 TIMESTAMP) " +
                 "WITH (temporal_column = 'col2', bucket_count = 3, bucketed_on = ARRAY ['col1'])");

@@ -20,6 +20,7 @@ import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.SYSTEM_CONNECTOR;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.VARCHAR;
@@ -45,6 +46,7 @@ public class SystemConnectorTests
                 "  state," +
                 "  user," +
                 "  query," +
+                "  resource_group_id," +
                 "  queued_time_ms," +
                 "  analysis_time_ms," +
                 "  distributed_planning_time_ms," +
@@ -54,7 +56,7 @@ public class SystemConnectorTests
                 "  'end' " +
                 "FROM system.runtime.queries";
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, ARRAY,
                         BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                 .hasAnyRows();
     }

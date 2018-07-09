@@ -19,7 +19,10 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.transaction.TransactionId;
+
+import java.util.Optional;
 
 public final class SystemConnectorSessionUtil
 {
@@ -36,6 +39,7 @@ public final class SystemConnectorSessionUtil
                 .setTransactionId(transactionId)
                 .setCatalog("catalog")
                 .setSchema("schema")
+                .setPath(new SqlPath(Optional.of("path")))
                 .setIdentity(session.getIdentity())
                 .setTimeZoneKey(session.getTimeZoneKey())
                 .setLocale(session.getLocale())

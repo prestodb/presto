@@ -78,7 +78,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
@@ -265,9 +264,9 @@ public abstract class AbstractTestHiveFileSystem
         Path filePath = new Path(tablePath, "test1.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
-        assertTrue(isDirectory(fs.getFileStatus(basePath)));
-        assertTrue(isDirectory(fs.getFileStatus(tablePath)));
-        assertFalse(isDirectory(fs.getFileStatus(filePath)));
+        assertTrue(fs.getFileStatus(basePath).isDirectory());
+        assertTrue(fs.getFileStatus(tablePath).isDirectory());
+        assertFalse(fs.getFileStatus(filePath).isDirectory());
         assertFalse(fs.exists(new Path(basePath, "foo")));
     }
 

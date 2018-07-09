@@ -893,6 +893,13 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT x.f1 FROM (VALUES 1) t(x)");
     }
 
+    @Test
+    public void testLike()
+    {
+        analyze("SELECT '1' LIKE '1'");
+        analyze("SELECT CAST('1' as CHAR(1)) LIKE '1'");
+    }
+
     @Test(enabled = false) // TODO: need to support widening conversion for numbers
     public void testInWithNumericTypes()
     {

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -67,7 +68,7 @@ public class QueryInfo
     private final Set<Input> inputs;
     private final Optional<Output> output;
     private final boolean completeInfo;
-    private final Optional<String> resourceGroupName;
+    private final Optional<ResourceGroupId> resourceGroupId;
 
     @JsonCreator
     public QueryInfo(
@@ -95,7 +96,7 @@ public class QueryInfo
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
-            @JsonProperty("resourceGroupName") Optional<String> resourceGroupName)
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -114,7 +115,7 @@ public class QueryInfo
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
-        requireNonNull(resourceGroupName, "resourceGroupName is null");
+        requireNonNull(resourceGroupId, "resourceGroupId is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -141,7 +142,7 @@ public class QueryInfo
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.completeInfo = completeInfo;
-        this.resourceGroupName = resourceGroupName;
+        this.resourceGroupId = resourceGroupId;
     }
 
     @JsonProperty
@@ -299,9 +300,9 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Optional<String> getResourceGroupName()
+    public Optional<ResourceGroupId> getResourceGroupId()
     {
-        return resourceGroupName;
+        return resourceGroupId;
     }
 
     @Override

@@ -23,8 +23,8 @@ UNION ALL       SELECT
    , ${database}.${schema}.customer
    WHERE ("sold_date_sk" = "d_date_sk")
       AND ("item_sk" = "i_item_sk")
-      AND ("i_category" = 'Women                                             ')
-      AND ("i_class" = 'maternity                                         ')
+      AND ("i_category" = 'Women')
+      AND ("i_class" = 'maternity')
       AND ("c_customer_sk" = "cs_or_ws_sales"."customer_sk")
       AND ("d_moy" = 12)
       AND ("d_year" = 1998)

@@ -302,7 +302,7 @@ public class TestMemoryRevokingScheduler
                         spillSpaceTracker),
                 sqlTaskExecutionFactory,
                 executor,
-                Functions.<SqlTask>identity(),
+                Functions.identity(),
                 new DataSize(32, MEGABYTE));
     }
 }

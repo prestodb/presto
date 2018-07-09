@@ -164,14 +164,24 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long timestampPlusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
+        }
+        else {
+            return MONTH_OF_YEAR_UTC.add(left, right);
+        }
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
     public static long intervalYearToMonthPlusTimestamp(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
     {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
+        }
+        else {
+            return MONTH_OF_YEAR_UTC.add(right, left);
+        }
     }
 
     @ScalarOperator(ADD)
@@ -252,7 +262,12 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long timestampMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
+        }
+        else {
+            return MONTH_OF_YEAR_UTC.add(left, -right);
+        }
     }
 
     @ScalarOperator(SUBTRACT)
@@ -266,5 +281,10 @@ public final class DateTimeOperators
     public static int modulo24Hour(ISOChronology chronology, long millis)
     {
         return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
+    }
+
+    public static long modulo24Hour(long millis)
+    {
+        return MILLIS_OF_DAY.get(millis);
     }
 }

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -43,6 +44,7 @@ public final class SessionRepresentation
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final SqlPath path;
     private final Optional<String> traceToken;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
@@ -66,6 +68,7 @@ public final class SessionRepresentation
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("path") SqlPath path,
             @JsonProperty("traceToken") Optional<String> traceToken,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
@@ -87,6 +90,7 @@ public final class SessionRepresentation
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.path = requireNonNull(path, "path is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -158,6 +162,12 @@ public final class SessionRepresentation
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    @JsonProperty
+    public SqlPath getPath()
+    {
+        return path;
     }
 
     @JsonProperty
@@ -236,6 +246,7 @@ public final class SessionRepresentation
                 source,
                 catalog,
                 schema,
+                path,
                 traceToken,
                 timeZoneKey,
                 locale,

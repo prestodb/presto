@@ -138,7 +138,7 @@ class PolymorphicScalarFunction
             if (!methodParameterJavaTypes[methodParameterIndex].equals(type)) {
                 return false;
             }
-            methodParameterIndex += nullConvention == USE_NULL_FLAG ? 2 : 1;
+            methodParameterIndex += nullConvention.getParameterCount();
         }
         return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
     }

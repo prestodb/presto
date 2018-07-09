@@ -87,9 +87,16 @@ public class LongInputStreamDwrf
     public void nextIntVector(int items, int[] vector)
             throws IOException
     {
-        checkPositionIndex(items, vector.length);
+        nextIntVector(items, vector, 0);
+    }
 
-        for (int i = 0; i < items; i++) {
+    @Override
+    public void nextIntVector(int items, int[] vector, int offset)
+            throws IOException
+    {
+        checkPositionIndex(items + offset, vector.length);
+
+        for (int i = offset; i < items + offset; i++) {
             vector[i] = toIntExact(next());
         }
     }
@@ -98,9 +105,16 @@ public class LongInputStreamDwrf
     public void nextIntVector(int items, int[] vector, boolean[] isNull)
             throws IOException
     {
+        nextIntVector(items, vector, 0, isNull);
+    }
+
+    @Override
+    public void nextIntVector(int items, int[] vector, int vectorOffset, boolean[] isNull)
+            throws IOException
+    {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = toIntExact(next());
+                vector[i + vectorOffset] = toIntExact(next());
             }
         }
     }

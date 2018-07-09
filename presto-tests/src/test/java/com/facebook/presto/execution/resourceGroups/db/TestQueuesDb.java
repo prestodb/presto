@@ -21,7 +21,9 @@ import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -39,6 +41,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.execution.TestQueues.createResourceGroupId;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.adhocSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
@@ -210,6 +213,16 @@ public class TestQueuesDb
     }
 
     @Test(timeOut = 60_000)
+    public void testQuerySystemTableResourceGroup()
+            throws Exception
+    {
+        QueryId firstQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, RUNNING);
+        MaterializedResult result = queryRunner.execute("SELECT resource_group_id FROM system.runtime.queries WHERE source = 'dashboard'");
+        assertEquals(result.getOnlyValue(), ImmutableList.of("global", "user-user", "dashboard-user"));
+    }
+
+    @Test(timeOut = 60_000)
     public void testSelectorPriority()
             throws Exception
     {
@@ -220,9 +233,9 @@ public class TestQueuesDb
         QueryId firstQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, RUNNING);
 
-        Optional<String> resourceGroup = queryManager.getQueryInfo(firstQuery).getResourceGroupName();
+        Optional<ResourceGroupId> resourceGroup = queryManager.getQueryInfo(firstQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
-        assertEquals(resourceGroup.get(), "global.user-user.dashboard-user");
+        assertEquals(resourceGroup.get().toString(), "global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it
         dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
@@ -236,9 +249,9 @@ public class TestQueuesDb
         QueryId secondQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondQuery, FAILED);
 
-        resourceGroup = queryManager.getQueryInfo(secondQuery).getResourceGroupName();
+        resourceGroup = queryManager.getQueryInfo(secondQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
-        assertEquals(resourceGroup.get(), "global.user-user.reject-all-queries");
+        assertEquals(resourceGroup.get(), createResourceGroupId("global", "user-user", "reject-all-queries"));
     }
 
     @Test(timeOut = 60_000)
@@ -307,20 +320,20 @@ public class TestQueuesDb
                 .build();
         QueryId queryId = createQuery(queryRunner, session, "EXPLAIN " + LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
-        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupName.get(), "explain");
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupId.get(), createResourceGroupId("explain"));
     }
 
     @Test
     public void testClientTagsBasedSelection()
             throws InterruptedException
     {
-        assertResourceGroupWithClientTags(ImmutableSet.of("tag1"), "global.bi-user");
-        assertResourceGroupWithClientTags(ImmutableSet.of("tag1", "tag2"), "global.user-user.adhoc-user");
+        assertResourceGroupWithClientTags(ImmutableSet.of("tag1"), createResourceGroupId("global", "bi-user"));
+        assertResourceGroupWithClientTags(ImmutableSet.of("tag1", "tag2"), createResourceGroupId("global", "user-user", "adhoc-user"));
     }
 
-    private void assertResourceGroupWithClientTags(Set<String> clientTags, String expectedResourceGroup)
+    private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)
             throws InterruptedException
     {
         Session session = testSessionBuilder()
@@ -331,8 +344,8 @@ public class TestQueuesDb
                 .build();
         QueryId queryId = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
-        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupName.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupName.get()));
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
     }
 }

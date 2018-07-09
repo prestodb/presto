@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -77,7 +76,7 @@ public class TestFileSingleStreamSpillerFactory
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
@@ -115,7 +114,7 @@ public class TestFileSingleStreamSpillerFactory
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
@@ -134,7 +133,7 @@ public class TestFileSingleStreamSpillerFactory
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types))),
+                new BlockEncodingManager(new TypeRegistry()),
                 new SpillerStats(),
                 spillPaths,
                 1.0);
@@ -145,8 +144,7 @@ public class TestFileSingleStreamSpillerFactory
     public void testCleanupOldSpillFiles()
             throws Exception
     {
-        List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         spillPath1.mkdirs();
         spillPath2.mkdirs();

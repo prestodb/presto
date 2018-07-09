@@ -47,10 +47,10 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
+import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -71,6 +71,7 @@ import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -153,6 +154,7 @@ public class PrestoS3FileSystem
     private URI uri;
     private Path workingDirectory;
     private AmazonS3 s3;
+    private AWSCredentialsProvider credentialsProvider;
     private File stagingDirectory;
     private int maxAttempts;
     private Duration maxBackoffTime;
@@ -209,18 +211,20 @@ public class PrestoS3FileSystem
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(S3_USER_AGENT_SUFFIX);
 
-        this.s3 = createAmazonS3Client(uri, conf, configuration);
+        this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
+        this.s3 = createAmazonS3Client(conf, configuration);
     }
 
     @Override
     public void close()
             throws IOException
     {
-        try {
-            super.close();
-        }
-        finally {
-            s3.shutdown();
+        try (Closer closer = Closer.create()) {
+            closer.register(super::close);
+            if (credentialsProvider instanceof Closeable) {
+                closer.register((Closeable) credentialsProvider);
+            }
+            closer.register(s3::shutdown);
         }
     }
 
@@ -439,7 +443,7 @@ public class PrestoS3FileSystem
     private boolean directory(Path path)
             throws IOException
     {
-        return HadoopFileStatus.isDirectory(getFileStatus(path));
+        return getFileStatus(path).isDirectory();
     }
 
     private boolean deleteObject(String key)
@@ -620,9 +624,8 @@ public class PrestoS3FileSystem
         return key;
     }
 
-    private AmazonS3 createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
+    private AmazonS3 createAmazonS3Client(Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
-        AWSCredentialsProvider credentials = getAwsCredentialsProvider(uri, hadoopConfig);
         Optional<EncryptionMaterialsProvider> encryptionMaterialsProvider = createEncryptionMaterialsProvider(hadoopConfig);
         AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder;
 
@@ -633,14 +636,14 @@ public class PrestoS3FileSystem
 
         if (encryptionMaterialsProvider.isPresent()) {
             clientBuilder = AmazonS3EncryptionClient.encryptionBuilder()
-                    .withCredentials(credentials)
+                    .withCredentials(credentialsProvider)
                     .withEncryptionMaterials(encryptionMaterialsProvider.get())
                     .withClientConfiguration(clientConfig)
                     .withMetricsCollector(METRIC_COLLECTOR);
         }
         else {
             clientBuilder = AmazonS3Client.builder()
-                    .withCredentials(credentials)
+                    .withCredentials(credentialsProvider)
                     .withClientConfiguration(clientConfig)
                     .withMetricsCollector(METRIC_COLLECTOR);
         }
@@ -702,7 +705,7 @@ public class PrestoS3FileSystem
         }
     }
 
-    private AWSCredentialsProvider getAwsCredentialsProvider(URI uri, Configuration conf)
+    private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
     {
         Optional<AWSCredentials> credentials = getAwsCredentials(uri, conf);
         if (credentials.isPresent()) {

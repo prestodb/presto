@@ -287,7 +287,6 @@ public class BackgroundHiveSplitLoader
                 // get the configuration for the target path -- it may be a different hdfs instance
                 FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
                 JobConf targetJob = toJobConf(targetFilesystem.getConf());
-                handleFileHeader(schema, targetJob);
                 targetJob.setInputFormat(TextInputFormat.class);
                 targetInputFormat.configure(targetJob);
                 FileInputFormat.setInputPaths(targetJob, targetPath);
@@ -332,12 +331,11 @@ public class BackgroundHiveSplitLoader
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
-        if (shouldUseFileSplitsFromInputFormat(inputFormat) || getHeaderCount(schema) > 0 || getFooterCount(schema) > 0) {
+        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
             JobConf jobConf = toJobConf(configuration);
-            handleFileHeader(schema, jobConf);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 
@@ -349,20 +347,9 @@ public class BackgroundHiveSplitLoader
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
         }
 
-        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory));
+        boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0;
+        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
         return COMPLETED_FUTURE;
-    }
-
-    private void handleFileHeader(Properties schema, JobConf jobConf)
-    {
-        int headerCount = getHeaderCount(schema);
-        int footerCount = getFooterCount(schema);
-        if (headerCount > 0 || footerCount > 0) {
-            // do not split file when skip.header.line.count or skip.footer.line.count is used
-            jobConf.setLong("mapreduce.input.fileinputformat.split.minsize", Long.MAX_VALUE);
-            // TODO remove this when Hadoop 1.x is not supported
-            jobConf.setLong("mapred.min.split.size", Long.MAX_VALUE);
-        }
     }
 
     private ListenableFuture<?> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
@@ -389,10 +376,10 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
         return Streams.stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
-                .map(splitFactory::createInternalHiveSplit)
+                .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();

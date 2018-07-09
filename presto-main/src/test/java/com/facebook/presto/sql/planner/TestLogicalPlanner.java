@@ -361,9 +361,8 @@ public class TestLogicalPlanner
     public void testStreamingAggregationForCorrelatedSubquery()
     {
         // Use equi-clause to trigger hash partitioning of the join sources
-        assertPlanWithSession("SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey AND length(name) > length(nation.name)) FROM nation",
-                this.getQueryRunner().getDefaultSession(),
-                false,
+        assertDistributedPlan(
+                "SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey AND length(name) > length(nation.name)) FROM nation",
                 anyTree(
                         aggregation(
                                 ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),
@@ -381,9 +380,8 @@ public class TestLogicalPlanner
                                                 tableScan("region", ImmutableMap.of("r_name", "name")))))));
 
         // Don't use equi-clauses to trigger replicated join
-        assertPlanWithSession("SELECT name, (SELECT max(name) FROM region WHERE regionkey > nation.regionkey) FROM nation",
-                this.getQueryRunner().getDefaultSession(),
-                false,
+        assertDistributedPlan(
+                "SELECT name, (SELECT max(name) FROM region WHERE regionkey > nation.regionkey) FROM nation",
                 anyTree(
                         aggregation(
                                 ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),

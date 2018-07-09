@@ -34,6 +34,8 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.sql.SqlEnvironmentConfig;
+import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -117,6 +119,7 @@ public class SqlQueryManager
     private final ResourceGroupManager resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
+    private final Optional<String> path;
     private final boolean isIncludeCoordinator;
     private final int maxQueryHistory;
     private final Duration minQueryExpireAge;
@@ -157,6 +160,7 @@ public class SqlQueryManager
             SqlParser sqlParser,
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
+            SqlEnvironmentConfig sqlEnvironmentConfig,
             QueryMonitor queryMonitor,
             ResourceGroupManager resourceGroupManager,
             ClusterMemoryManager memoryManager,
@@ -192,6 +196,7 @@ public class SqlQueryManager
 
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
 
+        this.path = sqlEnvironmentConfig.getPath();
         this.isIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
         this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
@@ -448,6 +453,7 @@ public class SqlQueryManager
                 session = Session.builder(new SessionPropertyManager())
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
+                        .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
             QueryExecution execution = new FailedQueryExecution(

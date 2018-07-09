@@ -480,19 +480,25 @@ public class MultiChannelGroupByHash
 
     private boolean canProcessDictionary(Page page)
     {
-        boolean processDictionary = this.processDictionary &&
-                channels.length == 1 &&
-                page.getBlock(channels[0]) instanceof DictionaryBlock;
+        if (!this.processDictionary || channels.length > 1 || !(page.getBlock(channels[0]) instanceof DictionaryBlock)) {
+            return false;
+        }
 
-        if (processDictionary && inputHashChannel.isPresent()) {
+        if (inputHashChannel.isPresent()) {
             Block inputHashBlock = page.getBlock(inputHashChannel.get());
             DictionaryBlock inputDataBlock = (DictionaryBlock) page.getBlock(channels[0]);
 
-            verify(inputHashBlock instanceof DictionaryBlock, "data channel is dictionary encoded but hash channel is not");
-            verify(((DictionaryBlock) inputHashBlock).getDictionarySourceId().equals(inputDataBlock.getDictionarySourceId()),
-                    "dictionarySourceIds of data block and hash block do not match");
+            if (!(inputHashBlock instanceof DictionaryBlock)) {
+                // data channel is dictionary encoded but hash channel is not
+                return false;
+            }
+            if (!((DictionaryBlock) inputHashBlock).getDictionarySourceId().equals(inputDataBlock.getDictionarySourceId())) {
+                // dictionarySourceIds of data block and hash block do not match
+                return false;
+            }
         }
-        return processDictionary;
+
+        return true;
     }
 
     private boolean isRunLengthEncoded(Page page)

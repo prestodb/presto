@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.RowType;
@@ -25,6 +27,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -88,7 +91,6 @@ import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -106,8 +108,9 @@ import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.dereferenceSignature;
+import static com.facebook.presto.sql.relational.Signatures.likeCharSignature;
 import static com.facebook.presto.sql.relational.Signatures.likePatternSignature;
-import static com.facebook.presto.sql.relational.Signatures.likeSignature;
+import static com.facebook.presto.sql.relational.Signatures.likeVarcharSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
 import static com.facebook.presto.sql.relational.Signatures.rowConstructorSignature;
@@ -120,8 +123,7 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -144,7 +146,14 @@ public final class SqlToRowExpressionTranslator
             Session session,
             boolean optimize)
     {
-        RowExpression result = new Visitor(functionKind, types, typeManager, session.getTimeZoneKey(), isLegacyRowFieldOrdinalAccessEnabled(session)).process(expression, null);
+        Visitor visitor = new Visitor(
+                functionKind,
+                types,
+                typeManager,
+                session.getTimeZoneKey(),
+                isLegacyRowFieldOrdinalAccessEnabled(session),
+                SystemSessionProperties.isLegacyTimestamp(session));
+        RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "translated expression is null");
 
@@ -164,14 +173,23 @@ public final class SqlToRowExpressionTranslator
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
         private final boolean legacyRowFieldOrdinalAccess;
+        @Deprecated
+        private final boolean isLegacyTimestamp;
 
-        private Visitor(FunctionKind functionKind, Map<NodeRef<Expression>, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey, boolean legacyRowFieldOrdinalAccess)
+        private Visitor(
+                FunctionKind functionKind,
+                Map<NodeRef<Expression>, Type> types,
+                TypeManager typeManager,
+                TimeZoneKey timeZoneKey,
+                boolean legacyRowFieldOrdinalAccess,
+                boolean isLegacyTimestamp)
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
             this.legacyRowFieldOrdinalAccess = legacyRowFieldOrdinalAccess;
+            this.isLegacyTimestamp = isLegacyTimestamp;
         }
 
         private Type getType(Expression node)
@@ -275,8 +293,13 @@ public final class SqlToRowExpressionTranslator
                 value = parseTimeWithTimeZone(node.getValue());
             }
             else {
-                // parse in time zone of client
-                value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                if (isLegacyTimestamp) {
+                    // parse in time zone of client
+                    value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                }
+                else {
+                    value = parseTimeWithoutTimeZone(node.getValue());
+                }
             }
             return constant(value, getType(node));
         }
@@ -285,12 +308,11 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitTimestampLiteral(TimestampLiteral node, Void context)
         {
             long value;
-            if (getType(node).equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                value = parseTimestampWithTimeZone(timeZoneKey, node.getValue());
+            if (isLegacyTimestamp) {
+                value = parseTimestampLiteral(timeZoneKey, node.getValue());
             }
             else {
-                // parse in time zone of client
-                value = parseTimestampWithoutTimeZone(timeZoneKey, node.getValue());
+                value = parseTimestampLiteral(node.getValue());
             }
             return constant(value, getType(node));
         }
@@ -679,12 +701,22 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getValue(), context);
             RowExpression pattern = process(node.getPattern(), context);
 
-            if (node.getEscape() != null) {
-                RowExpression escape = process(node.getEscape(), context);
-                return call(likeSignature(), BOOLEAN, value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
+            if (node.getEscape().isPresent()) {
+                RowExpression escape = process(node.getEscape().get(), context);
+                return likeFunctionCall(value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
             }
 
-            return call(likeSignature(), BOOLEAN, value, call(castSignature(LIKE_PATTERN, VARCHAR), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(castSignature(LIKE_PATTERN, VARCHAR), LIKE_PATTERN, pattern));
+        }
+
+        private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
+        {
+            if (value.getType() instanceof VarcharType) {
+                return call(likeVarcharSignature(), BOOLEAN, value, pattern);
+            }
+
+            checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
+            return call(likeCharSignature(value.getType()), BOOLEAN, value, pattern);
         }
 
         @Override

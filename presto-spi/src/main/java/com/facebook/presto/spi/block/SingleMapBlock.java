@@ -118,6 +118,9 @@ public class SingleMapBlock
         return hashTable;
     }
 
+    /**
+     * @return position of the value under {@code nativeValue} key. -1 when key is not found.
+     */
     public int seekKey(Object nativeValue)
     {
         if (positionCount == 0) {

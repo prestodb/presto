@@ -126,6 +126,13 @@ Operations
 
     Returns the geometry value that represents the point set symmetric difference of two geometries.
 
+.. function:: ST_Union(Geometry, Geometry) -> Geometry
+
+    Returns a geometry that represents the point set union of the input geometries.
+
+    This function doesn't support geometry collections.
+
+
 Accessors
 ---------
 
@@ -171,6 +178,14 @@ Accessors
     Singular geometries (e.g., POINT, LINESTRING, POLYGON), are treated as collections of one element.
     Empty geometries are treated as empty collections.
 
+.. function:: ST_InteriorRingN(Geometry, index) -> Geometry
+
+   Returns the interior ring element at the specified index (indices start at 1). If
+   the given index is less than 1 or greater than the total number of interior rings
+   in the input geometry, returns ``NULL``. Throws an error if the input geometry is
+   not a polygon.
+   Use :func:``ST_NumInteriorRing`` to find out the total number of elements.
+
 .. function:: ST_GeometryType(Geometry) -> varchar
 
     Returns the type of the geometry.
@@ -201,6 +216,13 @@ Accessors
     Returns the length of a linestring or multi-linestring using Euclidean measurement on a
     two dimensional plane (based on spatial ref) in projected units.
 
+.. function:: ST_PointN(LineString, index) -> Point
+
+    Returns the vertex of a linestring at a given index (indices start at 1).
+    If the given index is less than 1 or greater than the total number of elements in the collection,
+    returns ``NULL``.
+    Use :func:``ST_NumPoints`` to find out the total number of elements.
+
 .. function:: ST_XMax(Geometry) -> double
 
     Returns X maxima of a bounding box of a geometry.
@@ -220,6 +242,7 @@ Accessors
 .. function:: ST_StartPoint(Geometry) -> point
 
     Returns the first point of a LineString geometry as a Point.
+    This is a shortcut for ST_PointN(geometry, 1).
 
 .. function:: simplify_geometry(Geometry, double) -> Geometry
 
@@ -229,6 +252,7 @@ Accessors
 .. function:: ST_EndPoint(Geometry) -> point
 
     Returns the last point of a LineString geometry as a Point.
+    This is a shortcut for ST_PointN(geometry, ST_NumPoints(geometry)).
 
 .. function:: ST_X(Point) -> double
 
@@ -238,6 +262,12 @@ Accessors
 
     Return the Y coordinate of the point.
 
+.. function:: ST_InteriorRings(Geometry) -> Geometry
+
+   Returns an array of all interior rings found in the input geometry, or an empty
+   array if the polygon has no interior rings. Returns null if the input geometry
+   is empty. Throws an error if the input geometry is not a polygon.
+
 .. function:: ST_NumGeometries(Geometry) -> bigint
 
     Returns the number of geometries in the collection.
@@ -245,6 +275,11 @@ Accessors
     returns the number of geometries,
     for single geometries returns 1,
     for empty geometries returns 0.
+
+.. function:: ST_Geometries(Geometry) -> Geometry
+
+   Returns an array of geometries in the specified collection. Returns a one-element array
+   if the input geometry is not a multi-geometry. Returns null if input geometry is empty.
 
 .. function:: ST_NumPoints(Geometry) -> bigint
 

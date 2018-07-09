@@ -21,6 +21,12 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.session.TestingSessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.sql.SqlEnvironmentConfig;
+import com.facebook.presto.sql.SqlPath;
+import com.facebook.presto.sql.SqlPathElement;
+import com.facebook.presto.sql.tree.Identifier;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +35,7 @@ import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -77,7 +84,8 @@ public class TestQuerySessionSupplier
                 TEST_NODE_INFO,
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
-                new SessionPropertyManager());
+                new SessionPropertyManager(),
+                new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, Optional.empty(), TEST_RESOURCE_GROUP_ID);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
@@ -109,7 +117,8 @@ public class TestQuerySessionSupplier
                 TEST_NODE_INFO,
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
-                new SessionPropertyManager());
+                new SessionPropertyManager(),
+                new SqlEnvironmentConfig());
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 ImmutableMap.of(QUERY_MAX_MEMORY, "10GB", "key2", "20", "key3", "3"),
                 ImmutableMap.of("testCatalog", ImmutableMap.of("key1", "10")));
@@ -161,7 +170,35 @@ public class TestQuerySessionSupplier
                 TEST_NODE_INFO,
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
-                new SessionPropertyManager());
+                new SessionPropertyManager(),
+                new SqlEnvironmentConfig());
         sessionSupplier.createSession(new QueryId("test_query_id"), context, Optional.empty(), TEST_RESOURCE_GROUP_ID);
+    }
+
+    @Test
+    public void testSqlPathCreation()
+    {
+        ImmutableList.Builder<SqlPathElement> correctValues = ImmutableList.builder();
+        correctValues.add(new SqlPathElement(
+                Optional.of(new Identifier("normal")),
+                new Identifier("schema")));
+        correctValues.add(new SqlPathElement(
+                Optional.of(new Identifier("who.uses.periods")),
+                new Identifier("in.schema.names")));
+        correctValues.add(new SqlPathElement(
+                Optional.of(new Identifier("same,deal")),
+                new Identifier("with,commas")));
+        correctValues.add(new SqlPathElement(
+                Optional.of(new Identifier("aterrible")),
+                new Identifier("thing!@#$%^&*()")));
+        List<SqlPathElement> expected = correctValues.build();
+
+        SqlPath path = new SqlPath(Optional.of("normal.schema,"
+                + "\"who.uses.periods\".\"in.schema.names\","
+                + "\"same,deal\".\"with,commas\","
+                + "aterrible.\"thing!@#$%^&*()\""));
+
+        assertEquals(path.getParsedPath(), expected);
+        assertEquals(path.toString(), Joiner.on(", ").join(expected));
     }
 }

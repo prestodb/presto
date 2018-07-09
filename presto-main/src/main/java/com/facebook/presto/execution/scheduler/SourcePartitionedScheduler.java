@@ -169,6 +169,8 @@ public class SourcePartitionedScheduler
     @Override
     public synchronized ScheduleResult schedule()
     {
+        dropListenersFromWhenFinishedOrNewLifespansAdded();
+
         int overallSplitAssignmentCount = 0;
         ImmutableSet.Builder<RemoteTask> overallNewTasks = ImmutableSet.builder();
         List<ListenableFuture<?>> overallBlockedFutures = new ArrayList<>();
@@ -319,6 +321,25 @@ public class SourcePartitionedScheduler
                 nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),
                 blockedReason,
                 overallSplitAssignmentCount);
+    }
+
+    private synchronized void dropListenersFromWhenFinishedOrNewLifespansAdded()
+    {
+        // whenFinishedOrNewLifespanAdded may remain in a not-done state for an extended period of time.
+        // As a result, over time, it can retain a huge number of listener objects.
+
+        // Whenever schedule is called, holding onto the previous listener is not useful anymore.
+        // Therefore, we drop those listeners here by recreating the future.
+
+        // Note: The following implementation is thread-safe because whenFinishedOrNewLifespanAdded can only be completed
+        // while holding the monitor of this.
+
+        if (whenFinishedOrNewLifespanAdded.isDone()) {
+            return;
+        }
+
+        whenFinishedOrNewLifespanAdded.cancel(true);
+        whenFinishedOrNewLifespanAdded = SettableFuture.create();
     }
 
     @Override

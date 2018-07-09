@@ -199,6 +199,9 @@ public class CachingHiveMetastore
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
         userTablePrivileges.invalidateAll();
+        tableColumnStatisticsCache.invalidateAll();
+        partitionColumnStatisticsCache.invalidateAll();
+        userRolesCache.invalidateAll();
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
@@ -472,6 +475,7 @@ public class CachingHiveMetastore
         userTablePrivileges.asMap().keySet().stream()
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(userTablePrivileges::invalidate);
+        tableColumnStatisticsCache.invalidate(new HiveTableName(databaseName, tableName));
         invalidatePartitionCache(databaseName, tableName);
     }
 
@@ -608,6 +612,9 @@ public class CachingHiveMetastore
         partitionFilterCache.asMap().keySet().stream()
                 .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
                 .forEach(partitionFilterCache::invalidate);
+        partitionColumnStatisticsCache.asMap().keySet().stream()
+                .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionColumnStatisticsCache::invalidate);
     }
 
     @Override

@@ -21,7 +21,7 @@ LEFT JOIN ${database}.${schema}.catalog_returns ON ("cr_item_sk" = "cs_item_sk")
 WHERE ("d1"."d_week_seq" = "d2"."d_week_seq")
    AND ("inv_quantity_on_hand" < "cs_quantity")
    AND ("d3"."d_date" > ("d1"."d_date" + INTERVAL  '5' DAY))
-   AND ("hd_buy_potential" = '>10000         ')
+   AND ("hd_buy_potential" = '>10000')
    AND ("d1"."d_year" = 1999)
    AND ("cd_marital_status" = 'D')
 GROUP BY "i_item_desc", "w_warehouse_name", "d1"."d_week_seq"

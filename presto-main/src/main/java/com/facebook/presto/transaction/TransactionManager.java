@@ -269,12 +269,12 @@ public class TransactionManager
 
     public ListenableFuture<?> asyncCommit(TransactionId transactionId)
     {
-        return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncCommit));
+        return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncCommit, directExecutor()));
     }
 
     public ListenableFuture<?> asyncAbort(TransactionId transactionId)
     {
-        return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncAbort));
+        return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncAbort, directExecutor()));
     }
 
     public void fail(TransactionId transactionId)
@@ -482,7 +482,7 @@ public class TransactionManager
 
             ConnectorTransactionMetadata writeConnector = connectorIdToMetadata.get(writeConnectorId);
             ListenableFuture<?> commitFuture = finishingExecutor.submit(writeConnector::commit);
-            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get());
+            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
             addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
             return nonCancellationPropagating(readOnlyCommitFuture);
         }

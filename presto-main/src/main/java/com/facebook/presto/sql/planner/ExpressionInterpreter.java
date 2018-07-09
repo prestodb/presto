@@ -28,16 +28,19 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentPath;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -50,6 +53,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -1011,9 +1015,9 @@ public class ExpressionInterpreter
 
             if (value instanceof Slice &&
                     node.getPattern() instanceof StringLiteral &&
-                    (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
+                    (!node.getEscape().isPresent() || node.getEscape().get() instanceof StringLiteral)) {
                 // fast path when we know the pattern and escape are constant
-                return LikeFunctions.like((Slice) value, getConstantPattern(node));
+                return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
             }
 
             Object pattern = process(node.getPattern(), context);
@@ -1023,8 +1027,8 @@ public class ExpressionInterpreter
             }
 
             Object escape = null;
-            if (node.getEscape() != null) {
-                escape = process(node.getEscape(), context);
+            if (node.getEscape().isPresent()) {
+                escape = process(node.getEscape().get(), context);
 
                 if (escape == null) {
                     return null;
@@ -1042,7 +1046,7 @@ public class ExpressionInterpreter
                     regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
                 }
 
-                return LikeFunctions.like((Slice) value, regex);
+                return evaluateLikePredicate(node, (Slice) value, regex);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -1065,9 +1069,9 @@ public class ExpressionInterpreter
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, valueExpression, patternExpression);
             }
 
-            Expression optimizedEscape = null;
-            if (node.getEscape() != null) {
-                optimizedEscape = toExpression(escape, type(node.getEscape()));
+            Optional<Expression> optimizedEscape = Optional.empty();
+            if (node.getEscape().isPresent()) {
+                optimizedEscape = Optional.of(toExpression(escape, type(node.getEscape().get())));
             }
 
             return new LikePredicate(
@@ -1076,19 +1080,30 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
+        private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)
+        {
+            if (type(node.getValue()) instanceof VarcharType) {
+                return LikeFunctions.likeVarchar(value, regex);
+            }
+
+            Type type = type(node.getValue());
+            checkState(type instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
+            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
+        }
+
         private Regex getConstantPattern(LikePredicate node)
         {
             Regex result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
-                StringLiteral escape = (StringLiteral) node.getEscape();
 
-                if (escape == null) {
-                    result = LikeFunctions.likePattern(pattern.getSlice());
+                if (node.getEscape().isPresent()) {
+                    Slice escape = ((StringLiteral) node.getEscape().get()).getSlice();
+                    result = LikeFunctions.likePattern(pattern.getSlice(), escape);
                 }
                 else {
-                    result = LikeFunctions.likePattern(pattern.getSlice(), escape.getSlice());
+                    result = LikeFunctions.likePattern(pattern.getSlice());
                 }
 
                 likePatternCache.put(node, result);
@@ -1163,6 +1178,12 @@ public class ExpressionInterpreter
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
             return visitFunctionCall(DesugarCurrentUser.getCall(node), context);
+        }
+
+        @Override
+        protected Object visitCurrentPath(CurrentPath node, Object context)
+        {
+            return visitFunctionCall(DesugarCurrentPath.getCall(node), context);
         }
 
         @Override

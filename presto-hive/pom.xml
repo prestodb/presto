@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.205-SNAPSHOT</version>
+        <version>0.206-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -157,7 +157,6 @@
         <dependency>
             <groupId>org.xerial.snappy</groupId>
             <artifactId>snappy-java</artifactId>
-            <version>1.0.5</version>
             <scope>runtime</scope>
         </dependency>
 

@@ -331,7 +331,7 @@ public final class FunctionAssertions
         catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
+                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern), format("Error message [%s] doesn't match [%s]", e.getMessage(), messagePattern));
             }
             catch (Throwable failure) {
                 failure.addSuppressed(e);
@@ -991,6 +991,11 @@ public final class FunctionAssertions
         assertTrue(types.size() == 1, "Expected one type, but got " + types);
         Type actualType = types.get(0);
         assertEquals(actualType, expectedType);
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     @Override

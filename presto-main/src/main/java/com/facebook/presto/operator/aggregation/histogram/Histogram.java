@@ -131,7 +131,7 @@ public class Histogram
         // Semantically, a histogram object will be returned even if the group is empty.
         // In that case, the histogram object will represent an empty histogram until we call add() on
         // it.
-        requireNonNull(otherState.get() != null, "scratch state should always be non-null");
+        requireNonNull(otherState.get(), "scratch state should always be non-null");
         TypedHistogram typedHistogram = state.get();
         long startSize = typedHistogram.getEstimatedSize();
         typedHistogram.addAll(otherState.get());

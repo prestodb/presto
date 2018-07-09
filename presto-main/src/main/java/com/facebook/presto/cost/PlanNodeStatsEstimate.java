@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.util.MoreMath.firstNonNaN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
@@ -61,10 +62,6 @@ public class PlanNodeStatsEstimate
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 
-        if (isNaN(outputRowCount)) {
-            return Double.NaN;
-        }
-
         return outputSymbols.stream()
                 .map(this::getSymbolStatistics)
                 .mapToDouble(this::getOutputSizeForSymbol)
@@ -74,11 +71,12 @@ public class PlanNodeStatsEstimate
     private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics)
     {
         double averageRowSize = symbolStatistics.getAverageRowSize();
+        double numberOfNonNullRows = outputRowCount * (1.0 - firstNonNaN(symbolStatistics.getNullsFraction(), 0d));
         if (isNaN(averageRowSize)) {
             // TODO take into consideration data type of column
-            return outputRowCount * DEFAULT_DATA_SIZE_PER_COLUMN;
+            return numberOfNonNullRows * DEFAULT_DATA_SIZE_PER_COLUMN;
         }
-        return outputRowCount * averageRowSize;
+        return numberOfNonNullRows * averageRowSize;
     }
 
     public PlanNodeStatsEstimate mapOutputRowCount(Function<Double, Double> mappingFunction)

@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -256,6 +257,15 @@ public class TestBigintOperators
     public void testOverflowDivide()
     {
         assertNumericOverflow(format("%s / -1", Long.MIN_VALUE), "bigint division overflow: -9223372036854775808 / -1");
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as bigint)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(1 as bigint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(4499999999 as bigint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "4499999999", BOOLEAN, false);
     }
 
     @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed

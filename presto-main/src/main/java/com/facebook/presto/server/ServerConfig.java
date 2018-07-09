@@ -16,12 +16,14 @@ package com.facebook.presto.server;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 
+import javax.validation.constraints.NotNull;
+
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
 {
     private boolean coordinator = true;
-    private String prestoVersion;
+    private String prestoVersion = getClass().getPackage().getImplementationVersion();
     private String dataSources;
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
@@ -39,6 +41,7 @@ public class ServerConfig
         return this;
     }
 
+    @NotNull(message = "presto.version must be provided when it cannot be automatically determined")
     public String getPrestoVersion()
     {
         return prestoVersion;

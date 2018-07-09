@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.google.common.base.Preconditions.checkPositionIndex;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -435,7 +436,16 @@ public class LongInputStreamV2
     public void nextIntVector(int items, int[] vector)
             throws IOException
     {
-        for (int i = 0; i < items; i++) {
+        nextIntVector(items, vector, 0);
+    }
+
+    @Override
+    public void nextIntVector(int items, int[] vector, int offset)
+            throws IOException
+    {
+        checkPositionIndex(items + offset, vector.length);
+
+        for (int i = offset; i < items + offset; i++) {
             vector[i] = toIntExact(next());
         }
     }
@@ -444,9 +454,16 @@ public class LongInputStreamV2
     public void nextIntVector(int items, int[] vector, boolean[] isNull)
             throws IOException
     {
+        nextIntVector(items, vector, 0, isNull);
+    }
+
+    @Override
+    public void nextIntVector(int items, int[] vector, int vectorOffset, boolean[] isNull)
+            throws IOException
+    {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = toIntExact(next());
+                vector[i + vectorOffset] = toIntExact(next());
             }
         }
     }

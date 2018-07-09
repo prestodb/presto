@@ -134,6 +134,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -185,7 +186,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -261,6 +261,8 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
         configBinder(binder).bindConfig(QueryManagerConfig.class);
+
+        configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
 
@@ -448,13 +450,7 @@ public class ServerMainModule
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 
         // Determine the NodeVersion
-        String prestoVersion = serverConfig.getPrestoVersion();
-        if (prestoVersion == null) {
-            prestoVersion = getClass().getPackage().getImplementationVersion();
-        }
-        checkState(prestoVersion != null, "presto.version must be provided when it cannot be automatically determined");
-
-        NodeVersion nodeVersion = new NodeVersion(prestoVersion);
+        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         // presto announcement

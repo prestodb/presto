@@ -98,6 +98,7 @@ public final class TypeRegistry
 {
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
+    private final FeaturesConfig featuresConfig;
 
     private FunctionRegistry functionRegistry;
 
@@ -109,16 +110,11 @@ public final class TypeRegistry
         this(ImmutableSet.of(), new FeaturesConfig());
     }
 
-    @VisibleForTesting
-    public TypeRegistry(Set<Type> types)
-    {
-        this(ImmutableSet.of(), new FeaturesConfig());
-    }
-
     @Inject
     public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
     {
         requireNonNull(types, "types is null");
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
@@ -305,6 +301,10 @@ public final class TypeRegistry
                 Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
+            if (fromTypeBaseName.equals(StandardTypes.CHAR) && !featuresConfig.isLegacyCharToVarcharCoercion()) {
+                Type commonSuperType = getCommonSuperTypeForChar((CharType) fromType, (CharType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
             if (fromTypeBaseName.equals(StandardTypes.ROW)) {
                 return typeCompatibilityForRow((RowType) fromType, (RowType) toType);
             }
@@ -348,6 +348,11 @@ public final class TypeRegistry
         }
 
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
+    }
+
+    private static Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
+    {
+        return createCharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
     private TypeCompatibility typeCompatibilityForRow(RowType firstType, RowType secondType)
@@ -579,6 +584,17 @@ public final class TypeRegistry
             }
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
+                    case StandardTypes.CHAR:
+                        if (featuresConfig.isLegacyCharToVarcharCoercion()) {
+                            return Optional.empty();
+                        }
+
+                        VarcharType varcharType = (VarcharType) sourceType;
+                        if (varcharType.isUnbounded()) {
+                            return Optional.of(CharType.createCharType(CharType.MAX_LENGTH));
+                        }
+
+                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getLengthSafe())));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
@@ -596,6 +612,10 @@ public final class TypeRegistry
             case StandardTypes.CHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.VARCHAR:
+                        if (!featuresConfig.isLegacyCharToVarcharCoercion()) {
+                            return Optional.empty();
+                        }
+
                         CharType charType = (CharType) sourceType;
                         return Optional.of(createVarcharType(charType.getLength()));
                     case JoniRegexpType.NAME:

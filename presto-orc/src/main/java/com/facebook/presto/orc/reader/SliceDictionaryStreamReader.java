@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -48,6 +49,7 @@ import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedL
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +92,7 @@ public class SliceDictionaryStreamReader
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
-    private boolean[] inDictionary = new boolean[0];
+    private boolean[] inDictionaryVector = new boolean[0];
 
     @Nonnull
     private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
@@ -144,58 +146,69 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        if (isNullVector.length < nextBatchSize) {
-            isNullVector = new boolean[nextBatchSize];
-        }
+        assureVectorSize();
 
-        int[] dataVector = new int[nextBatchSize];
-        if (presentStream == null) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-            }
-            Arrays.fill(isNullVector, false);
-            dataStream.nextIntVector(nextBatchSize, dataVector);
-        }
-        else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nullValues != nextBatchSize) {
+        // idsVector will be filled sub-batch by sub-batch.
+        int[] idsVector = new int[nextBatchSize];
+        int idsVectorOffset = 0;
+        while (nextBatchSize > idsVectorOffset) {
+            int subBatchSize = min(nextBatchSize - idsVectorOffset, MAX_BATCH_SIZE);
+            if (presentStream == null) {
                 if (dataStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                dataStream.nextIntVector(nextBatchSize, dataVector, isNullVector);
-            }
-        }
-
-        if (inDictionary.length < nextBatchSize) {
-            inDictionary = new boolean[nextBatchSize];
-        }
-        if (inDictionaryStream == null) {
-            Arrays.fill(inDictionary, true);
-        }
-        else {
-            inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
-        }
-
-        // create the dictionary ids
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector[i]) {
-                // null is the last entry in the slice dictionary
-                dataVector[i] = dictionaryBlock.getPositionCount() - 1;
-            }
-            else if (inDictionary[i]) {
-                // stripe dictionary elements have the same dictionary id
+                Arrays.fill(isNullVector, false);
+                dataStream.nextIntVector(subBatchSize, idsVector, idsVectorOffset);
             }
             else {
-                // row group dictionary elements are after the main dictionary
-                dataVector[i] += stripeDictionarySize;
+                int nullValues = presentStream.getUnsetBits(subBatchSize, isNullVector);
+                if (nullValues != subBatchSize) {
+                    if (dataStream == null) {
+                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                    }
+                    dataStream.nextIntVector(subBatchSize, idsVector, idsVectorOffset, isNullVector);
+                }
             }
+
+            if (inDictionaryStream == null) {
+                Arrays.fill(inDictionaryVector, true);
+            }
+            else {
+                inDictionaryStream.getSetBits(subBatchSize, inDictionaryVector, isNullVector);
+            }
+
+            // create the dictionary ids
+            for (int i = 0; i < subBatchSize; i++) {
+                int dataVectorIndex = i + idsVectorOffset;
+                if (isNullVector[i]) {
+                    // null is the last entry in the slice dictionary
+                    idsVector[dataVectorIndex] = dictionaryBlock.getPositionCount() - 1;
+                }
+                else if (inDictionaryVector[i]) {
+                    // stripe dictionary elements have the same dictionary id
+                }
+                else {
+                    // row group dictionary elements are after the main dictionary
+                    idsVector[dataVectorIndex] += stripeDictionarySize;
+                }
+            }
+            idsVectorOffset += subBatchSize;
         }
 
-        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, dataVector);
+        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, idsVector);
 
         readOffset = 0;
         nextBatchSize = 0;
         return block;
+    }
+
+    private void assureVectorSize()
+    {
+        int requiredVectorLength = min(nextBatchSize, MAX_BATCH_SIZE);
+        if (isNullVector.length < requiredVectorLength) {
+            isNullVector = new boolean[requiredVectorLength];
+            inDictionaryVector = new boolean[requiredVectorLength];
+        }
     }
 
     private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)

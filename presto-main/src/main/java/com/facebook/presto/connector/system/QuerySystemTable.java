@@ -23,19 +23,27 @@ import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.type.ArrayType;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.util.List;
+
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 public class QuerySystemTable
         implements SystemTable
@@ -49,6 +57,7 @@ public class QuerySystemTable
             .column("user", createUnboundedVarcharType())
             .column("source", createUnboundedVarcharType())
             .column("query", createUnboundedVarcharType())
+            .column("resource_group_id", new ArrayType(createUnboundedVarcharType()))
 
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
@@ -95,6 +104,7 @@ public class QuerySystemTable
                     queryInfo.getSession().getUser(),
                     queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
+                    queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
 
                     toMillis(queryStats.getQueuedTime()),
                     toMillis(queryStats.getAnalysisTime()),
@@ -106,6 +116,17 @@ public class QuerySystemTable
                     toTimeStamp(queryStats.getEndTime()));
         }
         return table.build().cursor();
+    }
+
+    private static Block resourceGroupIdToBlock(ResourceGroupId resourceGroupId)
+    {
+        requireNonNull(resourceGroupId, "resourceGroupId is null");
+        List<String> segments = resourceGroupId.getSegments();
+        BlockBuilder blockBuilder = createUnboundedVarcharType().createBlockBuilder(null, segments.size());
+        for (String segment : segments) {
+            createUnboundedVarcharType().writeSlice(blockBuilder, utf8Slice(segment));
+        }
+        return blockBuilder.build();
     }
 
     private static Long toMillis(Duration duration)

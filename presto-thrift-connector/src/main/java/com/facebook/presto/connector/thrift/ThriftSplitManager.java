@@ -51,6 +51,7 @@ import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tu
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -143,7 +144,7 @@ public class ThriftSplitManager
                         checkState(nextToken.compareAndSet(currentToken, batch.getNextToken()));
                         checkState(hasMoreData.compareAndSet(true, nextToken.get() != null));
                         return new ConnectorSplitBatch(splits, isFinished());
-                    });
+                    }, directExecutor());
             resultFuture = catchingThriftException(resultFuture);
             future.set(resultFuture);
             return toCompletableFuture(resultFuture);

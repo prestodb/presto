@@ -84,7 +84,6 @@ public class TestingPrestoClient
     private static final DateTimeFormatter timeWithUtcZoneFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS 'UTC'"); // UTC zone would be printed as "Z" in "XXX" format
     private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS XXX");
 
-    private static final DateTimeFormatter timestampFormat = DateTimeFormatter.ofPattern(SqlTimestamp.JSON_FORMAT);
     private static final DateTimeFormatter timestampWithTimeZoneFormat = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
@@ -225,7 +224,7 @@ public class TestingPrestoClient
             }
         }
         else if (TIMESTAMP.equals(type)) {
-            return timestampFormat.parse((String) value, LocalDateTime::from);
+            return SqlTimestamp.JSON_FORMATTER.parse((String) value, LocalDateTime::from);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);

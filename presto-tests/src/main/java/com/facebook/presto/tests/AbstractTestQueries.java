@@ -1682,42 +1682,10 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testJoinWithConstantFalseExpressionWithCoercion()
-    {
-        // Covers #7520
-
-        // Cannot use assertQuery because H2 behaves differently than Presto in CHAR(x) = CHAR(y) comparison, when x != y
-        // assertQuery("SELECT (cast ('a' AS char(1)) = cast ('a' AS char(2)))") would fail
-        MaterializedResult actual = computeActual("SELECT count(*) > 0 FROM nation JOIN region ON (cast('a' AS char(1)) = CAST('a' AS char(2)))");
-
-        MaterializedResult expected = resultBuilder(getSession(), BOOLEAN)
-                .row(false)
-                .build();
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
     public void testJoinWithConstantTrueExpressionWithCoercion()
     {
         // Covers #7520
         assertQuery("SELECT count(*) > 0 FROM nation JOIN region ON (cast(1.2 AS real) = CAST(1.2 AS decimal(2,1)))");
-    }
-
-    @Test
-    public void testJoinWithCanonicalizedConstantFalseExpressionWithCoercion()
-    {
-        // Covers #7520
-
-        // Cannot use assertQuery because H2 behaves differently than Presto in CHAR(x) = CHAR(y) comparison, when x != y
-        // assertQuery("SELECT (cast ('a' AS char(1)) = cast ('a' AS char(2)))") would fail
-        MaterializedResult actual = computeActual("SELECT count(*) > 0 FROM nation JOIN region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN 'a' ELSE 'a' END) AS char(1)) = CAST('a' AS char(2))");
-
-        MaterializedResult expected = resultBuilder(getSession(), BOOLEAN)
-                .row(false)
-                .build();
-
-        assertEquals(actual, expected);
     }
 
     @Test
@@ -4889,6 +4857,7 @@ public abstract class AbstractTestQueries
                 getSession().getSource(),
                 getSession().getCatalog(),
                 getSession().getSchema(),
+                getSession().getPath(),
                 getSession().getTraceToken(),
                 getSession().getTimeZoneKey(),
                 getSession().getLocale(),

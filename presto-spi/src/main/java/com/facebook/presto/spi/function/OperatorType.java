@@ -33,7 +33,8 @@ public enum OperatorType
     HASH_CODE("HASH CODE"),
     SATURATED_FLOOR_CAST("SATURATED FLOOR CAST"),
     IS_DISTINCT_FROM("IS DISTINCT FROM"),
-    XX_HASH_64("XX HASH 64");
+    XX_HASH_64("XX HASH 64"),
+    INDETERMINATE("INDETERMINATE");
 
     private final String operator;
 

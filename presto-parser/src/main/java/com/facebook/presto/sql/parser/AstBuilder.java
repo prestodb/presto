@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
+import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -97,6 +98,8 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.PathElement;
+import com.facebook.presto.sql.tree.PathSpecification;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -117,6 +120,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -867,6 +871,12 @@ class AstBuilder
                 tableName);
     }
 
+    @Override
+    public Node visitSetPath(SqlBaseParser.SetPathContext context)
+    {
+        return new SetPath(getLocation(context), (PathSpecification) visit(context.pathSpecification()));
+    }
+
     // ***************** boolean expressions ******************
 
     @Override
@@ -1065,12 +1075,11 @@ class AstBuilder
     @Override
     public Node visitLike(SqlBaseParser.LikeContext context)
     {
-        Expression escape = null;
-        if (context.escape != null) {
-            escape = (Expression) visit(context.escape);
-        }
-
-        Expression result = new LikePredicate(getLocation(context), (Expression) visit(context.value), (Expression) visit(context.pattern), escape);
+        Expression result = new LikePredicate(
+                getLocation(context),
+                (Expression) visit(context.value),
+                (Expression) visit(context.pattern),
+                visitIfPresent(context.escape, Expression.class));
 
         if (context.NOT() != null) {
             result = new NotExpression(getLocation(context), result);
@@ -1227,6 +1236,12 @@ class AstBuilder
     public Node visitCurrentUser(SqlBaseParser.CurrentUserContext context)
     {
         return new CurrentUser(getLocation(context.CURRENT_USER()));
+    }
+
+    @Override
+    public Node visitCurrentPath(SqlBaseParser.CurrentPathContext context)
+    {
+        return new CurrentPath(getLocation(context.CURRENT_PATH()));
     }
 
     @Override
@@ -1654,6 +1669,24 @@ class AstBuilder
     public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context)
     {
         return new CallArgument(getLocation(context), context.identifier().getText(), (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitQualifiedArgument(SqlBaseParser.QualifiedArgumentContext context)
+    {
+        return new PathElement(getLocation(context), (Identifier) visit(context.identifier(0)), (Identifier) visit(context.identifier(1)));
+    }
+
+    @Override
+    public Node visitUnqualifiedArgument(SqlBaseParser.UnqualifiedArgumentContext context)
+    {
+        return new PathElement(getLocation(context), (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitPathSpecification(SqlBaseParser.PathSpecificationContext context)
+    {
+        return new PathSpecification(getLocation(context), visit(context.pathElement(), PathElement.class));
     }
 
     // ***************** helpers *****************

@@ -23,6 +23,8 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.sql.SqlEnvironmentConfig;
+import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
@@ -63,18 +65,21 @@ public class QuerySessionSupplier
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, SessionPropertyConfigurationManagerFactory> sessionPropertyConfigurationManagerFactories = new ConcurrentHashMap<>();
     private final AtomicReference<SessionPropertyConfigurationManager> sessionPropertyConfigurationManager = new AtomicReference<>();
+    private final Optional<String> path;
 
     @Inject
     public QuerySessionSupplier(
             NodeInfo nodeInfo,
             TransactionManager transactionManager,
             AccessControl accessControl,
-            SessionPropertyManager sessionPropertyManager)
+            SessionPropertyManager sessionPropertyManager,
+            SqlEnvironmentConfig config)
     {
         this.configurationManagerContext = new SessionPropertyConfigurationManagerContextInstance(nodeInfo.getEnvironment());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.path = requireNonNull(config.getPath(), "path is null");
     }
 
     @Override
@@ -127,6 +132,7 @@ public class QuerySessionSupplier
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
+                .setPath(new SqlPath(path))
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())

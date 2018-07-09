@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -29,6 +28,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -36,12 +36,16 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.String.format;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -387,7 +391,7 @@ public class TestJsonOperators
     public void testCastFromTimestamp()
     {
         assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
-        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
+        assertFunction("CAST(TIMESTAMP '1970-01-01 00:00:01' AS JSON)", JSON, format("\"%s\"", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, UTC, UTC_KEY, TEST_SESSION)));
     }
 
     @Test
@@ -425,9 +429,26 @@ public class TestJsonOperators
                 "Cannot cast to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
     }
 
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
+    @Test
+    public void testIndeterminate()
     {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+        assertOperator(INDETERMINATE, "cast(null as JSON)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "JSON '128'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'true'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'false'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"test\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"null\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'true'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'false'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"True\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"true\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '123.456'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'true'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'false'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"NaN\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"Infinity\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"-Infinity\"'", BOOLEAN, false);
     }
 
     private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)

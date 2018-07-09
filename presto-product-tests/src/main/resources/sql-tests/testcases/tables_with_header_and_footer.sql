@@ -1,4 +1,4 @@
--- database: presto; tables: table_with_header, table_with_footer, table_with_header_and_footer; groups: hive;
+-- database: presto; tables: table_with_header, table_with_footer, table_with_header_and_footer; groups: hive, hive_file_header;
 --! name: simple_scan with header
 SELECT count(*) FROM table_with_header
 --!
