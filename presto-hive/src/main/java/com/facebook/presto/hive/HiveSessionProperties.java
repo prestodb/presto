@@ -61,6 +61,7 @@ public final class HiveSessionProperties
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -211,6 +212,11 @@ public final class HiveSessionProperties
                         PARQUET_PREDICATE_PUSHDOWN_ENABLED,
                         "Experimental: Parquet: Enable predicate pushdown for Parquet",
                         hiveClientConfig.isParquetPredicatePushdownEnabled(),
+                        false),
+                booleanSessionProperty(
+                        PARQUET_USE_COLUMN_NAME,
+                        "Experimental: Parquet: Access Parquet columns using names from the file",
+                        hiveClientConfig.isUseParquetColumnNames(),
                         false),
                 dataSizeSessionProperty(
                         MAX_SPLIT_SIZE,
@@ -377,6 +383,11 @@ public final class HiveSessionProperties
     public static boolean isParquetPredicatePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseParquetColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
     }
 
     public static DataSize getMaxSplitSize(ConnectorSession session)
