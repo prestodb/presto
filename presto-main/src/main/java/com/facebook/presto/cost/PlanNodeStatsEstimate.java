@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeStatsEstimate
 {
-    private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 10;
+    private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
     public static final PlanNodeStatsEstimate UNKNOWN_STATS = builder().build();
 
     private final double outputRowCount;
