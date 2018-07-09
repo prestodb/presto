@@ -533,7 +533,7 @@ class Query
         if (currentState.isDone()) {
             return immediateFuture(null);
         }
-        return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture);
+        return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
     private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo)

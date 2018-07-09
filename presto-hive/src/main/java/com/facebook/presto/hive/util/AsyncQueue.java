@@ -30,6 +30,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -204,7 +205,7 @@ public class AsyncQueue<T>
                             }
                         }
                     }
-                });
+                }, directExecutor());
     }
 
     private static void completeAsync(Executor executor, SettableFuture<?> future)

@@ -36,6 +36,15 @@ import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_SOCKET_FACTORY_CLASS_DEFAULT_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SERVER_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_READ_SHORTCIRCUIT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
@@ -99,26 +108,26 @@ public class HdfsConfigurationUpdater
         copy(resourcesConfiguration, config);
 
         // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
-        config.setClass("topology.node.switch.mapping.impl", NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);
+        config.setClass(NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY, NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);
 
         if (socksProxy != null) {
-            config.setClass("hadoop.rpc.socket.factory.class.default", SocksSocketFactory.class, SocketFactory.class);
-            config.set("hadoop.socks.server", socksProxy.toString());
+            config.setClass(HADOOP_RPC_SOCKET_FACTORY_CLASS_DEFAULT_KEY, SocksSocketFactory.class, SocketFactory.class);
+            config.set(HADOOP_SOCKS_SERVER_KEY, socksProxy.toString());
         }
 
         if (domainSocketPath != null) {
-            config.setStrings("dfs.domain.socket.path", domainSocketPath);
+            config.setStrings(DFS_DOMAIN_SOCKET_PATH_KEY, domainSocketPath);
         }
 
         // only enable short circuit reads if domain socket path is properly configured
-        if (!config.get("dfs.domain.socket.path", "").trim().isEmpty()) {
-            config.setBooleanIfUnset("dfs.client.read.shortcircuit", true);
+        if (!config.get(DFS_DOMAIN_SOCKET_PATH_KEY, "").trim().isEmpty()) {
+            config.setBooleanIfUnset(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
         }
 
-        config.setInt("dfs.socket.timeout", toIntExact(dfsTimeout.toMillis()));
-        config.setInt("ipc.ping.interval", toIntExact(ipcPingInterval.toMillis()));
-        config.setInt("ipc.client.connect.timeout", toIntExact(dfsConnectTimeout.toMillis()));
-        config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
+        config.setInt(DFS_CLIENT_SOCKET_TIMEOUT_KEY, toIntExact(dfsTimeout.toMillis()));
+        config.setInt(IPC_PING_INTERVAL_KEY, toIntExact(ipcPingInterval.toMillis()));
+        config.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, toIntExact(dfsConnectTimeout.toMillis()));
+        config.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, dfsConnectMaxRetries);
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 

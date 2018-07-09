@@ -221,9 +221,14 @@ public class UnaliasSymbolReferences
 
         private WindowNode.Frame canonicalize(WindowNode.Frame frame)
         {
-            return new WindowNode.Frame(frame.getType(),
-                    frame.getStartType(), canonicalize(frame.getStartValue()),
-                    frame.getEndType(), canonicalize(frame.getEndValue()));
+            return new WindowNode.Frame(
+                    frame.getType(),
+                    frame.getStartType(),
+                    canonicalize(frame.getStartValue()),
+                    frame.getEndType(),
+                    canonicalize(frame.getEndValue()),
+                    frame.getOriginalStartValue(),
+                    frame.getOriginalEndValue());
         }
 
         @Override

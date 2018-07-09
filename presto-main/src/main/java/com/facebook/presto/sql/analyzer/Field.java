@@ -51,7 +51,6 @@ public class Field
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
-        requireNonNull(aliased, "aliased is null");
 
         return new Field(Optional.empty(), name, type, false, originTable, aliased);
     }

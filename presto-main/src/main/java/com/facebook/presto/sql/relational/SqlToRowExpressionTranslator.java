@@ -701,8 +701,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getValue(), context);
             RowExpression pattern = process(node.getPattern(), context);
 
-            if (node.getEscape() != null) {
-                RowExpression escape = process(node.getEscape(), context);
+            if (node.getEscape().isPresent()) {
+                RowExpression escape = process(node.getEscape().get(), context);
                 return likeFunctionCall(value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
             }
 

@@ -586,11 +586,6 @@ public class TestLocalExchange
         assertEquals(exchange.getBufferedBytes(), retainedSizeOfPages(pageCount));
     }
 
-    private static void assertExchangeTotalBufferedPages(LocalExchange exchange, int pageCount)
-    {
-        assertEquals(exchange, retainedSizeOfPages(pageCount));
-    }
-
     private static Page createPage(int i)
     {
         return SequencePageBuilder.createSequencePage(TYPES, 100, i);

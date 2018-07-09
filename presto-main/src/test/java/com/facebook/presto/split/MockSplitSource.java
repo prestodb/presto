@@ -35,6 +35,7 @@ import static com.facebook.presto.split.MockSplitSource.Action.DO_NOTHING;
 import static com.facebook.presto.split.MockSplitSource.Action.FINISH;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 @NotThreadSafe
 public class MockSplitSource
@@ -132,7 +133,7 @@ public class MockSplitSource
         nextBatchInvocationCount++;
         doGetNextBatch();
 
-        return Futures.transform(nextBatchFuture, splits -> new SplitBatch(splits, isFinished()));
+        return Futures.transform(nextBatchFuture, splits -> new SplitBatch(splits, isFinished()), directExecutor());
     }
 
     @Override

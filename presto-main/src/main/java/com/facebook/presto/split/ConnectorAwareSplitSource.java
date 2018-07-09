@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -67,7 +68,7 @@ public class ConnectorAwareSplitSource
                 result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
-        });
+        }, directExecutor());
     }
 
     @Override

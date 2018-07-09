@@ -24,6 +24,7 @@ import java.util.concurrent.Future;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.split.MockSplitSource.Action.FAIL;
 import static com.facebook.presto.split.MockSplitSource.Action.FINISH;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static java.util.Objects.requireNonNull;
@@ -244,7 +245,7 @@ public class TestBufferingSplitSource
     private static ListenableFuture<NextBatchResult> getNextBatch(SplitSource splitSource, int maxSize)
     {
         ListenableFuture<SplitBatch> future = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), maxSize);
-        return Futures.transform(future, NextBatchResult::new);
+        return Futures.transform(future, NextBatchResult::new, directExecutor());
     }
 
     @SuppressWarnings("UnusedReturnValue")

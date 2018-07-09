@@ -98,6 +98,7 @@ import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_E
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -1122,7 +1123,7 @@ public class TestSqlTaskExecution
                     return buildPages.stream()
                             .mapToInt(Page::getPositionCount)
                             .sum();
-                });
+                }, directExecutor());
             }
 
             @Override

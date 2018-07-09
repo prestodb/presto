@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -246,7 +245,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         FunctionCall countCall = new FunctionCall(
                 QualifiedName.of("count"),
-                Optional.<Window>empty(),
+                Optional.empty(),
                 Optional.of(condition),
                 Optional.empty(),
                 false,
