@@ -60,7 +60,7 @@ public class PulsarSplitManager implements ConnectorSplitManager {
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
                                           ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy) {
 
-        int numSplits = 3;
+        int numSplits = 4;
 
         PulsarTableLayoutHandle layoutHandle = (PulsarTableLayoutHandle) layout;
         PulsarTableHandle tableHandle = layoutHandle.getTable();

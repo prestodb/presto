@@ -170,12 +170,12 @@ public abstract class PulsarInternalColumn {
                 getName(),
                 getType(),
                 hidden,
-                true);
+                true, null);
     }
 
-    ColumnMetadata getColumnMetadata(boolean hidden)
+    PulsarColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(name, type, comment, hidden);
+        return new PulsarColumnMetadata(name, type, comment, null, hidden, true, null);
     }
 
     public static Set<PulsarInternalColumn> getInternalFields()

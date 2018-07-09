@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,7 @@ public class PulsarRecordCursor implements RecordCursor {
     private GenericRecord currentRecord;
     private Message currentMessage;
     private Map<String, PulsarInternalColumn> internalColumnMap = PulsarInternalColumn.getInternalFieldsMap();
+    private Map<String, String> fieldToColumn = new HashMap<>();
     private static final int NUM_ENTRY_READ_BATCH = 100;
 
 
@@ -190,14 +192,19 @@ public class PulsarRecordCursor implements RecordCursor {
     }
 
     private Object getRecord(int fieldIndex) {
-        String fieldName = this.columnHandles.get(fieldIndex).getName();
-        PulsarInternalColumn pulsarInternalColumn = this.internalColumnMap.get(fieldName);
 
-        if (pulsarInternalColumn != null) {
-            return pulsarInternalColumn.getData(this.currentMessage);
+        Object data;
+        PulsarColumnHandle pulsarColumnHandle = this.columnHandles.get(fieldIndex);
+
+        if (pulsarColumnHandle.isInternal()) {
+            String fieldName = this.columnHandles.get(fieldIndex).getName();
+            PulsarInternalColumn pulsarInternalColumn = this.internalColumnMap.get(fieldName);
+            data = pulsarInternalColumn.getData(this.currentMessage);
         } else {
-            return this.currentRecord.get(this.columnHandles.get(fieldIndex).getName());
+            data = this.currentRecord.get(this.columnHandles.get(fieldIndex).getPositionIndex());
         }
+
+        return data;
     }
 
     @Override

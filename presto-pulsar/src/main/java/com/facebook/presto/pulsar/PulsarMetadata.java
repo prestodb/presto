@@ -26,6 +26,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -158,12 +159,16 @@ public class PulsarMetadata implements ConnectorMetadata {
         tableMetaData.getColumns().forEach(new Consumer<ColumnMetadata>() {
             @Override
             public void accept(ColumnMetadata columnMetadata) {
+
+                PulsarColumnMetadata pulsarColumnMetadata = (PulsarColumnMetadata) columnMetadata;
+
                     PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
                             connectorId,
-                            columnMetadata.getName(),
-                            columnMetadata.getType(),
-                            false,
-                            false);
+                            pulsarColumnMetadata.getName(),
+                            pulsarColumnMetadata.getType(),
+                            pulsarColumnMetadata.isHidden(),
+                            pulsarColumnMetadata.isInternal(),
+                            pulsarColumnMetadata.getPositionIndex());
                     log.info("using connectorId: %s", connectorId);
                     log.info("setting pulsarColumnHandle: %s", pulsarColumnHandle);
 
@@ -258,9 +263,12 @@ public class PulsarMetadata implements ConnectorMetadata {
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
-        for (Schema.Field field : schema.getFields()) {
-            builder.addAll(getColumns(field.name(), field.schema()));
+        List<Schema.Field> fields = schema.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            Schema.Field field = fields.get(i);
+            builder.addAll(getColumns(field.name(), field.schema(), i));
         }
+
 
         if (withInternalColums) {
             PulsarInternalColumn.getInternalFields().stream().forEach(new Consumer<PulsarInternalColumn>() {
@@ -274,22 +282,25 @@ public class PulsarMetadata implements ConnectorMetadata {
         return new ConnectorTableMetadata(schemaTableName, builder.build());
     }
 
-    private List<ColumnMetadata> getColumns(String name, Schema fieldSchema) {
+    private List<PulsarColumnMetadata> getColumns(String name, Schema fieldSchema, int index) {
 
-        List<ColumnMetadata> columnMetadataList = new LinkedList<>();
+        List<PulsarColumnMetadata> columnMetadataList = new LinkedList<>();
 
         if (isPrimitiveType(fieldSchema.getType())) {
-            columnMetadataList.add(new ColumnMetadata(name, convertType(fieldSchema.getType())));
+            columnMetadataList.add(new PulsarColumnMetadata(name, convertType(fieldSchema.getType()),
+                    null, null, false, false, index));
         } else if (fieldSchema.getType() == Schema.Type.UNION) {
             boolean canBeNull = false;
             for (Schema type : fieldSchema.getTypes()) {
                 if (isPrimitiveType(type.getType())) {
-                    ColumnMetadata columnMetadata;
+                    PulsarColumnMetadata columnMetadata;
                     if (type.getType() != Schema.Type.NULL) {
                         if (!canBeNull) {
-                            columnMetadata = new ColumnMetadata(name, convertType(type.getType()));
+                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType()),
+                                    null, null, false, false, index);
                         } else {
-                            columnMetadata = new ColumnMetadata(name, convertType(type.getType()), "field can be null", false);
+                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType()),
+                                    "field can be null", null, false, false, index);
                         }
                         columnMetadataList.add(columnMetadata);
                     } else {

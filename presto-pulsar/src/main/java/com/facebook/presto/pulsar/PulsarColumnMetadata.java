@@ -13,5 +13,78 @@
  */
 package com.facebook.presto.pulsar;
 
-public class PulsarColumnMetadata {
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.type.Type;
+
+public class PulsarColumnMetadata extends ColumnMetadata{
+
+    private boolean isInternal;
+    private Integer positionIndex;
+
+
+//    public PulsarColumnMetadata(String name, Type type) {
+//        super(name, type);
+//        this.isInternal = false;
+//    }
+//
+//    public PulsarColumnMetadata(String name, Type type, String comment) {
+//        super(name, type, comment, false);
+//        this.isInternal = false;
+//    }
+
+    public PulsarColumnMetadata(String name, Type type, String comment, String extraInfo,
+                                boolean hidden, boolean isInternal, Integer positionIndex) {
+        super(name, type, comment, extraInfo, hidden);
+        this.isInternal = isInternal;
+        this.positionIndex = positionIndex;
+    }
+
+
+    public boolean isInternal() {
+        return isInternal;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder("PulsarColumnMetadata{");
+        sb.append("name='").append(getName()).append('\'');
+        sb.append(", type=").append(getType());
+        if (getComment() != null) {
+            sb.append(", comment='").append(getComment()).append('\'');
+        }
+        if (getExtraInfo() != null) {
+            sb.append(", extraInfo='").append(getExtraInfo()).append('\'');
+        }
+        if (isHidden()) {
+            sb.append(", hidden");
+        }
+        if (isInternal()) {
+            sb.append(", internal");
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+
+        PulsarColumnMetadata that = (PulsarColumnMetadata) o;
+
+        return isInternal == that.isInternal;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + (isInternal ? 1 : 0);
+        return result;
+    }
+
+    public int getPositionIndex() {
+        return positionIndex;
+    }
 }

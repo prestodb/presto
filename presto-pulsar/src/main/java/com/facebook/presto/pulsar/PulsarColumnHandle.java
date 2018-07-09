@@ -48,19 +48,23 @@ public class PulsarColumnHandle implements ColumnHandle {
      */
     private final boolean internal;
 
+    private Integer positionIndex;
+
     @JsonCreator
     public PulsarColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("hidden") boolean hidden,
-            @JsonProperty("internal") boolean internal)
+            @JsonProperty("internal") boolean internal,
+            @JsonProperty("positionIndex") Integer positionIndex)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.hidden = hidden;
         this.internal = internal;
+        this.positionIndex = positionIndex;
     }
 
     @JsonProperty
@@ -93,6 +97,11 @@ public class PulsarColumnHandle implements ColumnHandle {
         return internal;
     }
 
+    @JsonProperty
+    public Integer getPositionIndex() {
+        return positionIndex;
+    }
+
 
     ColumnMetadata getColumnMetadata()
     {
@@ -119,7 +128,8 @@ public class PulsarColumnHandle implements ColumnHandle {
                 Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.hidden, other.hidden) &&
-                Objects.equals(this.internal, other.internal);
+                Objects.equals(this.internal, other.internal) &&
+                Objects.equals(this.positionIndex, other.positionIndex);
     }
 
     @Override
@@ -131,6 +141,7 @@ public class PulsarColumnHandle implements ColumnHandle {
                 .add("type", type)
                 .add("hidden", hidden)
                 .add("internal", internal)
+                .add("positionIndex", positionIndex)
                 .toString();
     }
 }
