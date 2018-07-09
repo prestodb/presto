@@ -119,6 +119,12 @@
         <module>presto-matching</module>
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
+        <!-- elasticsearch -->
+        <module>presto-base-elasticsearch</module>
+        <module>presto-elasticsearch</module>
+        <module>presto-elasticsearch5</module>
+        <module>presto-elasticsearch6</module>
+        <module>elasticsearch-apache2</module>
     </modules>
 
     <dependencyManagement>
