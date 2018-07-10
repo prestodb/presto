@@ -312,12 +312,14 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
-                                new TransformCorrelatedScalarSubquery(), // must be run after TransformCorrelatedScalarAggregationToJoin
-                                new TransformCorrelatedLateralJoinToJoin(),
-                                new ImplementFilteredAggregations())),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
+                                .add(new RemoveUnreferencedScalarApplyNodes())
+                                .add(new TransformCorrelatedInPredicateToJoin()) // must be run after PruneUnreferencedOutputs
+                                .add(new TransformCorrelatedScalarSubquery()) // must be run after TransformCorrelatedScalarAggregationToJoin
+                                .add(new TransformCorrelatedLateralJoinToJoin())
+                                .add(new ImplementFilteredAggregations())
+                                .build()),
                 new TransformCorrelatedSingleRowSubqueryToProject(),
                 new CheckSubqueryNodesAreRewritten(),
                 predicatePushDown,
