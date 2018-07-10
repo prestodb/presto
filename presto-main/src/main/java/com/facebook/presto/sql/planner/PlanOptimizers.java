@@ -92,6 +92,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLate
 import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTraitCalculationRuleSet;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -251,6 +252,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(

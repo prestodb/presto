@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.TraitSet;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -26,8 +27,9 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
+import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.CARDINALITY;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +64,8 @@ public class PruneCountAggregationOverScalar
                 return Result.empty();
             }
         }
-        if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
+        Optional<CardinalityTrait> sourceCardinality = context.getLookup().resolveTrait(parent.getSource(), CARDINALITY);
+        if (!assignments.isEmpty() && sourceCardinality.isPresent() && sourceCardinality.get().isScalar()) {
             return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
         }
         return Result.empty();
