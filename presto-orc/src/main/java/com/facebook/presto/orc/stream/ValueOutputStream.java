@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
+import io.airlift.slice.FixedLengthSliceInput;
 
 import java.util.List;
 
@@ -24,6 +25,11 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
     void close();
 
     List<C> getCheckpoints();
+
+    default FixedLengthSliceInput getSliceInput()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     StreamDataOutput getStreamDataOutput(int column);
 

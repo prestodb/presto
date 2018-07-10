@@ -20,6 +20,7 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.FixedLengthSliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -76,6 +77,14 @@ public class LongOutputStreamDwrf
         checkState(closed);
         return ImmutableList.copyOf(checkpoints);
     }
+
+    @Override
+    public FixedLengthSliceInput getSliceInput()
+    {
+        checkState(closed);
+        return buffer.getSliceInput();
+    }
+
 
     @Override
     public StreamDataOutput getStreamDataOutput(int column)

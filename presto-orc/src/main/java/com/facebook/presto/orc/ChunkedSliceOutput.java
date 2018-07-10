@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -21,12 +22,14 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -293,6 +296,167 @@ public final class ChunkedSliceOutput
     public Slice getUnderlyingSlice()
     {
         throw new UnsupportedOperationException();
+    }
+
+    public FixedLengthSliceInput getSliceInput()
+    {
+        // This makes all the slices closed and simplifies the processing unit
+        closeChunk();
+        return new ChainedSliceInput(closedSlices);
+
+        return new FixedLengthSliceInput() {
+            int length = toIntExact(streamOffset);
+
+            @Override
+            public long length()
+            {
+                return length;
+            }
+
+            @Override
+            public long position()
+            {
+                return globalPosition;
+            }
+
+            @Override
+            public void setPosition(long position)
+            {
+                checkArgument(position >= 0 && position <= position());
+
+
+            }
+
+            @Override
+            public boolean isReadable()
+            {
+                return globalPosition < position();
+            }
+
+            @Override
+            public int available()
+            {
+                return toIntExact(position() - globalPosition);
+            }
+
+            @Override
+            public int read()
+            {
+                if (globalPosition >= position()) {
+                    return -1;
+                }
+
+                int result = slice.getByte(position) & 0xFF;
+
+            }
+
+            @Override
+            public boolean readBoolean()
+            {
+                return readByte() != 0;
+            }
+
+            @Override
+            public byte readByte()
+            {
+                int value = read();
+                if (value == -1) {
+                    throw new IndexOutOfBoundsException();
+                }
+                return (byte) value;
+            }
+
+            @Override
+            public int readUnsignedByte()
+            {
+                return readByte() & 0xFF;
+            }
+
+            @Override
+            public short readShort()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public int readUnsignedShort()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public int readInt()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long readLong()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public float readFloat()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public double readDouble()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Slice readSlice(int length)
+            {
+                return null;
+            }
+
+            @Override
+            public int read(byte[] destination, int destinationIndex, int length)
+            {
+                return 0;
+            }
+
+            @Override
+            public void readBytes(byte[] destination, int destinationIndex, int length)
+            {
+
+            }
+
+            @Override
+            public void readBytes(Slice destination, int destinationIndex, int length)
+            {
+
+            }
+
+            @Override
+            public void readBytes(OutputStream out, int length)
+                    throws IOException
+            {
+
+            }
+
+            @Override
+            public long skip(long length)
+            {
+                return 0;
+            }
+
+            @Override
+            public int skipBytes(int length)
+            {
+                return 0;
+            }
+
+            @Override
+            public long getRetainedSize()
+            {
+                return 0;
+            }
+        }
     }
 
     @Override

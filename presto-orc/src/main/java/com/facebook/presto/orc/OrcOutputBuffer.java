@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
@@ -407,6 +409,11 @@ public class OrcOutputBuffer
             buffer = new byte[newBufferSize];
             slice = wrappedBuffer(buffer);
         }
+    }
+
+    public FixedLengthSliceInput getSliceInput()
+    {
+        checkState(bufferPosition == 0);
     }
 
     private int ensureBatchSize(int length)
