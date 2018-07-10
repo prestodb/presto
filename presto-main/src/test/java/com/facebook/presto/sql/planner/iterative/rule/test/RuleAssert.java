@@ -32,8 +32,10 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.Trait;
 import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanWithTrait;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -46,6 +48,8 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogica
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.IntStream.range;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
@@ -150,8 +154,15 @@ public class RuleAssert
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(types.allTypes());
         Memo memo = new Memo(idAllocator, plan);
+        range(0, memo.getGroupCount())
+                .map(group -> group + 1)
+                .forEach(group -> {
+                    PlanNode node = memo.getNode(group);
+                    if (node instanceof PlanWithTrait) {
+                        memo.storeTrait(group, ((PlanWithTrait) node).getTrait());
+                    }
+                });
         Lookup lookup = memo.getLookup();
-
         int rootGroup = memo.getRootGroup();
         PlanNode memoRoot = memo.getNode(rootGroup);
         TraitSet traitSet = memo.getTraitSet(rootGroup);
@@ -173,6 +184,20 @@ public class RuleAssert
         }
 
         return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
+    }
+
+    public void hasTrait(Trait trait)
+    {
+        RuleApplication ruleApplication = applyRule();
+
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, ruleApplication.types)));
+        }
+
+        assertEquals(trait, ruleApplication.getProducedTrait());
     }
 
     private String formatPlan(PlanNode plan, TypeProvider types)
@@ -259,6 +284,11 @@ public class RuleAssert
         public PlanNode getTransformedPlan()
         {
             return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
+        }
+
+        public Trait getProducedTrait()
+        {
+            return result.getTrait().orElseThrow(() -> new IllegalStateException("Rule did not produce trait"));
         }
     }
 }

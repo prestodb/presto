@@ -36,6 +36,8 @@ import com.facebook.presto.sql.planner.TestingConnectorIndexHandle;
 import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.Trait;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -55,6 +57,7 @@ import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.PlanWithTrait;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -229,6 +232,11 @@ public class PlanBuilder
         AggregationBuilder aggregationBuilder = new AggregationBuilder();
         aggregationBuilderConsumer.accept(aggregationBuilder);
         return aggregationBuilder.build();
+    }
+
+    public PlanNode nodeWithTrait(Trait trait)
+    {
+        return new PlanWithTrait(idAllocator.getNextId(), trait);
     }
 
     public class AggregationBuilder
