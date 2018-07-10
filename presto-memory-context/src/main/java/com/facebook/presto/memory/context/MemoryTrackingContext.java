@@ -20,6 +20,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -49,9 +50,9 @@ public final class MemoryTrackingContext
     private final AggregatedMemoryContext revocableAggregateMemoryContext;
     private final AggregatedMemoryContext systemAggregateMemoryContext;
 
-    private final LocalMemoryContext userLocalMemoryContext;
-    private final LocalMemoryContext revocableLocalMemoryContext;
-    private final LocalMemoryContext systemLocalMemoryContext;
+    private LocalMemoryContext userLocalMemoryContext;
+    private LocalMemoryContext revocableLocalMemoryContext;
+    private LocalMemoryContext systemLocalMemoryContext;
 
     public MemoryTrackingContext(
             AggregatedMemoryContext userAggregateMemoryContext,
@@ -61,9 +62,6 @@ public final class MemoryTrackingContext
         this.userAggregateMemoryContext = requireNonNull(userAggregateMemoryContext, "userAggregateMemoryContext is null");
         this.revocableAggregateMemoryContext = requireNonNull(revocableAggregateMemoryContext, "revocableAggregateMemoryContext is null");
         this.systemAggregateMemoryContext = requireNonNull(systemAggregateMemoryContext, "systemAggregateMemoryContext is null");
-        this.userLocalMemoryContext = userAggregateMemoryContext.newLocalMemoryContext();
-        this.revocableLocalMemoryContext = revocableAggregateMemoryContext.newLocalMemoryContext();
-        this.systemLocalMemoryContext = systemAggregateMemoryContext.newLocalMemoryContext();
     }
 
     public void close()
@@ -83,27 +81,30 @@ public final class MemoryTrackingContext
 
     public LocalMemoryContext localUserMemoryContext()
     {
+        verify(userLocalMemoryContext != null, "local memory contexts are not initalized");
         return userLocalMemoryContext;
     }
 
     public LocalMemoryContext localSystemMemoryContext()
     {
+        verify(systemLocalMemoryContext != null, "local memory contexts are not initalized");
         return systemLocalMemoryContext;
     }
 
     public LocalMemoryContext localRevocableMemoryContext()
     {
+        verify(revocableLocalMemoryContext != null, "local memory contexts are not initalized");
         return revocableLocalMemoryContext;
     }
 
-    public LocalMemoryContext newUserMemoryContext()
+    public LocalMemoryContext newUserMemoryContext(String allocationTag)
     {
-        return userAggregateMemoryContext.newLocalMemoryContext();
+        return userAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
-    public LocalMemoryContext newSystemMemoryContext()
+    public LocalMemoryContext newSystemMemoryContext(String allocationTag)
     {
-        return systemAggregateMemoryContext.newLocalMemoryContext();
+        return systemAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
     public AggregatedMemoryContext aggregateUserMemoryContext()
@@ -137,6 +138,17 @@ public final class MemoryTrackingContext
                 userAggregateMemoryContext.newAggregatedMemoryContext(),
                 revocableAggregateMemoryContext.newAggregatedMemoryContext(),
                 systemAggregateMemoryContext.newAggregatedMemoryContext());
+    }
+
+    /**
+     * This method has to be called to initalize the local memory contexts. Otherwise, calls to methods
+     * localUserMemoryContext(), localSystemMemoryContext(), etc. will fail.
+     */
+    public void initializeLocalMemoryContexts(String allocationTag)
+    {
+        this.userLocalMemoryContext = userAggregateMemoryContext.newLocalMemoryContext(allocationTag);
+        this.revocableLocalMemoryContext = revocableAggregateMemoryContext.newLocalMemoryContext(allocationTag);
+        this.systemLocalMemoryContext = systemAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
     @Override

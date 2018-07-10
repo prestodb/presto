@@ -130,6 +130,7 @@ public class OperatorContext
         this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
+        operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
 
         collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
@@ -254,9 +255,9 @@ public class OperatorContext
     }
 
     // caller should close this context as it's a new context
-    public LocalMemoryContext newLocalSystemMemoryContext()
+    public LocalMemoryContext newLocalSystemMemoryContext(String allocationTag)
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.newSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+        return new InternalLocalMemoryContext(operatorMemoryContext.newSystemMemoryContext(allocationTag), memoryFuture, this::updatePeakMemoryReservations, true);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
@@ -670,9 +671,9 @@ public class OperatorContext
         }
 
         @Override
-        public LocalMemoryContext newLocalMemoryContext()
+        public LocalMemoryContext newLocalMemoryContext(String allocationTag)
         {
-            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(), memoryFuture, allocationListener, true);
+            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(allocationTag), memoryFuture, allocationListener, true);
         }
 
         @Override

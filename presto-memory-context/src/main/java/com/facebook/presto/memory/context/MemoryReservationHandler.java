@@ -15,16 +15,18 @@ package com.facebook.presto.memory.context;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Optional;
+
 public interface MemoryReservationHandler
 {
     /**
      * @return a future that signals the caller to block before reserving more memory.
      */
-    ListenableFuture<?> reserveMemory(long delta);
+    ListenableFuture<?> reserveMemory(Optional<String> allocationTag, long delta);
 
     /**
      * Try reserving the given number of bytes.
      * @return true if reservation is successful, false otherwise.
      */
-    boolean tryReserveMemory(long delta);
+    boolean tryReserveMemory(Optional<String> allocationTag, long delta);
 }

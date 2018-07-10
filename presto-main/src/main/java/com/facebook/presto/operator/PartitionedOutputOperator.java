@@ -223,7 +223,7 @@ public class PartitionedOutputOperator
                 maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
         this.partitionsInitialRetainedSize = this.partitionFunction.getRetainedSizeInBytes();
         this.systemMemoryContext.setBytes(partitionsInitialRetainedSize);
     }

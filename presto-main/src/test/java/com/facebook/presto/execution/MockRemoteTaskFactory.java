@@ -201,7 +201,7 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID,
                     executor,
                     new DataSize(1, BYTE),
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
+                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");

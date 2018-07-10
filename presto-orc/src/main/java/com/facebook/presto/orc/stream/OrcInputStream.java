@@ -66,9 +66,9 @@ public final class OrcInputStream
         // memory reserved in the systemMemoryContext is never release and instead it is
         // expected that the context itself will be destroyed at the end of the read
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext();
+        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName());
         checkArgument(sliceInputRetainedSizeInBytes >= 0, "sliceInputRetainedSizeInBytes is negative");
-        systemMemoryContext.newLocalMemoryContext().setBytes(sliceInputRetainedSizeInBytes);
+        systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
 
         if (!decompressor.isPresent()) {
             this.current = sliceInput;

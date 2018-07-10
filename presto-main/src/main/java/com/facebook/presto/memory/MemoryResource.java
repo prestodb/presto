@@ -14,15 +14,20 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 /**
  * Manages memory pools on this worker node
@@ -47,5 +52,18 @@ public class MemoryResource
     {
         taskManager.updateMemoryPoolAssignments(request);
         return memoryManager.getInfo();
+    }
+
+    @GET
+    @Path("{poolId}")
+    public Response getMemoryInfo(@PathParam("poolId") String poolId)
+    {
+        MemoryPool memoryPool = memoryManager.getPool(new MemoryPoolId(poolId));
+        if (memoryPool == null) {
+            return Response.status(NOT_FOUND).build();
+        }
+        return Response.ok()
+                .entity(memoryPool.getInfo())
+                .build();
     }
 }

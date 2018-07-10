@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
@@ -29,6 +30,7 @@ public final class MemoryPoolInfo
     private final long reservedBytes;
     private final long reservedRevocableBytes;
     private final Map<QueryId, Long> queryMemoryReservations;
+    private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations;
     private final Map<QueryId, Long> queryMemoryRevocableReservations;
 
     @JsonCreator
@@ -37,12 +39,14 @@ public final class MemoryPoolInfo
             @JsonProperty("reservedBytes") long reservedBytes,
             @JsonProperty("reservedRevocableBytes") long reservedRevocableBytes,
             @JsonProperty("queryMemoryReservations") Map<QueryId, Long> queryMemoryReservations,
+            @JsonProperty("queryMemoryAllocations") Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations,
             @JsonProperty("queryMemoryRevocableReservations") Map<QueryId, Long> queryMemoryRevocableReservations)
     {
         this.maxBytes = maxBytes;
         this.reservedBytes = reservedBytes;
         this.reservedRevocableBytes = reservedRevocableBytes;
         this.queryMemoryReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
+        this.queryMemoryAllocations = unmodifiableMap(new HashMap<>(queryMemoryAllocations));
         this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryRevocableReservations));
     }
 
@@ -74,6 +78,12 @@ public final class MemoryPoolInfo
     public Map<QueryId, Long> getQueryMemoryReservations()
     {
         return queryMemoryReservations;
+    }
+
+    @JsonProperty
+    public Map<QueryId, List<MemoryAllocation>> getQueryMemoryAllocations()
+    {
+        return queryMemoryAllocations;
     }
 
     @JsonProperty

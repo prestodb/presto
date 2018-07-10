@@ -97,6 +97,15 @@ public class ClusterStatsResource
     }
 
     @GET
+    @Path("memory")
+    public Response getClusterMemoryPoolInfo()
+    {
+        return Response.ok()
+                .entity(clusterMemoryManager.getMemoryPoolInfo())
+                .build();
+    }
+
+    @GET
     @Path("workerMemory")
     public Response getWorkerMemoryInfo()
     {
