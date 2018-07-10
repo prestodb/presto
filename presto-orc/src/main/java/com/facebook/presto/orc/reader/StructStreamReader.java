@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -22,12 +23,15 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -41,6 +45,8 @@ import static java.util.Objects.requireNonNull;
 public class StructStreamReader
         implements StreamReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
+
     private final StreamDescriptor streamDescriptor;
 
     private final StreamReader[] structFields;
@@ -55,7 +61,7 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    public StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
 
@@ -63,7 +69,7 @@ public class StructStreamReader
         this.structFields = new StreamReader[nestedStreams.size()];
         for (int i = 0; i < nestedStreams.size(); i++) {
             StreamDescriptor nestedStream = nestedStreams.get(i);
-            this.structFields[i] = createStreamReader(nestedStream, hiveStorageTimeZone);
+            this.structFields[i] = createStreamReader(nestedStream, hiveStorageTimeZone, systemMemoryContext);
         }
     }
 
@@ -202,5 +208,28 @@ public class StructStreamReader
                 .appendNull()
                 .build();
         return new RunLengthEncodedBlock(nullValueBlock, positionCount);
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            for (StreamReader structField : structFields) {
+                closer.register(() -> structField.close());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        long retainedSizeInBytes = INSTANCE_SIZE;
+        for (StreamReader structField : structFields) {
+            retainedSizeInBytes += structField.getRetainedSizeInBytes();
+        }
+        return retainedSizeInBytes;
     }
 }
