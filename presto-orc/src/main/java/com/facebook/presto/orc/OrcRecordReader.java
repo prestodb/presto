@@ -37,10 +37,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -68,6 +70,8 @@ import static java.util.Objects.requireNonNull;
 public class OrcRecordReader
         implements Closeable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcRecordReader.class).instanceSize();
+
     private final OrcDataSource orcDataSource;
 
     private final StreamReader[] streamReaders;
@@ -89,6 +93,7 @@ public class OrcRecordReader
     private final StripeReader stripeReader;
     private int currentStripe = -1;
     private AggregatedMemoryContext currentStripeSystemMemoryContext;
+    private AggregatedMemoryContext streamReadersSystemMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -142,6 +147,7 @@ public class OrcRecordReader
         requireNonNull(decompressor, "decompressor is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
+        requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
@@ -149,6 +155,7 @@ public class OrcRecordReader
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
+        this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -212,8 +219,13 @@ public class OrcRecordReader
 
         this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
 
-        this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
-        this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newAggregatedMemoryContext();
+        // The streamReadersSystemMemoryContext covers the StreamReader local buffer sizes, plus leaf node StreamReaders'
+        // instance sizes who use local buffers. SliceDirectStreamReader's instance size is not counted, because it
+        // doesn't have a local buffer. All non-leaf level StreamReaders' (e.g. MapStreamReader, LongStreamReader,
+        // ListStreamReader and StructStreamReader) instance sizes were not counted, because calling setBytes() in
+        // their constructors is confusing.
+        this.streamReadersSystemMemoryContext = this.systemMemoryUsage.newAggregatedMemoryContext();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -226,7 +238,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -325,7 +337,14 @@ public class OrcRecordReader
     public void close()
             throws IOException
     {
-        orcDataSource.close();
+        try (Closer closer = Closer.create()) {
+            closer.register(orcDataSource);
+            for (StreamReader column : streamReaders) {
+                if (column != null) {
+                    closer.register(() -> column.close());
+                }
+            }
+        }
 
         if (writeChecksumBuilder.isPresent()) {
             WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
@@ -538,7 +557,8 @@ public class OrcRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            Map<Integer, Type> includedColumns)
+            Map<Integer, Type> includedColumns,
+            AggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
@@ -547,7 +567,7 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             }
         }
         return streamReaders;
@@ -593,6 +613,49 @@ public class OrcRecordReader
             }
         }
         return statistics.build();
+    }
+
+    /**
+     * @return The size of memory retained by all the stream readers (local buffers + object overhead)
+     */
+    @VisibleForTesting
+    long getStreamReaderRetainedSizeInBytes()
+    {
+        long totalRetainedSizeInBytes = 0;
+        for (StreamReader column : streamReaders) {
+            if (column != null) {
+                totalRetainedSizeInBytes += column.getRetainedSizeInBytes();
+            }
+        }
+        return totalRetainedSizeInBytes;
+    }
+
+    /**
+     * @return The size of memory retained by the current stripe (excludes object overheads)
+     */
+    @VisibleForTesting
+    long getCurrentStripeRetainedSizeInBytes()
+    {
+        return currentStripeSystemMemoryContext.getBytes();
+    }
+
+    /**
+     * @return The total size of memory retained by this OrcRecordReader
+     */
+    @VisibleForTesting
+    long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + getStreamReaderRetainedSizeInBytes() + getCurrentStripeRetainedSizeInBytes();
+    }
+
+    /**
+     * @return The system memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
+     * instance sizes.
+     */
+    @VisibleForTesting
+    long getSystemMemoryUsage()
+    {
+        return systemMemoryUsage.getBytes();
     }
 
     private static class StripeInfo
