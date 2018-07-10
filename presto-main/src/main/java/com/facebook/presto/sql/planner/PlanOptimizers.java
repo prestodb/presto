@@ -80,6 +80,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarJoinNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
@@ -302,12 +303,14 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new RemoveUnreferencedScalarLateralNodes(),
-                                new TransformUncorrelatedLateralToJoin(),
-                                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                                new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()),
-                                new TransformCorrelatedLateralJoinToJoin())),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
+                                .add(new RemoveUnreferencedScalarJoinNodes())
+                                .add(new RemoveUnreferencedScalarLateralNodes())
+                                .add(new TransformUncorrelatedLateralToJoin())
+                                .add(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
+                                .add(new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

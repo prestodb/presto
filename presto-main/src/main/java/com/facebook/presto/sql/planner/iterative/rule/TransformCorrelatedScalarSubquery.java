@@ -159,6 +159,7 @@ public class TransformCorrelatedScalarSubquery
 
     private static boolean isAtMostScalar(PlanNode planNode, Lookup lookup)
     {
+        // TODO support traits calculation on demand for temporary plans during Rule execution
         if (planNode instanceof ProjectNode) {
             return isAtMostScalar(((ProjectNode) planNode).getSource(), lookup);
         }
