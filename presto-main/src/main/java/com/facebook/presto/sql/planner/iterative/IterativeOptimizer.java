@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static com.facebook.presto.sql.planner.iterative.MemoFactory.defaultMemoFactory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -53,13 +54,20 @@ public class IterativeOptimizer
     private final CostCalculator costCalculator;
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
+    private final MemoFactory memoFactory;
 
     public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(stats, statsCalculator, costCalculator, ImmutableList.of(), rules);
+        this(stats, statsCalculator, costCalculator, ImmutableList.of(), rules, defaultMemoFactory());
     }
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(
+            RuleStatsRecorder stats,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            List<PlanOptimizer> legacyRules,
+            Set<Rule<?>> newRules,
+            MemoFactory memoFactory)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -68,6 +76,7 @@ public class IterativeOptimizer
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
                 .build();
+        this.memoFactory = requireNonNull(memoFactory, "memoFactory is null");
 
         stats.registerAll(newRules);
     }
@@ -84,7 +93,7 @@ public class IterativeOptimizer
             return plan;
         }
 
-        Memo memo = new Memo(idAllocator, plan);
+        Memo memo = memoFactory.create(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
         Matcher matcher = new PlanNodeMatcher(lookup);
 
