@@ -34,6 +34,7 @@ import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupRefere
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
@@ -107,7 +108,28 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        return resolveGroupReferences(node, Lookup.from(planNode -> Stream.of(this.resolve(planNode))));
+        return resolveGroupReferences(node, getLookup());
+    }
+
+    public Lookup getLookup()
+    {
+        return new Lookup()
+        {
+            @Override
+            public Stream<PlanNode> resolveGroup(PlanNode node)
+            {
+                checkArgument(node instanceof GroupReference, "Node is not a group reference: " + node);
+                return Stream.of(Memo.this.resolve((GroupReference) node));
+            }
+
+            @Override
+            public TraitSet resolveTraitSet(PlanNode node)
+            {
+                checkArgument(node instanceof GroupReference, "Node is not a group reference: " + node);
+                GroupReference groupReference = (GroupReference) node;
+                return getGroup(groupReference.getGroupId()).traitSet;
+            }
+        };
     }
 
     public PlanNode replace(int group, PlanNode node, String reason)
@@ -170,6 +192,12 @@ public class Memo
         getGroup(group).cumulativeCost = requireNonNull(cost, "cost is null");
     }
 
+    public void storeTrait(int group, Trait trait)
+    {
+        Group group1 = getGroup(group);
+        group1.traitSet = group1.traitSet.addTrait(trait);
+    }
+
     private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)
     {
         Set<Integer> references = getAllReferences(fromNode);
@@ -216,7 +244,7 @@ public class Memo
                                 idAllocator.getNextId(),
                                 insertRecursive(child),
                                 child.getOutputSymbols()))
-                        .collect(Collectors.toList()));
+                        .collect(toList()));
     }
 
     private int insertRecursive(PlanNode node)
@@ -257,6 +285,8 @@ public class Memo
         private PlanNodeStatsEstimate stats;
         @Nullable
         private PlanNodeCostEstimate cumulativeCost;
+
+        private TraitSet traitSet = TraitSet.empty();
 
         private Group(PlanNode member)
         {

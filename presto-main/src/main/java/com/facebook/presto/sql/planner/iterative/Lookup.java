@@ -15,10 +15,9 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.function.Function;
+import java.util.Optional;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.toOptional;
 
 public interface Lookup
@@ -48,22 +47,32 @@ public interface Lookup
      */
     Stream<PlanNode> resolveGroup(PlanNode node);
 
+    default <T extends Trait> Optional<T> resolveTrait(PlanNode node, TraitType traitType)
+    {
+        return resolveTraitSet(node).getTrait(traitType);
+    }
+
+    TraitSet resolveTraitSet(PlanNode node);
+
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
      * by rejecting {@link GroupReference}-s.
      */
     static Lookup noLookup()
     {
-        return node -> {
-            throw new UnsupportedOperationException();
-        };
-    }
+        return new Lookup()
+        {
+            @Override
+            public Stream<PlanNode> resolveGroup(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
 
-    static Lookup from(Function<GroupReference, Stream<PlanNode>> resolver)
-    {
-        return node -> {
-            checkArgument(node instanceof GroupReference, "Node '%s' is not a GroupReference", node.getClass().getSimpleName());
-            return resolver.apply((GroupReference) node);
+            @Override
+            public TraitSet resolveTraitSet(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 }

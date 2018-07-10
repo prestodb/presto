@@ -37,7 +37,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.sql.planner.iterative.MemoFactory.defaultMemoFactory;
@@ -94,7 +93,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = memoFactory.create(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = memo.getLookup();
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
@@ -149,6 +148,15 @@ public class IterativeOptimizer
 
                 if (result.getTransformedPlan().isPresent()) {
                     node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+
+                    done = false;
+                    progress = true;
+                }
+
+                if (result.getTrait().isPresent()) {
+                    Trait trait = result.getTrait().get();
+
+                    context.memo.storeTrait(group, trait);
 
                     done = false;
                     progress = true;
