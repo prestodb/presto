@@ -182,11 +182,6 @@ public class PlanBuilder
         return new LimitNode(idAllocator.getNextId(), source, limit, false);
     }
 
-    public MarkDistinctNode markDistinct(PlanNode source, Symbol markerSymbol, List<Symbol> distinctSymbols)
-    {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.empty());
-    }
-
     public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
     {
         return new TopNNode(
