@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
 import com.facebook.presto.sql.planner.plan.JoinNode.Type;
@@ -25,7 +26,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -115,7 +115,8 @@ public class TestDetermineJoinDistributionType
                         p.join(
                                 INNER,
                                 p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(expressions("10"), expressions("11"))),
-                                p.enforceSingleRow(
+                                p.nodeWithTrait(
+                                        CardinalityTrait.scalar(),
                                         p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(expressions("50"), expressions("11")))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
@@ -127,7 +128,7 @@ public class TestDetermineJoinDistributionType
                         Optional.empty(),
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
-                        enforceSingleRow(values(ImmutableMap.of("B1", 0)))));
+                        values(ImmutableMap.of("B1", 0))));
     }
 
     @Test

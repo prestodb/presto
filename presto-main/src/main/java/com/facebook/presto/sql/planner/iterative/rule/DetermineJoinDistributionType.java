@@ -16,13 +16,18 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.TraitSet;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.CARDINALITY;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -71,5 +76,11 @@ public class DetermineJoinDistributionType
         }
 
         return REPLICATED;
+    }
+
+    private static boolean isAtMostScalar(PlanNode planNode, Lookup lookup)
+    {
+        Optional<CardinalityTrait> cardinality = lookup.resolveTrait(planNode, CARDINALITY);
+        return cardinality.isPresent() && cardinality.get().isAtMostScalar();
     }
 }
