@@ -144,7 +144,8 @@ public class IterativeOptimizer
                     continue;
                 }
 
-                Rule.Result result = transform(node, rule, matcher, context);
+                TraitSet traitSet = context.memo.getTraitSet(group);
+                Rule.Result result = transform(node, rule, matcher, traitSet, context);
 
                 if (result.getTransformedPlan().isPresent()) {
                     node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
@@ -167,7 +168,7 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
+    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, TraitSet traitSet, Context context)
     {
         Rule.Result result;
 
@@ -180,7 +181,7 @@ public class IterativeOptimizer
         long duration;
         try {
             long start = System.nanoTime();
-            result = rule.apply(match.value(), match.captures(), ruleContext(context));
+            result = rule.apply(match.value(), match.captures(), traitSet, ruleContext(context));
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {

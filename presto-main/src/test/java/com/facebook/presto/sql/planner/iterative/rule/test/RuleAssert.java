@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -151,12 +152,14 @@ public class RuleAssert
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = memo.getLookup();
 
-        PlanNode memoRoot = memo.getNode(memo.getRootGroup());
+        int rootGroup = memo.getRootGroup();
+        PlanNode memoRoot = memo.getNode(rootGroup);
+        TraitSet traitSet = memo.getTraitSet(rootGroup);
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, symbolAllocator, memo, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, traitSet, ruleContext(statsCalculator, costCalculator, symbolAllocator, memo, lookup, session)));
     }
 
-    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
+    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, TraitSet traitSet, Rule.Context context)
     {
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
         Match<T> match = matcher.match(rule.getPattern(), planNode);
@@ -166,7 +169,7 @@ public class RuleAssert
             result = Rule.Result.empty();
         }
         else {
-            result = rule.apply(match.value(), match.captures(), context);
+            result = rule.apply(match.value(), match.captures(), traitSet, context);
         }
 
         return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);

@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -117,7 +118,7 @@ public class PickTableLayout
         }
 
         @Override
-        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        public Result apply(FilterNode filterNode, Captures captures, TraitSet traitSet, Context context)
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
@@ -176,8 +177,7 @@ public class PickTableLayout
             return isNewOptimizerEnabled(session);
         }
 
-        @Override
-        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
+        public Result apply(TableScanNode tableScanNode, Captures captures, TraitSet traitSet, Context context)
         {
             if (tableScanNode.getLayout().isPresent()) {
                 return Result.empty();

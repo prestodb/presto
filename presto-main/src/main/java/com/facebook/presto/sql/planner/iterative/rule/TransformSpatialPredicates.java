@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -151,7 +152,7 @@ public class TransformSpatialPredicates
         }
 
         @Override
-        public Result apply(FilterNode node, Captures captures, Context context)
+        public Result apply(FilterNode node, Captures captures, TraitSet traitSet, Context context)
         {
             JoinNode joinNode = captures.get(JOIN);
 
@@ -202,7 +203,7 @@ public class TransformSpatialPredicates
         }
 
         @Override
-        public Result apply(JoinNode joinNode, Captures captures, Context context)
+        public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
         {
             Expression filter = joinNode.getFilter().get();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);

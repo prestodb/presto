@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableSet;
 
@@ -43,7 +44,7 @@ public class PruneJoinChildrenColumns
     }
 
     @Override
-    public Result apply(JoinNode joinNode, Captures captures, Context context)
+    public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
     {
         Set<Symbol> globallyUsableInputs = ImmutableSet.<Symbol>builder()
                 .addAll(joinNode.getOutputSymbols())

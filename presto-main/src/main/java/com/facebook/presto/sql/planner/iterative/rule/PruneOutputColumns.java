@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.google.common.collect.ImmutableSet;
 
@@ -34,7 +35,7 @@ public class PruneOutputColumns
     }
 
     @Override
-    public Result apply(OutputNode outputNode, Captures captures, Context context)
+    public Result apply(OutputNode outputNode, Captures captures, TraitSet traitSet, Context context)
     {
         return restrictChildOutputs(
                     context.getIdAllocator(),

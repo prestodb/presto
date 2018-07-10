@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -95,7 +96,7 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
-    public Result apply(ApplyNode parent, Captures captures, Context context)
+    public Result apply(ApplyNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         if (parent.getSubqueryAssignments().size() != 1) {
             return Result.empty();

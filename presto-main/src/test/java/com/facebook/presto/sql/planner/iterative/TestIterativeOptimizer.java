@@ -101,7 +101,7 @@ public class TestIterativeOptimizer
         // In that case, it will be removed.
         // Thanks to that approach, it never converges and always produces different node.
         @Override
-        public Result apply(ProjectNode project, Captures captures, Context context)
+        public Result apply(ProjectNode project, Captures captures, TraitSet traitSet, Context context)
         {
             if (isIdentityProjection(project)) {
                 return Result.ofPlanNode(project.getSource());

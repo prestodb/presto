@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -93,7 +94,7 @@ public class GatherAndMergeWindows
         }
 
         @Override
-        public Result apply(WindowNode parent, Captures captures, Context context)
+        public Result apply(WindowNode parent, Captures captures, TraitSet traitSet, Context context)
         {
             // Pulling the descendant WindowNode above projects is done as a part of this rule, as opposed in a
             // separate rule, because that pullup is not useful on its own, and could be undone by other rules.

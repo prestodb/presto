@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -38,7 +39,7 @@ public class MergeLimits
     }
 
     @Override
-    public Result apply(LimitNode parent, Captures captures, Context context)
+    public Result apply(LimitNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         LimitNode child = captures.get(CHILD);
 

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -79,7 +80,7 @@ public class PushProjectionThroughExchange
     }
 
     @Override
-    public Result apply(ProjectNode project, Captures captures, Context context)
+    public Result apply(ProjectNode project, Captures captures, TraitSet traitSet, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
         Set<Symbol> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getColumns();

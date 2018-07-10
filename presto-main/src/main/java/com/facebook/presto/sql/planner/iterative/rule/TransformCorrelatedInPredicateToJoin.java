@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -103,7 +104,7 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     @Override
-    public Result apply(ApplyNode apply, Captures captures, Context context)
+    public Result apply(ApplyNode apply, Captures captures, TraitSet traitSet, Context context)
     {
         Assignments subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {

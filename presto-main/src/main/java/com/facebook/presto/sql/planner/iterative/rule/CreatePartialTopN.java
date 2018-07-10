@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.TopN.step;
@@ -37,7 +38,7 @@ public class CreatePartialTopN
     }
 
     @Override
-    public Result apply(TopNNode single, Captures captures, Context context)
+    public Result apply(TopNNode single, Captures captures, TraitSet traitSet, Context context)
     {
         TopNNode partial = new TopNNode(
                 context.getIdAllocator().getNextId(),

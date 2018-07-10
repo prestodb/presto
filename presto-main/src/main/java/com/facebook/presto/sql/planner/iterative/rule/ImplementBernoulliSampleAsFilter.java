@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -53,7 +54,7 @@ public class ImplementBernoulliSampleAsFilter
     }
 
     @Override
-    public Result apply(SampleNode sample, Captures captures, Context context)
+    public Result apply(SampleNode sample, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(new FilterNode(
                 sample.getId(),

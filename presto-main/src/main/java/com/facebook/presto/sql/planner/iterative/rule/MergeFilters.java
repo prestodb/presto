@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -39,7 +40,7 @@ public class MergeFilters
     }
 
     @Override
-    public Result apply(FilterNode parent, Captures captures, Context context)
+    public Result apply(FilterNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         FilterNode child = captures.get(CHILD);
 

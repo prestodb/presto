@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +53,7 @@ public class TestRuleTester
         }
 
         @Override
-        public Result apply(PlanNode node, Captures captures, Context context)
+        public Result apply(PlanNode node, Captures captures, TraitSet traitSet, Context context)
         {
             return Result.ofPlanNode(node.replaceChildren(node.getSources()));
         }

@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
@@ -57,7 +58,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
     }
 
     @Override
-    public Result apply(ExchangeNode node, Captures captures, Context context)
+    public Result apply(ExchangeNode node, Captures captures, TraitSet traitSet, Context context)
     {
         checkArgument(!node.getOrderingScheme().isPresent(), "Merge exchange over AssignUniqueId not supported");
 

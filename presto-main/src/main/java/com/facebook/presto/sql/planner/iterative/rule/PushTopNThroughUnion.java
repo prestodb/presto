@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -52,7 +53,7 @@ public class PushTopNThroughUnion
     }
 
     @Override
-    public Result apply(TopNNode topNNode, Captures captures, Context context)
+    public Result apply(TopNNode topNNode, Captures captures, TraitSet traitSet, Context context)
     {
         UnionNode unionNode = captures.get(CHILD);
 

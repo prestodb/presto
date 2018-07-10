@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -124,7 +125,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(ProjectNode projectNode, Captures captures, Context context)
+        public Result apply(ProjectNode projectNode, Captures captures, TraitSet traitSet, Context context)
         {
             Assignments assignments = projectNode.getAssignments().rewrite(x -> rewriter.rewrite(x, context));
             if (projectNode.getAssignments().equals(assignments)) {
@@ -151,7 +152,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
+        public Result apply(AggregationNode aggregationNode, Captures captures, TraitSet traitSet, Context context)
         {
             boolean anyRewritten = false;
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
@@ -197,7 +198,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        public Result apply(FilterNode filterNode, Captures captures, TraitSet traitSet, Context context)
         {
             Expression rewritten = rewriter.rewrite(filterNode.getPredicate(), context);
             if (filterNode.getPredicate().equals(rewritten)) {
@@ -224,7 +225,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
+        public Result apply(TableScanNode tableScanNode, Captures captures, TraitSet traitSet, Context context)
         {
             if (tableScanNode.getOriginalConstraint() == null) {
                 return Result.empty();
@@ -261,7 +262,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(JoinNode joinNode, Captures captures, Context context)
+        public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
         {
             Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
             if (!joinNode.getFilter().equals(filter)) {
@@ -298,7 +299,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(ValuesNode valuesNode, Captures captures, Context context)
+        public Result apply(ValuesNode valuesNode, Captures captures, TraitSet traitSet, Context context)
         {
             boolean anyRewritten = false;
             ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
@@ -337,7 +338,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Result apply(ApplyNode applyNode, Captures captures, Context context)
+        public Result apply(ApplyNode applyNode, Captures captures, TraitSet traitSet, Context context)
         {
             Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
             if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {

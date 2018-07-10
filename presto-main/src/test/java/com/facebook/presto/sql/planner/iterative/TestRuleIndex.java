@@ -107,7 +107,7 @@ public class TestRuleIndex
         }
 
         @Override
-        public Result apply(PlanNode node, Captures captures, Context context)
+        public Result apply(PlanNode node, Captures captures, TraitSet traitSet, Context context)
         {
             return Result.empty();
         }

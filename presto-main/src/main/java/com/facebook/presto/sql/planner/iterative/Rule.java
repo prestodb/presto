@@ -39,7 +39,7 @@ public interface Rule<T>
         return true;
     }
 
-    Result apply(T node, Captures captures, Context context);
+    Result apply(T node, Captures captures, TraitSet traitSet, Context context);
 
     interface Context
     {

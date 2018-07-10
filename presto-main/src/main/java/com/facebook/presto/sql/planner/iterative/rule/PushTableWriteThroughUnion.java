@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -59,7 +60,7 @@ public class PushTableWriteThroughUnion
     }
 
     @Override
-    public Result apply(TableWriterNode tableWriterNode, Captures captures, Context context)
+    public Result apply(TableWriterNode tableWriterNode, Captures captures, TraitSet traitSet, Context context)
     {
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();

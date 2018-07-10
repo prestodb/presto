@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.tree.Expression;
@@ -116,7 +117,7 @@ public class SingleDistinctAggregationToGroupBy
     }
 
     @Override
-    public Result apply(AggregationNode aggregation, Captures captures, Context context)
+    public Result apply(AggregationNode aggregation, Captures captures, TraitSet traitSet, Context context)
     {
         List<Set<Expression>> argumentSets = extractArgumentSets(aggregation)
                 .collect(Collectors.toList());

@@ -127,7 +127,7 @@ public class Memo
             {
                 checkArgument(node instanceof GroupReference, "Node is not a group reference: " + node);
                 GroupReference groupReference = (GroupReference) node;
-                return getGroup(groupReference.getGroupId()).traitSet;
+                return getTraitSet(groupReference.getGroupId());
             }
         };
     }
@@ -196,6 +196,11 @@ public class Memo
     {
         Group group1 = getGroup(group);
         group1.traitSet = group1.traitSet.addTrait(trait);
+    }
+
+    public TraitSet getTraitSet(int group)
+    {
+        return getGroup(group).traitSet;
     }
 
     private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)

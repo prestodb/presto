@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -65,7 +66,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
     }
 
     @Override
-    public Result apply(ApplyNode applyNode, Captures captures, Context context)
+    public Result apply(ApplyNode applyNode, Captures captures, TraitSet traitSet, Context context)
     {
         if (applyNode.getSubqueryAssignments().size() != 1) {
             return Result.empty();

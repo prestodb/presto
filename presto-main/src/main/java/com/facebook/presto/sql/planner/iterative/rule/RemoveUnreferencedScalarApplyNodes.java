@@ -17,6 +17,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
@@ -34,7 +35,7 @@ public class RemoveUnreferencedScalarApplyNodes
     }
 
     @Override
-    public Result apply(ApplyNode applyNode, Captures captures, Context context)
+    public Result apply(ApplyNode applyNode, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(applyNode.getInput());
     }
