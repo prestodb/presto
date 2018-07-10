@@ -37,7 +37,7 @@ import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Trait;
-import com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait;
+import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -104,6 +104,7 @@ public class PlanBuilder
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Map<Symbol, Type> symbols = new HashMap<>();
+    private Map<PlanNodeId, TraitSet> planNodeTraits = new HashMap<>();
 
     public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata)
     {
@@ -232,6 +233,17 @@ public class PlanBuilder
     public PlanNode nodeWithTrait(Trait trait)
     {
         return new PlanWithTrait(idAllocator.getNextId(), trait);
+    }
+
+    public PlanNode nodeWithTrait(Trait trait, PlanNode planNode)
+    {
+        planNodeTraits.put(planNode.getId(), planNodeTraits.getOrDefault(planNode, TraitSet.empty()).addTrait(trait));
+        return planNode;
+    }
+
+    public Map<PlanNodeId, TraitSet> getPlanNodeTraits()
+    {
+        return planNodeTraits;
     }
 
     public class AggregationBuilder

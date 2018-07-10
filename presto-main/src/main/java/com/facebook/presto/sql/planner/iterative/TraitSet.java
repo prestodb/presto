@@ -14,10 +14,12 @@
 
 package com.facebook.presto.sql.planner.iterative;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -51,6 +53,11 @@ public final class TraitSet
     public <T extends Trait> Optional<T> getTrait(TraitType traitType)
     {
         return Optional.ofNullable((T) traits.get(traitType));
+    }
+
+    public List<Trait> getTraits()
+    {
+        return ImmutableList.copyOf(traits.values());
     }
 
     public TraitSet addTrait(Trait trait)

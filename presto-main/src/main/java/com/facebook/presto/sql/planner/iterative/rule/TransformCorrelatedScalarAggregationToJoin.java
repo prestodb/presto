@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.TraitSet;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait;
 import com.facebook.presto.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -29,8 +30,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.CARDINALITY;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
@@ -86,11 +87,12 @@ public class TransformCorrelatedScalarAggregationToJoin
     @Override
     public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
-        PlanNode subquery = lateralJoinNode.getSubquery();
-
-        if (!isScalar(subquery, context.getLookup())) {
+        Optional<CardinalityTrait> subqueryCardinality = context.getLookup().resolveTrait(lateralJoinNode.getSubquery(), CARDINALITY);
+        if (!subqueryCardinality.isPresent() || !subqueryCardinality.get().isScalar()) {
             return Result.empty();
         }
+
+        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
         if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {

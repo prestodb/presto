@@ -35,10 +35,12 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Trait;
 import com.facebook.presto.sql.planner.iterative.TraitSet;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanWithTrait;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -64,6 +66,7 @@ public class RuleAssert
 
     private TypeProvider types;
     private PlanNode plan;
+    private Map<PlanNodeId, TraitSet> planNodeTraits;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
@@ -98,6 +101,7 @@ public class RuleAssert
         PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
         plan = planProvider.apply(builder);
         types = builder.getTypes();
+        planNodeTraits = builder.getPlanNodeTraits();
         return this;
     }
 
@@ -161,6 +165,9 @@ public class RuleAssert
                     if (node instanceof PlanWithTrait) {
                         memo.storeTrait(group, ((PlanWithTrait) node).getTrait());
                     }
+                    planNodeTraits.getOrDefault(node.getId(), TraitSet.empty())
+                            .getTraits()
+                            .forEach(trait -> memo.storeTrait(group, trait));
                 });
         Lookup lookup = memo.getLookup();
         int rootGroup = memo.getRootGroup();
