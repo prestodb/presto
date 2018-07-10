@@ -407,7 +407,7 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.newLocalSystemMemoryContext()));
+                operatorContext.newLocalSystemMemoryContext(HashBuilderOperator.class.getSimpleName())));
         return getSpiller().spill(index.getPages());
     }
 

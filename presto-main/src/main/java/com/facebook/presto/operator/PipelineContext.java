@@ -106,6 +106,8 @@ public class PipelineContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
+        // Initialize the local memory contexts with the ExchangeOperator tag as ExchangeOperator will do the local memory allocations
+        pipelineMemoryContext.initializeLocalMemoryContexts(ExchangeOperator.class.getSimpleName());
     }
 
     public TaskContext getTaskContext()

@@ -100,7 +100,7 @@ public final class MergeSortedPages
             AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
     {
-        LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext();
+        LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergeSortedPages.class.getSimpleName());
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
         return pageWithPositions.transform(pageWithPositionOptional -> {
             if (yieldSignal.isSet()) {
@@ -145,7 +145,7 @@ public final class MergeSortedPages
     private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, AggregatedMemoryContext aggregatedMemoryContext)
     {
         return pages.flatMap(page -> {
-            LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext();
+            LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergeSortedPages.class.getSimpleName());
             memoryContext.setBytes(page.getRetainedSizeInBytes());
 
             return WorkProcessor.create(new WorkProcessor.Process<PageWithPosition>()

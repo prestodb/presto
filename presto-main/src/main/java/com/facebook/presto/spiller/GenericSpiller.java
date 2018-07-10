@@ -60,7 +60,7 @@ public class GenericSpiller
     public ListenableFuture<?> spill(Iterator<Page> pageIterator)
     {
         checkNoSpillInProgress();
-        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, aggregatedMemoryContext.newLocalMemoryContext());
+        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, aggregatedMemoryContext.newLocalMemoryContext(GenericSpiller.class.getSimpleName()));
         closer.register(singleStreamSpiller);
         singleStreamSpillers.add(singleStreamSpiller);
         previousSpill = singleStreamSpiller.spill(pageIterator);

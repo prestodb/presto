@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -40,7 +41,7 @@ public class TestMemoryContexts
     {
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000);
         AggregatedMemoryContext aggregateContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext();
+        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
         localContext.setBytes(100);
 
         assertEquals(localContext.getBytes(), 100);
@@ -58,14 +59,14 @@ public class TestMemoryContexts
     {
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000);
         AggregatedMemoryContext aggregateContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext();
+        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
 
         assertEquals(localContext.setBytes(10), NOT_BLOCKED);
         assertEquals(localContext.getBytes(), 10);
         assertEquals(aggregateContext.getBytes(), 10);
         assertEquals(reservationHandler.getReservation(), aggregateContext.getBytes());
 
-        LocalMemoryContext secondLocalContext = aggregateContext.newLocalMemoryContext();
+        LocalMemoryContext secondLocalContext = aggregateContext.newLocalMemoryContext("test");
         assertEquals(secondLocalContext.setBytes(20), NOT_BLOCKED);
         assertEquals(secondLocalContext.getBytes(), 20);
         assertEquals(aggregateContext.getBytes(), 30);
@@ -85,7 +86,7 @@ public class TestMemoryContexts
         AggregatedMemoryContext parentContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
         AggregatedMemoryContext aggregateContext1 = parentContext.newAggregatedMemoryContext();
         AggregatedMemoryContext aggregateContext2 = parentContext.newAggregatedMemoryContext();
-        LocalMemoryContext childContext1 = aggregateContext1.newLocalMemoryContext();
+        LocalMemoryContext childContext1 = aggregateContext1.newLocalMemoryContext("test");
 
         assertTrue(childContext1.trySetBytes(500));
         assertTrue(childContext1.trySetBytes(1_000));
@@ -109,8 +110,8 @@ public class TestMemoryContexts
         AggregatedMemoryContext parentContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
         AggregatedMemoryContext aggregateContext1 = parentContext.newAggregatedMemoryContext();
         AggregatedMemoryContext aggregateContext2 = parentContext.newAggregatedMemoryContext();
-        LocalMemoryContext childContext1 = aggregateContext1.newLocalMemoryContext();
-        LocalMemoryContext childContext2 = aggregateContext2.newLocalMemoryContext();
+        LocalMemoryContext childContext1 = aggregateContext1.newLocalMemoryContext("test");
+        LocalMemoryContext childContext2 = aggregateContext2.newLocalMemoryContext("test");
 
         assertEquals(childContext1.setBytes(1), NOT_BLOCKED);
         assertEquals(childContext2.setBytes(1), NOT_BLOCKED);
@@ -127,7 +128,7 @@ public class TestMemoryContexts
         long maxMemory = 2 * GUARANTEED_MEMORY;
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(maxMemory);
         AggregatedMemoryContext parentContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
-        LocalMemoryContext childContext = parentContext.newLocalMemoryContext();
+        LocalMemoryContext childContext = parentContext.newLocalMemoryContext("test");
 
         // exhaust the max memory available
         reservationHandler.exhaustMemory();
@@ -153,7 +154,7 @@ public class TestMemoryContexts
     public void testClosedLocalMemoryContext()
     {
         AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext();
+        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
         localContext.close();
         localContext.setBytes(100);
     }
@@ -162,7 +163,7 @@ public class TestMemoryContexts
     public void testClosedAggregateMemoryContext()
     {
         AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext();
+        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
         aggregateContext.close();
         localContext.setBytes(100);
     }
@@ -185,7 +186,7 @@ public class TestMemoryContexts
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(long delta)
+        public ListenableFuture<?> reserveMemory(Optional<String> allocationTag, long delta)
         {
             reservation += delta;
             if (delta >= 0) {
@@ -205,7 +206,7 @@ public class TestMemoryContexts
         }
 
         @Override
-        public boolean tryReserveMemory(long delta)
+        public boolean tryReserveMemory(Optional<String> allocationTag, long delta)
         {
             if (reservation + delta > maxMemory) {
                 return false;

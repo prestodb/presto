@@ -101,7 +101,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
@@ -140,7 +140,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
         URI location1 = URI.create("http://localhost:8081/foo");
@@ -212,7 +212,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
@@ -294,7 +294,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();

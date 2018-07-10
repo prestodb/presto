@@ -141,7 +141,7 @@ public class StatementResource
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), StatementResource.class.getSimpleName()));
         Query query = Query.create(
                 sessionContext,
                 statement,

@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -1062,13 +1063,13 @@ public class TestBroadcastOutputBuffer
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(long delta)
+        public ListenableFuture<?> reserveMemory(Optional<String> allocationTag, long delta)
         {
             return blockedFuture;
         }
 
         @Override
-        public boolean tryReserveMemory(long delta)
+        public boolean tryReserveMemory(Optional<String> allocationTag, long delta)
         {
             return true;
         }
@@ -1085,7 +1086,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
-                () -> memoryContext.newLocalMemoryContext(),
+                () -> memoryContext.newLocalMemoryContext("test"),
                 notificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
         return buffer;
@@ -1147,7 +1148,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
         return buffer;

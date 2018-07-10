@@ -366,6 +366,15 @@ public class ClusterMemoryManager
         return ImmutableMap.copyOf(pools);
     }
 
+    public synchronized Map<MemoryPoolId, MemoryPoolInfo> getMemoryPoolInfo()
+    {
+        ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = new ImmutableMap.Builder<>();
+        pools.forEach((poolId, memoryPool) -> {
+            builder.put(poolId, memoryPool.getInfo());
+        });
+        return builder.build();
+    }
+
     private synchronized boolean isClusterOutOfMemory()
     {
         ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
