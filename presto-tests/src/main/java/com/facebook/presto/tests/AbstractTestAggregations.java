@@ -79,6 +79,24 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesLeftSide()
+    {
+        assertQuery("SELECT max(x) FROM" +
+                        "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
+                        "GROUP BY x",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesRightSide()
+    {
+        assertQuery("SELECT max(y) FROM" +
+                        "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
+                        "GROUP BY y",
+                "VALUES 1");
+    }
+
+    @Test
     public void testCountWithCoalescePredicate()
     {
         assertQuery(
