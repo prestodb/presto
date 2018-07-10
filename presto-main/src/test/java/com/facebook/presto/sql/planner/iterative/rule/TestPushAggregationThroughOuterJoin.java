@@ -181,4 +181,23 @@ public class TestPushAggregationThroughOuterJoin
                         .addGroupingSet(new Symbol("COL1"), new Symbol("COL3"))))
                 .doesNotFire();
     }
+
+    @Test
+    public void testDoesNotFireWhenAggregationDoesNotHaveSymbols()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinNode.Type.LEFT,
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(expressions("20"))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
+                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(new Symbol("SUM"), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
+                        .addGroupingSet(new Symbol("COL1"))))
+                .doesNotFire();
+    }
 }
