@@ -516,17 +516,17 @@ public final class SqlStageExecution
     private static class ListenerManager<T>
     {
         private final List<Consumer<T>> listeners = new ArrayList<>();
-        private boolean freezed;
+        private boolean frozen;
 
         public synchronized void addListener(Consumer<T> listener)
         {
-            checkState(!freezed, "Listeners have been invoked");
+            checkState(!frozen, "Listeners have been invoked");
             listeners.add(listener);
         }
 
         public synchronized void invoke(T payload, Executor executor)
         {
-            freezed = true;
+            frozen = true;
             for (Consumer<T> listener : listeners) {
                 executor.execute(() -> listener.accept(payload));
             }
