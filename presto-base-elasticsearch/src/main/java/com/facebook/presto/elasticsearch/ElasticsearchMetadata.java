@@ -40,8 +40,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
-import javax.inject.Inject;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -63,8 +61,7 @@ public class ElasticsearchMetadata
     private final BaseClient client;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();  //lock
 
-    @Inject
-    public ElasticsearchMetadata(
+    ElasticsearchMetadata(
             ElasticsearchConnectorId connectorId,
             BaseClient client)
     {
@@ -288,5 +285,13 @@ public class ElasticsearchMetadata
     private void clearRollback()
     {
         rollbackAction.set(null);
+    }
+
+    void rollback()
+    {
+        Runnable rollbackAction = this.rollbackAction.getAndSet(null);
+        if (rollbackAction != null) {
+            rollbackAction.run();
+        }
     }
 }

@@ -33,7 +33,6 @@ public class ElasticsearchModule
 
         binder.bind(EsTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
-        binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSinkProvider.class).in(Scopes.SINGLETON);
