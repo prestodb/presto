@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.NodeState;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,6 +28,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -37,13 +39,15 @@ public class ClusterStatsResource
     private final InternalNodeManager nodeManager;
     private final QueryManager queryManager;
     private final boolean isIncludeCoordinator;
+    private final ClusterMemoryManager clusterMemoryManager;
 
     @Inject
-    public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, QueryManager queryManager)
+    public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, QueryManager queryManager, ClusterMemoryManager clusterMemoryManager)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
     }
 
     @GET
@@ -90,6 +94,15 @@ public class ClusterStatsResource
         }
 
         return new ClusterStats(runningQueries, blockedQueries, queuedQueries, activeNodes, runningDrivers, memoryReservation, totalInputRows, totalInputBytes, totalCpuTimeSecs);
+    }
+
+    @GET
+    @Path("workerMemory")
+    public Response getWorkerMemoryInfo()
+    {
+        return Response.ok()
+                .entity(clusterMemoryManager.getWorkerMemoryInfo())
+                .build();
     }
 
     public static class ClusterStats
