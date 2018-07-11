@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
@@ -79,6 +79,13 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(user("charlie"), "safe"));
     }
 
+    @Test
+    public void testInvalidRules()
+    {
+        assertThatThrownBy(() -> createAccessControl("invalid.json"))
+                .hasMessageContaining("Invalid JSON");
+    }
+
     private static Identity user(String name)
     {
         return new Identity(name, Optional.empty());
@@ -90,7 +97,7 @@ public class TestFileBasedAccessControl
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
         config.setConfigFile(path);
-        return new FileBasedAccessControl(config, jsonCodec(AccessControlRules.class));
+        return new FileBasedAccessControl(config);
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

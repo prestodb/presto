@@ -20,8 +20,10 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
+import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Inject;
 
@@ -51,6 +53,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static java.lang.String.format;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -62,14 +65,27 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
 
     @Inject
-    public FileBasedAccessControl(FileBasedAccessControlConfig config, JsonCodec<AccessControlRules> codec)
+    public FileBasedAccessControl(FileBasedAccessControlConfig config)
             throws IOException
     {
-        AccessControlRules rules = codec.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
+        AccessControlRules rules = parse(Files.readAllBytes(Paths.get(config.getConfigFile())));
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
+    }
+
+    private static AccessControlRules parse(byte[] json)
+    {
+        ObjectMapper mapper = new ObjectMapperProvider().get()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        Class<AccessControlRules> javaType = AccessControlRules.class;
+        try {
+            return mapper.readValue(json, javaType);
+        }
+        catch (IOException e) {
+            throw new IllegalArgumentException(format("Invalid JSON string for %s", javaType), e);
+        }
     }
 
     @Override
