@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -109,6 +110,7 @@ public class ClusterMemoryManager
     private final Map<QueryId, Long> preAllocations = new HashMap<>();
     private final Map<QueryId, Long> preAllocationsConsumed = new HashMap<>();
 
+    @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
 
     //TODO remove when the system pool is completely removed
@@ -417,7 +419,7 @@ public class ClusterMemoryManager
         return query.getTotalMemoryReservation();
     }
 
-    private boolean allAssignmentsHavePropagated(Iterable<QueryExecution> queries)
+    private synchronized boolean allAssignmentsHavePropagated(Iterable<QueryExecution> queries)
     {
         if (nodes.isEmpty()) {
             // Assignments can't have propagated, if there are no visible nodes.
@@ -437,7 +439,7 @@ public class ClusterMemoryManager
         return newestAssignment <= mostOutOfDateNode;
     }
 
-    private void updateNodes(MemoryPoolAssignmentsRequest assignments)
+    private synchronized void updateNodes(MemoryPoolAssignmentsRequest assignments)
     {
         ImmutableSet.Builder<Node> builder = ImmutableSet.builder();
         Set<Node> aliveNodes = builder
@@ -457,7 +459,7 @@ public class ClusterMemoryManager
         // Add new nodes
         for (Node node : aliveNodes) {
             if (!nodes.containsKey(node.getNodeIdentifier())) {
-                nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
+                nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(node, httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
             }
         }
 
@@ -491,6 +493,17 @@ public class ClusterMemoryManager
                 }
             }
         }
+    }
+
+    public synchronized Map<String, Optional<MemoryInfo>> getWorkerMemoryInfo()
+    {
+        Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
+        for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
+            // workerId is of the form "node_identifier [node_host]"
+            String workerId = entry.getKey() + " [" + entry.getValue().getNode().getHostAndPort().getHostText() + "]";
+            memoryInfo.put(workerId, entry.getValue().getInfo());
+        }
+        return memoryInfo;
     }
 
     @PreDestroy
