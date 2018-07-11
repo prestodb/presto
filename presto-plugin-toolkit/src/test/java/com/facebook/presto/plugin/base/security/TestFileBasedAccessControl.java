@@ -41,6 +41,19 @@ public class TestFileBasedAccessControl
         accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bob", "test"));
         assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("test", "test")));
         assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("secret", "test")));
+
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("bob"), "bob");
+        assertDenied(() -> accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("bob"), "admin"));
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("admin"), "bob");
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("admin"), "admin");
+
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("bob"), "bob");
+        assertDenied(() -> accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("bob"), "admin"));
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("admin"), "bob");
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("admin"), "admin");
+
+        assertDenied(() -> accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("bob"), "bob", "bob2"));
+        accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("admin"), "bob", "bob2");
     }
 
     @Test
