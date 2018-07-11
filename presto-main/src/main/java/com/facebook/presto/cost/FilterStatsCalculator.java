@@ -20,11 +20,11 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -53,9 +52,9 @@ import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
 import static com.facebook.presto.sql.ExpressionUtils.and;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
@@ -83,7 +82,7 @@ public class FilterStatsCalculator
             PlanNodeStatsEstimate statsEstimate,
             Expression predicate,
             Session session,
-            Map<Symbol, Type> types)
+            TypeProvider types)
     {
         return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types).process(predicate)
                 .orElseGet(() -> normalizer.normalize(filterStatsForUnknownExpression(statsEstimate), types));
@@ -99,9 +98,9 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, Map<Symbol, Type> types)
+        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
@@ -142,13 +141,13 @@ public class FilterStatsCalculator
         @Override
         protected Optional<PlanNodeStatsEstimate> visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            switch (node.getType()) {
+            switch (node.getOperator()) {
                 case AND:
                     return visitLogicalBinaryAnd(node.getLeft(), node.getRight());
                 case OR:
                     return visitLogicalBinaryOr(node.getLeft(), node.getRight());
                 default:
-                    throw new IllegalStateException("Unimplemented logical binary operator expression " + node.getType());
+                    throw new IllegalStateException("Unimplemented logical binary operator expression " + node.getOperator());
             }
         }
 
@@ -298,7 +297,7 @@ public class FilterStatsCalculator
         @Override
         protected Optional<PlanNodeStatsEstimate> visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            ComparisonExpressionType type = node.getType();
+            ComparisonExpression.Operator operator = node.getOperator();
             Expression left = node.getLeft();
             Expression right = node.getRight();
 
@@ -306,12 +305,12 @@ public class FilterStatsCalculator
 
             if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
                 // normalize so that symbol is on the left
-                return process(new ComparisonExpression(type.flip(), right, left));
+                return process(new ComparisonExpression(operator.flip(), right, left));
             }
 
             if (left instanceof Literal && !(right instanceof Literal)) {
                 // normalize so that literal is on the right
-                return process(new ComparisonExpression(type.flip(), right, left));
+                return process(new ComparisonExpression(operator.flip(), right, left));
             }
 
             Optional<Symbol> leftSymbol = asSymbol(left);
@@ -322,7 +321,7 @@ public class FilterStatsCalculator
 
             if (right instanceof Literal) {
                 OptionalDouble literal = doubleValueFromLiteral(getType(left), (Literal) right);
-                return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, literal, type);
+                return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, literal, operator);
             }
 
             Optional<Symbol> rightSymbol = asSymbol(right);
@@ -338,10 +337,10 @@ public class FilterStatsCalculator
 
             if (isSingleValue(rightStats)) {
                 OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, value, type);
+                return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, value, operator);
             }
 
-            return comparisonExpressionToExpressionStats(input, leftSymbol, leftStats, rightSymbol, rightStats, type);
+            return comparisonExpressionToExpressionStats(input, leftSymbol, leftStats, rightSymbol, rightStats, operator);
         }
 
         private Optional<Symbol> asSymbol(Expression expression)

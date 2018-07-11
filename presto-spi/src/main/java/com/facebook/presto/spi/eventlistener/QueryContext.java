@@ -31,6 +31,7 @@ public class QueryContext
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
+    private final Set<String> clientCapabilities;
     private final Optional<String> source;
 
     private final Optional<String> catalog;
@@ -52,6 +53,7 @@ public class QueryContext
             Optional<String> userAgent,
             Optional<String> clientInfo,
             Set<String> clientTags,
+            Set<String> clientCapabilities,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
@@ -68,6 +70,7 @@ public class QueryContext
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
+        this.clientCapabilities = requireNonNull(clientCapabilities, "clientCapabilities is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -113,6 +116,12 @@ public class QueryContext
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    @JsonProperty
+    public Set<String> getClientCapabilities()
+    {
+        return clientCapabilities;
     }
 
     @JsonProperty

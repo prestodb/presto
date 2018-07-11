@@ -137,8 +137,13 @@ public class QuerySessionSupplier
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
                 .setClientTags(context.getClientTags())
+                .setClientCapabilities(context.getClientCapabilities())
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates());
+
+        if (context.getPath() != null) {
+            sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
+        }
 
         if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));

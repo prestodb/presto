@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.file;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -45,6 +46,8 @@ public class PartitionMetadata
 
     private final Optional<String> externalLocation;
 
+    private final Map<String, HiveColumnStatistics> columnStatistics;
+
     @JsonCreator
     public PartitionMetadata(
             @JsonProperty("columns") List<Column> columns,
@@ -52,7 +55,8 @@ public class PartitionMetadata
             @JsonProperty("storageFormat") Optional<HiveStorageFormat> storageFormat,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
-            @JsonProperty("externalLocation") Optional<String> externalLocation)
+            @JsonProperty("externalLocation") Optional<String> externalLocation,
+            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -62,9 +66,15 @@ public class PartitionMetadata
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
 
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
     public PartitionMetadata(Table table, Partition partition)
+    {
+        this(table, partition, ImmutableMap.of());
+    }
+
+    public PartitionMetadata(Table table, Partition partition, Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.columns = partition.getColumns();
         this.parameters = partition.getParameters();
@@ -83,6 +93,7 @@ public class PartitionMetadata
 
         bucketProperty = partition.getStorage().getBucketProperty();
         serdeParameters = partition.getStorage().getSerdeParameters();
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
     @JsonProperty
@@ -121,10 +132,20 @@ public class PartitionMetadata
         return externalLocation;
     }
 
+    @JsonProperty
+    public Map<String, HiveColumnStatistics> getColumnStatistics()
+    {
+        return columnStatistics;
+    }
+
     public PartitionMetadata withParameters(Map<String, String> parameters)
     {
-        requireNonNull(parameters, "parameters is null");
-        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation);
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
+    }
+
+    public PartitionMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
     }
 
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)

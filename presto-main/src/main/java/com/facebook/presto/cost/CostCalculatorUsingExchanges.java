@@ -18,8 +18,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -42,7 +42,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -91,9 +90,9 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, TypeProvider types)
     {
-        CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats);
+        CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, types);
         return node.accept(costEstimator, null);
     }
 
@@ -102,11 +101,13 @@ public class CostCalculatorUsingExchanges
     {
         private final int numberOfNodes;
         private final StatsProvider stats;
+        private final TypeProvider types;
 
-        CostEstimator(int numberOfNodes, StatsProvider stats)
+        CostEstimator(int numberOfNodes, StatsProvider stats, TypeProvider types)
         {
             this.numberOfNodes = numberOfNodes;
             this.stats = requireNonNull(stats, "stats is null");
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -124,7 +125,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
         {
-            return cpuCost(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn())));
+            return cpuCost(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn()), types));
         }
 
         @Override
@@ -137,19 +138,19 @@ public class CostCalculatorUsingExchanges
         public PlanNodeCostEstimate visitTableScan(TableScanNode node, Void context)
         {
             // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
         public PlanNodeCostEstimate visitFilter(FilterNode node, Void context)
         {
-            return cpuCost(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols()));
+            return cpuCost(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
         public PlanNodeCostEstimate visitProject(ProjectNode node, Void context)
         {
-            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
@@ -157,8 +158,8 @@ public class CostCalculatorUsingExchanges
         {
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
-            double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols());
-            double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputSymbols());
+            double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
+            double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputSymbols(), types);
             return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
         }
 
@@ -180,9 +181,9 @@ public class CostCalculatorUsingExchanges
             PlanNodeStatsEstimate buildStats = getStats(build);
             PlanNodeStatsEstimate outputStats = getStats(join);
 
-            double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols());
-            double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols());
-            double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputSymbols());
+            double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols(), types);
+            double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols(), types);
+            double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputSymbols(), types);
 
             double cpuCost = probeSideSize +
                     buildSideSize * numberOfNodesMultiplier +
@@ -202,7 +203,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitExchange(ExchangeNode node, Void context)
         {
-            return calculateExchangeCost(numberOfNodes, getStats(node), node.getOutputSymbols(), node.getType(), node.getScope());
+            return calculateExchangeCost(numberOfNodes, getStats(node), node.getOutputSymbols(), node.getType(), node.getScope(), types);
         }
 
         @Override
@@ -234,7 +235,7 @@ public class CostCalculatorUsingExchanges
             // so proper cost estimation is not that important. Second, since LimitNode can lead to incomplete evaluation
             // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
             // evaluated in context of actual source node type (and their sources).
-            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)
@@ -248,9 +249,10 @@ public class CostCalculatorUsingExchanges
             PlanNodeStatsEstimate exchangeStats,
             List<Symbol> symbols,
             ExchangeNode.Type type,
-            ExchangeNode.Scope scope)
+            ExchangeNode.Scope scope,
+            TypeProvider types)
     {
-        double exchangeSize = exchangeStats.getOutputSizeInBytes(symbols);
+        double exchangeSize = exchangeStats.getOutputSizeInBytes(symbols, types);
 
         double network;
         double cpu = 0;

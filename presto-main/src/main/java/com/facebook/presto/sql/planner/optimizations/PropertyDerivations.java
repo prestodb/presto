@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -106,7 +107,7 @@ public class PropertyDerivations
 {
     private PropertyDerivations() {}
 
-    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
                 .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
@@ -114,7 +115,7 @@ public class PropertyDerivations
         return deriveProperties(node, inputProperties, metadata, session, types, parser);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
 
@@ -131,7 +132,7 @@ public class PropertyDerivations
         return output;
     }
 
-    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         return node.accept(new Visitor(metadata, session, types, parser), inputProperties);
     }
@@ -141,10 +142,10 @@ public class PropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final SqlParser parser;
 
-        public Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+        public Visitor(Metadata metadata, Session session, TypeProvider types, SqlParser parser)
         {
             this.metadata = metadata;
             this.session = session;
@@ -266,7 +267,7 @@ public class PropertyDerivations
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
             Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingSetMappings().entrySet()) {
+            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
@@ -276,8 +277,8 @@ public class PropertyDerivations
 
             // TODO: Add support for translating a property on a single column to multiple columns
             // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
-            for (Map.Entry<Symbol, Symbol> argumentMapping : node.getArgumentMappings().entrySet()) {
-                inputToOutputMappings.putIfAbsent(argumentMapping.getValue(), argumentMapping.getKey());
+            for (Symbol argument : node.getAggregationArguments()) {
+                inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
             return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
@@ -495,6 +496,13 @@ public class PropertyDerivations
             Map<Symbol, NullableValue> constants = entries.stream()
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+            ImmutableList.Builder<SortingProperty<Symbol>> localProperties = ImmutableList.builder();
+            if (node.getOrderingScheme().isPresent()) {
+                node.getOrderingScheme().get().getOrderBy().stream()
+                        .map(column -> new SortingProperty<>(column, node.getOrderingScheme().get().getOrdering(column)))
+                        .forEach(localProperties::add);
+            }
+
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
             // local exchanges do not produce all global properties as represented by ActualProperties.
             // This is acceptable because AddLocalExchanges does not use global properties and is only
@@ -504,6 +512,7 @@ public class PropertyDerivations
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
                 ActualProperties.Builder builder = ActualProperties.builder();
+                builder.local(localProperties.build());
                 builder.constants(constants);
 
                 if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
@@ -521,6 +530,7 @@ public class PropertyDerivations
                     boolean coordinatorOnly = node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly();
                     return ActualProperties.builder()
                             .global(coordinatorOnly ? coordinatorSingleStreamPartition() : singleStreamPartition())
+                            .local(localProperties.build())
                             .constants(constants)
                             .build();
                 case REPARTITION:

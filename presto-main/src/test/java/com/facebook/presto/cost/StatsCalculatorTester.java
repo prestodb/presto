@@ -62,7 +62,7 @@ public class StatsCalculatorTester
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
         PlanNode planNode = planProvider.apply(planBuilder);
-        return new StatsCalculatorAssertion(statsCalculator, session, planNode, planBuilder.getSymbols());
+        return new StatsCalculatorAssertion(statsCalculator, session, planNode, planBuilder.getTypes());
     }
 
     @Override

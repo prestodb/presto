@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -41,7 +42,9 @@ public class JmxHistoricalData
 
     public JmxHistoricalData(int maxEntries, Set<String> tableNames)
     {
-        tables = tableNames.stream().map(String::toLowerCase).collect(toSet());
+        tables = tableNames.stream()
+                .map(tableName -> tableName.toLowerCase(Locale.ENGLISH))
+                .collect(toSet());
         for (String tableName : tables) {
             tableData.put(tableName, EvictingQueue.create(maxEntries));
         }
@@ -54,14 +57,14 @@ public class JmxHistoricalData
 
     public synchronized void addRow(String tableName, List<Object> row)
     {
-        String lowerCaseTableName = tableName.toLowerCase();
+        String lowerCaseTableName = tableName.toLowerCase(Locale.ENGLISH);
         checkArgument(tableData.containsKey(lowerCaseTableName));
         tableData.get(lowerCaseTableName).add(row);
     }
 
     public synchronized List<List<Object>> getRows(String objectName, List<Integer> selectedColumns)
     {
-        String lowerCaseObjectName = objectName.toLowerCase();
+        String lowerCaseObjectName = objectName.toLowerCase(Locale.ENGLISH);
         if (!tableData.containsKey(lowerCaseObjectName)) {
             return ImmutableList.of();
         }

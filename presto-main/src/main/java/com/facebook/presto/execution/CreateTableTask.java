@@ -143,10 +143,10 @@ public class CreateTableTask
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName().toLowerCase())) {
+                            if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
                                 throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(), column);
+                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
                         });
             }
             else {

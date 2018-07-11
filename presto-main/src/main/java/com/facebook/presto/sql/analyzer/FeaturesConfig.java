@@ -86,6 +86,7 @@ public class FeaturesConfig
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
+    private boolean distributedSort = true;
 
     private boolean dictionaryAggregation;
 
@@ -789,6 +790,18 @@ public class FeaturesConfig
     public FeaturesConfig setPreAllocateMemoryThreshold(DataSize preAllocateMemoryThreshold)
     {
         this.preAllocateMemoryThreshold = preAllocateMemoryThreshold;
+        return this;
+    }
+
+    public boolean isDistributedSortEnabled()
+    {
+        return distributedSort;
+    }
+
+    @Config("distributed-sort")
+    public FeaturesConfig setDistributedSortEnabled(boolean enabled)
+    {
+        distributedSort = enabled;
         return this;
     }
 

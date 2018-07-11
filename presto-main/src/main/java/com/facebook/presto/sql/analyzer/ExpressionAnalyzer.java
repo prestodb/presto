@@ -35,6 +35,7 @@ import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -170,7 +171,7 @@ public class ExpressionAnalyzer
     private final FunctionRegistry functionRegistry;
     private final TypeManager typeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
-    private final Map<Symbol, Type> symbolTypes;
+    private final TypeProvider symbolTypes;
     private final boolean isDescribe;
     private final boolean legacyRowFieldOrdinalAccess;
 
@@ -196,7 +197,7 @@ public class ExpressionAnalyzer
             TypeManager typeManager,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
             Session session,
-            Map<Symbol, Type> symbolTypes,
+            TypeProvider symbolTypes,
             List<Expression> parameters,
             boolean isDescribe)
     {
@@ -204,7 +205,7 @@ public class ExpressionAnalyzer
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
-        this.symbolTypes = ImmutableMap.copyOf(requireNonNull(symbolTypes, "symbolTypes is null"));
+        this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
@@ -344,7 +345,7 @@ public class ExpressionAnalyzer
             }
 
             Type type;
-            switch (node.getType()) {
+            switch (node.getFunction()) {
                 case DATE:
                     type = DATE;
                     break;
@@ -361,7 +362,7 @@ public class ExpressionAnalyzer
                     type = TIMESTAMP;
                     break;
                 default:
-                    throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
+                    throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
             }
 
             return setExpressionType(node, type);
@@ -479,7 +480,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
-            OperatorType operatorType = OperatorType.valueOf(node.getType().name());
+            OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
@@ -609,7 +610,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
-            return getOperator(context, node, OperatorType.valueOf(node.getType().name()), node.getLeft(), node.getRight());
+            return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -1094,7 +1095,7 @@ public class ExpressionAnalyzer
 
             Type comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
 
-            switch (node.getComparisonType()) {
+            switch (node.getOperator()) {
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
@@ -1110,7 +1111,7 @@ public class ExpressionAnalyzer
                     }
                     break;
                 default:
-                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getComparisonType()));
+                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -1429,7 +1430,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             Expression expression,
             List<Expression> parameters)
     {
@@ -1440,7 +1441,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             Expression expression,
             List<Expression> parameters,
             boolean isDescribe)
@@ -1452,7 +1453,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             Iterable<Expression> expressions,
             List<Expression> parameters,
             boolean isDescribe)
@@ -1486,7 +1487,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             Iterable<Expression> expressions,
             List<Expression> parameters,
             boolean isDescribe)
@@ -1508,7 +1509,7 @@ public class ExpressionAnalyzer
         }
         RelationType tupleDescriptor = new RelationType(fields);
 
-        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, ImmutableMap.of(), expressions, parameters);
+        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, TypeProvider.empty(), expressions, parameters);
     }
 
     public static ExpressionAnalysis analyzeExpressions(
@@ -1516,7 +1517,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             RelationType tupleDescriptor,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             Iterable<? extends Expression> expressions,
             List<Expression> parameters)
     {
@@ -1528,7 +1529,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             RelationType tupleDescriptor,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             Iterable<? extends Expression> expressions,
             List<Expression> parameters,
             boolean isDescribe)
@@ -1563,7 +1564,7 @@ public class ExpressionAnalyzer
             Analysis analysis,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of());
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty());
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1598,7 +1599,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             AccessControl accessControl)
     {
-        return create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of());
+        return create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty());
     }
 
     public static ExpressionAnalyzer create(
@@ -1607,7 +1608,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
-            Map<Symbol, Type> types)
+            TypeProvider types)
     {
         return new ExpressionAnalyzer(
                 metadata.getFunctionRegistry(),
@@ -1656,7 +1657,7 @@ public class ExpressionAnalyzer
                 functionRegistry,
                 typeManager,
                 session,
-                ImmutableMap.of(),
+                TypeProvider.empty(),
                 parameters,
                 node -> new SemanticException(errorCode, node, message),
                 isDescribe);
@@ -1666,7 +1667,7 @@ public class ExpressionAnalyzer
             FunctionRegistry functionRegistry,
             TypeManager typeManager,
             Session session,
-            Map<Symbol, Type> symbolTypes,
+            TypeProvider symbolTypes,
             List<Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             boolean isDescribe)

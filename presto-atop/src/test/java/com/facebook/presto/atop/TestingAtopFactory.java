@@ -24,6 +24,7 @@ import java.io.UncheckedIOException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 
 import static java.lang.String.format;
@@ -35,7 +36,7 @@ public class TestingAtopFactory
     @Override
     public Atop create(AtopTable table, ZonedDateTime date)
     {
-        InputStream data = TestingAtopFactory.class.getResourceAsStream(table.name().toLowerCase() + ".txt");
+        InputStream data = TestingAtopFactory.class.getResourceAsStream(table.name().toLowerCase(Locale.ENGLISH) + ".txt");
         requireNonNull(data, format("No data found for %s", table));
         return new TestingAtop(data, date);
     }

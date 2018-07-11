@@ -49,8 +49,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.assertEquals;
@@ -385,7 +385,7 @@ public class TestEqualityInference
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, expression1, expression2);
+        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
     }
 
     private static Expression multiply(String symbol1, String symbol2)
@@ -395,7 +395,7 @@ public class TestEqualityInference
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, expression1, expression2);
+        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
     }
 
     private static Expression equals(String symbol1, String symbol2)
@@ -462,7 +462,7 @@ public class TestEqualityInference
     {
         Preconditions.checkArgument(expression instanceof ComparisonExpression);
         ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-        Preconditions.checkArgument(comparisonExpression.getType() == EQUAL);
+        Preconditions.checkArgument(comparisonExpression.getOperator() == EQUAL);
         return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
     }
 

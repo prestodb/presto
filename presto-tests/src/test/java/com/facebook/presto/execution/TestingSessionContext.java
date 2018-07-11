@@ -57,6 +57,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public String getPath()
+    {
+        return session.getPath().toString();
+    }
+
+    @Override
     public String getSource()
     {
         return session.getSource().orElse(null);
@@ -90,6 +96,12 @@ public class TestingSessionContext
     public Set<String> getClientTags()
     {
         return session.getClientTags();
+    }
+
+    @Override
+    public Set<String> getClientCapabilities()
+    {
+        return session.getClientCapabilities();
     }
 
     @Override

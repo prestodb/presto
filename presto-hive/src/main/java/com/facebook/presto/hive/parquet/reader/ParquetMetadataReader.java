@@ -47,6 +47,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -120,7 +121,7 @@ public final class ParquetMetadataReader
                             "all column chunks of the same row group must be in the same file");
                     ColumnMetaData metaData = columnChunk.meta_data;
                     String[] path = metaData.path_in_schema.stream()
-                            .map(String::toLowerCase)
+                            .map(value -> value.toLowerCase(Locale.ENGLISH))
                             .toArray(String[]::new);
                     ColumnPath columnPath = ColumnPath.get(path);
                     PrimitiveTypeName primitiveTypeName = messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName();
@@ -190,7 +191,7 @@ public final class ParquetMetadataReader
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
-            typeBuilder.named(element.name.toLowerCase());
+            typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
         }
     }
 

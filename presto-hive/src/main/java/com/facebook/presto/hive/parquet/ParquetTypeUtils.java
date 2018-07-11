@@ -38,6 +38,7 @@ import parquet.schema.MessageType;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -182,7 +183,7 @@ public final class ParquetTypeUtils
     public static int getFieldIndex(MessageType fileSchema, String name)
     {
         try {
-            return fileSchema.getFieldIndex(name.toLowerCase());
+            return fileSchema.getFieldIndex(name.toLowerCase(Locale.ENGLISH));
         }
         catch (InvalidRecordException e) {
             for (parquet.schema.Type type : fileSchema.getFields()) {
@@ -240,6 +241,27 @@ public final class ParquetTypeUtils
         for (parquet.schema.Type type : messageType.getFields()) {
             if (type.getName().equalsIgnoreCase(columnName)) {
                 return type;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parquet column names are case-sensitive unlike Hive, which converts all column names to lowercase.
+     * Therefore, when we look up columns we first check for exact match, and if that fails we look for a case-insensitive match.
+     */
+    public static ColumnIO lookupColumnByName(GroupColumnIO groupColumnIO, String columnName)
+    {
+        ColumnIO columnIO = groupColumnIO.getChild(columnName);
+
+        if (columnIO != null) {
+            return columnIO;
+        }
+
+        for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
+            if (groupColumnIO.getChild(i).getName().equalsIgnoreCase(columnName)) {
+                return groupColumnIO.getChild(i);
             }
         }
 

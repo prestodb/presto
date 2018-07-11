@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
-import java.util.Map;
 
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
@@ -76,7 +76,7 @@ public class TestStatsNormalizer
                 .addSymbolStatistics(c, SymbolStatsEstimate.buildFrom(UNKNOWN_STATS).build())
                 .build();
 
-        PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c), ImmutableMap.of(b, BIGINT, c, BIGINT)))
+        PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c), TypeProvider.copyOf(ImmutableMap.of(b, BIGINT, c, BIGINT))))
                 .symbolsWithKnownStats(b)
                 .symbolStats(b, symbolAssert -> symbolAssert.distinctValuesCount(30));
     }
@@ -141,18 +141,18 @@ public class TestStatsNormalizer
                 .build();
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder().addSymbolStatistics(symbol, symbolStats).build();
 
-        assertNormalized(estimate, ImmutableMap.of(symbol, type))
+        assertNormalized(estimate, TypeProvider.copyOf(ImmutableMap.of(symbol, type)))
                 .symbolStats(symbol, symbolAssert -> symbolAssert.distinctValuesCount(expectedNormalizedNdv));
     }
 
     private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate)
     {
-        Map<Symbol, Type> types = estimate.getSymbolsWithKnownStatistics().stream()
-                .collect(toImmutableMap(identity(), symbol -> BIGINT));
+        TypeProvider types = TypeProvider.copyOf(estimate.getSymbolsWithKnownStatistics().stream()
+                .collect(toImmutableMap(identity(), symbol -> BIGINT)));
         return assertNormalized(estimate, types);
     }
 
-    private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate, Map<Symbol, Type> types)
+    private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate, TypeProvider types)
     {
         PlanNodeStatsEstimate normalized = normalizer.normalize(estimate, estimate.getSymbolsWithKnownStatistics(), types);
         return PlanNodeStatsAssertion.assertThat(normalized);

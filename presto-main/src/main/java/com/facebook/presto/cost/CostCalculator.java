@@ -15,8 +15,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -26,7 +25,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import java.util.Map;
 
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -46,7 +44,7 @@ public interface CostCalculator
             StatsProvider stats,
             Lookup lookup,
             Session session,
-            Map<Symbol, Type> types);
+            TypeProvider types);
 
     @BindingAnnotation
     @Target({PARAMETER})

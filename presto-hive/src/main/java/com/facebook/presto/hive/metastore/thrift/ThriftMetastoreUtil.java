@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
@@ -28,6 +29,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Longs;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -44,14 +46,18 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -59,14 +65,36 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.decimalStats;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.doubleStats;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.longStats;
+import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.stringStats;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public final class ThriftMetastoreUtil
 {
+    private static final String NUM_FILES = "numFiles";
+    private static final String NUM_ROWS = "numRows";
+    private static final String RAW_DATA_SIZE = "rawDataSize";
+    private static final String TOTAL_SIZE = "totalSize";
+    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
+
     private ThriftMetastoreUtil() {}
 
     public static org.apache.hadoop.hive.metastore.api.Database toMetastoreApiDatabase(Database database)
@@ -119,7 +147,7 @@ public final class ThriftMetastoreUtil
     public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(String grantee, HivePrivilegeInfo privilegeInfo)
     {
         return new PrivilegeGrantInfo(
-                privilegeInfo.getHivePrivilege().name().toLowerCase(),
+                privilegeInfo.getHivePrivilege().name().toLowerCase(Locale.ENGLISH),
                 0,
                 grantee,
                 org.apache.hadoop.hive.metastore.api.PrincipalType.USER, privilegeInfo.isGrantOption());
@@ -237,97 +265,57 @@ public final class ThriftMetastoreUtil
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
+            OptionalLong min = longStatsData.isSetLowValue() ? OptionalLong.of(longStatsData.getLowValue()) : OptionalLong.empty();
+            OptionalLong max = longStatsData.isSetHighValue() ? OptionalLong.of(longStatsData.getHighValue()) : OptionalLong.empty();
             OptionalLong nullsCount = longStatsData.isSetNumNulls() ? OptionalLong.of(longStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    longStatsData.isSetLowValue() ? Optional.of(longStatsData.getLowValue()) : Optional.empty(),
-                    longStatsData.isSetHighValue() ? Optional.of(longStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createIntegerColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetDoubleStats()) {
+        if (columnStatistics.getStatsData().isSetDoubleStats()) {
             DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
+            OptionalDouble min = doubleStatsData.isSetLowValue() ? OptionalDouble.of(doubleStatsData.getLowValue()) : OptionalDouble.empty();
+            OptionalDouble max = doubleStatsData.isSetHighValue() ? OptionalDouble.of(doubleStatsData.getHighValue()) : OptionalDouble.empty();
             OptionalLong nullsCount = doubleStatsData.isSetNumNulls() ? OptionalLong.of(doubleStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = doubleStatsData.isSetNumDVs() ? OptionalLong.of(doubleStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    doubleStatsData.isSetLowValue() ? Optional.of(doubleStatsData.getLowValue()) : Optional.empty(),
-                    doubleStatsData.isSetHighValue() ? Optional.of(doubleStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createDoubleColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetDecimalStats()) {
+        if (columnStatistics.getStatsData().isSetDecimalStats()) {
             DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
+            Optional<BigDecimal> min = decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty();
+            Optional<BigDecimal> max = decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty();
             OptionalLong nullsCount = decimalStatsData.isSetNumNulls() ? OptionalLong.of(decimalStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = decimalStatsData.isSetNumDVs() ? OptionalLong.of(decimalStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty(),
-                    decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createDecimalColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetBooleanStats()) {
-            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
-            return new HiveColumnStatistics(
-                    Optional.empty(),
-                    Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumFalses() ? OptionalLong.of(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumNulls() ? OptionalLong.of(booleanStatsData.getNumNulls()) : OptionalLong.empty(),
-                    OptionalLong.empty());
-        }
-        else if (columnStatistics.getStatsData().isSetDateStats()) {
+        if (columnStatistics.getStatsData().isSetDateStats()) {
             DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
+            Optional<LocalDate> min = dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty();
+            Optional<LocalDate> max = dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty();
             OptionalLong nullsCount = dateStatsData.isSetNumNulls() ? OptionalLong.of(dateStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = dateStatsData.isSetNumDVs() ? OptionalLong.of(dateStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty(),
-                    dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createDateColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetStringStats()) {
+        if (columnStatistics.getStatsData().isSetBooleanStats()) {
+            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            return createBooleanColumnStatistics(
+                    booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
+                    booleanStatsData.isSetNumFalses() ? OptionalLong.of(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
+                    booleanStatsData.isSetNumNulls() ? OptionalLong.of(booleanStatsData.getNumNulls()) : OptionalLong.empty());
+        }
+        if (columnStatistics.getStatsData().isSetStringStats()) {
             StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
+            OptionalLong maxColumnLength = stringStatsData.isSetMaxColLen() ? OptionalLong.of(stringStatsData.getMaxColLen()) : OptionalLong.empty();
+            OptionalDouble averageColumnLength = stringStatsData.isSetAvgColLen() ? OptionalDouble.of(stringStatsData.getAvgColLen()) : OptionalDouble.empty();
             OptionalLong nullsCount = stringStatsData.isSetNumNulls() ? OptionalLong.of(stringStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesCount = stringStatsData.isSetNumDVs() ? OptionalLong.of(stringStatsData.getNumDVs()) : OptionalLong.empty();
-            return new HiveColumnStatistics(
-                    Optional.empty(),
-                    Optional.empty(),
-                    stringStatsData.isSetMaxColLen() ? OptionalLong.of(stringStatsData.getMaxColLen()) : OptionalLong.empty(),
-                    stringStatsData.isSetAvgColLen() ? OptionalDouble.of(stringStatsData.getAvgColLen()) : OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
+            return createStringColumnStatistics(maxColumnLength, averageColumnLength, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount));
         }
-        else if (columnStatistics.getStatsData().isSetBinaryStats()) {
+        if (columnStatistics.getStatsData().isSetBinaryStats()) {
             BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
-            return new HiveColumnStatistics(
-                    Optional.empty(),
-                    Optional.empty(),
-                    binaryStatsData.isSetMaxColLen() ? OptionalLong.of(binaryStatsData.getMaxColLen()) : OptionalLong.empty(),
-                    binaryStatsData.isSetAvgColLen() ? OptionalDouble.of(binaryStatsData.getAvgColLen()) : OptionalDouble.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    binaryStatsData.isSetNumNulls() ? OptionalLong.of(binaryStatsData.getNumNulls()) : OptionalLong.empty(),
-                    OptionalLong.empty());
+            OptionalLong maxColumnLength = binaryStatsData.isSetMaxColLen() ? OptionalLong.of(binaryStatsData.getMaxColLen()) : OptionalLong.empty();
+            OptionalDouble averageColumnLength = binaryStatsData.isSetAvgColLen() ? OptionalDouble.of(binaryStatsData.getAvgColLen()) : OptionalDouble.empty();
+            OptionalLong nullsCount = binaryStatsData.isSetNumNulls() ? OptionalLong.of(binaryStatsData.getNumNulls()) : OptionalLong.empty();
+            return createBinaryColumnStatistics(maxColumnLength, averageColumnLength, nullsCount);
         }
         else {
             throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
@@ -429,5 +417,173 @@ public final class ThriftMetastoreUtil
         }
 
         return sd;
+    }
+
+    public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
+    {
+        OptionalLong numFiles = parse(parameters.get(NUM_FILES));
+        OptionalLong numRows = parse(parameters.get(NUM_ROWS));
+        OptionalLong inMemoryDataSizeInBytes = parse(parameters.get(RAW_DATA_SIZE));
+        OptionalLong onDiskDataSizeInBytes = parse(parameters.get(TOTAL_SIZE));
+        return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+    }
+
+    private static OptionalLong parse(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return OptionalLong.empty();
+        }
+        Long longValue = Longs.tryParse(parameterValue);
+        if (longValue == null || longValue < 0) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(longValue);
+    }
+
+    public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)
+    {
+        ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+
+        parameters.forEach((key, value) -> {
+            if (!STATS_PROPERTIES.contains(key)) {
+                result.put(key, value);
+            }
+        });
+
+        statistics.getFileCount().ifPresent(count -> result.put(NUM_FILES, Long.toString(count)));
+        statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
+        statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
+        statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
+
+        return result.build();
+    }
+
+    public static ColumnStatisticsObj createMetastoreColumnStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        TypeInfo typeInfo = columnType.getTypeInfo();
+        checkArgument(typeInfo.getCategory() == PRIMITIVE, "unsupported type: %s", columnType);
+        switch (((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory()) {
+            case BOOLEAN:
+                return createBooleanStatistics(columnName, columnType, statistics);
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+                return createLongStatistics(columnName, columnType, statistics);
+            case FLOAT:
+            case DOUBLE:
+                return createDoubleStatistics(columnName, columnType, statistics);
+            case STRING:
+            case VARCHAR:
+            case CHAR:
+                return createStringStatistics(columnName, columnType, statistics);
+            case DATE:
+                return createDateStatistics(columnName, columnType, statistics);
+            case TIMESTAMP:
+                return createLongStatistics(columnName, columnType, statistics);
+            case BINARY:
+                return createBinaryStatistics(columnName, columnType, statistics);
+            case DECIMAL:
+                return createDecimalStatistics(columnName, columnType, statistics);
+            default:
+                throw new IllegalArgumentException(format("unsupported type: %s", columnType));
+        }
+    }
+
+    private static ColumnStatisticsObj createBooleanStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        BooleanColumnStatsData data = new BooleanColumnStatsData();
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        statistics.getBooleanStatistics().ifPresent(booleanStatistics -> {
+            booleanStatistics.getFalseCount().ifPresent(data::setNumFalses);
+            booleanStatistics.getTrueCount().ifPresent(data::setNumTrues);
+        });
+        return new ColumnStatisticsObj(columnName, columnType.toString(), booleanStats(data));
+    }
+
+    private static ColumnStatisticsObj createLongStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        LongColumnStatsData data = new LongColumnStatsData();
+        statistics.getIntegerStatistics().ifPresent(integerStatistics -> {
+            integerStatistics.getMin().ifPresent(data::setLowValue);
+            integerStatistics.getMax().ifPresent(data::setHighValue);
+        });
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
+        return new ColumnStatisticsObj(columnName, columnType.toString(), longStats(data));
+    }
+
+    private static ColumnStatisticsObj createDoubleStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        DoubleColumnStatsData data = new DoubleColumnStatsData();
+        statistics.getDoubleStatistics().ifPresent(doubleStatistics -> {
+            doubleStatistics.getMin().ifPresent(data::setLowValue);
+            doubleStatistics.getMax().ifPresent(data::setHighValue);
+        });
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
+        return new ColumnStatisticsObj(columnName, columnType.toString(), doubleStats(data));
+    }
+
+    private static ColumnStatisticsObj createStringStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        StringColumnStatsData data = new StringColumnStatsData();
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
+        data.setMaxColLen(statistics.getMaxColumnLength().orElse(0));
+        data.setAvgColLen(statistics.getAverageColumnLength().orElse(0));
+        return new ColumnStatisticsObj(columnName, columnType.toString(), stringStats(data));
+    }
+
+    private static ColumnStatisticsObj createDateStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        DateColumnStatsData data = new DateColumnStatsData();
+        statistics.getDateStatistics().ifPresent(dateStatistics -> {
+            dateStatistics.getMin().ifPresent(value -> data.setLowValue(toMetastoreDate(value)));
+            dateStatistics.getMax().ifPresent(value -> data.setHighValue(toMetastoreDate(value)));
+        });
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
+        return new ColumnStatisticsObj(columnName, columnType.toString(), dateStats(data));
+    }
+
+    private static ColumnStatisticsObj createBinaryStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        BinaryColumnStatsData data = new BinaryColumnStatsData();
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        data.setMaxColLen(statistics.getMaxColumnLength().orElse(0));
+        data.setAvgColLen(statistics.getAverageColumnLength().orElse(0));
+        return new ColumnStatisticsObj(columnName, columnType.toString(), binaryStats(data));
+    }
+
+    private static ColumnStatisticsObj createDecimalStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        DecimalColumnStatsData data = new DecimalColumnStatsData();
+        statistics.getDecimalStatistics().ifPresent(decimalStatistics -> {
+            decimalStatistics.getMin().ifPresent(value -> data.setLowValue(toMetastoreDecimal(value)));
+            decimalStatistics.getMax().ifPresent(value -> data.setHighValue(toMetastoreDecimal(value)));
+        });
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumDVs);
+        return new ColumnStatisticsObj(columnName, columnType.toString(), decimalStats(data));
+    }
+
+    public static Date toMetastoreDate(LocalDate date)
+    {
+        return new Date(date.toEpochDay());
+    }
+
+    public static Decimal toMetastoreDecimal(BigDecimal decimal)
+    {
+        return new Decimal(ByteBuffer.wrap(decimal.unscaledValue().toByteArray()), (short) decimal.scale());
+    }
+
+    private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
+    {
+        // metastore counts null as a distinct value
+        if (distinctValuesCount.isPresent() && nullsCount.isPresent() && (nullsCount.getAsLong() > 0)) {
+            return OptionalLong.of(distinctValuesCount.getAsLong() + 1);
+        }
+        return distinctValuesCount;
     }
 }

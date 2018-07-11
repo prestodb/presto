@@ -7,6 +7,12 @@
     </violation>
 
     <violation>
+        <name>java/lang/String.toLowerCase:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Prefer String.toLowerCase(java.util.Locale)</comment>
+    </violation>
+
+    <violation>
         <name>com/google/common/primitives/Ints.checkedCast:(J)I</name>
         <version>1.8</version>
         <comment>Prefer Math.toIntExact(long)</comment>

@@ -44,7 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -288,7 +288,7 @@ public class PlanNodeDecorrelator
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 if (!(comparison.getLeft() instanceof SymbolReference
                         && comparison.getRight() instanceof SymbolReference
-                        && comparison.getType().equals(EQUAL))) {
+                        && comparison.getOperator().equals(EQUAL))) {
                     continue;
                 }
 

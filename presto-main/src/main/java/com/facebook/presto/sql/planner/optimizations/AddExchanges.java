@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -80,7 +81,6 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
@@ -97,6 +97,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -115,8 +116,10 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -142,7 +145,7 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), PreferredProperties.any());
         return result.getNode();
@@ -153,7 +156,7 @@ public class AddExchanges
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
@@ -164,7 +167,7 @@ public class AddExchanges
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
-            this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
+            this.types = symbolAllocator.getTypes();
             this.session = session;
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
@@ -259,12 +262,12 @@ public class AddExchanges
         private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
         {
             return symbol -> {
-                if (node.getArgumentMappings().containsKey(symbol)) {
-                    return Optional.of(node.getArgumentMappings().get(symbol));
+                if (node.getAggregationArguments().contains(symbol)) {
+                    return Optional.of(symbol);
                 }
 
                 if (node.getCommonGroupingColumns().contains(symbol)) {
-                    return Optional.of(node.getGroupingSetMappings().get(symbol));
+                    return Optional.of(node.getGroupingColumns().get(symbol));
                 }
 
                 return Optional.empty();
@@ -427,12 +430,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
-            if (!child.getProperties().isSingleNode()) {
-                child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
-                        child.getProperties());
-            }
-            else {
+            if (child.getProperties().isSingleNode()) {
                 // current plan so far is single node, so local properties are effectively global properties
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
@@ -445,6 +443,28 @@ public class AddExchanges
                         .noneMatch(Optional::isPresent)) {
                     return child;
                 }
+            }
+
+            if (isDistributedSortEnabled(session)) {
+                child = planChild(node, PreferredProperties.any());
+                // insert round robin exchange to eliminate skewness issues
+                PlanNode source = roundRobinExchange(idAllocator.getNextId(), REMOTE, child.getNode());
+                return withDerivedProperties(
+                        mergingExchange(
+                                idAllocator.getNextId(),
+                                REMOTE,
+                                new SortNode(
+                                        idAllocator.getNextId(),
+                                        source,
+                                        node.getOrderingScheme()),
+                                node.getOrderingScheme()),
+                        child.getProperties());
+            }
+
+            if (!child.getProperties().isSingleNode()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
             }
 
             return rebaseAndDeriveProperties(node, child);
@@ -1114,7 +1134,8 @@ public class AddExchanges
                         REMOTE,
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         partitionedChildren,
-                        partitionedOutputLayouts);
+                        partitionedOutputLayouts,
+                        Optional.empty());
             }
             else if (!unpartitionedChildren.isEmpty()) {
                 if (!partitionedChildren.isEmpty()) {
@@ -1131,7 +1152,8 @@ public class AddExchanges
                             REMOTE,
                             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
                             partitionedChildren,
-                            partitionedOutputLayouts);
+                            partitionedOutputLayouts,
+                            Optional.empty());
 
                     unpartitionedChildren.add(result);
                     unpartitionedOutputLayouts.add(result.getOutputSymbols());
@@ -1184,7 +1206,8 @@ public class AddExchanges
                                 REMOTE,
                                 new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                                 partitionedChildren,
-                                partitionedOutputLayouts));
+                                partitionedOutputLayouts,
+                                Optional.empty()));
             }
         }
 
@@ -1353,7 +1376,7 @@ public class AddExchanges
         private final Map<Symbol, ColumnHandle> assignments;
         private final ExpressionInterpreter evaluator;
 
-        public LayoutConstraintEvaluator(Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> assignments, Expression expression)
+        public LayoutConstraintEvaluator(Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
         {
             this.assignments = assignments;
 

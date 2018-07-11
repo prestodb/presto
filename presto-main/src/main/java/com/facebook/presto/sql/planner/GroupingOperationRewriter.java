@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldId;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -23,14 +22,13 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Type.ADD;
+import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
@@ -40,26 +38,21 @@ public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, QuerySpecification queryNode, Analysis analysis, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<List<Expression>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
     {
-        requireNonNull(queryNode, "node is null");
-        requireNonNull(analysis, "analysis is null");
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
-
-        checkState(queryNode.getGroupBy().isPresent(), "GroupBy node must be present");
 
         // No GroupIdNode and a GROUPING() operation imply a single grouping, which
         // means that any columns specified as arguments to GROUPING() will be included
         // in the group and none of them will be aggregated over. Hence, re-write the
         // GroupingOperation to a constant literal of 0.
         // See SQL:2011:4.16.2 and SQL:2011:6.9.10.
-        if (analysis.getGroupingSets(queryNode).size() == 1) {
+        if (groupingSets.size() == 1) {
             return new LongLiteral("0");
         }
         else {
             checkState(groupIdSymbol.isPresent(), "groupId symbol is missing");
 
-            Map<NodeRef<Expression>, FieldId> columnReferenceFields = analysis.getColumnReferenceFields();
             RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getRelationId();
 
             List<Integer> columns = expression.getGroupingColumns().stream()
@@ -69,7 +62,7 @@ public final class GroupingOperationRewriter
                     .map(fieldId -> translateFieldToInteger(fieldId, relationId))
                     .collect(toImmutableList());
 
-            List<List<Integer>> groupingSetDescriptors = analysis.getGroupingSets(queryNode).stream()
+            List<List<Integer>> groupingSetDescriptors = groupingSets.stream()
                     .map(groupingSet -> groupingSet.stream()
                             .map(NodeRef::of)
                             .filter(columnReferenceFields::containsKey)

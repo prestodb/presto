@@ -19,7 +19,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -60,7 +59,7 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getId(),
                 sample.getSource(),
                 new ComparisonExpression(
-                        ComparisonExpressionType.LESS_THAN,
+                        ComparisonExpression.Operator.LESS_THAN,
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
                         new DoubleLiteral(Double.toString(sample.getSampleRatio())))));
     }

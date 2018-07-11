@@ -528,6 +528,9 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_add('second', 3, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusSeconds(3), session));
         assertFunction("date_add('minute', 3, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusMinutes(3), session));
         assertFunction("date_add('hour', 3, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusHours(3), session));
+        assertFunction("date_add('hour', 23, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusHours(23), session));
+        assertFunction("date_add('hour', -4, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.minusHours(4), session));
+        assertFunction("date_add('hour', -23, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.minusHours(23), session));
         assertFunction("date_add('day', 3, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusDays(3), session));
         assertFunction("date_add('week', 3, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusWeeks(3), session));
         assertFunction("date_add('month', 3, " + TIMESTAMP_LITERAL + ")", TimestampType.TIMESTAMP, sqlTimestampOf(TIMESTAMP.plusMonths(3), session));
@@ -562,6 +565,9 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_add('second', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusSeconds(3)));
         assertFunction("date_add('minute', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusMinutes(3)));
         assertFunction("date_add('hour', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusHours(3)));
+        assertFunction("date_add('hour', 23, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusHours(23)));
+        assertFunction("date_add('hour', -4, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.minusHours(4)));
+        assertFunction("date_add('hour', -23, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.minusHours(23)));
 
         assertFunction("date_add('millisecond', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusMillis(3)));
         assertFunction("date_add('second', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusSeconds(3)));
@@ -866,8 +872,6 @@ public abstract class TestDateTimeFunctionsBase
             localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 오전', 'yyyy-MM-dd hh:mm:ss aaa')",
                     TIMESTAMP_WITH_TIME_ZONE,
                     toTimestampWithTimeZone(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
-
-            localeAssertions.close();
         }
     }
 
@@ -1089,24 +1093,28 @@ public abstract class TestDateTimeFunctionsBase
         return millis().getField(getInstantChronology(start)).getDifferenceAsLong(end.getMillis(), start.getMillis());
     }
 
-    private SqlTime toTime(long milliseconds)
-    {
-        if (isLegacyTimestamp(session)) {
-            return new SqlTime(milliseconds, session.getTimeZoneKey());
-        }
-        else {
-            return new SqlTime(milliseconds);
-        }
-    }
-
     private SqlTime toTime(DateTime dateTime)
     {
         if (isLegacyTimestamp(session)) {
+            DateTimeZone zone = getDateTimeZone(session.getTimeZoneKey());
+            dateTime = normalizeTimeRepresentation(dateTime, new DateTime(1970, 1, 1, 0, 0, 0, zone).getMillis(), new DateTime(1970, 1, 1, 23, 59, 59, 999, zone).getMillis());
             return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
         }
         else {
+            dateTime = normalizeTimeRepresentation(dateTime, 0, DAYS.toMillis(1) - 1);
             return new SqlTime(dateTime.getMillisOfDay());
         }
+    }
+
+    private DateTime normalizeTimeRepresentation(DateTime dateTime, long min, long max)
+    {
+        while (dateTime.isBefore(min)) {
+            dateTime = dateTime.plusDays(1);
+        }
+        while (dateTime.isAfter(max)) {
+            dateTime = dateTime.minusDays(1);
+        }
+        return dateTime;
     }
 
     private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)

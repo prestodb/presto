@@ -43,9 +43,11 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
@@ -64,6 +66,7 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_SOURCE, "testSource")
                     .put(PRESTO_CATALOG, "testCatalog")
                     .put(PRESTO_SCHEMA, "testSchema")
+                    .put(PRESTO_PATH, "testPath")
                     .put(PRESTO_LANGUAGE, "zh-TW")
                     .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                     .put(PRESTO_CLIENT_INFO, "client-info")
@@ -93,6 +96,7 @@ public class TestQuerySessionSupplier
         assertEquals(session.getSource().get(), "testSource");
         assertEquals(session.getCatalog().get(), "testCatalog");
         assertEquals(session.getSchema().get(), "testSchema");
+        assertEquals(session.getPath().getRawPath().get(), "testPath");
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");
@@ -154,6 +158,27 @@ public class TestQuerySessionSupplier
                 "remoteAddress");
         HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
         assertEquals(context2.getClientTags(), ImmutableSet.of());
+    }
+
+    @Test
+    public void testClientCapabilities()
+    {
+        HttpServletRequest request1 = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
+                        .build(),
+                "remoteAddress");
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1);
+        assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
+
+        HttpServletRequest request2 = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "remoteAddress");
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
+        assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
     @Test(expectedExceptions = PrestoException.class)

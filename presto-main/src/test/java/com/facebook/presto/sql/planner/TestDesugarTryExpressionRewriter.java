@@ -24,7 +24,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Type.ADD;
+import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertEquals;
 
 public class TestDesugarTryExpressionRewriter

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -90,7 +91,7 @@ public final class SymbolAliases
     private static String toKey(String alias)
     {
         // Required because the SqlParser lower cases SymbolReferences in the expressions we parse with it.
-        return alias.toLowerCase();
+        return alias.toLowerCase(Locale.ENGLISH);
     }
 
     private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)

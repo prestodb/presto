@@ -46,6 +46,7 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
+import com.facebook.presto.operator.MergeOperator.MergeOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinPagesBridge;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
@@ -79,6 +80,7 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
@@ -110,6 +112,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -155,7 +158,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -188,6 +190,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -196,6 +199,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
@@ -233,8 +237,8 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_DISTANCE;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_INTERSECTS;
@@ -286,6 +290,7 @@ public class LocalExecutionPlanner
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
+    private final OrderingCompiler orderingCompiler;
 
     @Inject
     public LocalExecutionPlanner(
@@ -310,7 +315,8 @@ public class LocalExecutionPlanner
             BlockEncodingSerde blockEncodingSerde,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            LookupJoinOperators lookupJoinOperators)
+            LookupJoinOperators lookupJoinOperators,
+            OrderingCompiler orderingCompiler)
     {
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -337,12 +343,13 @@ public class LocalExecutionPlanner
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
     }
 
     public LocalExecutionPlan plan(
             TaskContext taskContext,
             PlanNode plan,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             PartitioningScheme partitioningScheme,
             boolean planGrouped,
             List<PlanNodeId> partitionedSourceOrder,
@@ -422,7 +429,7 @@ public class LocalExecutionPlanner
             boolean planGrouped,
             PlanNode plan,
             List<Symbol> outputLayout,
-            Map<Symbol, Type> types,
+            TypeProvider types,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory)
     {
@@ -498,7 +505,7 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
@@ -509,14 +516,14 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, Map<Symbol, Type> types)
+        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
         {
             this(taskContext, types, new ArrayList<>(), Optional.empty(), new AtomicInteger(0));
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                Map<Symbol, Type> types,
+                TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId)
@@ -557,7 +564,7 @@ public class LocalExecutionPlanner
             return taskContext.getTaskId().getStageId();
         }
 
-        public Map<Symbol, Type> getTypes()
+        public TypeProvider getTypes()
         {
             return types;
         }
@@ -664,6 +671,46 @@ public class LocalExecutionPlanner
 
         @Override
         public PhysicalOperation visitRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return createMergeSource(node, context);
+            }
+
+            return createRemoteSource(node, context);
+        }
+
+        private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        {
+            checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
+
+            // merging remote source must have a single driver
+            context.setDriverInstanceCount(1);
+
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            ImmutableMap<Symbol, Integer> layout = makeLayout(node);
+            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
+            List<SortOrder> sortOrder = orderingScheme.getOrderingList();
+
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            ImmutableList<Integer> outputChannels = IntStream.range(0, types.size())
+                    .boxed()
+                    .collect(toImmutableList());
+
+            OperatorFactory operatorFactory = new MergeOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    exchangeClientSupplier,
+                    new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)),
+                    orderingCompiler,
+                    types,
+                    outputChannels,
+                    sortChannels,
+                    sortOrder);
+
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+        }
+
+        private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
             if (!context.getDriverInstanceCount().isPresent()) {
                 context.setDriverInstanceCount(getTaskConcurrency(session));
@@ -973,12 +1020,12 @@ public class LocalExecutionPlanner
 
             for (Symbol output : node.getGroupingSets().stream().flatMap(Collection::stream).collect(Collectors.toSet())) {
                 newLayout.put(output, outputChannel++);
-                outputTypes.add(source.getTypes().get(source.getLayout().get(node.getGroupingSetMappings().get(output))));
+                outputTypes.add(source.getTypes().get(source.getLayout().get(node.getGroupingColumns().get(output))));
             }
 
             Map<Symbol, Integer> argumentMappings = new HashMap<>();
-            for (Symbol output : node.getArgumentMappings().keySet()) {
-                int inputChannel = source.getLayout().get(node.getArgumentMappings().get(output));
+            for (Symbol output : node.getAggregationArguments()) {
+                int inputChannel = source.getLayout().get(output);
 
                 newLayout.put(output, outputChannel++);
                 outputTypes.add(source.getTypes().get(inputChannel));
@@ -991,7 +1038,7 @@ public class LocalExecutionPlanner
                 ImmutableMap.Builder<Integer, Integer> setMapping = ImmutableMap.builder();
 
                 for (Symbol output : groupingSet) {
-                    setMapping.put(newLayout.get(output), source.getLayout().get(node.getGroupingSetMappings().get(output)));
+                    setMapping.put(newLayout.get(output), source.getLayout().get(node.getGroupingColumns().get(output)));
                 }
 
                 for (Symbol output : argumentMappings.keySet()) {
@@ -1235,7 +1282,7 @@ public class LocalExecutionPlanner
                         context.getSession(),
                         metadata,
                         sqlParser,
-                        ImmutableMap.of(),
+                        TypeProvider.empty(),
                         ImmutableList.copyOf(row),
                         emptyList(),
                         false);
@@ -1301,9 +1348,14 @@ public class LocalExecutionPlanner
 
         private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
         {
+            return makeLayoutFromOutputSymbols(node.getOutputSymbols());
+        }
+
+        private ImmutableMap<Symbol, Integer> makeLayoutFromOutputSymbols(List<Symbol> outputSymbols)
+        {
             Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
-            for (Symbol symbol : node.getOutputSymbols()) {
+            for (Symbol symbol : outputSymbols) {
                 outputMappings.put(symbol, channel);
                 channel++;
             }
@@ -1540,12 +1592,12 @@ public class LocalExecutionPlanner
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+                if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     Expression radius = spatialComparison.getRight();
                     if (radius instanceof SymbolReference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
                         FunctionCall spatialFunction = (FunctionCall) spatialComparison.getLeft();
-                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getType()));
+                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getOperator()));
                         if (operation.isPresent()) {
                             return operation.get();
                         }
@@ -1562,7 +1614,7 @@ public class LocalExecutionPlanner
                 Optional<Expression> filterExpression,
                 FunctionCall spatialFunction,
                 Optional<Expression> radius,
-                Optional<ComparisonExpressionType> comparisonType)
+                Optional<ComparisonExpression.Operator> comparisonOperator)
         {
             List<Expression> arguments = spatialFunction.getArguments();
             verify(arguments.size() == 2);
@@ -1588,7 +1640,7 @@ public class LocalExecutionPlanner
                         buildNode,
                         Symbol.from(secondSymbol),
                         radius.map(Symbol::from),
-                        spatialTest(spatialFunction, true, comparisonType),
+                        spatialTest(spatialFunction, true, comparisonOperator),
                         filterExpression,
                         context));
             }
@@ -1600,7 +1652,7 @@ public class LocalExecutionPlanner
                         buildNode,
                         Symbol.from(firstSymbol),
                         radius.map(Symbol::from),
-                        spatialTest(spatialFunction, false, comparisonType),
+                        spatialTest(spatialFunction, false, comparisonOperator),
                         filterExpression,
                         context));
             }
@@ -1613,9 +1665,9 @@ public class LocalExecutionPlanner
             return updatedJoinFilter == TRUE_LITERAL ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
-        private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpressionType> comparisonType)
+        private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            switch (functionCall.getName().toString().toLowerCase()) {
+            switch (functionCall.getName().toString().toLowerCase(Locale.ENGLISH)) {
                 case ST_CONTAINS:
                     if (probeFirst) {
                         return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
@@ -1626,14 +1678,14 @@ public class LocalExecutionPlanner
                 case ST_INTERSECTS:
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
                 case ST_DISTANCE:
-                    if (comparisonType.get() == LESS_THAN) {
+                    if (comparisonOperator.get() == LESS_THAN) {
                         return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
                     }
-                    else if (comparisonType.get() == LESS_THAN_OR_EQUAL) {
+                    else if (comparisonOperator.get() == LESS_THAN_OR_EQUAL) {
                         return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
                     }
                     else {
-                        throw new UnsupportedOperationException("Unsupported comparison type: " + comparisonType.get());
+                        throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
                     }
                 default:
                     throw new UnsupportedOperationException("Unsupported spatial function: " + functionCall.getName());
@@ -1939,7 +1991,7 @@ public class LocalExecutionPlanner
                 Expression filterExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout,
-                Map<Symbol, Type> types,
+                TypeProvider types,
                 Session session)
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
@@ -2167,6 +2219,66 @@ public class LocalExecutionPlanner
         {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
 
+            if (node.getOrderingScheme().isPresent()) {
+                return createLocalMerge(node, context);
+            }
+
+            return createLocalExchange(node, context);
+        }
+
+        private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
+        {
+            checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
+            checkState(node.getSources().size() == 1, "single source is expected");
+
+            // local merge source must have a single driver
+            context.setDriverInstanceCount(1);
+
+            PlanNode sourceNode = getOnlyElement(node.getSources());
+            LocalExecutionPlanContext subContext = context.createSubContext();
+            PhysicalOperation source = sourceNode.accept(this, subContext);
+
+            int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            LocalExchangeFactory exchangeFactory = new LocalExchangeFactory(
+                    node.getPartitioningScheme().getPartitioning().getHandle(),
+                    operatorsCount,
+                    types,
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    source.getPipelineExecutionStrategy(),
+                    maxLocalExchangeBufferSize);
+
+            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
+            List<Symbol> expectedLayout = node.getInputs().get(0);
+            Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
+            operatorFactories.add(new LocalExchangeSinkOperatorFactory(
+                    exchangeFactory,
+                    subContext.getNextOperatorId(),
+                    node.getId(),
+                    exchangeFactory.newSinkFactoryId(),
+                    pagePreprocessor));
+            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            // the main driver is not an input... the exchange sources are the input for the plan
+            context.setInputDriver(false);
+
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            ImmutableMap<Symbol, Integer> layout = makeLayout(node);
+            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
+            List<SortOrder> orderings = orderingScheme.getOrderingList();
+            OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    exchangeFactory,
+                    types,
+                    orderingCompiler,
+                    sortChannels,
+                    orderings);
+            return new PhysicalOperation(operatorFactory, layout, context, UNGROUPED_EXECUTION);
+        }
+
+        private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
+        {
             int driverInstanceCount;
             if (node.getType() == ExchangeNode.Type.GATHER) {
                 driverInstanceCount = 1;
@@ -2248,12 +2360,12 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<Type> getSourceOperatorTypes(PlanNode node, Map<Symbol, Type> types)
+        private List<Type> getSourceOperatorTypes(PlanNode node, TypeProvider types)
         {
             return getSymbolTypes(node.getOutputSymbols(), types);
         }
 
-        private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, Type> types)
+        private List<Type> getSymbolTypes(List<Symbol> symbols, TypeProvider types)
         {
             return symbols.stream()
                     .map(types::get)

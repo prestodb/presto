@@ -11,14 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.client;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-
-import java.util.List;
-
-public interface PageWithPositionComparatorFactory
+public enum ClientCapabilities
 {
-    PageWithPositionComparator create(List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders);
+    PATH;
 }

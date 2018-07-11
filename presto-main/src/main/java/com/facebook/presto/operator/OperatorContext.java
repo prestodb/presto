@@ -262,9 +262,21 @@ public class OperatorContext
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
+    public LocalMemoryContext localSystemMemoryContext()
+    {
+        return new InternalLocalMemoryContext(operatorMemoryContext.localSystemMemoryContext(), memoryFuture);
+    }
+
+    // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
         return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture);
+    }
+
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public AggregatedMemoryContext aggregateUserMemoryContext()
+    {
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture);
     }
 
     // caller should close this context as it's a new context

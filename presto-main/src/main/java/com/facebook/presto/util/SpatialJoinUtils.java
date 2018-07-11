@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -83,7 +83,7 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialComparison(ComparisonExpression expression)
     {
-        switch (expression.getType()) {
+        switch (expression.getOperator()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
                 return isSTDistance(expression.getLeft());
@@ -115,7 +115,7 @@ public class SpatialJoinUtils
 
         List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
         for (ComparisonExpression spatialComparison : spatialComparisons) {
-            if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+            if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
                 // ST_Distance(a, b) <= r
                 Expression radius = spatialComparison.getRight();
                 if (radius instanceof Literal || (radius instanceof SymbolReference && getSymbolReferences(right.getOutputSymbols()).contains(radius))) {

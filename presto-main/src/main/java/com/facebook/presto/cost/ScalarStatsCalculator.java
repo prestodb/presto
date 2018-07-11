@@ -196,11 +196,11 @@ public class ScalarStatsCalculator
             double leftHigh = left.getHighValue();
             double rightLow = right.getLowValue();
             double rightHigh = right.getHighValue();
-            if (node.getType() == ArithmeticBinaryExpression.Type.DIVIDE && rightLow < 0 && rightHigh > 0) {
+            if (node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.getType() == ArithmeticBinaryExpression.Type.MODULUS) {
+            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.MODULUS) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -216,10 +216,10 @@ public class ScalarStatsCalculator
                 }
             }
             else {
-                double v1 = operate(node.getType(), leftLow, rightLow);
-                double v2 = operate(node.getType(), leftLow, rightHigh);
-                double v3 = operate(node.getType(), leftHigh, rightLow);
-                double v4 = operate(node.getType(), leftHigh, rightHigh);
+                double v1 = operate(node.getOperator(), leftLow, rightLow);
+                double v2 = operate(node.getOperator(), leftLow, rightHigh);
+                double v3 = operate(node.getOperator(), leftHigh, rightLow);
+                double v4 = operate(node.getOperator(), leftHigh, rightHigh);
                 double lowValue = min(v1, v2, v3, v4);
                 double highValue = max(v1, v2, v3, v4);
 
@@ -230,9 +230,9 @@ public class ScalarStatsCalculator
             return result.build();
         }
 
-        private double operate(ArithmeticBinaryExpression.Type type, double left, double right)
+        private double operate(ArithmeticBinaryExpression.Operator operator, double left, double right)
         {
-            switch (type) {
+            switch (operator) {
                 case ADD:
                     return left + right;
                 case SUBTRACT:
@@ -244,7 +244,7 @@ public class ScalarStatsCalculator
                 case MODULUS:
                     return left % right;
                 default:
-                    throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Type: " + type);
+                    throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
             }
         }
 

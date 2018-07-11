@@ -107,7 +107,7 @@ public final class SortExpressionExtractor
         @Override
         protected Optional<SortExpressionContext> visitComparisonExpression(ComparisonExpression comparison, Void context)
         {
-            switch (comparison.getType()) {
+            switch (comparison.getOperator()) {
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
                 case LESS_THAN:

@@ -41,7 +41,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -53,26 +53,26 @@ public final class ExpressionUtils
 
     public static List<Expression> extractConjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Type.AND, expression);
+        return extractPredicates(LogicalBinaryExpression.Operator.AND, expression);
     }
 
     public static List<Expression> extractDisjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Type.OR, expression);
+        return extractPredicates(LogicalBinaryExpression.Operator.OR, expression);
     }
 
     public static List<Expression> extractPredicates(LogicalBinaryExpression expression)
     {
-        return extractPredicates(expression.getType(), expression);
+        return extractPredicates(expression.getOperator(), expression);
     }
 
-    public static List<Expression> extractPredicates(LogicalBinaryExpression.Type type, Expression expression)
+    public static List<Expression> extractPredicates(LogicalBinaryExpression.Operator operator, Expression expression)
     {
-        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == type) {
+        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getOperator() == operator) {
             LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
             return ImmutableList.<Expression>builder()
-                    .addAll(extractPredicates(type, logicalBinaryExpression.getLeft()))
-                    .addAll(extractPredicates(type, logicalBinaryExpression.getRight()))
+                    .addAll(extractPredicates(operator, logicalBinaryExpression.getLeft()))
+                    .addAll(extractPredicates(operator, logicalBinaryExpression.getRight()))
                     .build();
         }
 
@@ -86,7 +86,7 @@ public final class ExpressionUtils
 
     public static Expression and(Collection<Expression> expressions)
     {
-        return binaryExpression(LogicalBinaryExpression.Type.AND, expressions);
+        return binaryExpression(LogicalBinaryExpression.Operator.AND, expressions);
     }
 
     public static Expression or(Expression... expressions)
@@ -96,22 +96,22 @@ public final class ExpressionUtils
 
     public static Expression or(Collection<Expression> expressions)
     {
-        return binaryExpression(LogicalBinaryExpression.Type.OR, expressions);
+        return binaryExpression(LogicalBinaryExpression.Operator.OR, expressions);
     }
 
-    public static Expression binaryExpression(LogicalBinaryExpression.Type type, Collection<Expression> expressions)
+    public static Expression binaryExpression(LogicalBinaryExpression.Operator operator, Collection<Expression> expressions)
     {
-        requireNonNull(type, "type is null");
+        requireNonNull(operator, "operator is null");
         requireNonNull(expressions, "expressions is null");
 
         if (expressions.isEmpty()) {
-            switch (type) {
+            switch (operator) {
                 case AND:
                     return TRUE_LITERAL;
                 case OR:
                     return FALSE_LITERAL;
                 default:
-                    throw new IllegalArgumentException("Unsupported LogicalBinaryExpression type");
+                    throw new IllegalArgumentException("Unsupported LogicalBinaryExpression operator");
             }
         }
 
@@ -151,7 +151,7 @@ public final class ExpressionUtils
 
             // combine pairs of elements
             while (queue.size() >= 2) {
-                buffer.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
+                buffer.add(new LogicalBinaryExpression(operator, queue.remove(), queue.remove()));
             }
 
             // if there's and odd number of elements, just append the last one
@@ -166,14 +166,14 @@ public final class ExpressionUtils
         return queue.remove();
     }
 
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Expression... expressions)
+    public static Expression combinePredicates(LogicalBinaryExpression.Operator operator, Expression... expressions)
     {
-        return combinePredicates(type, Arrays.asList(expressions));
+        return combinePredicates(operator, Arrays.asList(expressions));
     }
 
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Collection<Expression> expressions)
+    public static Expression combinePredicates(LogicalBinaryExpression.Operator operator, Collection<Expression> expressions)
     {
-        if (type == LogicalBinaryExpression.Type.AND) {
+        if (operator == LogicalBinaryExpression.Operator.AND) {
             return combineConjuncts(expressions);
         }
 
@@ -310,9 +310,9 @@ public final class ExpressionUtils
     {
         if (expression instanceof NotExpression) {
             NotExpression not = (NotExpression) expression;
-            if (not.getValue() instanceof ComparisonExpression && ((ComparisonExpression) not.getValue()).getType() != IS_DISTINCT_FROM) {
+            if (not.getValue() instanceof ComparisonExpression && ((ComparisonExpression) not.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression comparison = (ComparisonExpression) not.getValue();
-                return new ComparisonExpression(comparison.getType().negate(), comparison.getLeft(), comparison.getRight());
+                return new ComparisonExpression(comparison.getOperator().negate(), comparison.getLeft(), comparison.getRight());
             }
             if (not.getValue() instanceof NotExpression) {
                 return normalize(((NotExpression) not.getValue()).getValue());

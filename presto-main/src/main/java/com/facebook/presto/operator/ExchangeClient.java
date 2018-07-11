@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.operator.WorkProcessor.ProcessorState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -44,6 +45,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.blocked;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.finished;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.yield;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -173,6 +177,27 @@ public class ExchangeClient
     {
         noMoreLocations = true;
         scheduleRequestIfNecessary();
+    }
+
+    public WorkProcessor<SerializedPage> pages()
+    {
+        return WorkProcessor.create(() -> {
+            SerializedPage page = pollPage();
+            if (page == null) {
+                if (isFinished()) {
+                    return finished();
+                }
+
+                ListenableFuture<?> blocked = isBlocked();
+                if (!blocked.isDone()) {
+                    return blocked(blocked);
+                }
+
+                return yield();
+            }
+
+            return ProcessorState.ofResult(page);
+        });
     }
 
     @Nullable

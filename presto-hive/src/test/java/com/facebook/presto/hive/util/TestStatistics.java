@@ -14,21 +14,13 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.util.Statistics.ReduceOperator;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
-import static com.facebook.presto.hive.HiveBasicStatistics.createFromPartitionParameters;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
-import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
-import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static com.facebook.presto.hive.util.Statistics.reduce;
-import static com.facebook.presto.hive.util.Statistics.updateStatistics;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatistics
@@ -50,77 +42,5 @@ public class TestStatistics
                 new HiveBasicStatistics(11, 9, 7, 5),
                 new HiveBasicStatistics(1, 2, 3, 4), SUBTRACT))
                 .isEqualTo(new HiveBasicStatistics(10, 7, 4, 1));
-    }
-
-    @Test
-    public void testUpdateTableStatistics()
-    {
-        testUpdateTableStatistics(ADD, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(SUBTRACT, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(ADD, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(SUBTRACT, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(ADD, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(SUBTRACT, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdateTableStatistics(
-                ADD,
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(2, 3, 4, 5),
-                new HiveBasicStatistics(3, 5, 7, 9));
-        testUpdateTableStatistics(
-                SUBTRACT,
-                new HiveBasicStatistics(11, 9, 7, 5),
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(10, 7, 4, 1));
-    }
-
-    @Test
-    public void testUpdatePartitionStatistics()
-    {
-        testUpdatePartitionStatistics(ADD, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(SUBTRACT, createEmptyStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(ADD, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(SUBTRACT, createZeroStatistics(), createEmptyStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(ADD, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(SUBTRACT, createEmptyStatistics(), createZeroStatistics(), createEmptyStatistics());
-        testUpdatePartitionStatistics(
-                ADD,
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(2, 3, 4, 5),
-                new HiveBasicStatistics(3, 5, 7, 9));
-        testUpdatePartitionStatistics(
-                SUBTRACT,
-                new HiveBasicStatistics(11, 9, 7, 5),
-                new HiveBasicStatistics(1, 2, 3, 4),
-                new HiveBasicStatistics(10, 7, 4, 1));
-    }
-
-    private static void testUpdateTableStatistics(ReduceOperator operator, HiveBasicStatistics initial, HiveBasicStatistics update, HiveBasicStatistics expected)
-    {
-        Table initialTable = table(initial);
-        Table updatedTable = updateStatistics(initialTable, update, operator);
-        HiveBasicStatistics updatedStatistics = createFromPartitionParameters(updatedTable.getParameters());
-        assertThat(updatedStatistics).isEqualTo(expected);
-    }
-
-    private static void testUpdatePartitionStatistics(ReduceOperator operator, HiveBasicStatistics initial, HiveBasicStatistics update, HiveBasicStatistics expected)
-    {
-        Partition initialPartition = partition(initial);
-        Partition updatedPartition = updateStatistics(initialPartition, update, operator);
-        HiveBasicStatistics updatedStatistics = createFromPartitionParameters(updatedPartition.getParameters());
-        assertThat(updatedStatistics).isEqualTo(expected);
-    }
-
-    private static Table table(HiveBasicStatistics statistics)
-    {
-        return Table.builder(getPrestoTestTable("test_database"))
-                .setParameters(statistics.toPartitionParameters())
-                .build();
-    }
-
-    private static Partition partition(HiveBasicStatistics statistics)
-    {
-        return Partition.builder(getPrestoTestPartition("test_database", "test_table", ImmutableList.of("test_partition")))
-                .setParameters(statistics.toPartitionParameters())
-                .build();
     }
 }

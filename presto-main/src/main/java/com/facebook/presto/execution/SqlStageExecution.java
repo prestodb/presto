@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.RemoteTaskFactory.ExchangeBufferLocation;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.failureDetector.FailureDetector;
@@ -247,13 +248,23 @@ public final class SqlStageExecution
 
         this.sourceTasks.putAll(remoteSource.getId(), sourceTasks);
 
+        ImmutableList.Builder<ExchangeBufferLocation> buffersToDestroy = ImmutableList.builder();
         for (RemoteTask task : getAllTasks()) {
-            ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
-            for (RemoteTask sourceTask : sourceTasks) {
-                URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), exchangeLocation));
+            if (task.getTaskStatus().getState().isDone()) {
+                // task is already finished, so we need to destroy the locations
+                for (RemoteTask sourceTask : sourceTasks) {
+                    URI location = exchangeSourceLocation(task.getTaskId(), sourceTask.getTaskStatus().getSelf());
+                    buffersToDestroy.add(new ExchangeBufferLocation(sourceTask.getTaskId(), location));
+                }
             }
-            task.addSplits(newSplits.build());
+            else {
+                ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
+                for (RemoteTask sourceTask : sourceTasks) {
+                    URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
+                    newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), exchangeLocation));
+                }
+                task.addSplits(newSplits.build());
+            }
         }
 
         if (noMoreExchangeLocations) {
@@ -267,6 +278,11 @@ public final class SqlStageExecution
                 }
             }
         }
+
+        // It is important to tell exchange producers to stop producing data for dead tasks, never created tasks,
+        // or tasks that finish while exchange is being setup (a.k.a races).  Without this, producers will fill
+        // their buffers and then hang waiting for these dead tasks to read the data.
+        remoteTaskFactory.destroyExchangeSources(buffersToDestroy.build(), stateMachine::transitionToFailed);
     }
 
     public synchronized void setOutputBuffers(OutputBuffers outputBuffers)
@@ -397,6 +413,16 @@ public final class SqlStageExecution
         return task;
     }
 
+    private void destroyExchangeSources(TaskId consumerTaskId, Collection<RemoteTask> producerTasks)
+    {
+        List<ExchangeBufferLocation> producerLocations = producerTasks.stream()
+                .map(RemoteTask::getTaskStatus)
+                .filter(status -> !status.getState().isDone())
+                .map(producer -> new ExchangeBufferLocation(producer.getTaskId(), exchangeSourceLocation(consumerTaskId, producer.getSelf())))
+                .collect(toImmutableList());
+        remoteTaskFactory.destroyExchangeSources(producerLocations, stateMachine::transitionToFailed);
+    }
+
     public Set<Node> getScheduledNodes()
     {
         return ImmutableSet.copyOf(tasks.keySet());
@@ -410,8 +436,13 @@ public final class SqlStageExecution
     private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
     {
         // Fetch the results from the buffer assigned to the task based on id
-        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
+        URI splitLocation = exchangeSourceLocation(taskId, taskLocation);
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation));
+    }
+
+    private static URI exchangeSourceLocation(TaskId taskId, URI taskLocation)
+    {
+        return uriBuilderFrom(taskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
     }
 
     @Override
@@ -462,6 +493,10 @@ public final class SqlStageExecution
                 if (finishedTasks.containsAll(allTasks)) {
                     stateMachine.transitionToFinished();
                 }
+            }
+
+            if (taskState.isDone()) {
+                destroyExchangeSources(taskStatus.getTaskId(), sourceTasks.values());
             }
         }
 
@@ -516,17 +551,17 @@ public final class SqlStageExecution
     private static class ListenerManager<T>
     {
         private final List<Consumer<T>> listeners = new ArrayList<>();
-        private boolean freezed;
+        private boolean frozen;
 
         public synchronized void addListener(Consumer<T> listener)
         {
-            checkState(!freezed, "Listeners have been invoked");
+            checkState(!frozen, "Listeners have been invoked");
             listeners.add(listener);
         }
 
         public synchronized void invoke(T payload, Executor executor)
         {
-            freezed = true;
+            frozen = true;
             for (Consumer<T> listener : listeners) {
                 executor.execute(() -> listener.accept(payload));
             }

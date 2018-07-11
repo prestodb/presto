@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
@@ -66,7 +67,7 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -107,7 +108,7 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -131,7 +132,7 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -172,7 +173,7 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 

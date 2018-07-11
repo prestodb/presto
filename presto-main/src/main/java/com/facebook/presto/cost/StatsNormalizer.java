@@ -22,10 +22,10 @@ import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -43,17 +43,17 @@ import static java.util.Objects.requireNonNull;
  */
 public class StatsNormalizer
 {
-    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Map<Symbol, Type> types)
+    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, TypeProvider types)
     {
         return normalize(stats, Optional.empty(), types);
     }
 
-    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, Map<Symbol, Type> types)
+    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, TypeProvider types)
     {
         return normalize(stats, Optional.of(outputSymbols), types);
     }
 
-    private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols, Map<Symbol, Type> types)
+    private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols, TypeProvider types)
     {
         PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats);
 
@@ -85,7 +85,7 @@ public class StatsNormalizer
     /**
      * Calculates consistent stats for a symbol.
      */
-    private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats, Map<Symbol, Type> types)
+    private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats, TypeProvider types)
     {
         if (UNKNOWN_STATS.equals(symbolStats)) {
             return UNKNOWN_STATS;

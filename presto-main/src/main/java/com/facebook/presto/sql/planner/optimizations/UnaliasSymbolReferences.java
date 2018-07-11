@@ -16,13 +16,13 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -105,7 +105,7 @@ public class UnaliasSymbolReferences
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -120,9 +120,9 @@ public class UnaliasSymbolReferences
             extends SimplePlanRewriter<Void>
     {
         private final Map<Symbol, Symbol> mapping = new HashMap<>();
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        private Rewriter(Map<Symbol, Type> types)
+        private Rewriter(TypeProvider types)
         {
             this.types = types;
         }
@@ -147,24 +147,13 @@ public class UnaliasSymbolReferences
             for (List<Symbol> groupingSet : node.getGroupingSets()) {
                 ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
                 for (Symbol output : groupingSet) {
-                    newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingSetMappings().get(output)));
+                    newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingColumns().get(output)));
                     newGroupingSet.add(canonicalize(output));
                 }
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            Map<Symbol, Symbol> newArgumentMappings = new HashMap<>();
-            for (Symbol output : node.getArgumentMappings().keySet()) {
-                Symbol canonicalOutput = canonicalize(output);
-                if (newArgumentMappings.containsKey(canonicalOutput)) {
-                    map(output, canonicalOutput);
-                }
-                else {
-                    newArgumentMappings.put(canonicalOutput, canonicalize(node.getArgumentMappings().get(output)));
-                }
-            }
-
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, newArgumentMappings, canonicalize(node.getGroupIdSymbol()));
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override
@@ -281,7 +270,9 @@ public class UnaliasSymbolReferences
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
 
-            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(this::canonicalizeAndDistinct);
+
+            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs, orderingScheme);
         }
 
         private void mapExchangeNodeSymbols(ExchangeNode node)
@@ -333,7 +324,11 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<Void> context)
         {
-            return new RemoteSourceNode(node.getId(), node.getSourceFragmentIds(), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new RemoteSourceNode(
+                    node.getId(),
+                    node.getSourceFragmentIds(),
+                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    node.getOrderingScheme().map(this::canonicalizeAndDistinct));
         }
 
         @Override

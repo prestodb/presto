@@ -24,52 +24,52 @@ import static java.util.Objects.requireNonNull;
 public class LogicalBinaryExpression
         extends Expression
 {
-    public enum Type
+    public enum Operator
     {
         AND, OR;
 
-        public Type flip()
+        public Operator flip()
         {
             switch (this) {
                 case AND:
-                    return LogicalBinaryExpression.Type.OR;
+                    return Operator.OR;
                 case OR:
-                    return LogicalBinaryExpression.Type.AND;
+                    return Operator.AND;
                 default:
                     throw new IllegalArgumentException("Unsupported logical expression type: " + this);
             }
         }
     }
 
-    private final Type type;
+    private final Operator operator;
     private final Expression left;
     private final Expression right;
 
-    public LogicalBinaryExpression(Type type, Expression left, Expression right)
+    public LogicalBinaryExpression(Operator operator, Expression left, Expression right)
     {
-        this(Optional.empty(), type, left, right);
+        this(Optional.empty(), operator, left, right);
     }
 
-    public LogicalBinaryExpression(NodeLocation location, Type type, Expression left, Expression right)
+    public LogicalBinaryExpression(NodeLocation location, Operator operator, Expression left, Expression right)
     {
-        this(Optional.of(location), type, left, right);
+        this(Optional.of(location), operator, left, right);
     }
 
-    private LogicalBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    private LogicalBinaryExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
-        requireNonNull(type, "type is null");
+        requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
-        this.type = type;
+        this.operator = operator;
         this.left = left;
         this.right = right;
     }
 
-    public Type getType()
+    public Operator getOperator()
     {
-        return type;
+        return operator;
     }
 
     public Expression getLeft()
@@ -96,12 +96,12 @@ public class LogicalBinaryExpression
 
     public static LogicalBinaryExpression and(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Optional.empty(), Type.AND, left, right);
+        return new LogicalBinaryExpression(Optional.empty(), Operator.AND, left, right);
     }
 
     public static LogicalBinaryExpression or(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Optional.empty(), Type.OR, left, right);
+        return new LogicalBinaryExpression(Optional.empty(), Operator.OR, left, right);
     }
 
     @Override
@@ -115,7 +115,7 @@ public class LogicalBinaryExpression
         }
 
         LogicalBinaryExpression that = (LogicalBinaryExpression) o;
-        return type == that.type &&
+        return operator == that.operator &&
                 Objects.equals(left, that.left) &&
                 Objects.equals(right, that.right);
     }
@@ -123,6 +123,6 @@ public class LogicalBinaryExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, left, right);
+        return Objects.hash(operator, left, right);
     }
 }

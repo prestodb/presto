@@ -19,12 +19,14 @@ public final class PrestoHeaders
     public static final String PRESTO_SOURCE = "X-Presto-Source";
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";
+    public static final String PRESTO_PATH = "X-Presto-Path";
     public static final String PRESTO_TIME_ZONE = "X-Presto-Time-Zone";
     public static final String PRESTO_LANGUAGE = "X-Presto-Language";
     public static final String PRESTO_TRACE_TOKEN = "X-Presto-Trace-Token";
     public static final String PRESTO_SESSION = "X-Presto-Session";
     public static final String PRESTO_SET_CATALOG = "X-Presto-Set-Catalog";
     public static final String PRESTO_SET_SCHEMA = "X-Presto-Set-Schema";
+    public static final String PRESTO_SET_PATH = "X-Presto-Set-Path";
     public static final String PRESTO_SET_SESSION = "X-Presto-Set-Session";
     public static final String PRESTO_CLEAR_SESSION = "X-Presto-Clear-Session";
     public static final String PRESTO_PREPARED_STATEMENT = "X-Presto-Prepared-Statement";
@@ -35,6 +37,7 @@ public final class PrestoHeaders
     public static final String PRESTO_CLEAR_TRANSACTION_ID = "X-Presto-Clear-Transaction-Id";
     public static final String PRESTO_CLIENT_INFO = "X-Presto-Client-Info";
     public static final String PRESTO_CLIENT_TAGS = "X-Presto-Client-Tags";
+    public static final String PRESTO_CLIENT_CAPABILITIES = "X-Presto-Client-Capabilities";
     public static final String PRESTO_RESOURCE_ESTIMATE = "X-Presto-Resource-Estimate";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";

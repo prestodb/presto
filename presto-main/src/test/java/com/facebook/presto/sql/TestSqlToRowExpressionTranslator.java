@@ -21,6 +21,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -42,7 +43,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 
 public class TestSqlToRowExpressionTranslator
 {
@@ -110,7 +110,7 @@ public class TestSqlToRowExpressionTranslator
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
                 TEST_SESSION,
-                emptyMap(),
+                TypeProvider.empty(),
                 emptyList(),
                 node -> new IllegalStateException("Expected node: %s" + node),
                 false);

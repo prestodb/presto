@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -33,15 +34,14 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -56,7 +56,7 @@ public class TestComparisonStatsCalculator
     private FilterStatsCalculator filterStatsCalculator;
     private Session session;
     private PlanNodeStatsEstimate standardInputStatistics;
-    private Map<Symbol, Type> types;
+    private TypeProvider types;
     private SymbolStatsEstimate uStats;
     private SymbolStatsEstimate wStats;
     private SymbolStatsEstimate xStats;
@@ -160,7 +160,7 @@ public class TestComparisonStatsCalculator
                 .setOutputRowCount(1000.0)
                 .build();
 
-        types = ImmutableMap.<Symbol, Type>builder()
+        types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                 .put(new Symbol("u"), DoubleType.DOUBLE)
                 .put(new Symbol("w"), DoubleType.DOUBLE)
                 .put(new Symbol("x"), DoubleType.DOUBLE)
@@ -171,7 +171,7 @@ public class TestComparisonStatsCalculator
                 .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
                 .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
                 .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
-                .build();
+                .build());
     }
 
     private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate)
@@ -694,7 +694,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
     }
 
-    private static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, Map<Symbol, Type> types)
+    private static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, TypeProvider types)
     {
         PlanNodeStatsEstimate normalized = normalizer.normalize(stats, outputSymbols, types);
         if (Objects.equals(stats, normalized)) {

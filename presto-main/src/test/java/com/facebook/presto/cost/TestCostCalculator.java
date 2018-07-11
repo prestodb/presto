@@ -20,7 +20,9 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -54,6 +56,7 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,6 +68,9 @@ import static org.testng.Assert.assertTrue;
 public class TestCostCalculator
 {
     private static final int NUMBER_OF_NODES = 10;
+    private static final double AVERAGE_ROW_SIZE = 8.;
+    private static final double IS_NULL_OVERHEAD = 9. / AVERAGE_ROW_SIZE;
+    private static final double OFFSET_AND_IS_NULL_OVERHEAD = 13. / AVERAGE_ROW_SIZE;
     private final CostCalculator costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(() -> NUMBER_OF_NODES);
     private final CostCalculator costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, () -> NUMBER_OF_NODES);
     private Session session = testSessionBuilder().build();
@@ -73,18 +79,19 @@ public class TestCostCalculator
     public void testTableScan()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
+        Map<String, Type> types = ImmutableMap.of("orderkey", BIGINT);
 
-        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
-                .cpu(1000)
+        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+                .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
-                .cpu(1000)
+        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+                .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(tableScan);
+        assertCostHasUnknownComponentsForUnknownStats(tableScan, types);
     }
 
     @Test
@@ -96,18 +103,21 @@ public class TestCostCalculator
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
                 "ts", statsEstimate(tableScan, 1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT,
+                "string", VARCHAR);
 
-        assertCost(project, costs, stats)
-                .cpu(1000 + 4000)
+        assertCost(project, costs, stats, types)
+                .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(project, costs, stats)
-                .cpu(1000 + 4000)
+        assertCostEstimatedExchanges(project, costs, stats, types)
+                .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(project);
+        assertCostHasUnknownComponentsForUnknownStats(project, types);
     }
 
     @Test
@@ -130,18 +140,21 @@ public class TestCostCalculator
                 "join", statsEstimate(join, 12000),
                 "ts1", statsEstimate(ts1, 6000),
                 "ts2", statsEstimate(ts2, 1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT,
+                "orderkey_0", BIGINT);
 
-        assertCost(join, costs, stats)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000)
-                .memory(1000)
+        assertCost(join, costs, stats, types)
+                .cpu(6000 + 1000 + (12000 + 6000 + 1000) * IS_NULL_OVERHEAD)
+                .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(join, costs, stats)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000 + 1000)
-                .memory(1000)
-                .network(6000 + 1000);
+        assertCostEstimatedExchanges(join, costs, stats, types)
+                .cpu(6000 + 1000 + (12000 + 6000 + 1000 + 6000 + 1000 + 1000) * IS_NULL_OVERHEAD)
+                .memory(1000 * IS_NULL_OVERHEAD)
+                .network((6000 + 1000) * IS_NULL_OVERHEAD);
 
-        assertCostHasUnknownComponentsForUnknownStats(join);
+        assertCostHasUnknownComponentsForUnknownStats(join, types);
     }
 
     @Test
@@ -165,17 +178,21 @@ public class TestCostCalculator
                 "ts1", statsEstimate(ts1, 6000),
                 "ts2", statsEstimate(ts2, 1000));
 
-        assertCost(join, costs, stats)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * (NUMBER_OF_NODES - 1))
-                .memory(1000 * NUMBER_OF_NODES)
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT,
+                "orderkey_0", BIGINT);
+
+        assertCost(join, costs, stats, types)
+                .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * (NUMBER_OF_NODES - 1)) * IS_NULL_OVERHEAD)
+                .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(join, costs, stats)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * NUMBER_OF_NODES)
-                .memory(1000 * NUMBER_OF_NODES)
-                .network(1000 * NUMBER_OF_NODES);
+        assertCostEstimatedExchanges(join, costs, stats, types)
+                .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * NUMBER_OF_NODES) * IS_NULL_OVERHEAD)
+                .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
+                .network(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD);
 
-        assertCostHasUnknownComponentsForUnknownStats(join);
+        assertCostHasUnknownComponentsForUnknownStats(join, types);
     }
 
     @Test
@@ -188,63 +205,72 @@ public class TestCostCalculator
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts", statsEstimate(tableScan, 6000),
                 "agg", statsEstimate(aggregation, 13));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT,
+                "count", BIGINT);
 
-        assertCost(aggregation, costs, stats)
-                .cpu(6000 + 6000)
-                .memory(13)
+        assertCost(aggregation, costs, stats, types)
+                .cpu(6000 * IS_NULL_OVERHEAD + 6000)
+                .memory(13 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(aggregation, costs, stats)
-                .cpu(6000 + 6000 + 6000 + 6000)
-                .memory(13)
-                .network(6000);
+        assertCostEstimatedExchanges(aggregation, costs, stats, types)
+                .cpu((6000 + 6000 + 6000) * IS_NULL_OVERHEAD + 6000)
+                .memory(13 * IS_NULL_OVERHEAD)
+                .network(6000 * IS_NULL_OVERHEAD);
 
-        assertCostHasUnknownComponentsForUnknownStats(aggregation);
+        assertCostHasUnknownComponentsForUnknownStats(aggregation, types);
     }
 
     private CostAssertionBuilder assertCost(
             PlanNode node,
             Map<String, PlanNodeCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats)
+            Map<String, PlanNodeStatsEstimate> stats,
+            Map<String, Type> types)
     {
-        return assertCost(costCalculatorUsingExchanges, node, costs, stats);
+        return assertCost(costCalculatorUsingExchanges, node, costs, stats, types);
     }
 
     private CostAssertionBuilder assertCostEstimatedExchanges(
             PlanNode node,
             Map<String, PlanNodeCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats)
+            Map<String, PlanNodeStatsEstimate> stats,
+            Map<String, Type> types)
     {
-        return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats);
+        return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats, types);
     }
 
     private CostAssertionBuilder assertCost(
             CostCalculator costCalculator,
             PlanNode node,
             Map<String, PlanNodeCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats)
+            Map<String, PlanNodeStatsEstimate> stats,
+            Map<String, Type> types)
     {
         PlanNodeCostEstimate cumulativeCost = calculateCumulativeCost(
                 costCalculator,
                 node,
                 planNode -> costs.get(planNode.getId().toString()),
-                planNode -> stats.get(planNode.getId().toString()));
+                planNode -> stats.get(planNode.getId().toString()),
+                types);
         return new CostAssertionBuilder(cumulativeCost);
     }
 
-    private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node)
+    private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node, Map<String, Type> types)
     {
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorUsingExchanges,
                 node,
                 planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS))
+                planNode -> UNKNOWN_STATS,
+                types))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
                 planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS))
+                planNode -> UNKNOWN_STATS,
+                types))
                 .hasUnknownComponents();
     }
 
@@ -252,14 +278,16 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Function<PlanNode, PlanNodeCostEstimate> costs,
-            Function<PlanNode, PlanNodeStatsEstimate> stats)
+            Function<PlanNode, PlanNodeStatsEstimate> stats,
+            Map<String, Type> types)
     {
         PlanNodeCostEstimate localCost = costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
                 noLookup(),
                 session,
-                ImmutableMap.of());
+                TypeProvider.copyOf(types.entrySet().stream()
+                        .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
 
         PlanNodeCostEstimate sourcesCost = node.getSources().stream()
                 .map(source -> requireNonNull(costs.apply(source), "no cost for source"))
@@ -311,8 +339,7 @@ public class TestCostCalculator
         checkArgument(symbols.size() > 0, "No symbols");
         checkArgument(ImmutableSet.copyOf(symbols).size() == symbols.size(), "Duplicate symbols");
 
-        double rowCount = outputSizeInBytes / symbols.size() / 8;
-        double averageRowSizePerSymbol = outputSizeInBytes / rowCount / symbols.size();
+        double rowCount = outputSizeInBytes / symbols.size() / AVERAGE_ROW_SIZE;
 
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(rowCount);
@@ -321,7 +348,7 @@ public class TestCostCalculator
                     symbol,
                     SymbolStatsEstimate.builder()
                             .setNullsFraction(0)
-                            .setAverageRowSize(averageRowSizePerSymbol)
+                            .setAverageRowSize(AVERAGE_ROW_SIZE)
                             .build());
         }
         return builder.build();
