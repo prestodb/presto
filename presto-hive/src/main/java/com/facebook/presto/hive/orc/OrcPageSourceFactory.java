@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEn
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -209,7 +210,8 @@ public class OrcPageSourceFactory
                     start,
                     length,
                     hiveStorageTimeZone,
-                    systemMemoryUsage);
+                    systemMemoryUsage,
+                    INITIAL_BATCH_SIZE);
 
             return new OrcPageSource(
                     recordReader,

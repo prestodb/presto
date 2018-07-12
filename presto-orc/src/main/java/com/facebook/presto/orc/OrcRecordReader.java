@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
@@ -81,6 +82,7 @@ public class OrcRecordReader
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
+    private int nextBatchSize;
     private int maxBatchSize = MAX_BATCH_SIZE;
 
     private final List<StripeInformation> stripes;
@@ -128,7 +130,8 @@ public class OrcRecordReader
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
-            Optional<OrcWriteValidation> writeValidation)
+            Optional<OrcWriteValidation> writeValidation,
+            int initialBatchSize)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -225,6 +228,7 @@ public class OrcRecordReader
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
         maxBytesPerCell = new long[streamReaders.length];
+        nextBatchSize = initialBatchSize;
     }
 
     private static boolean splitContainsStripe(long splitOffset, long splitLength, StripeInformation stripe)
@@ -362,7 +366,18 @@ public class OrcRecordReader
             }
         }
 
-        currentBatchSize = toIntExact(min(maxBatchSize, currentGroupRowCount - nextRowInGroup));
+        // We will grow currentBatchSize by BATCH_SIZE_GROWTH_FACTOR starting from initialBatchSize to maxBatchSize or
+        // the number of rows left in this rowgroup, whichever is smaller. maxBatchSize is adjusted according to the
+        // block size for every batch and never exceed MAX_BATCH_SIZE. But when the number of rows in the last batch in
+        // the current rowgroup is smaller than min(nextBatchSize, maxBatchSize), the nextBatchSize for next batch in
+        // the new rowgroup should be grown based on min(nextBatchSize, maxBatchSize) but not by the number of rows in
+        // the last batch, i.e. currentGroupRowCount - nextRowInGroup. For example, if the number of rows read for
+        // single fixed width column are: 1, 16, 256, 1024, 1024,..., 1024, 256 and the 256 was because there is only
+        // 256 rows left in this row group, then the nextBatchSize should be 1024 instead of 512. So we need to grow the
+        // nextBatchSize before limiting the currentBatchSize by currentGroupRowCount - nextRowInGroup.
+        currentBatchSize = toIntExact(min(nextBatchSize, maxBatchSize));
+        nextBatchSize = min(currentBatchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_BATCH_SIZE);
+        currentBatchSize = toIntExact(min(currentBatchSize, currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
@@ -370,6 +385,7 @@ public class OrcRecordReader
             }
         }
         nextRowInGroup += currentBatchSize;
+
         validateWritePageChecksum();
         return currentBatchSize;
     }
