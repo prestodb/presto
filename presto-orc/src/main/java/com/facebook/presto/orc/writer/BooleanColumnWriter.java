@@ -186,8 +186,11 @@ public class BooleanColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
-        return INSTANCE_SIZE + dataStream.getRetainedBytes() + presentStream.getRetainedBytes();
+        long retainedBytes = INSTANCE_SIZE + dataStream.getRetainedBytes() + presentStream.getRetainedBytes();
+        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
+            retainedBytes += statistics.getRetainedSizeInBytes();
+        }
+        return retainedBytes;
     }
 
     @Override
