@@ -108,6 +108,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -517,7 +518,7 @@ public class OrcTester
             boolean isHiveWriter)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -630,7 +631,7 @@ public class OrcTester
         }
     }
 
-    static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type)
+    static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -639,7 +640,7 @@ public class OrcTester
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext());
+        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
     }
 
     private static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
