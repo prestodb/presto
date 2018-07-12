@@ -227,8 +227,11 @@ public class ListColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
-        return INSTANCE_SIZE + lengthStream.getRetainedBytes() + presentStream.getRetainedBytes() + elementWriter.getRetainedBytes();
+        long retainedBytes = INSTANCE_SIZE + lengthStream.getRetainedBytes() + presentStream.getRetainedBytes() + elementWriter.getRetainedBytes();
+        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
+            retainedBytes += statistics.getRetainedSizeInBytes();
+        }
+        return retainedBytes;
     }
 
     @Override

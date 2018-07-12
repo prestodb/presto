@@ -471,8 +471,7 @@ public class SliceDictionaryColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
-        return INSTANCE_SIZE +
+        long retainedBytes = INSTANCE_SIZE +
                 values.sizeOf() +
                 dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
@@ -480,6 +479,11 @@ public class SliceDictionaryColumnWriter
                 dictionaryLengthStream.getRetainedBytes() +
                 dictionary.getRetainedSizeInBytes() +
                 (directColumnWriter == null ? 0 : directColumnWriter.getRetainedBytes());
+
+        for (DictionaryRowGroup rowGroup : rowGroups) {
+            retainedBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
+        }
+        return retainedBytes;
     }
 
     @Override
