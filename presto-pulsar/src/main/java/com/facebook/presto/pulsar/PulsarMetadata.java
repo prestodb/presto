@@ -164,7 +164,7 @@ public class PulsarMetadata implements ConnectorMetadata {
 
                     PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
                             connectorId,
-                            pulsarColumnMetadata.getName(),
+                            pulsarColumnMetadata.getNameWithCase(),
                             pulsarColumnMetadata.getType(),
                             pulsarColumnMetadata.isHidden(),
                             pulsarColumnMetadata.isInternal(),
@@ -268,8 +268,6 @@ public class PulsarMetadata implements ConnectorMetadata {
             Schema.Field field = fields.get(i);
             builder.addAll(getColumns(field.name(), field.schema(), i));
         }
-
-
         if (withInternalColums) {
             PulsarInternalColumn.getInternalFields().stream().forEach(new Consumer<PulsarInternalColumn>() {
                 @Override
@@ -279,11 +277,13 @@ public class PulsarMetadata implements ConnectorMetadata {
             });
         }
 
+        log.info("columns: %s", builder.build());
         return new ConnectorTableMetadata(schemaTableName, builder.build());
     }
 
     private List<PulsarColumnMetadata> getColumns(String name, Schema fieldSchema, int index) {
 
+        log.info("name: %s", name);
         List<PulsarColumnMetadata> columnMetadataList = new LinkedList<>();
 
         if (isPrimitiveType(fieldSchema.getType())) {
@@ -321,6 +321,7 @@ public class PulsarMetadata implements ConnectorMetadata {
         } else {
             log.error("unknown type: {}", fieldSchema);
         }
+        log.info("columnMetadataList: %s", columnMetadataList);
         return columnMetadataList;
     }
 

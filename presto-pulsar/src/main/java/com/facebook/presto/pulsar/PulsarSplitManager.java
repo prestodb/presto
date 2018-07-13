@@ -32,6 +32,7 @@ import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.shade.org.apache.bookkeeper.conf.ClientConfiguration;
 
 import javax.inject.Inject;
@@ -48,7 +49,6 @@ public class PulsarSplitManager implements ConnectorSplitManager {
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
     private static final Logger log = Logger.get(PulsarSplitManager.class);
-
 
     @Inject
     public PulsarSplitManager(PulsarConnectorId connectorId, PulsarConnectorConfig pulsarConnectorConfig) {
@@ -76,11 +76,10 @@ public class PulsarSplitManager implements ConnectorSplitManager {
             log.error(e);
             throw new RuntimeException(e);
         }
-        String schemaJson = new String(schemaInfo.getSchema());
 
         Collection<PulsarSplit> splits;
         try {
-           splits = getSplits(numSplits, topicName, tableHandle, schemaJson);
+           splits = getSplits(numSplits, topicName, tableHandle, schemaInfo);
         } catch (Exception e) {
             log.error(e, "Failed to get splits");
            throw new RuntimeException(e);
@@ -90,7 +89,9 @@ public class PulsarSplitManager implements ConnectorSplitManager {
     }
 
     private Collection<PulsarSplit> getSplits(int numSplits, TopicName topicName, PulsarTableHandle
-            tableHandle, String schemaJson) throws Exception {
+            tableHandle, SchemaInfo schemaInfo) throws Exception {
+        String schemaJson = new String(schemaInfo.getSchema());
+        SchemaType schemaType = schemaInfo.getType();
         List<PulsarSplit> splits = new ArrayList<>(numSplits);
         ManagedLedgerFactory managedLedgerFactory = null;
         ReadOnlyCursor readOnlyCursor = null;
@@ -100,12 +101,8 @@ public class PulsarSplitManager implements ConnectorSplitManager {
                     .setAllowShadedLedgerManagerFactoryClass(true)
                     .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
             managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
-            ManagedLedgerConfig managedLedgerConfig = new ManagedLedgerConfig().setEnsembleSize(1).setWriteQuorumSize
-                    (1).setAckQuorumSize(1).setMetadataEnsembleSize(1).setMetadataWriteQuorumSize(1)
-                    .setMetadataAckQuorumSize(1);
-
             readOnlyCursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
-                    PositionImpl.earliest, managedLedgerConfig);
+                    PositionImpl.earliest, new ManagedLedgerConfig());
 
             long numEntries = readOnlyCursor.getNumberOfEntries();
             log.info("numEntries: %s", numEntries);
@@ -123,7 +120,7 @@ public class PulsarSplitManager implements ConnectorSplitManager {
                 log.info("endPosition: %s", endPosition);
 
                 splits.add(new PulsarSplit(i, this.connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(),
-                        entriesForSplit, schemaJson, startPosition.getEntryId(),
+                        entriesForSplit, schemaJson, schemaType, startPosition.getEntryId(),
                         endPosition.getEntryId(), startPosition.getLedgerId(), endPosition.getLedgerId()));
             }
             return splits;

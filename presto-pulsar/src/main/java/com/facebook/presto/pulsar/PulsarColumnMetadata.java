@@ -20,29 +20,29 @@ public class PulsarColumnMetadata extends ColumnMetadata{
 
     private boolean isInternal;
     private Integer positionIndex;
-
-
-//    public PulsarColumnMetadata(String name, Type type) {
-//        super(name, type);
-//        this.isInternal = false;
-//    }
-//
-//    public PulsarColumnMetadata(String name, Type type, String comment) {
-//        super(name, type, comment, false);
-//        this.isInternal = false;
-//    }
+    // need this because presto ColumnMetadata saves name in lowercase
+    private String nameWithCase;
 
     public PulsarColumnMetadata(String name, Type type, String comment, String extraInfo,
                                 boolean hidden, boolean isInternal, Integer positionIndex) {
         super(name, type, comment, extraInfo, hidden);
+        this.nameWithCase = name;
         this.isInternal = isInternal;
         this.positionIndex = positionIndex;
     }
 
+    public String getNameWithCase() {
+        return nameWithCase;
+    }
 
     public boolean isInternal() {
         return isInternal;
     }
+
+    public int getPositionIndex() {
+        return positionIndex;
+    }
+
 
     @Override
     public String toString()
@@ -82,9 +82,5 @@ public class PulsarColumnMetadata extends ColumnMetadata{
         int result = super.hashCode();
         result = 31 * result + (isInternal ? 1 : 0);
         return result;
-    }
-
-    public int getPositionIndex() {
-        return positionIndex;
     }
 }

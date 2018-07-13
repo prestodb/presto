@@ -22,10 +22,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.DecoderFactory;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
@@ -38,13 +34,13 @@ import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.impl.MessageParser;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.shade.org.apache.bookkeeper.conf.ClientConfiguration;
 
 import java.io.IOException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -72,13 +68,11 @@ public class PulsarRecordCursor implements RecordCursor {
     private ManagedLedgerFactory managedLedgerFactory;
     private ReadOnlyCursor cursor;
     private Queue<Message> messageQueue = new LinkedList<>();
-    private Schema schema;
-    private GenericRecord currentRecord;
+    private Object currentRecord;
     private Message currentMessage;
     private Map<String, PulsarInternalColumn> internalColumnMap = PulsarInternalColumn.getInternalFieldsMap();
-    private Map<String, String> fieldToColumn = new HashMap<>();
+    private final SchemaHandler schemaHandler;
     private static final int NUM_ENTRY_READ_BATCH = 100;
-
 
     private static final Logger log = Logger.get(PulsarRecordCursor.class);
 
@@ -88,18 +82,44 @@ public class PulsarRecordCursor implements RecordCursor {
         this.pulsarSplit = pulsarSplit;
         this.pulsarConnectorConfig = pulsarConnectorConfig;
 
-        this.schema = PulsarConnectorUtils.parseSchema(this.pulsarSplit.getSchema());
+        Schema schema = PulsarConnectorUtils.parseSchema(pulsarSplit.getSchema());
 
-        log.info("Start: %s end: %s", this.pulsarSplit.getStartPosition(), this.pulsarSplit.getEndPosition());
+        this.schemaHandler = getSchemaHandler(schema, pulsarSplit.getSchemaType(), columnHandles);
+
+        log.info("Start: %s end: %s", pulsarSplit.getStartPosition(), pulsarSplit.getEndPosition());
 
         try {
-             this.cursor = getCursor(TopicName.get("persistent", NamespaceName.get(this.pulsarSplit.getSchemaName()),
-                     this.pulsarSplit.getTableName()), this.pulsarSplit.getStartPosition());
+             this.cursor = getCursor(TopicName.get("persistent", NamespaceName.get(pulsarSplit.getSchemaName()),
+                     pulsarSplit.getTableName()), pulsarSplit.getStartPosition());
         } catch (Exception e) {
             log.error(e, "Failed to get cursor");
             close();
             throw new RuntimeException(e);
         }
+    }
+
+    private SchemaHandler getSchemaHandler(Schema schema, SchemaType schemaType, List<PulsarColumnHandle> columnHandles) {
+        SchemaHandler schemaHandler;
+        switch (schemaType) {
+            case JSON:
+                schemaHandler = new JSONSchemaHandler(columnHandles);
+                break;
+            case AVRO:
+                schemaHandler = new AvroSchemaHandler(schema, columnHandles);
+                break;
+            case PROTOBUF:
+                schemaHandler = null;
+                break;
+            case STRING:
+                schemaHandler = null;
+                break;
+            case NONE:
+                schemaHandler = null;
+                break;
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Unrecognized schema type: " + schemaType);
+        }
+        return schemaHandler;
     }
 
     private ReadOnlyCursor getCursor(TopicName topicName, Position startPosition) throws Exception {
@@ -110,10 +130,8 @@ public class PulsarRecordCursor implements RecordCursor {
 
         managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
 
-        ManagedLedgerConfig managedLedgerConfig = new ManagedLedgerConfig().setEnsembleSize(1).setWriteQuorumSize(1).setAckQuorumSize(1).setMetadataEnsembleSize(1).setMetadataWriteQuorumSize(1).setMetadataAckQuorumSize(1);
-
         ReadOnlyCursor cursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
-                startPosition, managedLedgerConfig);
+                startPosition, new ManagedLedgerConfig());
 
         return cursor;
     }
@@ -180,18 +198,15 @@ public class PulsarRecordCursor implements RecordCursor {
         }
 
         this.currentMessage = this.messageQueue.poll();
-
-        DatumReader<GenericRecord> datumReader = new GenericDatumReader<>(this.schema);
-        try {
-            currentRecord = datumReader.read(null, DecoderFactory.get().binaryDecoder(this.currentMessage.getData(), null));
-        } catch (IOException e) {
-            log.error(e);
-        }
+        currentRecord = this.schemaHandler.deserialize(this.currentMessage.getData());
 
         return true;
     }
 
     private Object getRecord(int fieldIndex) {
+        if (this.currentRecord == null) {
+            return null;
+        }
 
         Object data;
         PulsarColumnHandle pulsarColumnHandle = this.columnHandles.get(fieldIndex);
@@ -201,7 +216,7 @@ public class PulsarRecordCursor implements RecordCursor {
             PulsarInternalColumn pulsarInternalColumn = this.internalColumnMap.get(fieldName);
             data = pulsarInternalColumn.getData(this.currentMessage);
         } else {
-            data = this.currentRecord.get(this.columnHandles.get(fieldIndex).getPositionIndex());
+            data = this.schemaHandler.extractField(fieldIndex, this.currentRecord);
         }
 
         return data;
