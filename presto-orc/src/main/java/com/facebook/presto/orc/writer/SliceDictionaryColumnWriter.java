@@ -15,6 +15,9 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
+import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
@@ -27,9 +30,13 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.stream.ByteArrayOutputStream;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.orc.stream.LongInputStreamV1;
+import com.facebook.presto.orc.stream.LongInputStreamV2;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
+import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
@@ -37,10 +44,12 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.ints.IntArrays;
+import org.jetbrains.annotations.NotNull;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -49,6 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
@@ -65,6 +76,8 @@ public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
+    private static final OrcDataSourceId orcDataSourceId = new OrcDataSourceId("temporary dictionary ids in SliceDictionaryColumnWriter");
+
     private final int column;
     private final Type type;
     private final CompressionKind compression;
@@ -80,6 +93,7 @@ public class SliceDictionaryColumnWriter
      * <code>dataStream</code> when flushing data.
      */
     private final LongOutputStream tempDictionaryIdDataStream;
+    private final Optional<OrcDecompressor> orcDecompressor;
 
     private final LongOutputStream dataStream;
     private final PresentOutputStream presentStream;
@@ -110,7 +124,15 @@ public class SliceDictionaryColumnWriter
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
+
         this.compression = requireNonNull(compression, "compression is null");
+        try {
+            this.orcDecompressor = createOrcDecompressor(orcDataSourceId, compression, 1024 * 1024);
+        }
+        catch (OrcCorruptionException e) {
+            throw new RuntimeException(e);
+        }
+
         this.bufferSize = bufferSize;
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.stringStatisticsLimitInBytes = toIntExact(requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null").toBytes());
@@ -343,13 +365,37 @@ public class SliceDictionaryColumnWriter
             presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
         }
+
+        LongInputStream tempDictionaryIdInputStream = getTempDictionaryIdInputStream();
         for (DictionaryRowGroup rowGroup : rowGroups) {
             IntBigArray dictionaryIndexes = rowGroup.getDictionaryIndexes();
+
             for (int position = 0; position < rowGroup.getValueCount(); position++) {
                 presentStream.writeBoolean(dictionaryIndexes.get(position) != 0);
-            }
-            for (int position = 0; position < rowGroup.getValueCount(); position++) {
+                int decodedDictionaryIndex;
+                try {
+                    // TODO: batch read
+                    if (position == 512) {
+//                        System.out.println("About to decode!!!");
+                    }
+
+                    decodedDictionaryIndex = toIntExact(tempDictionaryIdInputStream.next());
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
                 int originalDictionaryIndex = dictionaryIndexes.get(position);
+                checkState(decodedDictionaryIndex == originalDictionaryIndex);
+
+                if (decodedDictionaryIndex != originalDictionaryIndex) {
+                    System.out.println("guguha_failed???");
+                    checkState(false);
+                }
+                else {
+//                    System.out.println("passed");
+                }
+
                 // index zero in original dictionary is reserved for null
                 if (originalDictionaryIndex != 0) {
                     int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
@@ -368,9 +414,28 @@ public class SliceDictionaryColumnWriter
         dictionaryDataStream.close();
         dictionaryLengthStream.close();
 
-        tempDictionaryIdDataStream.close();
         dataStream.close();
         presentStream.close();
+    }
+
+    private LongInputStream getTempDictionaryIdInputStream()
+    {
+        tempDictionaryIdDataStream.close();
+        FixedLengthSliceInput tempDictionaryIdSliceInput = tempDictionaryIdDataStream.getSliceInput();
+        OrcInputStream input = new OrcInputStream(
+                orcDataSourceId,
+                tempDictionaryIdSliceInput,
+                orcDecompressor,
+                newSimpleAggregatedMemoryContext(),
+                tempDictionaryIdSliceInput.getRetainedSize());
+        LongInputStream inputStream;
+        if (orcEncoding == DWRF) {
+            inputStream = new LongInputStreamV1(input, false);
+        }
+        else {
+            inputStream = new LongInputStreamV2(input, false, false);
+        }
+        return inputStream;
     }
 
     private static int[] getSortedDictionaryNullsLast(Block elementBlock)
