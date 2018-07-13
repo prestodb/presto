@@ -66,6 +66,17 @@ public class JoinBridgeLifecycleManager<T>
                 });
     }
 
+    public static JoinBridgeLifecycleManager<SetBridge> semiJoin(JoinBridgeDataManager<SetBridge> setManager)
+    {
+        return new JoinBridgeLifecycleManager<>(
+                INNER,
+                setManager,
+                SetBridge::destroy,
+                joinBridge -> {
+                    throw new UnsupportedOperationException();
+                });
+    }
+
     private final JoinType joinType;
     private final FreezeOnReadCounter factoryCount;
     private final JoinBridgeDataManager<T> joinBridgeDataManager;

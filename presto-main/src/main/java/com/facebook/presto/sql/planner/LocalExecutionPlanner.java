@@ -61,8 +61,9 @@ import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputF
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.SetBridge;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
-import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
+import com.facebook.presto.operator.SetSupplier;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
@@ -2091,15 +2092,20 @@ public class LocalExecutionPlanner
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
 
+            Type channelType = buildSource.getTypes().get(buildChannel);
+            JoinBridgeDataManager<SetBridge> setBridgeManager = JoinBridgeDataManager.semiJoin(
+                    probeSource.getPipelineExecutionStrategy(),
+                    buildSource.getPipelineExecutionStrategy(),
+                    lifespan -> new SetSupplier(channelType),
+                    buildSource.getTypes());
             SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
-                    buildSource.getTypes().get(buildChannel),
+                    setBridgeManager,
                     buildChannel,
                     buildHashChannel,
                     10_000,
                     joinCompiler);
-            SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
@@ -2116,7 +2122,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setBridgeManager, probeSource.getTypes(), probeChannel);
             return new PhysicalOperation(operator, outputMappings, context, probeSource);
         }
 

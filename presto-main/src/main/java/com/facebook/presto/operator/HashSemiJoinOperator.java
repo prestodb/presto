@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -32,48 +32,81 @@ import static java.util.Objects.requireNonNull;
 public class HashSemiJoinOperator
         implements Operator
 {
-    private final OperatorContext operatorContext;
-
     public static class HashSemiJoinOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final SetSupplier setSupplier;
+        private final JoinBridgeLifecycleManager<SetBridge> joinBridgeManager;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeDataManager<SetBridge> setBridgeDataManager, List<? extends Type> probeTypes, int probeJoinChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.setSupplier = setSupplier;
+            this.joinBridgeManager = JoinBridgeLifecycleManager.semiJoin(requireNonNull(setBridgeDataManager, "setBridgeDataManager is null"));
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+        }
+
+        public HashSemiJoinOperatorFactory(HashSemiJoinOperatorFactory other)
+        {
+            requireNonNull(other, "other is null");
+            this.operatorId = other.operatorId;
+            this.planNodeId = other.planNodeId;
+
+            this.probeTypes = other.probeTypes;
+            this.probeJoinChannel = other.probeJoinChannel;
+
+            // joinBridgeManager must be duplicated here.
+            // Otherwise, reference counting and lifecycle management will be wrong.
+            this.joinBridgeManager = other.joinBridgeManager.duplicate();
+
+            // closed is intentionally not copied
+            closed = false;
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            SetBridge setBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
+            ReferenceCount probeReferenceCount = joinBridgeManager.getProbeReferenceCount(driverContext.getLifespan());
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeJoinChannel);
+
+            probeReferenceCount.retain();
+            return new HashSemiJoinOperator(operatorContext, setBridge, probeJoinChannel, probeReferenceCount::release);
         }
 
         @Override
         public void noMoreOperators()
         {
+            if (closed) {
+                return;
+            }
             closed = true;
+            joinBridgeManager.noMoreLifespan();
+        }
+
+        @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            joinBridgeManager.getProbeReferenceCount(lifespan).release();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperatorFactory(this);
         }
     }
+
+    private final OperatorContext operatorContext;
+    private final Runnable afterClose;
 
     private final int probeJoinChannel;
     private final ListenableFuture<ChannelSet> channelSetFuture;
@@ -81,17 +114,19 @@ public class HashSemiJoinOperator
     private ChannelSet channelSet;
     private Page outputPage;
     private boolean finishing;
+    private boolean closed;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, int probeJoinChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetBridge setBridge, int probeJoinChannel, Runnable afterClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
-        requireNonNull(channelSetFuture, "hashProvider is null");
+        requireNonNull(setBridge, "setBridge is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-        this.channelSetFuture = channelSetFuture.getChannelSet();
+        this.channelSetFuture = setBridge.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
+        this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 
     @Override
@@ -109,7 +144,12 @@ public class HashSemiJoinOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && outputPage == null;
+        boolean finished = finishing && outputPage == null;
+
+        if (finished) {
+            close();
+        }
+        return finished;
     }
 
     @Override
@@ -176,5 +216,18 @@ public class HashSemiJoinOperator
         Page result = outputPage;
         outputPage = null;
         return result;
+    }
+
+    @Override
+    public void close()
+    {
+        channelSet = null;
+        // We don't want to release the supplier multiple times, since its reference counted
+        if (closed) {
+            return;
+        }
+        closed = true;
+        // `afterClose` must be run last.
+        afterClose.run();
     }
 }

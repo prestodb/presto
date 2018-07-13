@@ -16,13 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -36,40 +34,13 @@ import static java.util.Objects.requireNonNull;
 public class SetBuilderOperator
         implements Operator
 {
-    public static class SetSupplier
-    {
-        private final Type type;
-        private final SettableFuture<ChannelSet> channelSetFuture = SettableFuture.create();
-
-        public SetSupplier(Type type)
-        {
-            this.type = requireNonNull(type, "type is null");
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public ListenableFuture<ChannelSet> getChannelSet()
-        {
-            return channelSetFuture;
-        }
-
-        void setChannelSet(ChannelSet channelSet)
-        {
-            boolean wasSet = channelSetFuture.set(requireNonNull(channelSet, "channelSet is null"));
-            checkState(wasSet, "ChannelSet already set");
-        }
-    }
-
     public static class SetBuilderOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final Optional<Integer> hashChannel;
-        private final SetSupplier setProvider;
+        private final JoinBridgeDataManager<SetBridge> setBridgeManager;
         private final int setChannel;
         private final int expectedPositions;
         private boolean closed;
@@ -78,7 +49,7 @@ public class SetBuilderOperator
         public SetBuilderOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                Type type,
+                JoinBridgeDataManager<SetBridge> setBridgeManager,
                 int setChannel,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
@@ -87,16 +58,11 @@ public class SetBuilderOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
-            this.setProvider = new SetSupplier(requireNonNull(type, "type is null"));
+            this.setBridgeManager = requireNonNull(setBridgeManager, "setBridgeManager is null");
             this.setChannel = setChannel;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        }
-
-        public SetSupplier getSetProvider()
-        {
-            return setProvider;
         }
 
         @Override
@@ -104,7 +70,7 @@ public class SetBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SetBuilderOperator.class.getSimpleName());
-            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions, joinCompiler);
+            return new SetBuilderOperator(operatorContext, setBridgeManager.forLifespan(driverContext.getLifespan()), setChannel, hashChannel, expectedPositions, joinCompiler);
         }
 
         @Override
@@ -116,43 +82,47 @@ public class SetBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions, joinCompiler);
+            return new SetBuilderOperatorFactory(operatorId, planNodeId, setBridgeManager, setChannel, hashChannel, expectedPositions, joinCompiler);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final SetSupplier setSupplier;
+    private final SetBridge setBridge;
     private final int setChannel;
     private final Optional<Integer> hashChannel;
 
     private final ChannelSetBuilder channelSetBuilder;
 
-    private boolean finished;
+    // When the set is no longer needed, the isFinished method on this operator will return true.
+    private final ListenableFuture<?> setDestroyed;
+
+    private boolean setBuilt;
 
     @Nullable
     private Work<?> unfinishedWork;  // The pending work for current page.
 
     public SetBuilderOperator(
             OperatorContext operatorContext,
-            SetSupplier setSupplier,
+            SetBridge setBridge,
             int setChannel,
             Optional<Integer> hashChannel,
             int expectedPositions,
             JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.setSupplier = requireNonNull(setSupplier, "setProvider is null");
+        this.setBridge = requireNonNull(setBridge, "setSupplierBridge is null");
         this.setChannel = setChannel;
 
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         // Set builder is has a single channel which goes in channel 0, if hash is present, add a hachBlock to channel 1
         Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.empty();
         this.channelSetBuilder = new ChannelSetBuilder(
-                setSupplier.getType(),
+                setBridge.getType(),
                 channelSetHashChannel,
                 expectedPositions,
                 requireNonNull(operatorContext, "operatorContext is null"),
                 requireNonNull(joinCompiler, "joinCompiler is null"));
+        setDestroyed = setBridge.isDestroyed();
     }
 
     @Override
@@ -164,20 +134,26 @@ public class SetBuilderOperator
     @Override
     public void finish()
     {
-        if (finished) {
+        if (setBuilt) {
             return;
         }
 
         ChannelSet channelSet = channelSetBuilder.build();
-        setSupplier.setChannelSet(channelSet);
+        setBridge.setChannelSet(channelSet);
         operatorContext.recordGeneratedOutput(channelSet.getEstimatedSizeInBytes(), channelSet.size());
-        finished = true;
+        setBuilt = true;
     }
 
     @Override
     public boolean isFinished()
     {
-        return finished;
+        return setDestroyed.isDone();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return setBuilt ? setDestroyed : NOT_BLOCKED;
     }
 
     @Override
@@ -186,7 +162,7 @@ public class SetBuilderOperator
         // Since SetBuilderOperator doesn't produce any output, the getOutput()
         // method may never be called. We need to handle any unfinished work
         // before addInput() can be called again.
-        return !finished && (unfinishedWork == null || processUnfinishedWork());
+        return !setBuilt && (unfinishedWork == null || processUnfinishedWork()) && !isFinished();
     }
 
     @Override

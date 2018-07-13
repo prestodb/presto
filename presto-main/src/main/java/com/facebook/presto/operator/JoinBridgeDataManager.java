@@ -68,6 +68,25 @@ public class JoinBridgeDataManager<T>
                 NestedLoopJoinPagesBridge::destroy);
     }
 
+    public static JoinBridgeDataManager<SetBridge> semiJoin(
+            PipelineExecutionStrategy probeExecutionStrategy,
+            PipelineExecutionStrategy buildExecutionStrategy,
+            Function<Lifespan, SetBridge> setBridgeProvider,
+            List<Type> buildOutputTypes)
+    {
+        // Build side of semi join is always ungrouped today.
+        // If we want to change this in the future, this code will likely work, but needs to be tested.
+        checkArgument(buildExecutionStrategy == PipelineExecutionStrategy.UNGROUPED_EXECUTION, "Grouped execution for nested loop build is not supported");
+
+        return new JoinBridgeDataManager<>(
+                probeExecutionStrategy,
+                buildExecutionStrategy,
+                setBridgeProvider,
+                buildOutputTypes,
+                SharedSetBridge::new,
+                SetBridge::destroy);
+    }
+
     @VisibleForTesting
     public static JoinBridgeDataManager<LookupSourceFactory> lookupAllAtOnce(LookupSourceFactory factory)
     {

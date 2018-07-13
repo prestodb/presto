@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -67,14 +66,34 @@ public final class GroupByHashYieldAssertion
     }
 
     /**
+     * Add all input to operator while testing yielding behavior. Operator is not finished, and results will not
+     * contain any pages after the input has been added.
+     * @param operatorFactory creates an Operator that should directly or indirectly contain GroupByHash
+     * @param getHashCapacity returns the hash table capacity for the input operator
+     * @param additionalMemoryInBytes the memory used in addition to the GroupByHash in the operator (e.g., aggregator)
+     */
+    public static GroupByHashYieldResult processOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
+    {
+        GroupByHashYieldResultBuilder builder = addInputWithYieldingGroupByHash(input, hashKeyType, operatorFactory, getHashCapacity, additionalMemoryInBytes);
+        return builder.build();
+    }
+
+    /**
+     * Add all input to operator while testing yielding behavior.
      * @param operatorFactory creates an Operator that should directly or indirectly contain GroupByHash
      * @param getHashCapacity returns the hash table capacity for the input operator
      * @param additionalMemoryInBytes the memory used in addition to the GroupByHash in the operator (e.g., aggregator)
      */
     public static GroupByHashYieldResult finishOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
     {
+        GroupByHashYieldResultBuilder builder = addInputWithYieldingGroupByHash(input, hashKeyType, operatorFactory, getHashCapacity, additionalMemoryInBytes);
+        builder.addOutput(finishOperator(builder.getOperator()));
+        return builder.build();
+    }
+
+    private static GroupByHashYieldResultBuilder addInputWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
+    {
         assertLessThan(additionalMemoryInBytes, 1L << 21, "additionalMemoryInBytes should be a relatively small number");
-        List<Page> result = new LinkedList<>();
 
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
@@ -96,8 +115,7 @@ public final class GroupByHashYieldAssertion
         Operator operator = operatorFactory.createOperator(driverContext);
 
         // run operator
-        int yieldCount = 0;
-        long expectedReservedExtraBytes = 0;
+        GroupByHashYieldResultBuilder builder = new GroupByHashYieldResultBuilder(operator);
         for (Page page : input) {
             // unblocked
             assertTrue(operator.needsInput());
@@ -115,7 +133,7 @@ public final class GroupByHashYieldAssertion
             // get output to consume the input
             Page output = operator.getOutput();
             if (output != null) {
-                result.add(output);
+                builder.addOutput(output);
             }
 
             long newMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
@@ -149,7 +167,7 @@ public final class GroupByHashYieldAssertion
             }
             else {
                 // We failed to finish the page processing i.e. we yielded
-                yieldCount++;
+                builder.incrementYieldCount();
 
                 // Assert we are blocked
                 assertFalse(operator.getOperatorContext().isWaitingForMemory().isDone());
@@ -158,6 +176,7 @@ public final class GroupByHashYieldAssertion
                 assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
 
                 // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
+                long expectedReservedExtraBytes = 0;
                 if (hashKeyType == BIGINT) {
                     // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
                     expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES) + page.getRetainedSizeInBytes();
@@ -167,6 +186,7 @@ public final class GroupByHashYieldAssertion
                     expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES + Byte.BYTES) + page.getRetainedSizeInBytes();
                 }
                 assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
+                builder.setMaxReservedBytes(expectedReservedExtraBytes);
 
                 // Output should be blocked as well
                 assertNull(operator.getOutput());
@@ -177,7 +197,7 @@ public final class GroupByHashYieldAssertion
                 // Trigger a process through getOutput() or needsInput()
                 output = operator.getOutput();
                 if (output != null) {
-                    result.add(output);
+                    builder.addOutput(output);
                 }
                 assertTrue(operator.needsInput());
 
@@ -192,9 +212,7 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.needsInput());
             }
         }
-
-        result.addAll(finishOperator(operator));
-        return new GroupByHashYieldResult(yieldCount, expectedReservedExtraBytes, result);
+        return builder;
     }
 
     public static final class GroupByHashYieldResult
@@ -223,6 +241,49 @@ public final class GroupByHashYieldAssertion
         public List<Page> getOutput()
         {
             return output;
+        }
+    }
+
+    private static final class GroupByHashYieldResultBuilder
+    {
+        private final Operator operator;
+        private int yieldCount;
+        private long maxReservedBytes;
+        private final ImmutableList.Builder<Page> output = ImmutableList.builder();
+
+        public GroupByHashYieldResultBuilder(Operator operator)
+        {
+            this.operator = operator;
+        }
+
+        public Operator getOperator()
+        {
+            return operator;
+        }
+
+        public void incrementYieldCount()
+        {
+            yieldCount++;
+        }
+
+        public void setMaxReservedBytes(long maxReservedBytes)
+        {
+            this.maxReservedBytes = maxReservedBytes;
+        }
+
+        public void addOutput(Page page)
+        {
+            output.add(page);
+        }
+
+        public void addOutput(List<Page> pages)
+        {
+            output.addAll(pages);
+        }
+
+        public GroupByHashYieldResult build()
+        {
+            return new GroupByHashYieldResult(yieldCount, maxReservedBytes, output.build());
         }
     }
 }

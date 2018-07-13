@@ -17,17 +17,19 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
+import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -40,37 +42,36 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
-import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.processOperatorWithYieldingGroupByHash;
+import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@Test
 public class TestHashSemiJoinOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private TaskContext taskContext;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
-        taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
-    @AfterMethod
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -92,34 +93,18 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testSemiJoin(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        TaskContext taskContext = createTaskContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT)
                 .row(10L)
                 .row(30L)
                 .row(30L)
                 .row(35L)
                 .row(36L)
                 .row(37L)
-                .row(50L)
-                .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
-                1,
-                new PlanNodeId("test"),
-                rowPagesBuilder.getTypes().get(0),
-                0,
-                rowPagesBuilder.getHashChannel(),
-                10,
-                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
-
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
-        while (!driver.isFinished()) {
-            driver.process();
-        }
+                .row(50L);
+        JoinBridgeDataManager<SetBridge> setBridgeManager = buildSet(taskContext, rowPagesBuilder);
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT, BIGINT);
@@ -130,12 +115,12 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                setBuilderOperatorFactory.getSetProvider(),
+                setBridgeManager,
                 rowPagesBuilderProbe.getTypes(),
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(30L, 0L, true)
                 .row(31L, 1L, false)
                 .row(32L, 2L, false)
@@ -148,7 +133,8 @@ public class TestHashSemiJoinOperator
                 .row(39L, 9L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "dataType")
@@ -158,17 +144,22 @@ public class TestHashSemiJoinOperator
         List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
 
         // create the operator
+        JoinBridgeDataManager<SetBridge> setBridgeManager = JoinBridgeDataManager.semiJoin(
+                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
+                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
+                lifespan -> new SetSupplier(type),
+                ImmutableList.of(type));
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                type,
+                setBridgeManager,
                 0,
                 Optional.of(1),
                 10,
                 new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
 
         // run test
-        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = processOperatorWithYieldingGroupByHash(
                 input,
                 type,
                 setBuilderOperatorFactory,
@@ -183,34 +174,17 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testBuildSideNulls(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        TaskContext taskContext = createTaskContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
-        List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
-                .row(0L)
-                .row(1L)
-                .row(2L)
-                .row(2L)
-                .row(3L)
-                .row((Object) null)
-                .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
-                1,
-                new PlanNodeId("test"),
-                buildTypes.get(0),
-                0,
-                rowPagesBuilder.getHashChannel(),
-                10,
-                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
-
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
-        while (!driver.isFinished()) {
-            driver.process();
-        }
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), ImmutableList.of(BIGINT))
+                        .row(0L)
+                        .row(1L)
+                        .row(2L)
+                        .row(2L)
+                        .row(3L)
+                        .row((Object) null);
+        JoinBridgeDataManager<SetBridge> setBridgeManager = buildSet(taskContext, rowPagesBuilder);
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT);
@@ -221,49 +195,33 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                setBuilderOperatorFactory.getSetProvider(),
+                setBridgeManager,
                 rowPagesBuilderProbe.getTypes(),
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(1L, true)
                 .row(2L, true)
                 .row(3L, true)
                 .row(4L, null)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeSideNulls(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        TaskContext taskContext = createTaskContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
-        List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), ImmutableList.of(BIGINT))
                 .row(0L)
                 .row(1L)
-                .row(3L)
-                .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
-                1,
-                new PlanNodeId("test"),
-                buildTypes.get(0),
-                0,
-                rowPagesBuilder.getHashChannel(),
-                10,
-                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
-
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
-        while (!driver.isFinished()) {
-            driver.process();
-        }
+                .row(3L);
+        JoinBridgeDataManager<SetBridge> setBridgeManager = buildSet(taskContext, rowPagesBuilder);
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT);
@@ -277,50 +235,34 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                setBuilderOperatorFactory.getSetProvider(),
+                setBridgeManager,
                 rowPagesBuilderProbe.getTypes(),
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)
                 .row(2L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeAndBuildNulls(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        TaskContext taskContext = createTaskContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
-        List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), ImmutableList.of(BIGINT))
                 .row(0L)
                 .row(1L)
                 .row((Object) null)
-                .row(3L)
-                .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
-                1,
-                new PlanNodeId("test"),
-                buildTypes.get(0),
-                0,
-                rowPagesBuilder.getHashChannel(),
-                10,
-                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
-
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
-        while (!driver.isFinished()) {
-            driver.process();
-        }
+                .row(3L);
+        JoinBridgeDataManager<SetBridge> setBridgeManager = buildSet(taskContext, rowPagesBuilder);
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT);
@@ -334,47 +276,74 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                setBuilderOperatorFactory.getSetProvider(),
+                setBridgeManager,
                 rowPagesBuilderProbe.getTypes(),
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)
                 .row(2L, null)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of.*")
     public void testMemoryLimit(boolean hashEnabled)
     {
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE))
-                .addPipelineContext(0, true, true)
-                .addDriverContext();
+        TaskContext taskContext = createTaskContext(new DataSize(100, BYTE));
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
-                .addSequencePage(10000, 20)
-                .build());
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes)
+                .addSequencePage(10000, 20);
+        buildSet(taskContext, rowPagesBuilder);
+    }
+
+    protected TaskContext createTaskContext()
+    {
+        return createTaskContext(new DataSize(512, MEGABYTE));
+    }
+
+    private TaskContext createTaskContext(DataSize dataSize)
+    {
+        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, dataSize);
+    }
+
+    private static JoinBridgeDataManager<SetBridge> buildSet(TaskContext taskContext, RowPagesBuilder rowPagesBuilder)
+    {
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+
+        ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), rowPagesBuilder.build());
+
+        JoinBridgeDataManager<SetBridge> setBridgeManager = JoinBridgeDataManager.semiJoin(
+                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
+                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
+                lifespan -> new SetSupplier(rowPagesBuilder.getTypes().get(0)),
+                rowPagesBuilder.getTypes());
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                buildTypes.get(0),
+                setBridgeManager,
                 0,
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
-        while (!driver.isFinished()) {
+        Operator valuesOperator = valuesOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Driver driver = Driver.createDriver(driverContext, valuesOperator, setBuilderOperator);
+
+        valuesOperatorFactory.noMoreOperators();
+        setBuilderOperatorFactory.noMoreOperators();
+
+        // advance until the set is built (the operator will block waiting for the set to be destroyed)
+        while (setBuilderOperator.isBlocked().isDone()) {
             driver.process();
         }
+        return setBridgeManager;
     }
 }
