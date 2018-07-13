@@ -62,7 +62,6 @@ public final class HiveSessionProperties
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
-    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
@@ -222,11 +221,6 @@ public final class HiveSessionProperties
                         hiveClientConfig.isRespectTableFormat(),
                         false),
                 booleanProperty(
-                        PARQUET_OPTIMIZED_READER_ENABLED,
-                        "Experimental: Parquet: Enable optimized reader",
-                        hiveClientConfig.isParquetOptimizedReaderEnabled(),
-                        false),
-                booleanProperty(
                         PARQUET_PREDICATE_PUSHDOWN_ENABLED,
                         "Experimental: Parquet: Enable predicate pushdown for Parquet",
                         hiveClientConfig.isParquetPredicatePushdownEnabled(),
@@ -311,11 +305,6 @@ public final class HiveSessionProperties
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
     {
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
-    }
-
-    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)

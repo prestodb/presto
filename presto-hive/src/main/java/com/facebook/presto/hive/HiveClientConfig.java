@@ -101,7 +101,6 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
-    private boolean parquetOptimizedReaderEnabled = true;
     private boolean parquetPredicatePushdownEnabled = true;
 
     private boolean assumeCanonicalPartitionKeys;
@@ -681,20 +680,6 @@ public class HiveClientConfig
     public HiveClientConfig setParquetPredicatePushdownEnabled(boolean parquetPredicatePushdownEnabled)
     {
         this.parquetPredicatePushdownEnabled = parquetPredicatePushdownEnabled;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isParquetOptimizedReaderEnabled()
-    {
-        return parquetOptimizedReaderEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.parquet-optimized-reader.enabled")
-    public HiveClientConfig setParquetOptimizedReaderEnabled(boolean parquetOptimizedReaderEnabled)
-    {
-        this.parquetOptimizedReaderEnabled = parquetOptimizedReaderEnabled;
         return this;
     }
 

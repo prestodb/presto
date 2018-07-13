@@ -60,7 +60,6 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
@@ -110,10 +109,6 @@ public class ParquetPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isParquetOptimizedReaderEnabled(session)) {
-            return Optional.empty();
-        }
-
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
