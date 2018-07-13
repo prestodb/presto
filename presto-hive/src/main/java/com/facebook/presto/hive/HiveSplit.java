@@ -50,6 +50,7 @@ public class HiveSplit
     private final boolean forceLocalScheduling;
     private final Map<Integer, HiveType> columnCoercions; // key: hiveColumnIndex
     private final Optional<BucketConversion> bucketConversion;
+    private final boolean s3SelectPushdownEnabled;
 
     @JsonCreator
     public HiveSplit(
@@ -67,7 +68,8 @@ public class HiveSplit
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions,
-            @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion)
+            @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
+            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -99,6 +101,7 @@ public class HiveSplit
         this.effectivePredicate = effectivePredicate;
         this.columnCoercions = columnCoercions;
         this.bucketConversion = bucketConversion;
+        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
     }
 
     @JsonProperty
@@ -198,6 +201,12 @@ public class HiveSplit
         return !forceLocalScheduling;
     }
 
+    @JsonProperty
+    public boolean isS3SelectPushdownEnabled()
+    {
+        return s3SelectPushdownEnabled;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -211,6 +220,7 @@ public class HiveSplit
                 .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
+                .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .build();
     }
 
@@ -223,6 +233,7 @@ public class HiveSplit
                 .addValue(length)
                 .addValue(fileSize)
                 .addValue(effectivePredicate)
+                .addValue(s3SelectPushdownEnabled)
                 .toString();
     }
 

@@ -145,6 +145,8 @@ public class HiveClientConfig
     private String recordingPath;
     private boolean replay;
     private Duration recordingDuration = new Duration(0, MINUTES);
+    private boolean s3SelectPushdownEnabled;
+    private int s3SelectPushdownMaxConnections = 500;
 
     public int getMaxInitialSplits()
     {
@@ -1161,5 +1163,31 @@ public class HiveClientConfig
     public Duration getRecordingDuration()
     {
         return recordingDuration;
+    }
+
+    public boolean isS3SelectPushdownEnabled()
+    {
+        return s3SelectPushdownEnabled;
+    }
+
+    @Config("hive.s3select-pushdown.enabled")
+    @ConfigDescription("Enable query pushdown to AWS S3 Select service")
+    public HiveClientConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
+    {
+        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getS3SelectPushdownMaxConnections()
+    {
+        return s3SelectPushdownMaxConnections;
+    }
+
+    @Config("hive.s3select-pushdown.max-connections")
+    public HiveClientConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
+    {
+        this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
+        return this;
     }
 }

@@ -615,7 +615,7 @@ public class PrestoS3FileSystem
         return keyFromPath(p1).equals(keyFromPath(p2));
     }
 
-    private static String keyFromPath(Path path)
+    public static String keyFromPath(Path path)
     {
         checkArgument(path.isAbsolute(), "Path is not absolute: %s", path);
         String key = nullToEmpty(path.toUri().getPath());

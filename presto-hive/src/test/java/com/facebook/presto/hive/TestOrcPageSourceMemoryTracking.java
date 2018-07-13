@@ -484,7 +484,8 @@ public class TestOrcPageSourceMemoryTracking
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
                     ImmutableMap.of(),
-                    Optional.empty())
+                    Optional.empty(),
+                    false)
                     .get();
         }
 

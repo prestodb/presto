@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -30,19 +31,29 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 
-public class GenericHiveRecordCursorProvider
+public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
 {
+    private static final Set<String> CSV_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private final HdfsEnvironment hdfsEnvironment;
+    private final HiveClientConfig clientConfig;
+    private final PrestoS3ClientFactory s3ClientFactory;
 
     @Inject
-    public GenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
+    public S3SelectRecordCursorProvider(
+            HdfsEnvironment hdfsEnvironment,
+            HiveClientConfig clientConfig,
+            PrestoS3ClientFactory s3ClientFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.clientConfig = requireNonNull(clientConfig, "clientConfig is null");
+        this.s3ClientFactory = requireNonNull(s3ClientFactory, "s3ClientFactory is null");
     }
 
     @Override
@@ -60,7 +71,10 @@ public class GenericHiveRecordCursorProvider
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled)
     {
-        // make sure the FileSystem is created with the proper Configuration object
+        if (!s3SelectPushdownEnabled) {
+            return Optional.empty();
+        }
+
         try {
             this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
         }
@@ -68,23 +82,15 @@ public class GenericHiveRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
-        RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
-                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
+        String serdeName = getDeserializerClassName(schema);
+        if (CSV_SERDES.contains(serdeName)) {
+            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+            String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
+            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+            return Optional.of(new S3SelectRecordCursor(configuration, path, recordReader, length, schema, columns, hiveStorageTimeZone, typeManager));
+        }
 
-        return Optional.of(new GenericHiveRecordCursor<>(
-                configuration,
-                path,
-                genericRecordReader(recordReader),
-                length,
-                schema,
-                columns,
-                hiveStorageTimeZone,
-                typeManager));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
-    {
-        return (RecordReader<?, ? extends Writable>) recordReader;
+        // unsupported serdes
+        return Optional.empty();
     }
 }

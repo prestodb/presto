@@ -90,10 +90,12 @@ public class HivePageSourceProvider
         HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
 
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
+
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
-                hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path),
+                configuration,
                 session,
                 path,
                 hiveSplit.getBucketNumber(),
@@ -107,7 +109,8 @@ public class HivePageSourceProvider
                 hiveStorageTimeZone,
                 typeManager,
                 hiveSplit.getColumnCoercions(),
-                hiveSplit.getBucketConversion());
+                hiveSplit.getBucketConversion(),
+                hiveSplit.isS3SelectPushdownEnabled());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -131,7 +134,8 @@ public class HivePageSourceProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             Map<Integer, HiveType> columnCoercions,
-            Optional<BucketConversion> bucketConversion)
+            Optional<BucketConversion> bucketConversion,
+            boolean s3SelectPushdownEnabled)
     {
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
@@ -191,7 +195,8 @@ public class HivePageSourceProvider
                     toColumnHandles(regularAndInterimColumnMappings, doCoercion),
                     effectivePredicate,
                     hiveStorageTimeZone,
-                    typeManager);
+                    typeManager,
+                    s3SelectPushdownEnabled);
 
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();
