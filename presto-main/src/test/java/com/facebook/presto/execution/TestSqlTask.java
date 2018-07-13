@@ -21,15 +21,20 @@ import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.operator.PipelineContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
@@ -38,6 +43,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,7 +110,7 @@ public class TestSqlTask
     @Test
     public void testEmptyQuery()
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -133,7 +139,7 @@ public class TestSqlTask
     public void testSimpleQuery()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -169,7 +175,7 @@ public class TestSqlTask
     @Test
     public void testCancel()
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -195,10 +201,43 @@ public class TestSqlTask
     }
 
     @Test
+    public void testTaskMemoryReleasedOnCompletion()
+            throws InterruptedException, ExecutionException, TimeoutException
+    {
+        // waitUntilDone future gets completed when the task is done
+        SettableFuture waitUntilDone = SettableFuture.create();
+        SqlTask sqlTask = createInitialTask(Optional.of((input) -> waitUntilDone.set(null)));
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds(),
+                OptionalInt.empty());
+
+        TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
+        PipelineContext pipelineContext1 = taskContext.addPipelineContext(0, false, false);
+        PipelineContext pipelineContext2 = taskContext.addPipelineContext(1, false, false);
+
+        pipelineContext1.localSystemMemoryContext().setBytes(100);
+        pipelineContext2.localSystemMemoryContext().setBytes(100);
+        taskContext.localSystemMemoryContext().setBytes(100);
+
+        MemoryTrackingContext memoryTrackingContext = taskContext.getTaskMemoryContext();
+        assertEquals(memoryTrackingContext.getSystemMemory(), 300);
+
+        // canceling the task will destroy the TaskContext, which will destroy
+        // the local/aggregate memory contexts tied to it including the PipelineContexts
+        sqlTask.cancel();
+        waitUntilDone.get(30, SECONDS);
+        assertEquals(memoryTrackingContext.getSystemMemory(), 0);
+    }
+
+    @Test
     public void testAbort()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -223,7 +262,7 @@ public class TestSqlTask
     public void testBufferCloseOnFinish()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
@@ -250,7 +289,7 @@ public class TestSqlTask
     public void testBufferCloseOnCancel()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
@@ -272,7 +311,7 @@ public class TestSqlTask
     public void testBufferNotCloseOnFail()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        SqlTask sqlTask = createInitialTask(Optional.empty());
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
@@ -294,7 +333,7 @@ public class TestSqlTask
         assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
     }
 
-    public SqlTask createInitialTask()
+    public SqlTask createInitialTask(Optional<Function<SqlTask, ?>> onDone)
     {
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
@@ -314,7 +353,7 @@ public class TestSqlTask
                         new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
-                Functions.identity(),
+                onDone.orElseGet(() -> Functions.identity()),
                 new DataSize(32, MEGABYTE));
     }
 }

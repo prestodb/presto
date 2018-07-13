@@ -22,6 +22,7 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -45,6 +46,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
@@ -53,6 +56,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -517,6 +521,31 @@ public class TaskContext
         return pipelineContexts.stream()
                 .map(pipelineContext -> pipelineContext.accept(visitor, context))
                 .collect(toList());
+    }
+
+    public void destroy()
+    {
+        taskMemoryContext.close();
+
+        if (taskMemoryContext.getSystemMemory() != 0) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Task %s has non-zero system memory (%d bytes) after destroy()", this, taskMemoryContext.getSystemMemory()));
+        }
+
+        if (taskMemoryContext.getUserMemory() != 0) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Task %s has non-zero user memory (%d bytes) after destroy()", this, taskMemoryContext.getUserMemory()));
+        }
+
+        if (taskMemoryContext.getRevocableMemory() != 0) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Task %s has non-zero revocable memory (%d bytes) after destroy()", this, taskMemoryContext.getRevocableMemory()));
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("taskId", getTaskId())
+                .toString();
     }
 
     @VisibleForTesting
