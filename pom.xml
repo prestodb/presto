@@ -372,7 +372,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>1.2.0-2</version>
+                <version>1.2.2-2</version>
             </dependency>
 
             <dependency>
