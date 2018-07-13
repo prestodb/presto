@@ -761,67 +761,67 @@ public abstract class TestDateTimeFunctionsBase
     {
         assertFunction("date_parse('2013', '%Y')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 1, 1, 0, 0, 0, 0, session));
         assertFunction("date_parse('2013-05', '%Y-%m')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 1, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 1, 0, 0, 0, 0, session));
         assertFunction("date_parse('2013-05-17', '%Y-%m-%d')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 0, 0, 0, 0, session));
         assertFunction("date_parse('2013-05-17 12:35:10', '%Y-%m-%d %h:%i:%s')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 0, 35, 10, 0, session));
         assertFunction("date_parse('2013-05-17 12:35:10 PM', '%Y-%m-%d %h:%i:%s %p')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 12, 35, 10, 0, session));
         assertFunction("date_parse('2013-05-17 12:35:10 AM', '%Y-%m-%d %h:%i:%s %p')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 0, 35, 10, 0, session));
 
         assertFunction("date_parse('2013-05-17 00:35:10', '%Y-%m-%d %H:%i:%s')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 0, 35, 10, 0, session));
         assertFunction("date_parse('2013-05-17 23:35:10', '%Y-%m-%d %H:%i:%s')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 23, 35, 10, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 23, 35, 10, 0, session));
         assertFunction("date_parse('abc 2013-05-17 fff 23:35:10 xyz', 'abc %Y-%m-%d fff %H:%i:%s xyz')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2013, 5, 17, 23, 35, 10, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 5, 17, 23, 35, 10, 0, session));
 
         assertFunction("date_parse('2013 14', '%Y %y')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2014, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2014, 1, 1, 0, 0, 0, 0, session));
 
         assertFunction("date_parse('1998 53', '%x %v')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1998, 12, 28, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1998, 12, 28, 0, 0, 0, 0, session));
 
         assertFunction("date_parse('1.1', '%s.%f')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 100, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 100, session));
         assertFunction("date_parse('1.01', '%s.%f')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 10, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 10, session));
         assertFunction("date_parse('1.2006', '%s.%f')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 200, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 200, session));
         assertFunction("date_parse('59.123456789', '%s.%f')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 0, 0, 59, 123, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1970, 1, 1, 0, 0, 59, 123, session));
 
         assertFunction("date_parse('0', '%k')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1970, 1, 1, 0, 0, 0, 0, session));
 
         assertFunction("date_parse('28-JAN-16 11.45.46.421000 PM','%d-%b-%y %l.%i.%s.%f %p')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2016, 1, 28, 23, 45, 46, 421, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2016, 1, 28, 23, 45, 46, 421, session));
         assertFunction("date_parse('11-DEC-70 11.12.13.456000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(1970, 12, 11, 11, 12, 13, 456, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(1970, 12, 11, 11, 12, 13, 456, session));
         assertFunction("date_parse('31-MAY-69 04.59.59.999000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(2069, 5, 31, 4, 59, 59, 999, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2069, 5, 31, 4, 59, 59, 999, session));
 
         assertInvalidFunction("date_parse('', '%D')", "%D not supported in date format string");
         assertInvalidFunction("date_parse('', '%U')", "%U not supported in date format string");
