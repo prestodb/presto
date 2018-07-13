@@ -3001,6 +3001,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByUnderManyProjections()
+    {
+        assertQuery("SELECT nationkey, arbitrary_column + arbitrary_column " +
+                "FROM " +
+                "( " +
+                "   SELECT nationkey, COALESCE(arbitrary_column, 0) arbitrary_column " +
+                "   FROM ( " +
+                "      SELECT nationkey, 1 arbitrary_column " +
+                "      FROM nation " +
+                "      ORDER BY 1 ASC))");
+    }
+
+    @Test
     public void testUndistributedOrderBy()
     {
         Session undistributedOrderBy = Session.builder(getSession())
