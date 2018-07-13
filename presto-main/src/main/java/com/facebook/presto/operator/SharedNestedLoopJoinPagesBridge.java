@@ -43,9 +43,15 @@ public final class SharedNestedLoopJoinPagesBridge
     }
 
     @Override
-    public ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages)
+    public void setPages(NestedLoopJoinPages nestedLoopJoinPages)
     {
-        return delegate.setPages(nestedLoopJoinPages);
+        delegate.setPages(nestedLoopJoinPages);
+    }
+
+    @Override
+    public ListenableFuture<?> isDestroyed()
+    {
+        return delegate.isDestroyed();
     }
 
     @Override
