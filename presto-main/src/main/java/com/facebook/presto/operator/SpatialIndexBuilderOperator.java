@@ -28,6 +28,7 @@ import java.util.OptionalDouble;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class SpatialIndexBuilderOperator
@@ -131,10 +132,9 @@ public class SpatialIndexBuilderOperator
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     private final PagesIndex index;
-    private ListenableFuture<?> indexNotNeeded;
+    private final ListenableFuture<?> indexNotNeeded;
 
     private boolean finishing;
-    private boolean finished;
 
     private SpatialIndexBuilderOperator(
             OperatorContext operatorContext,
@@ -154,6 +154,8 @@ public class SpatialIndexBuilderOperator
 
         this.pagesSpatialIndexFactory = requireNonNull(pagesSpatialIndexFactory, "pagesSpatialIndexFactory is null");
         this.index = pagesIndexFactory.newPagesIndex(pagesSpatialIndexFactory.getTypes(), expectedPositions);
+        indexNotNeeded = pagesSpatialIndexFactory.isDestroyed();
+        indexNotNeeded.addListener(operatorContext::notifyAsync, directExecutor());
 
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.indexChannel = indexChannel;
@@ -169,7 +171,7 @@ public class SpatialIndexBuilderOperator
     @Override
     public boolean needsInput()
     {
-        return !finished;
+        return !finishing && !isFinished();
     }
 
     @Override
@@ -197,7 +199,7 @@ public class SpatialIndexBuilderOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        if (indexNotNeeded != null && !indexNotNeeded.isDone()) {
+        if (finishing && !indexNotNeeded.isDone()) {
             return indexNotNeeded;
         }
         return NOT_BLOCKED;
@@ -213,23 +215,18 @@ public class SpatialIndexBuilderOperator
         finishing = true;
         PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + spatialIndex.getEstimatedSize().toBytes());
-        indexNotNeeded = pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
+        pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
     }
 
     @Override
     public boolean isFinished()
     {
-        if (finished) {
-            return true;
+        if (!indexNotNeeded.isDone()) {
+            return false;
         }
 
-        if (finishing && indexNotNeeded.isDone()) {
-            index.clear();
-            localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
-            finished = true;
-        }
-
-        return finished;
+        close();
+        return true;
     }
 
     @Override

@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -141,12 +140,12 @@ public class PagesSpatialIndexFactory
      *
      * Returns a Future that completes once all the {@link SpatialJoinOperator}s have completed.
      */
-    public ListenableFuture<?> lendPagesSpatialIndex(Supplier<PagesSpatialIndex> pagesSpatialIndex)
+    public void lendPagesSpatialIndex(Supplier<PagesSpatialIndex> pagesSpatialIndex)
     {
         requireNonNull(pagesSpatialIndex, "pagesSpatialIndex is null");
 
         if (activeProbeOperators.getFreeFuture().isDone()) {
-            return NOT_BLOCKED;
+            return;
         }
 
         List<SettableFuture<PagesSpatialIndex>> settableFutures;
@@ -160,7 +159,10 @@ public class PagesSpatialIndexFactory
         for (SettableFuture<PagesSpatialIndex> settableFuture : settableFutures) {
             settableFuture.set(pagesSpatialIndex.get());
         }
+    }
 
+    public ListenableFuture<?> isDestroyed()
+    {
         return activeProbeOperators.getFreeFuture();
     }
 }
