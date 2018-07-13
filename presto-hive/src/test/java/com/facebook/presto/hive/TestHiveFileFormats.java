@@ -546,7 +546,8 @@ public class TestHiveFileFormats
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
                 ImmutableMap.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
@@ -591,7 +592,8 @@ public class TestHiveFileFormats
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
                 ImmutableMap.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         assertTrue(pageSource.isPresent());
 

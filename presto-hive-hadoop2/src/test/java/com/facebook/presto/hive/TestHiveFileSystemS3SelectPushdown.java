@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 
-public class TestHiveFileSystemS3
+public class TestHiveFileSystemS3SelectPushdown
         extends AbstractTestHiveFileSystemS3
 {
     @Parameters({
@@ -29,6 +29,6 @@ public class TestHiveFileSystemS3
     @BeforeClass
     public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
     {
-        super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, false);
+        super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, true);
     }
 }

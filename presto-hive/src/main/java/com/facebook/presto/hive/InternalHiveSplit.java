@@ -57,6 +57,7 @@ public class InternalHiveSplit
     private final boolean forceLocalScheduling;
     private final Map<Integer, HiveTypeName> columnCoercions;
     private final Optional<BucketConversion> bucketConversion;
+    private final boolean s3SelectPushdownEnabled;
 
     private long start;
     private int currentBlockIndex;
@@ -74,7 +75,8 @@ public class InternalHiveSplit
             boolean splittable,
             boolean forceLocalScheduling,
             Map<Integer, HiveTypeName> columnCoercions,
-            Optional<BucketConversion> bucketConversion)
+            Optional<BucketConversion> bucketConversion,
+            boolean s3SelectPushdownEnabled)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -101,6 +103,7 @@ public class InternalHiveSplit
         this.forceLocalScheduling = forceLocalScheduling;
         this.columnCoercions = ImmutableMap.copyOf(columnCoercions);
         this.bucketConversion = bucketConversion;
+        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
     }
 
     public String getPath()
@@ -121,6 +124,11 @@ public class InternalHiveSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    public boolean isS3SelectPushdownEnabled()
+    {
+        return s3SelectPushdownEnabled;
     }
 
     public Properties getSchema()

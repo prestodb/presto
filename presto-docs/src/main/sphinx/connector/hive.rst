@@ -179,6 +179,11 @@ Property Name                                      Description                  
 ``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``false``
                                                    on write. See `Table Statistics <#table-statistics>`__ for
                                                    details.
+
+``hive.s3select-pushdown.enabled``                 Enable query pushdown to AWS S3 Select service.              ``false``
+
+``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
+                                                   S3SelectPushdown.
 ================================================== ============================================================ ============
 
 Amazon S3 Configuration
@@ -340,6 +345,78 @@ classpath and must be able to communicate with your custom key management system
 the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, then the Hadoop configuration
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
+
+S3SelectPushdown
+^^^^^^^^^^^^^^^^
+
+S3SelectPushdown enables pushing down projection (SELECT) and predicate (WHERE)
+processing to `S3 Select <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html>`_.
+With S3SelectPushdown Presto only retrieves the required data from S3 instead of
+entire S3 objects reducing both latency and network usage.
+
+Is S3 Select a good fit for my workload?
+########################################
+
+Performance of S3SelectPushdown depends on the amount of data filtered by the
+query. Filtering a large number of rows should result in better performance. If
+the query doesn't filter any data then pushdown may not add any additional value
+and user will be charged for S3 Select requests. Thus, we recommend that you
+benchmark your workloads with and without S3 Select to see if using it may be
+suitable for your workload. By default, S3SelectPushdown is disabled and you
+should enable it in production after proper benchmarking and cost analysis. For
+more information on S3 Select request cost, please see
+`Amazon S3 Cloud Storage Pricing <https://aws.amazon.com/s3/pricing/>`_.
+
+Use the following guidelines to determine if S3 Select is a good fit for your
+workload:
+
+* Your query filters out more than half of the original data set.
+* Your query filter predicates use columns that have a data type supported by
+  Presto and S3 Select.
+  The ``TIMESTAMP``, ``REAL``, and ``DOUBLE`` data types are not supported by S3
+  Select Pushdown. We recommend using the decimal data type for numerical data.
+  For more information about supported data types for S3 Select, see the
+  `Data Types documentation <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-glacier-select-sql-reference-data-types.html>`_.
+* Your network connection between Amazon S3 and the Amazon EMR cluster has good
+  transfer speed and available bandwidth. Amazon S3 Select does not compress
+  HTTP responses, so the response size may increase for compressed input files.
+
+Considerations and Limitations
+##############################
+
+* Only objects stored in CSV format are supported. Objects can be uncompressed
+  or optionally compressed with gzip or bzip2.
+* The "AllowQuotedRecordDelimiters" property is not supported. If this property
+  is specified, the query fails.
+* Amazon S3 server-side encryption with customer-provided encryption keys
+  (SSE-C) and client-side encryption are not supported.
+* S3 Select Pushdown is not a substitute for using columnar or compressed file
+  formats such as ORC and Parquet.
+
+Enabling S3 Select Pushdown
+###########################
+
+You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
+Hive session property or using the ``hive.s3select-pushdown.enabled``
+configuration property. The session property will override the config
+property, allowing you enable or disable on a per-query basis.
+
+Understanding and Tuning the Maximum Connections
+################################################
+
+Presto can use its native S3 file system or EMRFS. When using the native FS, the
+maximum connections is configured via the ``hive.s3.max-connections``
+configuration property. When using EMRFS, the maximum connections is configured
+via the ``fs.s3.maxConnections`` Hadoop configuration property.
+
+S3 Select Pushdown bypasses the file systems when accessing Amazon S3 for
+predicate operations. In this case, the value of
+``hive.s3select-pushdown.max-connections`` determines the maximum number of
+client connections allowed for those operations from worker nodes.
+
+If your workload experiences the error *Timeout waiting for connection from
+pool*, increase the value of both ``hive.s3select-pushdown.max-connections`` and
+the maximum connections configuration for the file system you are using.
 
 Table Statistics
 ----------------

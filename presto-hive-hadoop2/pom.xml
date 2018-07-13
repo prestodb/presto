@@ -112,6 +112,7 @@
                             <excludes>
                                 <exclude>**/TestHiveClient.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -144,6 +145,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveFileSystemS3.java</include>
+                                <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -75,6 +75,7 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.S3SelectPushdown.shouldEnablePushdownForTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.FAIL;
@@ -280,6 +281,7 @@ public class BackgroundHiveSplitLoader
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
+        boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
             if (tableBucketInfo.isPresent()) {
@@ -300,7 +302,17 @@ public class BackgroundHiveSplitLoader
                 FileInputFormat.setInputPaths(targetJob, targetPath);
                 InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
-                InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(targetFilesystem, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions(), Optional.empty(), isForceLocalScheduling(session));
+                InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
+                        targetFilesystem,
+                        partitionName,
+                        inputFormat,
+                        schema,
+                        partitionKeys,
+                        effectivePredicate,
+                        partition.getColumnCoercions(),
+                        Optional.empty(),
+                        isForceLocalScheduling(session),
+                        s3SelectPushdownEnabled);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
                     return COMPLETED_FUTURE;
@@ -335,7 +347,8 @@ public class BackgroundHiveSplitLoader
                 effectivePredicate,
                 partition.getColumnCoercions(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
-                isForceLocalScheduling(session));
+                isForceLocalScheduling(session),
+                s3SelectPushdownEnabled);
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
@@ -355,7 +368,9 @@ public class BackgroundHiveSplitLoader
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
         }
 
-        boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0;
+        // S3 Select pushdown works at the granularity of individual S3 objects,
+        // therefore we must not split files when it is enabled.
+        boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
         fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
         return COMPLETED_FUTURE;
     }
