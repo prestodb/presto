@@ -490,8 +490,12 @@ public abstract class TestDateTimeFunctionsBase
 
         result = result.withMinuteOfHour(0);
         assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
+    }
 
-        result = WEIRD_TIME;
+    @Test
+    public void testTruncateTimeWithTimeZone()
+    {
+        DateTime result = WEIRD_TIME;
         result = result.withMillisOfSecond(0);
         assertFunction("date_trunc('second', " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(result));
 
@@ -568,7 +572,11 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_add('hour', 23, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusHours(23)));
         assertFunction("date_add('hour', -4, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.minusHours(4)));
         assertFunction("date_add('hour', -23, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.minusHours(23)));
+    }
 
+    @Test
+    public void testAddFieldToTimeWithTimeZone()
+    {
         assertFunction("date_add('millisecond', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusMillis(3)));
         assertFunction("date_add('second', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusSeconds(3)));
         assertFunction("date_add('minute', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusMinutes(3)));
@@ -646,7 +654,11 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) secondsBetween(baseDateTime, TIME).getSeconds());
         assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) minutesBetween(baseDateTime, TIME).getMinutes());
         assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) hoursBetween(baseDateTime, TIME).getHours());
+    }
 
+    @Test
+    public void testDateDiffTimeWithTimeZone()
+    {
         DateTime weirdBaseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIME '07:02:09.678 +07:09'";
 
