@@ -101,6 +101,7 @@ public class MetastoreHiveStatisticsProvider
             Estimate nullsFraction;
             if (hiveColumnHandle.isPartitionKey()) {
                 rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, hivePartitions));
+                rangeStatistics.setDataSize(calculateDataSize(partitionStatistics, columnName));
                 nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatistics);
                 if (isLowHighSupportedForType(prestoType)) {
                     lowValueCandidates = hivePartitions.stream()
@@ -114,6 +115,7 @@ public class MetastoreHiveStatisticsProvider
             }
             else {
                 rangeStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatistics, columnName));
+                rangeStatistics.setDataSize(calculateDataSize(partitionStatistics, columnName));
                 nullsFraction = calculateNullsFraction(partitionStatistics, columnName, rowCount);
 
                 if (isLowHighSupportedForType(prestoType)) {
@@ -210,6 +212,34 @@ public class MetastoreHiveStatisticsProvider
                     return OptionalDouble.empty();
                 },
                 DoubleStream::max);
+    }
+
+    private Estimate calculateDataSize(Map<String, PartitionStatistics> statisticsByPartitionName, String column)
+    {
+        List<Double> knownPartitionDataSizes = statisticsByPartitionName.values().stream()
+                .map(stats -> {
+                    OptionalDouble averageColumnLength = stats.getColumnStatistics().get(column).getAverageColumnLength();
+                    OptionalLong rowCount = stats.getBasicStatistics().getRowCount();
+                    OptionalLong nullsCount = stats.getColumnStatistics().get(column).getNullsCount();
+                    if (!averageColumnLength.isPresent() || !rowCount.isPresent()) {
+                        return OptionalDouble.empty();
+                    }
+
+                    long nonNullsCount = rowCount.getAsLong() - nullsCount.orElse(0);
+                    return OptionalDouble.of(averageColumnLength.getAsDouble() * nonNullsCount);
+                })
+                .filter(OptionalDouble::isPresent)
+                .map(OptionalDouble::getAsDouble)
+                .collect(toImmutableList());
+
+        double knownPartitionDataSizesSum = knownPartitionDataSizes.stream().mapToDouble(a -> a).sum();
+        long partitionsWithStatsCount = knownPartitionDataSizes.size();
+        long allPartitionsCount = statisticsByPartitionName.size();
+
+        if (partitionsWithStatsCount == 0) {
+            return Estimate.unknownValue();
+        }
+        return new Estimate(knownPartitionDataSizesSum / partitionsWithStatsCount * allPartitionsCount);
     }
 
     private Estimate calculateNullsFraction(Map<String, PartitionStatistics> statisticsByPartitionName, String column, Estimate totalRowsCount)
