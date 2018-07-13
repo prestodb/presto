@@ -28,6 +28,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -123,6 +124,7 @@ public class SetBuilderOperator
                 requireNonNull(operatorContext, "operatorContext is null"),
                 requireNonNull(joinCompiler, "joinCompiler is null"));
         setDestroyed = setBridge.isDestroyed();
+        setDestroyed.addListener(operatorContext::notifyAsync, directExecutor());
     }
 
     @Override
