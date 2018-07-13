@@ -285,11 +285,9 @@ public class ClusterMemoryManager
         // Therefore, if the query is gone from pools field, it should also be gone from nodes field.
         // However, since nodes can updated asynchronously, it has the potential of coming back after being gone.
         // Therefore, even if the query appears to be gone here, it might be back when one inspects nodes later.
-        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
-        if (generalPool == null) {
-            return false;
-        }
-        return !generalPool.getQueryMemoryReservations().containsKey(lastKilledQuery);
+        return !pools.get(GENERAL_POOL)
+                .getQueryMemoryReservations()
+                .containsKey(lastKilledQuery);
     }
 
     private void logQueryKill(QueryId killedQueryId, List<MemoryInfo> nodes)
