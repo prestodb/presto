@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class LocalExchangeSourceOperator
@@ -80,6 +81,7 @@ public class LocalExchangeSourceOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.source = requireNonNull(source, "source is null");
         operatorContext.setInfoSupplier(source::getBufferInfo);
+        source.waitForFinished().addListener(operatorContext::notifyAsync, directExecutor());
     }
 
     @Override

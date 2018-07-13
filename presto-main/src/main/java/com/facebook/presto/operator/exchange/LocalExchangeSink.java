@@ -14,7 +14,9 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -33,29 +35,43 @@ public class LocalExchangeSink
     }
 
     private final LocalExchanger exchanger;
-    private final Consumer<LocalExchangeSink> onFinish;
+    private final Runnable onFinish;
 
     private final AtomicBoolean finished = new AtomicBoolean();
+    private final ListenableFuture<?> finishedFuture;
 
     public LocalExchangeSink(
             LocalExchanger exchanger,
             Consumer<LocalExchangeSink> onFinish)
     {
         this.exchanger = requireNonNull(exchanger, "exchanger is null");
-        this.onFinish = requireNonNull(onFinish, "onFinish is null");
+
+        requireNonNull(onFinish, "onFinish is null");
+
+        SettableFuture<?> finishedFuture = SettableFuture.create();
+        this.onFinish = () -> {
+            onFinish.accept(this);
+            finishedFuture.set(null);
+        };
+        this.finishedFuture = Futures.nonCancellationPropagating(finishedFuture);
     }
 
     public void finish()
     {
         if (finished.compareAndSet(false, true)) {
             exchanger.finish();
-            onFinish.accept(this);
+            onFinish.run();
         }
     }
 
     public boolean isFinished()
     {
         return finished.get();
+    }
+
+    public ListenableFuture<?> waitForFinished()
+    {
+        return finishedFuture;
     }
 
     public void addPage(Page page)

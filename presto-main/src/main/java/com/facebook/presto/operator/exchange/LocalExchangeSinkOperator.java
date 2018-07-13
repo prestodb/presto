@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class LocalExchangeSinkOperator
@@ -105,6 +106,7 @@ public class LocalExchangeSinkOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sink = requireNonNull(sink, "sink is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+        sink.waitForFinished().addListener(operatorContext::notifyAsync, directExecutor());
     }
 
     @Override

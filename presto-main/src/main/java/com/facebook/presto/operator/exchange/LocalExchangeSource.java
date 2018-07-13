@@ -15,6 +15,7 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.spi.Page;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -45,7 +46,8 @@ public class LocalExchangeSource
         NOT_EMPTY.set(null);
     }
 
-    private final Consumer<LocalExchangeSource> onFinish;
+    private final Runnable onFinish;
+    private final ListenableFuture<?> finishedFuture;
 
     private final BlockingQueue<PageReference> buffer = new LinkedBlockingDeque<>();
     private final AtomicLong bufferedBytes = new AtomicLong();
@@ -60,7 +62,14 @@ public class LocalExchangeSource
 
     public LocalExchangeSource(Consumer<LocalExchangeSource> onFinish)
     {
-        this.onFinish = requireNonNull(onFinish, "onFinish is null");
+        requireNonNull(onFinish, "onFinish is null");
+
+        SettableFuture<?> finishedFuture = SettableFuture.create();
+        this.onFinish = () -> {
+            onFinish.accept(this);
+            finishedFuture.set(null);
+        };
+        this.finishedFuture = Futures.nonCancellationPropagating(finishedFuture);
     }
 
     public LocalExchangeBufferInfo getBufferInfo()
@@ -155,6 +164,11 @@ public class LocalExchangeSource
         }
     }
 
+    public ListenableFuture<?> waitForFinished()
+    {
+        return finishedFuture;
+    }
+
     public boolean isFinished()
     {
         synchronized (lock) {
@@ -219,7 +233,7 @@ public class LocalExchangeSource
             // NOTE: due the race in this method, the onFinish may be called multiple times
             // it is expected that the implementer handles this (which is why this source
             // is passed to the function)
-            onFinish.accept(this);
+            onFinish.run();
         }
     }
 
