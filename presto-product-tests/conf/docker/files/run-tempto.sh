@@ -16,7 +16,7 @@ fi
 
 java \
   "-Djava.util.logging.config.file=${DOCKER_TEMPTO_CONF_DIR}/logging.properties" \
-  -Duser.timezone=Asia/Kathmandu \
+  -Duser.timezone=America/Bahia_Banderas \
   -cp "/docker/volumes/jdbc/driver.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
   com.facebook.presto.tests.TemptoProductTestRunner \
   --report-dir "/docker/volumes/test-reports" \

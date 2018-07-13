@@ -19,7 +19,7 @@ import org.joda.time.DateTimeZone;
 
 public class TemptoProductTestRunner
 {
-    public static final DateTimeZone PRODUCT_TESTS_TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
+    public static final DateTimeZone PRODUCT_TESTS_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static void main(String[] args)
     {

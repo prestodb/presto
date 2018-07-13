@@ -14,14 +14,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <!--
-          America/Bahia_Banderas has:
-           - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
-           - DST (e.g. in July 2018)
-           - has changed offset on first day of epoch (Thursday, 1 January 1970, 00:00:00 clocks were turned forward 1 hour)
-           - had forward change at midnight (Thursday, 1 January 1970, 00:00:00 clocks were turned forward 1 hour)
-          -->
-        <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
     </properties>
 
     <dependencies>

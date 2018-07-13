@@ -23,12 +23,36 @@ import org.joda.time.DateTimeZone;
 
 import java.time.LocalDateTime;
 
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class DateTimeTestingUtils
 {
     private DateTimeTestingUtils() {}
+
+    public static SqlTimestamp sqlTimestampOf(
+            int year,
+            int monthOfYear,
+            int dayOfMonth,
+            int hourOfDay,
+            int minuteOfHour,
+            int secondOfMinute,
+            int millisOfSecond,
+            Session session)
+    {
+        return sqlTimestampOf(
+                year,
+                monthOfYear,
+                dayOfMonth,
+                hourOfDay,
+                minuteOfHour,
+                secondOfMinute,
+                millisOfSecond,
+                getDateTimeZone(session.getTimeZoneKey()),
+                session.getTimeZoneKey(),
+                session);
+    }
 
     public static SqlTimestamp sqlTimestampOf(
             int year,
@@ -91,6 +115,16 @@ public final class DateTimeTestingUtils
         else {
             return new SqlTimestamp(millis);
         }
+    }
+
+    public static SqlTime sqlTimeOf(
+            int hourOfDay,
+            int minuteOfHour,
+            int secondOfMinute,
+            int millisOfSecond,
+            Session session)
+    {
+        return sqlTimeOf(hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, getDateTimeZone(session.getTimeZoneKey()), session.getTimeZoneKey(), session);
     }
 
     public static SqlTime sqlTimeOf(

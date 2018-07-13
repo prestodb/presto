@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.testing.TestingSession;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -44,7 +45,7 @@ import static org.joda.time.DateTimeZone.UTC;
 public abstract class TestTimestampBase
         extends AbstractTestFunctions
 {
-    protected static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
+    protected static final TimeZoneKey TIME_ZONE_KEY = TestingSession.DEFAULT_TIME_ZONE_KEY;
     protected static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
     protected static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
     protected static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_TIME_ZONE_KEY);
@@ -74,19 +75,19 @@ public abstract class TestTimestampBase
     @Test
     public void testLiteral()
     {
-        assertFunction("TIMESTAMP '2013-03-30 01:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2013-03-30 02:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 2, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2013-03-30 03:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 3, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+        assertFunction("TIMESTAMP '2013-03-30 01:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, session));
+        assertFunction("TIMESTAMP '2013-03-30 02:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 2, 5, 0, 0, session));
+        assertFunction("TIMESTAMP '2013-03-30 03:05'", TIMESTAMP, sqlTimestampOf(2013, 3, 30, 3, 5, 0, 0, session));
 
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2001-01-22 03:04'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2001-01-22'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, session));
+        assertFunction("TIMESTAMP '2001-01-22 03:04'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, session));
+        assertFunction("TIMESTAMP '2001-01-22'", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, session));
 
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2001-1-2 3:4'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIMESTAMP '2001-1-2'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 321, session));
+        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 0, session));
+        assertFunction("TIMESTAMP '2001-1-2 3:4'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 0, 0, session));
+        assertFunction("TIMESTAMP '2001-1-2'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 0, 0, 0, 0, session));
     }
 
     @Test
@@ -180,7 +181,7 @@ public abstract class TestTimestampBase
     @Test
     public void testCastToTime()
     {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME, sqlTimeOf(3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME, sqlTimeOf(3, 4, 5, 321, session));
     }
 
     @Test
@@ -191,7 +192,7 @@ public abstract class TestTimestampBase
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
-                "03:04:05.321 Europe/Berlin");
+                "03:04:05.321 " + DATE_TIME_ZONE.getID());
     }
 
     @Test
@@ -202,7 +203,7 @@ public abstract class TestTimestampBase
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
-                "2001-01-22 03:04:05.321 Europe/Berlin");
+                "2001-01-22 03:04:05.321 " + DATE_TIME_ZONE.getID());
     }
 
     @Test
@@ -219,25 +220,25 @@ public abstract class TestTimestampBase
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('2001-1-22 03:04:05' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, session));
         assertFunction("cast('2001-1-22 03:04' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, session));
         assertFunction("cast('2001-1-22' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, session));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('2001-1-22 03:04:05.321 \t\n' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321 \t\n' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
     }
 
     @Test
@@ -245,10 +246,10 @@ public abstract class TestTimestampBase
     {
         assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, session));
         assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2013, 3, 30, 1, 5, 0, 0, session));
     }
 
     @Test
@@ -256,10 +257,10 @@ public abstract class TestTimestampBase
     {
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
                 TIMESTAMP,
-                sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, session));
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
                 TIMESTAMP,
-                sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, session));
     }
 
     @Test
