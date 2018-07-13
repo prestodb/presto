@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
@@ -23,7 +26,10 @@ public final class CatalogSchemaTableName
     private final String catalogName;
     private final SchemaTableName schemaTableName;
 
-    public CatalogSchemaTableName(String catalogName, SchemaTableName schemaTableName)
+    @JsonCreator
+    public CatalogSchemaTableName(
+            @JsonProperty("catalog") String catalogName,
+            @JsonProperty("schemaTable") SchemaTableName schemaTableName)
     {
         this.catalogName = checkNotEmpty(catalogName, "catalogName");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
@@ -34,11 +40,13 @@ public final class CatalogSchemaTableName
         this(catalogName, new SchemaTableName(schemaName, tableName));
     }
 
+    @JsonProperty("catalog")
     public String getCatalogName()
     {
         return catalogName;
     }
 
+    @JsonProperty("schemaTable")
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;

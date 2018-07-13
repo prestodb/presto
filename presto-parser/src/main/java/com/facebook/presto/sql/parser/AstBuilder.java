@@ -693,6 +693,8 @@ class AstBuilder
                 return new ExplainFormat(getLocation(context), ExplainFormat.Type.GRAPHVIZ);
             case SqlBaseLexer.TEXT:
                 return new ExplainFormat(getLocation(context), ExplainFormat.Type.TEXT);
+            case SqlBaseLexer.JSON:
+                return new ExplainFormat(getLocation(context), ExplainFormat.Type.JSON);
         }
 
         throw new IllegalArgumentException("Unsupported EXPLAIN format: " + context.value.getText());
@@ -708,6 +710,8 @@ class AstBuilder
                 return new ExplainType(getLocation(context), ExplainType.Type.DISTRIBUTED);
             case SqlBaseLexer.VALIDATE:
                 return new ExplainType(getLocation(context), ExplainType.Type.VALIDATE);
+            case SqlBaseLexer.IO:
+                return new ExplainType(getLocation(context), ExplainType.Type.IO);
         }
 
         throw new IllegalArgumentException("Unsupported EXPLAIN type: " + context.value.getText());
