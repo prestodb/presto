@@ -103,7 +103,7 @@ public abstract class TestTimestampWithTimeZoneBase
     }
 
     @Test
-    public void testSubstract()
+    public void testSubtract()
     {
         functionAssertions.assertFunctionString("TIMESTAMP '2017-03-30 14:15:16.432 +07:09' - TIMESTAMP '2016-03-29 03:04:05.321 +08:09'",
                 INTERVAL_DAY_TIME,
