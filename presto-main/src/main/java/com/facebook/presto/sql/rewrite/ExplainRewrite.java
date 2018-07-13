@@ -35,7 +35,9 @@ import java.util.Optional;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
+import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
+import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
 import static java.util.Collections.emptyList;
@@ -90,6 +92,10 @@ final class ExplainRewrite
             for (ExplainOption option : options) {
                 if (option instanceof ExplainType) {
                     planType = ((ExplainType) option).getType();
+                    // Use JSON as the default format for EXPLAIN (TYPE IO).
+                    if (planType == IO) {
+                        planFormat = JSON;
+                    }
                     break;
                 }
             }
@@ -121,6 +127,9 @@ final class ExplainRewrite
             switch (planFormat) {
                 case GRAPHVIZ:
                     plan = queryExplainer.get().getGraphvizPlan(session, statement, planType, parameters);
+                    break;
+                case JSON:
+                    plan = queryExplainer.get().getJsonPlan(session, statement, planType, parameters);
                     break;
                 case TEXT:
                     plan = queryExplainer.get().getPlan(session, statement, planType, parameters);

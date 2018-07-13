@@ -29,7 +29,8 @@ public class ExplainType
     {
         LOGICAL,
         DISTRIBUTED,
-        VALIDATE
+        VALIDATE,
+        IO
     }
 
     private final Type type;
