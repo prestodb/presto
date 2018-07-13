@@ -42,6 +42,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.lang.String.format;
@@ -253,6 +254,7 @@ public class HashBuilderOperator
         this.index = pagesIndexFactory.newPagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
         this.lookupSourceFactory = lookupSourceFactory;
         lookupSourceFactoryDestroyed = lookupSourceFactory.isDestroyed();
+        lookupSourceFactoryDestroyed.addListener(operatorContext::notifyAsync, directExecutor());
 
         this.outputChannels = outputChannels;
         this.hashChannels = hashChannels;
