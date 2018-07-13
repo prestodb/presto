@@ -1028,6 +1028,7 @@ public abstract class TestDateTimeFunctionsBase
         }
     }
 
+    @Test
     public void testParseDuration()
     {
         assertFunction("parse_duration('1234 ns')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 0));
