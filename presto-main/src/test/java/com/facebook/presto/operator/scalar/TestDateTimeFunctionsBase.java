@@ -31,12 +31,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.Hours;
+import org.joda.time.Minutes;
 import org.joda.time.ReadableInstant;
+import org.joda.time.Seconds;
 import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -54,6 +58,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -65,14 +70,12 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.DurationFieldType.millis;
-import static org.joda.time.Hours.hoursBetween;
-import static org.joda.time.Minutes.minutesBetween;
 import static org.joda.time.Months.monthsBetween;
-import static org.joda.time.Seconds.secondsBetween;
 import static org.joda.time.Weeks.weeksBetween;
 import static org.joda.time.Years.yearsBetween;
 import static org.testng.Assert.assertEquals;
@@ -93,7 +96,7 @@ public abstract class TestDateTimeFunctionsBase
     protected static final String DATE_LITERAL = "DATE '2001-08-22'";
     protected static final String DATE_ISO8601_STRING = "2001-08-22";
 
-    protected static final DateTime TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE);
+    protected static final LocalTime TIME = LocalTime.of(3, 4, 5, 321_000_000);
     protected static final String TIME_LITERAL = "TIME '03:04:05.321'";
     protected static final DateTime WEIRD_TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE);
     protected static final String WEIRD_TIME_LITERAL = "TIME '03:04:05.321 +07:09'";
@@ -481,14 +484,14 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testTruncateTime()
     {
-        DateTime result = TIME;
-        result = result.withMillisOfSecond(0);
+        LocalTime result = TIME;
+        result = result.withNano(0);
         assertFunction("date_trunc('second', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
 
-        result = result.withSecondOfMinute(0);
+        result = result.withSecond(0);
         assertFunction("date_trunc('minute', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
 
-        result = result.withMinuteOfHour(0);
+        result = result.withMinute(0);
         assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
     }
 
@@ -565,7 +568,7 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testAddFieldToTime()
     {
-        assertFunction("date_add('millisecond', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusMillis(3)));
+        assertFunction("date_add('millisecond', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusNanos(3_000_000)));
         assertFunction("date_add('second', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusSeconds(3)));
         assertFunction("date_add('minute', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusMinutes(3)));
         assertFunction("date_add('hour', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusHours(3)));
@@ -647,13 +650,13 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testDateDiffTime()
     {
-        DateTime baseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, DATE_TIME_ZONE);
+        LocalTime baseDateTime = LocalTime.of(7, 2, 9, 678_000_000);
         String baseDateTimeLiteral = "TIME '07:02:09.678'";
 
         assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, millisBetween(baseDateTime, TIME));
-        assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) secondsBetween(baseDateTime, TIME).getSeconds());
-        assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) minutesBetween(baseDateTime, TIME).getMinutes());
-        assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) hoursBetween(baseDateTime, TIME).getHours());
+        assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, secondsBetween(baseDateTime, TIME));
+        assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, minutesBetween(baseDateTime, TIME));
+        assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, hoursBetween(baseDateTime, TIME));
     }
 
     @Test
@@ -1106,28 +1109,44 @@ public abstract class TestDateTimeFunctionsBase
         return millis().getField(getInstantChronology(start)).getDifferenceAsLong(end.getMillis(), start.getMillis());
     }
 
-    private SqlTime toTime(DateTime dateTime)
+    private static Seconds secondsBetween(ReadableInstant start, ReadableInstant end)
     {
-        if (isLegacyTimestamp(session)) {
-            DateTimeZone zone = getDateTimeZone(session.getTimeZoneKey());
-            dateTime = normalizeTimeRepresentation(dateTime, new DateTime(1970, 1, 1, 0, 0, 0, zone).getMillis(), new DateTime(1970, 1, 1, 23, 59, 59, 999, zone).getMillis());
-            return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
-        }
-        else {
-            dateTime = normalizeTimeRepresentation(dateTime, 0, DAYS.toMillis(1) - 1);
-            return new SqlTime(dateTime.getMillisOfDay());
-        }
+        return Seconds.secondsBetween(start, end);
     }
 
-    private DateTime normalizeTimeRepresentation(DateTime dateTime, long min, long max)
+    private static Minutes minutesBetween(ReadableInstant start, ReadableInstant end)
     {
-        while (dateTime.isBefore(min)) {
-            dateTime = dateTime.plusDays(1);
-        }
-        while (dateTime.isAfter(max)) {
-            dateTime = dateTime.minusDays(1);
-        }
-        return dateTime;
+        return Minutes.minutesBetween(start, end);
+    }
+
+    private static Hours hoursBetween(ReadableInstant start, ReadableInstant end)
+    {
+        return Hours.hoursBetween(start, end);
+    }
+
+    private static long millisBetween(LocalTime start, LocalTime end)
+    {
+        return NANOSECONDS.toMillis(end.toNanoOfDay() - start.toNanoOfDay());
+    }
+
+    private static long secondsBetween(LocalTime start, LocalTime end)
+    {
+        return NANOSECONDS.toSeconds(end.toNanoOfDay() - start.toNanoOfDay());
+    }
+
+    private static long minutesBetween(LocalTime start, LocalTime end)
+    {
+        return NANOSECONDS.toMinutes(end.toNanoOfDay() - start.toNanoOfDay());
+    }
+
+    private static long hoursBetween(LocalTime start, LocalTime end)
+    {
+        return NANOSECONDS.toHours(end.toNanoOfDay() - start.toNanoOfDay());
+    }
+
+    private SqlTime toTime(LocalTime time)
+    {
+        return sqlTimeOf(time, session);
     }
 
     private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)

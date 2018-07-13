@@ -54,9 +54,9 @@ public abstract class TestTimeBase
     @Test
     public void testLiteral()
     {
-        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, session));
+        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, session));
     }
 
     @Test

@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 
 public class TestTimestampWithTimeZone
         extends TestTimestampWithTimeZoneBase
@@ -26,10 +27,13 @@ public class TestTimestampWithTimeZone
         super(false);
     }
 
+    @Test
     @Override
     public void testCastToTime()
     {
-        super.testCastToTime();
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                sqlTimeOf(3, 4, 5, 321, session));
 
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
                 TIME,
