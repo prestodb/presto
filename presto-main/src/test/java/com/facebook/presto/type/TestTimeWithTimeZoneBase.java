@@ -74,7 +74,7 @@ public abstract class TestTimeWithTimeZoneBase
     }
 
     @Test
-    public void testSubstract()
+    public void testSubtract()
     {
         functionAssertions.assertFunctionString("TIME '14:15:16.432 +07:09' - TIME '03:04:05.321 +08:09'",
                 INTERVAL_DAY_TIME,
