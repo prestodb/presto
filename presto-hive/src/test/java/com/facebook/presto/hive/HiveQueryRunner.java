@@ -54,7 +54,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
+    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -77,7 +77,7 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties)
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4, extraProperties);
 

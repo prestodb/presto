@@ -168,7 +168,7 @@ import static org.testng.Assert.assertTrue;
 public class OrcTester
 {
     public static final DataSize MAX_BLOCK_SIZE = new DataSize(1, Unit.MEGABYTE);
-    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
+    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
