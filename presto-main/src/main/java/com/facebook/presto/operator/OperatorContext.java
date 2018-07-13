@@ -83,6 +83,8 @@ public class OperatorContext
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
+    private final AtomicReference<SettableFuture<?>> asyncNotifyFuture = new AtomicReference<>(SettableFuture.create());
+
     private final AtomicReference<SettableFuture<?>> memoryFuture;
     private final AtomicReference<SettableFuture<?>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
@@ -237,6 +239,26 @@ public class OperatorContext
         finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         finishCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
         finishUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
+    }
+
+    /**
+     * Get a future that is completed when the {@link #notifyAsync()} method is called, or
+     * next time this method is called.  This api is designed to only be used by {@link Driver}.
+     */
+    ListenableFuture<?> getAsyncNotifyFuture()
+    {
+        SettableFuture<Object> newFuture = SettableFuture.create();
+        asyncNotifyFuture.getAndSet(newFuture).set(null);
+        return newFuture;
+    }
+
+    /**
+     * When this is called the Driver containing this operator will be woken from a blocked wait.
+     */
+    public void notifyAsync()
+    {
+        SettableFuture<?> oldFuture = asyncNotifyFuture.getAndSet(SettableFuture.create());
+        oldFuture.set(null);
     }
 
     public ListenableFuture<?> isWaitingForMemory()

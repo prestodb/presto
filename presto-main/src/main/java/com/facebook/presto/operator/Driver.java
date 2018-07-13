@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Boolean.TRUE;
@@ -395,26 +396,8 @@ public class Driver
                 }
             }
 
-            for (int index = activeOperators.size() - 1; index >= 0; index--) {
-                if (activeOperators.get(index).isFinished()) {
-                    // close and remove this operator and all source operators
-                    List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
-                    Throwable throwable = closeAndDestroyOperators(finishedOperators);
-                    finishedOperators.clear();
-                    if (throwable != null) {
-                        throwIfUnchecked(throwable);
-                        throw new RuntimeException(throwable);
-                    }
-                    // Finish the next operator, which is now the first operator.
-                    if (!activeOperators.isEmpty()) {
-                        Operator newRootOperator = activeOperators.get(0);
-                        newRootOperator.getOperatorContext().startIntervalTimer();
-                        newRootOperator.finish();
-                        newRootOperator.getOperatorContext().recordFinish();
-                    }
-                    break;
-                }
-            }
+            // Find the highest finished operator and destroy all operators below it.
+            List<ListenableFuture<?>> asyncNotificationFutures = clearFinishedOperators();
 
             // if we did not move any pages, check if we are blocked
             if (!movedPage) {
@@ -429,6 +412,8 @@ public class Driver
                 }
 
                 if (!blockedFutures.isEmpty()) {
+                    // unblock if any of the operators receive an async notification
+                    blockedFutures.addAll(asyncNotificationFutures);
                     // unblock when the first future is complete
                     ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
                     // driver records serial blocked time
@@ -459,6 +444,44 @@ public class Driver
             newException.addSuppressed(t);
             driverContext.failed(newException);
             throw newException;
+        }
+    }
+
+    private List<ListenableFuture<?>> clearFinishedOperators()
+    {
+        while (true) {
+            // Before checking the finished stat, fetch the async notification futures, because
+            // we need to notify if a state change happens immediately after the finish check below.
+            List<ListenableFuture<?>> asyncNotificationFutures = activeOperators.stream()
+                    .map(Operator::getOperatorContext)
+                    .map(OperatorContext::getAsyncNotifyFuture)
+                    .collect(toImmutableList());
+
+            for (int index = activeOperators.size() - 1; index >= 0; index--) {
+                if (activeOperators.get(index).isFinished()) {
+                    // close and remove this operator and all source operators
+                    List<Operator> finishedOperators = activeOperators.subList(0, index + 1);
+                    Throwable throwable = closeAndDestroyOperators(finishedOperators);
+                    finishedOperators.clear();
+                    if (throwable != null) {
+                        throwIfUnchecked(throwable);
+                        throw new RuntimeException(throwable);
+                    }
+                    // Finish the next operator, which is now the first operator.
+                    if (!activeOperators.isEmpty()) {
+                        Operator newRootOperator = activeOperators.get(0);
+                        newRootOperator.getOperatorContext().startIntervalTimer();
+                        newRootOperator.finish();
+                        newRootOperator.getOperatorContext().recordFinish();
+                    }
+                    break;
+                }
+            }
+
+            // if no operators were finished, return the futures; otherwise check again
+            if (activeOperators.size() == asyncNotificationFutures.size()) {
+                return asyncNotificationFutures;
+            }
         }
     }
 
