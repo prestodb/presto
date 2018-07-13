@@ -41,7 +41,9 @@ import org.testng.annotations.Test;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -89,8 +91,8 @@ public abstract class TestDateTimeFunctionsBase
     protected static final DateTimeZone DATE_TIME_ZONE_NUMERICAL = getDateTimeZone(getTimeZoneKey("+04:30"));
     protected static final TimeZoneKey KATHMANDU_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     protected static final DateTimeZone KATHMANDU_ZONE = getDateTimeZone(KATHMANDU_ZONE_KEY);
-    protected static final TimeZoneKey WEIRD_ZONE_KEY = getTimeZoneKey("+07:09");
-    protected static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_ZONE_KEY);
+    protected static final ZoneOffset WEIRD_ZONE = ZoneOffset.ofHoursMinutes(7, 9);
+    protected static final DateTimeZone WEIRD_DATE_TIME_ZONE = DateTimeZone.forID(WEIRD_ZONE.getId());
 
     protected static final DateTime DATE = new DateTime(2001, 8, 22, 0, 0, 0, 0, DateTimeZone.UTC);
     protected static final String DATE_LITERAL = "DATE '2001-08-22'";
@@ -98,7 +100,7 @@ public abstract class TestDateTimeFunctionsBase
 
     protected static final LocalTime TIME = LocalTime.of(3, 4, 5, 321_000_000);
     protected static final String TIME_LITERAL = "TIME '03:04:05.321'";
-    protected static final DateTime WEIRD_TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE);
+    protected static final OffsetTime WEIRD_TIME = OffsetTime.of(3, 4, 5, 321_000_000, WEIRD_ZONE);
     protected static final String WEIRD_TIME_LITERAL = "TIME '03:04:05.321 +07:09'";
 
     protected static final DateTime NEW_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC_TIME_ZONE); // This is TIMESTAMP w/o TZ
@@ -107,7 +109,7 @@ public abstract class TestDateTimeFunctionsBase
     protected static final String TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321'";
     protected static final String TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+04:30";
     protected static final String TIMESTAMP_ISO8601_STRING_NO_TIME_ZONE = "2001-08-22T03:04:05.321";
-    protected static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_ZONE);
+    protected static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_DATE_TIME_ZONE);
     protected static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
     protected static final String WEIRD_TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+07:09";
 
@@ -498,14 +500,14 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testTruncateTimeWithTimeZone()
     {
-        DateTime result = WEIRD_TIME;
-        result = result.withMillisOfSecond(0);
+        OffsetTime result = WEIRD_TIME;
+        result = result.withNano(0);
         assertFunction("date_trunc('second', " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(result));
 
-        result = result.withSecondOfMinute(0);
+        result = result.withSecond(0);
         assertFunction("date_trunc('minute', " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(result));
 
-        result = result.withMinuteOfHour(0);
+        result = result.withMinute(0);
         assertFunction("date_trunc('hour', " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(result));
     }
 
@@ -580,7 +582,7 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testAddFieldToTimeWithTimeZone()
     {
-        assertFunction("date_add('millisecond', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusMillis(3)));
+        assertFunction("date_add('millisecond', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusNanos(3_000_000)));
         assertFunction("date_add('second', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusSeconds(3)));
         assertFunction("date_add('minute', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusMinutes(3)));
         assertFunction("date_add('hour', 3, " + WEIRD_TIME_LITERAL + ")", TIME_WITH_TIME_ZONE, toTimeWithTimeZone(WEIRD_TIME.plusHours(3)));
@@ -602,7 +604,7 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_diff('quarter', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) monthsBetween(baseDateTime, TIMESTAMP).getMonths() / 3);
         assertFunction("date_diff('year', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) yearsBetween(baseDateTime, TIMESTAMP).getYears());
 
-        DateTime weirdBaseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, WEIRD_ZONE);
+        DateTime weirdBaseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, WEIRD_DATE_TIME_ZONE);
         String weirdBaseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678 +07:09'";
 
         assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
@@ -662,13 +664,13 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testDateDiffTimeWithTimeZone()
     {
-        DateTime weirdBaseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, WEIRD_ZONE);
+        OffsetTime weirdBaseDateTime = OffsetTime.of(7, 2, 9, 678_000_000, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIME '07:02:09.678 +07:09'";
 
         assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, millisBetween(weirdBaseDateTime, WEIRD_TIME));
-        assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, (long) secondsBetween(weirdBaseDateTime, WEIRD_TIME).getSeconds());
-        assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, (long) minutesBetween(weirdBaseDateTime, WEIRD_TIME).getMinutes());
-        assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, (long) hoursBetween(weirdBaseDateTime, WEIRD_TIME).getHours());
+        assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, secondsBetween(weirdBaseDateTime, WEIRD_TIME));
+        assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, minutesBetween(weirdBaseDateTime, WEIRD_TIME));
+        assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, hoursBetween(weirdBaseDateTime, WEIRD_TIME));
     }
 
     @Test
@@ -1144,14 +1146,41 @@ public abstract class TestDateTimeFunctionsBase
         return NANOSECONDS.toHours(end.toNanoOfDay() - start.toNanoOfDay());
     }
 
+    private static long millisBetween(OffsetTime start, OffsetTime end)
+    {
+        return millisUtc(end) - millisUtc(start);
+    }
+
+    private static long secondsBetween(OffsetTime start, OffsetTime end)
+    {
+        return MILLISECONDS.toSeconds(millisBetween(start, end));
+    }
+
+    private static long minutesBetween(OffsetTime start, OffsetTime end)
+    {
+        return MILLISECONDS.toMinutes(millisBetween(start, end));
+    }
+
+    private static long hoursBetween(OffsetTime start, OffsetTime end)
+    {
+        return MILLISECONDS.toHours(millisBetween(start, end));
+    }
+
     private SqlTime toTime(LocalTime time)
     {
         return sqlTimeOf(time, session);
     }
 
-    private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
+    private static SqlTimeWithTimeZone toTimeWithTimeZone(OffsetTime offsetTime)
     {
-        return new SqlTimeWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
+        return new SqlTimeWithTimeZone(
+                millisUtc(offsetTime),
+                TimeZoneKey.getTimeZoneKey(offsetTime.getOffset().getId()));
+    }
+
+    private static long millisUtc(OffsetTime offsetTime)
+    {
+        return offsetTime.atDate(LocalDate.ofEpochDay(0)).toInstant().toEpochMilli();
     }
 
     private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
