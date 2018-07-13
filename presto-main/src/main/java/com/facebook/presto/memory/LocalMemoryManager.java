@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
+import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -58,8 +59,11 @@ public final class LocalMemoryManager
     {
         validateHeapHeadroom(config, availableMemory);
         maxMemory = new DataSize(availableMemory - config.getHeapHeadroom().toBytes(), BYTE);
-        checkArgument(config.getMaxQueryMemoryPerNode().toBytes() <= config.getMaxQueryTotalMemoryPerNode().toBytes(),
-                "Max query memory per node cannot be greater than the max query total memory per node.");
+        checkArgument(
+                config.getMaxQueryMemoryPerNode().toBytes() <= config.getMaxQueryTotalMemoryPerNode().toBytes(),
+                "Max query memory per node (%s) cannot be greater than the max query total memory per node (%s).",
+                QUERY_MAX_MEMORY_PER_NODE_CONFIG,
+                QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG);
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryTotalMemoryPerNode()));
         long generalPoolSize = maxMemory.toBytes() - config.getMaxQueryTotalMemoryPerNode().toBytes();
