@@ -111,7 +111,10 @@ public class TestHiveClientConfig
                 .setRecordingPath(null)
                 .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
                 .setReplay(false)
-                .setCollectColumnStatisticsOnWrite(false));
+                .setCollectColumnStatisticsOnWrite(false)
+                .setCollectColumnStatisticsOnWrite(false)
+                .setS3SelectPushdownEnabled(false)
+                .setS3SelectPushdownMaxConnections(500));
     }
 
     @Test
@@ -192,6 +195,8 @@ public class TestHiveClientConfig
                 .put("hive.metastore-recoding-duration", "42s")
                 .put("hive.replay-metastore-recording", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
+                .put("hive.s3select-pushdown.enabled", "true")
+                .put("hive.s3select-pushdown.max-connections", "1234")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -268,7 +273,10 @@ public class TestHiveClientConfig
                 .setRecordingPath("/foo/bar")
                 .setRecordingDuration(new Duration(42, TimeUnit.SECONDS))
                 .setReplay(true)
-                .setCollectColumnStatisticsOnWrite(true);
+                .setCollectColumnStatisticsOnWrite(true)
+                .setCollectColumnStatisticsOnWrite(true)
+                .setS3SelectPushdownEnabled(true)
+                .setS3SelectPushdownMaxConnections(1234);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

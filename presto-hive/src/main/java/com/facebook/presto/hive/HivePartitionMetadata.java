@@ -25,12 +25,18 @@ public class HivePartitionMetadata
     private final Optional<Partition> partition;
     private final HivePartition hivePartition;
     private final Map<Integer, HiveTypeName> columnCoercions;
+    private final boolean s3SelectPushdownEnabled;
 
-    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition, Map<Integer, HiveTypeName> columnCoercions)
+    HivePartitionMetadata(
+            HivePartition hivePartition,
+            Optional<Partition> partition,
+            Map<Integer, HiveTypeName> columnCoercions,
+            boolean s3selectPushdownEnabled)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
         this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.s3SelectPushdownEnabled = s3selectPushdownEnabled;
     }
 
     public HivePartition getHivePartition()
@@ -49,5 +55,10 @@ public class HivePartitionMetadata
     public Map<Integer, HiveTypeName> getColumnCoercions()
     {
         return columnCoercions;
+    }
+
+    public boolean isS3SelectPushdownEnabled()
+    {
+        return s3SelectPushdownEnabled;
     }
 }

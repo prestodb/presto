@@ -39,10 +39,13 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
@@ -142,5 +145,15 @@ public final class HiveTestUtils
                 ImmutableList.copyOf(elementTypeSignatures.stream()
                         .map(TypeSignatureParameter::of)
                         .collect(toList())));
+    }
+
+    public static Long shortDecimal(String value)
+    {
+        return new BigDecimal(value).unscaledValue().longValueExact();
+    }
+
+    public static Slice longDecimal(String value)
+    {
+        return encodeScaledValue(new BigDecimal(value));
     }
 }

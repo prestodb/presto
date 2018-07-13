@@ -532,21 +532,6 @@ public class PrestoS3FileSystem
                 .iterator();
     }
 
-    /**
-     * This exception is for stopping retries for S3 calls that shouldn't be retried.
-     * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
-     */
-    @VisibleForTesting
-    static class UnrecoverableS3OperationException
-            extends RuntimeException
-    {
-        public UnrecoverableS3OperationException(Path path, Throwable cause)
-        {
-            // append the path info to the message
-            super(format("%s (Path: %s)", cause, path), cause);
-        }
-    }
-
     @VisibleForTesting
     ObjectMetadata getS3ObjectMetadata(Path path)
             throws IOException
@@ -615,7 +600,7 @@ public class PrestoS3FileSystem
         return keyFromPath(p1).equals(keyFromPath(p2));
     }
 
-    private static String keyFromPath(Path path)
+    public static String keyFromPath(Path path)
     {
         checkArgument(path.isAbsolute(), "Path is not absolute: %s", path);
         String key = nullToEmpty(path.toUri().getPath());

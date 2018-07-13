@@ -55,6 +55,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -73,6 +75,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -237,6 +240,23 @@ public final class HiveUtil
     {
         configuration.set(READ_COLUMN_IDS_CONF_STR, Joiner.on(',').join(readHiveColumnIndexes));
         configuration.setBoolean(READ_ALL_COLUMNS, false);
+    }
+
+    public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, Path file)
+            throws NoSuchFieldException, IllegalAccessException
+    {
+        if (inputFormat == null || file == null) {
+            return Optional.empty();
+        }
+
+        Field field = inputFormat.getClass().getDeclaredField("compressionCodecs");
+        if (field == null) {
+            return Optional.empty();
+        }
+
+        field.setAccessible(true);
+        CompressionCodecFactory compressionCodecs = (CompressionCodecFactory) field.get(inputFormat);
+        return Optional.of(compressionCodecs.getCodec(file));
     }
 
     static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
