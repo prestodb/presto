@@ -101,6 +101,7 @@ public class SqlQueryExecution
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
+    private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
@@ -128,6 +129,7 @@ public class SqlQueryExecution
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
+            PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
@@ -147,6 +149,7 @@ public class SqlQueryExecution
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+            this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
@@ -350,7 +353,7 @@ public class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan fragmentedPlan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, nodePartitioningManager, plan, false);
+        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), metadata, nodePartitioningManager, plan, false);
 
         // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
@@ -605,6 +608,7 @@ public class SqlQueryExecution
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
+        private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final TransactionManager transactionManager;
         private final QueryExplainer queryExplainer;
@@ -628,6 +632,7 @@ public class SqlQueryExecution
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
                 PlanOptimizers planOptimizers,
+                PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
                 TransactionManager transactionManager,
                 @ForQueryExecution ExecutorService queryExecutor,
@@ -650,6 +655,7 @@ public class SqlQueryExecution
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             requireNonNull(planOptimizers, "planOptimizers is null");
+            this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -684,6 +690,7 @@ public class SqlQueryExecution
                     nodePartitioningManager,
                     nodeScheduler,
                     planOptimizers,
+                    planFragmenter,
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,

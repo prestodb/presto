@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
@@ -324,6 +325,7 @@ public abstract class AbstractTestQueryFramework
                 new CostComparator(featuresConfig)).get();
         return new QueryExplainer(
                 optimizers,
+                new PlanFragmenter(),
                 metadata,
                 queryRunner.getNodePartitioningManager(),
                 queryRunner.getAccessControl(),
