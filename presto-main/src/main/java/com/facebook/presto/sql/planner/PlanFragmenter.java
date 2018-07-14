@@ -15,9 +15,11 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -50,6 +52,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -68,8 +71,18 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
+    private final int maxStageCount;
+
     @Inject
-    public PlanFragmenter() {}
+    public PlanFragmenter(QueryManagerConfig queryManagerConfig)
+    {
+        this(queryManagerConfig.getMaxStageCount());
+    }
+
+    private PlanFragmenter(int maxStageCount)
+    {
+        this.maxStageCount = maxStageCount;
+    }
 
     public SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
     {
@@ -85,9 +98,22 @@ public class PlanFragmenter
         subPlan = analyzeGroupedExecution(session, metadata, nodePartitioningManager, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
-        subPlan.sanityCheck();
+        sanityCheckFragmentedPlan(subPlan);
 
         return subPlan;
+    }
+
+    private void sanityCheckFragmentedPlan(SubPlan subPlan)
+    {
+        subPlan.sanityCheck();
+        int fragmentCount = subPlan.getAllFragments().size();
+        if (fragmentCount > maxStageCount) {
+            throw new PrestoException(QUERY_TOO_MANY_STAGES, format(
+                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " +
+                            "If the query contains multiple DISTINCTs, please set the use_mark_distinct session property to false. " +
+                            "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.",
+                    fragmentCount, maxStageCount));
+        }
     }
 
     private static SubPlan analyzeGroupedExecution(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, SubPlan subPlan)
