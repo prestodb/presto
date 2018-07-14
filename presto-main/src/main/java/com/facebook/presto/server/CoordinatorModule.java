@@ -68,6 +68,7 @@ import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
@@ -177,6 +178,9 @@ public class CoordinatorModule
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
+
+        // planner
+        binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
