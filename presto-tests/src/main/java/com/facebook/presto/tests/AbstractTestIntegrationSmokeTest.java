@@ -42,63 +42,63 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testAggregateSingleColumn()
     {
-        assertQuery("SELECT SUM(orderkey) FROM ORDERS");
-        assertQuery("SELECT SUM(totalprice) FROM ORDERS");
-        assertQuery("SELECT MAX(comment) FROM ORDERS");
+        assertQuery("SELECT SUM(orderkey) FROM orders");
+        assertQuery("SELECT SUM(totalprice) FROM orders");
+        assertQuery("SELECT MAX(comment) FROM orders");
     }
 
     @Test
     public void testColumnsInReverseOrder()
     {
-        assertQuery("SELECT shippriority, clerk, totalprice FROM ORDERS");
+        assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
     }
 
     @Test
     public void testCountAll()
     {
-        assertQuery("SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(*) FROM orders");
     }
 
     @Test
     public void testExactPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10");
+        assertQuery("SELECT * FROM orders WHERE orderkey = 10");
     }
 
     @Test
     public void testInListPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey IN (10, 11, 20, 21)");
+        assertQuery("SELECT * FROM orders WHERE orderkey IN (10, 11, 20, 21)");
     }
 
     @Test
     public void testIsNullPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10 OR orderkey IS NULL");
+        assertQuery("SELECT * FROM orders WHERE orderkey = 10 OR orderkey IS NULL");
     }
 
     @Test
     public void testLimit()
     {
-        assertEquals(computeActual("SELECT * FROM ORDERS LIMIT 10").getRowCount(), 10);
+        assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);
     }
 
     @Test
     public void testMultipleRangesPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50 or orderkey BETWEEN 100 AND 150");
+        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
     public void testRangePredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50");
+        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
     }
 
     @Test
     public void testSelectAll()
     {
-        assertQuery("SELECT * FROM ORDERS");
+        assertQuery("SELECT * FROM orders");
     }
 
     @Test
@@ -125,7 +125,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
         assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
     }
 
