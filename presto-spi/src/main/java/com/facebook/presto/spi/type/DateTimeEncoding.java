@@ -36,7 +36,7 @@ public final class DateTimeEncoding
         return packDateTimeWithZone(millisUtc, getTimeZoneKey(zoneId));
     }
 
-    public static long packDateTimeWithZone(long millisUtc, int offsetMinutes)
+    public static long packDateTimeWithZone(long millisUtc, long offsetMinutes)
     {
         return packDateTimeWithZone(millisUtc, getTimeZoneKeyForOffset(offsetMinutes));
     }

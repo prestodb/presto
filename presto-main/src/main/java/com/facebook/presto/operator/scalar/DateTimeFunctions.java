@@ -53,11 +53,13 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public final class DateTimeFunctions
 {
@@ -106,15 +108,8 @@ public final class DateTimeFunctions
         // We do all calculation in UTC, as session.getStartTime() is in UTC
         // and we need to have UTC millis for packDateTimeWithZone
         long millis = UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
-
-        if (!session.isLegacyTimestamp()) {
-            // However, those UTC millis are pointing to the correct UTC timestamp
-            // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
-            // So we have to hack here in order to get valid representation
-            // of TIME WITH TIME ZONE
-            millis -= valueToSessionTimeZoneOffsetDiff(session.getStartTime(), getDateTimeZone(session.getTimeZoneKey()));
-        }
-        return packDateTimeWithZone(millis, session.getTimeZoneKey());
+        DateTimeZone timeZone = getDateTimeZone(session.getTimeZoneKey());
+        return packDateTimeWithZone(millis, offsetMinutes(timeZone, session.getStartTime()));
     }
 
     @Description("current time without time zone")
@@ -1350,6 +1345,14 @@ public final class DateTimeFunctions
     private static long valueToSessionTimeZoneOffsetDiff(long millisUtcSessionStart, DateTimeZone timeZone)
     {
         return timeZone.getOffset(0) - timeZone.getOffset(millisUtcSessionStart);
+    }
+
+    public static long offsetMinutes(DateTimeZone timeZone, long instant)
+    {
+        int offsetMillis = timeZone.getOffset(instant);
+        long offsetMinutes = MILLISECONDS.toMinutes(offsetMillis);
+        checkArgument(MINUTES.toMillis(offsetMinutes) == offsetMillis, "Offset of %s at %s is not whole-minutes", timeZone, instant);
+        return offsetMinutes;
     }
 
     @ScalarFunction("to_milliseconds")
