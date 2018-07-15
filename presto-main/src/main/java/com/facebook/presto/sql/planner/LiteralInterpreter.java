@@ -147,6 +147,7 @@ public final class LiteralInterpreter
         @Override
         protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
         {
+            // TODO
             if (session.isLegacyTimestamp()) {
                 return parseTimeLiteral(session.getTimeZoneKey(), node.getValue());
             }

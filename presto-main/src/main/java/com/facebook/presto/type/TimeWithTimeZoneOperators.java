@@ -155,6 +155,7 @@ public final class TimeWithTimeZoneOperators
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long castFromSlice(@SqlType("varchar(x)") Slice value)
     {
+        // TODO
         return parseTimeWithTimeZone(value.toStringUtf8());
     }
 
