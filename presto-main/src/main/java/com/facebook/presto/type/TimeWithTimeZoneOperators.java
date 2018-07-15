@@ -26,11 +26,7 @@ import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
-import org.joda.time.chrono.ISOChronology;
-
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
+import org.joda.time.DateTimeZone;
 
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -50,13 +46,12 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class TimeWithTimeZoneOperators
 {
-    private static final long REFERENCE_TIMESTAMP_UTC = System.currentTimeMillis();
-
     private TimeWithTimeZoneOperators()
     {
     }
@@ -135,15 +130,9 @@ public final class TimeWithTimeZoneOperators
         if (session.isLegacyTimestamp()) {
             return unpackMillisUtc(value);
         }
-        else {
-            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
-            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WIT TIME ZONE
-            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
-            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
-
-            ISOChronology chronology = getChronology(unpackZoneKey(value));
-            return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
-        }
+        DateTimeZone timeZone = getDateTimeZone(unpackZoneKey(value));
+        verify(timeZone.isFixed());
+        return unpackMillisUtc(value) + timeZone.getOffset(0);
     }
 
     @ScalarOperator(CAST)
