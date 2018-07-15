@@ -294,14 +294,14 @@ public class TestSelect
         QueryResult aggregateQueryResult = onPresto()
                 .executeQuery(format(
                         "SELECT MAX(s_nationkey), SUM(s_suppkey), AVG(s_acctbal) " +
-                        "FROM %s.%s.%s WHERE s_suppkey BETWEEN 1 AND 10 ", CONNECTOR_NAME, KEY_SPACE, mvName));
+                                "FROM %s.%s.%s WHERE s_suppkey BETWEEN 1 AND 10 ", CONNECTOR_NAME, KEY_SPACE, mvName));
         assertThat(aggregateQueryResult).containsOnly(
                 row(24, 55, 4334.653));
 
         QueryResult orderedResult = onPresto()
                 .executeQuery(format(
                         "SELECT s_nationkey, s_suppkey, s_acctbal " +
-                        "FROM %s.%s.%s WHERE s_nationkey = 1 LIMIT 1", CONNECTOR_NAME, KEY_SPACE, mvName));
+                                "FROM %s.%s.%s WHERE s_nationkey = 1 LIMIT 1", CONNECTOR_NAME, KEY_SPACE, mvName));
         assertThat(orderedResult).containsOnly(
                 row(1, 3, 4192.4));
 
