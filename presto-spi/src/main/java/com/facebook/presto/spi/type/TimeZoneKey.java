@@ -28,11 +28,13 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -40,6 +42,8 @@ public final class TimeZoneKey
 {
     public static final TimeZoneKey UTC_KEY = new TimeZoneKey("UTC", (short) 0);
     public static final short MAX_TIME_ZONE_KEY;
+    private static final short MAX_OFFSET_ZONE_KEY = 1680; // as defined in zone-index.properties
+    private static final Pattern OFFSET_ZONE_ID_PATTERN = Pattern.compile("[-+]\\d\\d:\\d\\d");
     private static final Map<String, TimeZoneKey> ZONE_ID_TO_KEY;
     private static final Set<TimeZoneKey> ZONE_KEYS;
 
@@ -78,6 +82,13 @@ public final class TimeZoneKey
             for (Entry<Object, Object> entry : data.entrySet()) {
                 short zoneKey = Short.valueOf(((String) entry.getKey()).trim());
                 String zoneId = ((String) entry.getValue()).trim();
+                boolean isOffsetZoneId = OFFSET_ZONE_ID_PATTERN.matcher(zoneId).matches();
+                checkState(
+                        isOffsetZoneId == (zoneKey <= MAX_OFFSET_ZONE_KEY),
+                        "Zone key %s mapped to %s conflicts with MAX_OFFSET_ZONE_KEY %s",
+                        zoneKey,
+                        zoneId,
+                        MAX_OFFSET_ZONE_KEY);
 
                 maxZoneKey = (short) max(maxZoneKey, zoneKey);
                 zoneIdToKey.put(zoneId.toLowerCase(ENGLISH), new TimeZoneKey(zoneId, zoneKey));
@@ -133,6 +144,15 @@ public final class TimeZoneKey
         return zoneKey;
     }
 
+    public static TimeZoneKey getOffsetTimeZoneKey(String zoneId)
+    {
+        TimeZoneKey zoneKey = getTimeZoneKey(zoneId);
+        if (zoneKey.getKey() > MAX_OFFSET_ZONE_KEY) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid offset zone %s", zoneId));
+        }
+        return zoneKey;
+    }
+
     public static TimeZoneKey getTimeZoneKeyForOffset(long offsetMinutes)
     {
         if (offsetMinutes == 0) {
@@ -140,7 +160,7 @@ public final class TimeZoneKey
         }
 
         if (!(offsetMinutes >= OFFSET_TIME_ZONE_MIN && offsetMinutes <= OFFSET_TIME_ZONE_MAX)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Invalid offset minutes %s", offsetMinutes));
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid offset minutes %s", offsetMinutes));
         }
         TimeZoneKey timeZoneKey = OFFSET_TIME_ZONE_KEYS[((int) offsetMinutes) - OFFSET_TIME_ZONE_MIN];
         if (timeZoneKey == null) {
@@ -304,13 +324,20 @@ public final class TimeZoneKey
 
     private static String zoneIdForOffset(long offset)
     {
-        return String.format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
+        return format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
     }
 
     private static void checkArgument(boolean check, String message, Object... args)
     {
         if (!check) {
-            throw new IllegalArgumentException(String.format(message, args));
+            throw new IllegalArgumentException(format(message, args));
+        }
+    }
+
+    private static void checkState(boolean check, String message, Object... args)
+    {
+        if (!check) {
+            throw new IllegalStateException(format(message, args));
         }
     }
 }
