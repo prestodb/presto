@@ -32,6 +32,7 @@ import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.scalar.DateTimeFunctions.offsetMinutes;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -54,6 +55,7 @@ import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZo
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public final class TimestampOperators
 {
@@ -155,17 +157,20 @@ public final class TimestampOperators
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
+        ISOChronology chronology = getChronology(session.getTimeZoneKey());
+        long localTime;
+        long offsetMinutes;
         if (session.isLegacyTimestamp()) {
-            int timeMillis = modulo24Hour(getChronology(session.getTimeZoneKey()), value);
-            return packDateTimeWithZone(timeMillis, session.getTimeZoneKey());
+            localTime = chronology.millisOfDay().get(value);
+            offsetMinutes = offsetMinutes(chronology.getZone(), value);
         }
         else {
-            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
-
-            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
-            // its UTC representation we need to shift the value by the offset of TZ.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(modulo24Hour(value), false), session.getTimeZoneKey());
+            // TODO do we handle DST correctly?
+            localTime = modulo24Hour(value);
+            offsetMinutes = offsetMinutes(chronology.getZone(), chronology.getZone().convertLocalToUTC(value, false));
         }
+
+        return packDateTimeWithZone(localTime + MINUTES.toMillis(offsetMinutes), offsetMinutes);
     }
 
     @ScalarOperator(CAST)
