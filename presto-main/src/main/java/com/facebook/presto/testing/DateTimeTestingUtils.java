@@ -16,6 +16,7 @@ package com.facebook.presto.testing;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -25,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
@@ -134,5 +136,19 @@ public final class DateTimeTestingUtils
     private static int millisToNanos(int millisOfSecond)
     {
         return toIntExact(MILLISECONDS.toNanos(millisOfSecond));
+    }
+
+    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int hourOfDay, int minuteOfHour, int secondOfMinute, int millisOfSecond, TimeZoneKey zoneKey)
+    {
+        return sqlTimeWithTimeZoneOf(LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, toIntExact(MILLISECONDS.toNanos(millisOfSecond))), zoneKey);
+    }
+
+    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(LocalTime localTime, TimeZoneKey zoneKey)
+    {
+        long millisUtc = localTime
+                .atDate(LocalDate.ofEpochDay(0))
+                .atOffset(ZoneOffset.of(zoneKey.getId()))
+                .toInstant().toEpochMilli();
+        return new SqlTimeWithTimeZone(millisUtc, zoneKey);
     }
 }

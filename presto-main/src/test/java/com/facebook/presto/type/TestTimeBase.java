@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -34,6 +33,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeWithTimeZoneOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -140,14 +140,13 @@ public abstract class TestTimeBase
     {
         assertFunction("cast(TIME '03:04:05.321' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
+                sqlTimeWithTimeZoneOf(3, 4, 5, 321, getTimeZoneKey("+02:00")));
     }
 
     @Test
     public void testCastToTimeWithTimeZoneWithTZWithRulesChanged()
     {
         TimeZoneKey timeZoneThatChangedSince1970 = getTimeZoneKey("Asia/Kathmandu");
-        DateTimeZone dateTimeZoneThatChangedSince1970 = getDateTimeZone(timeZoneThatChangedSince1970);
         Session session = Session.builder(this.session)
                 .setTimeZoneKey(timeZoneThatChangedSince1970)
                 .build();
@@ -155,7 +154,7 @@ public abstract class TestTimeBase
             localAssertions.assertFunction(
                     "cast(TIME '03:04:05.321' as time with time zone)",
                     TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), dateTimeZoneThatChangedSince1970.toTimeZone()));
+                    sqlTimeWithTimeZoneOf(3, 4, 5, 321, getTimeZoneKey("+05:45")));
         }
     }
 
@@ -169,7 +168,7 @@ public abstract class TestTimeBase
                 .setStartTime(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis())
                 .build();
         try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
-            localAssertions.assertFunctionString("cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 Australia/Sydney");
+            localAssertions.assertFunctionString("cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 +10:00");
         }
     }
 
@@ -186,7 +185,8 @@ public abstract class TestTimeBase
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                // TODO is this correct?
+                new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.forID("+02:00")).getMillis(), getTimeZoneKey("+02:00")));
     }
 
     @Test
