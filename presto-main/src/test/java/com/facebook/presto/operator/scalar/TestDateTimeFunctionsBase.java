@@ -116,7 +116,7 @@ public abstract class TestDateTimeFunctionsBase
         super(testSessionBuilder()
                 .setSystemProperty("legacy_timestamp", String.valueOf(legacyTimestamp))
                 .setTimeZoneKey(TIME_ZONE_KEY)
-                .setStartTime(new DateTime(2017, 04, 01, 12, 34, 56, 789, UTC_TIME_ZONE).getMillis())
+                .setStartTime(new DateTime(2017, 4, 1, 12, 34, 56, 789, UTC_TIME_ZONE).getMillis())
                 .build());
         TIMESTAMP = legacyTimestamp ? LEGACY_TIMESTAMP : NEW_TIMESTAMP;
     }
@@ -838,7 +838,7 @@ public abstract class TestDateTimeFunctionsBase
     public void testLocale()
     {
         Locale locale = Locale.KOREAN;
-        Session localeSession = testSessionBuilder()
+        Session localeSession = Session.builder(this.session)
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .setLocale(locale)
                 .build();
@@ -918,7 +918,7 @@ public abstract class TestDateTimeFunctionsBase
         // but our test framework doesn't support that syntax directly.
 
         Session oldKathmanduTimeZoneOffsetSession =
-                testSessionBuilder()
+                Session.builder(this.session)
                         .setTimeZoneKey(TIME_ZONE_KEY)
                         .setStartTime(new DateTime(1980, 1, 1, 10, 0, 0, DATE_TIME_ZONE).getMillis())
                         .build();
@@ -926,7 +926,7 @@ public abstract class TestDateTimeFunctionsBase
         TimeZoneKey europeWarsawTimeZoneKey = getTimeZoneKey("Europe/Warsaw");
         DateTimeZone europeWarsawTimeZone = getDateTimeZone(europeWarsawTimeZoneKey);
         Session europeWarsawSessionWinter =
-                testSessionBuilder()
+                Session.builder(this.session)
                         .setTimeZoneKey(europeWarsawTimeZoneKey)
                         .setStartTime(new DateTime(2017, 1, 1, 10, 0, 0, europeWarsawTimeZone).getMillis())
                         .build();
