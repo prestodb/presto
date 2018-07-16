@@ -14,9 +14,20 @@
 package com.facebook.presto.server;
 
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.spnego.KerberosConfig;
 
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Locale;
+
+import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
+import static com.facebook.presto.server.security.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
+import static com.google.common.base.Verify.verify;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class InternalCommunicationModule
@@ -30,5 +41,39 @@ public class InternalCommunicationModule
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
         });
+
+        install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
+    }
+
+    private Module kerberosInternalCommunicationModule()
+    {
+        return binder -> {
+            InternalCommunicationConfig clientKerberosConfig = buildConfigObject(InternalCommunicationConfig.class);
+            com.facebook.presto.server.security.KerberosConfig serverKerberosConfig = buildConfigObject(com.facebook.presto.server.security.KerberosConfig.class);
+            verify(serverKerberosConfig.getKeytab() != null, "%s must be set when %s is true", HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB, INTERNAL_COMMUNICATION_KERBEROS_ENABLED);
+
+            configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, kerberosConfig -> {
+                kerberosConfig.setConfig(serverKerberosConfig.getKerberosConfig());
+                kerberosConfig.setKeytab(serverKerberosConfig.getKeytab());
+                kerberosConfig.setUseCanonicalHostname(clientKerberosConfig.isKerberosUseCanonicalHostname());
+            });
+
+            String kerberosPrincipal = serverKerberosConfig.getServiceName() + "/" + getLocalCanonicalHostName();
+            configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, httpClientConfig -> {
+                httpClientConfig.setAuthenticationEnabled(true);
+                httpClientConfig.setKerberosPrincipal(kerberosPrincipal);
+                httpClientConfig.setKerberosRemoteServiceName(serverKerberosConfig.getServiceName());
+            });
+        };
+    }
+
+    private static String getLocalCanonicalHostName()
+    {
+        try {
+            return InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
+        }
+        catch (UnknownHostException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

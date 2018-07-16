@@ -21,6 +21,8 @@ import java.io.File;
 
 public class KerberosConfig
 {
+    public static final String HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB = "http.server.authentication.krb5.keytab";
+
     private File kerberosConfig;
     private String serviceName;
     private File keytab;
@@ -56,7 +58,7 @@ public class KerberosConfig
         return keytab;
     }
 
-    @Config("http.server.authentication.krb5.keytab")
+    @Config(HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB)
     public KerberosConfig setKeytab(File keytab)
     {
         this.keytab = keytab;
