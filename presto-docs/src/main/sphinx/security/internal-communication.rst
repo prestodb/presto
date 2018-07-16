@@ -113,6 +113,26 @@ To enable SSL/TLS for Presto internal communication, do the following:
         internal-communication.https.keystore.key=<keystore password>
 
 
+Internal SSL/TLS communication with Kerberos
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If :doc:`Kerberos</security/server>` authentication is enabled, specify valid Kerberos
+credentials for the internal communication, in addition to the SSL/TLS properties.
+
+    .. code-block:: none
+
+        internal-communication.kerberos.enabled=true
+
+.. note::
+
+    The service name and keytab file used for internal Kerberos authentication is
+    taken from server Kerberos authentication properties, documented in :doc:`Kerberos</security/server>`,
+    ``http.server.authentication.krb5.service-name`` and ``http.server.authentication.krb5.keytab``
+    respectively. Make sure you have the Kerberos setup done on the worker nodes as well.
+    The Kerberos principal for internal communication is built from
+    ``http.server.authentication.krb5.service-name`` after appending it with the hostname of
+    the node where Presto is running on and default realm from Kerberos configuration.
+
 Performance with SSL/TLS enabled
 --------------------------------
 
