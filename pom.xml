@@ -427,12 +427,6 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>log-manager</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>json</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -513,6 +507,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>log-manager</artifactId>
+                <version>5.0</version>
             </dependency>
 
             <dependency>

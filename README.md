@@ -4,6 +4,20 @@ Presto is a distributed SQL query engine for big data.
 
 See the [User Manual](https://prestodb.io/docs/current/) for deployment instructions and end user documentation.
 
+## Checkr modifications
+
+### JSON log
+We changed Presto log to be JSON to work with ElasticSearch.
+1. Install `log-manager` module. From project root:
+```
+mvn install:install-file -Dfile=dependencies/log-manager-5.0.jar -DgroupId=io.airlift -DartifactId=log-manager -Dversion=1.0 -Dpackaging=jar
+```
+2. Build `presto-server` module:
+```
+mvn clean install -pl presto-server -DskipTests
+```
+
+
 ## Requirements
 
 * Mac OS X or Linux
