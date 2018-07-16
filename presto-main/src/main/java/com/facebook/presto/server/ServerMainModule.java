@@ -166,7 +166,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
-import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -244,11 +243,7 @@ public class ServerMainModule
         // TODO: move to CoordinatorModule
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
-        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
-        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
-            config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
-            config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
-        });
+        install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
