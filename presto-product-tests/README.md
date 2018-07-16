@@ -150,6 +150,12 @@ where profile is one of either:
  multiple Docker containers. Presto is configured to only accept connections
  on the HTTPS port (7878), and both coordinator and worker traffic is encrypted.
  For multinode-tls, the default configuration is 1 coordinator and 2 workers.
+- **multinode-tls-kerberos** - psuedo-distributed Hadoop installation running on a
+  single Docker container and a distributed installation of kerberized Presto
+  running on multiple Docker containers. Presto is configured to only accept
+  connections on the HTTPS port (7778), and both coordinator and worker traffic
+  is encrypted and kerberized. For multinode-tls-kerberos, the default configuration
+  is 1 coordinator and 2 workers.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.

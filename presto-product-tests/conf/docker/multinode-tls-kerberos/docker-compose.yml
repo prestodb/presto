@@ -1,0 +1,55 @@
+version: '2'
+services:
+
+  presto-master:
+    domainname: docker.cluster
+    hostname: presto-master
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-kerberos-master run
+    ports:
+      - '7778:7778'
+    networks:
+      default:
+        aliases:
+         - presto-master.docker.cluster
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+
+  presto-worker-1:
+    domainname: docker.cluster
+    hostname: presto-worker-1
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
+    extends:
+      file: ../common/standard.yml
+      service: java-8-base
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-kerberos-worker run
+    networks:
+      default:
+        aliases:
+         - presto-worker-1.docker.cluster
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+
+  presto-worker-2:
+    domainname: docker.cluster
+    hostname: presto-worker-2
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
+    extends:
+      file: ../common/standard.yml
+      service: java-8-base
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-kerberos-worker run
+    networks:
+      default:
+        aliases:
+         - presto-worker-2.docker.cluster
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+
+  application-runner:
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-kerberos.yaml
+      - CLI_ARGUMENTS=--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456 --krb5-config-path /etc/krb5.conf --krb5-principal presto-client/presto-master.docker.cluster@LABS.TERADATA.COM --krb5-keytab-path /etc/presto/conf/presto-client.keytab --krb5-remote-service-name presto-server --krb5-disable-remote-service-hostname-canonicalization

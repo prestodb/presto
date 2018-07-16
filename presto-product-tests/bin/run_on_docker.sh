@@ -123,6 +123,8 @@ if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
+elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
 fi
 
 # check docker and docker compose installation
