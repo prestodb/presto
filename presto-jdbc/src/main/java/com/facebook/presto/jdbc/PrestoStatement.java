@@ -317,9 +317,7 @@ public class PrestoStatement
     public boolean getMoreResults()
             throws SQLException
     {
-        checkOpen();
-        closeResultSet();
-        return false;
+        return getMoreResults(CLOSE_CURRENT_RESULT);
     }
 
     @Override
@@ -413,6 +411,7 @@ public class PrestoStatement
     {
         checkOpen();
 
+        currentUpdateCount.set(-1);
         if (current == CLOSE_CURRENT_RESULT) {
             closeResultSet();
             return false;
