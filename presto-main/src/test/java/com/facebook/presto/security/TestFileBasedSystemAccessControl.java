@@ -154,7 +154,7 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanDropTable(transactionId, alice, aliceTable);
-                    accessControlManager.checkCanSelectFromTable(transactionId, alice, aliceTable);
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanAddColumns(transactionId, alice, aliceTable);
@@ -175,9 +175,9 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
                     accessControlManager.checkCanDropView(transactionId, alice, aliceView);
-                    accessControlManager.checkCanSelectFromView(transactionId, alice, aliceView);
-                    accessControlManager.checkCanCreateViewWithSelectFromTable(transactionId, alice, aliceTable);
-                    accessControlManager.checkCanCreateViewWithSelectFromView(transactionId, alice, aliceView);
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, aliceView, ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, "alice-catalog", "property");
                     accessControlManager.checkCanGrantTablePrivilege(transactionId, alice, SELECT, aliceTable, "grantee", true);
                     accessControlManager.checkCanRevokeTablePrivilege(transactionId, alice, SELECT, aliceTable, "revokee", true);

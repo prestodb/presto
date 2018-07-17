@@ -32,33 +32,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
-    {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
-    }
-
-    @Override
-    public void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
-    {
-        delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
-    }
-
-    @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
         delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
-    {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
-    {
-        delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
     }
 
     @Override

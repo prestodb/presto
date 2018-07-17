@@ -179,25 +179,12 @@ public interface ConnectorAccessControl
 
     /**
      * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
-     * If this is implemented, checkCanSelectFromTable and checkCanSelectFromView can be pass-through.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
         denySelectColumns(tableName.toString(), columnNames);
-    }
-
-    /**
-     * Check if identity is allowed to select from the specified table in this catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-    {
-        checkCanSelectFromColumns(transactionHandle, identity, tableName, emptySet());
     }
 
     /**
@@ -238,42 +225,6 @@ public interface ConnectorAccessControl
     default void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
         denyDropView(viewName.toString());
-    }
-
-    /**
-     * Check if identity is allowed to select from the specified view in this catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-    {
-        checkCanSelectFromColumns(transactionHandle, identity, viewName, emptySet());
-    }
-
-    /**
-     * Check if identity is allowed to create the specified view that selects from the specified table in this catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanCreateViewWithSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-    {
-        checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, tableName, emptySet());
-    }
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified view in this catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanCreateViewWithSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-    {
-        checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, viewName, emptySet());
     }
 
     /**

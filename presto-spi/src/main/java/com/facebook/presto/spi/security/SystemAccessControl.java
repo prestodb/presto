@@ -19,7 +19,6 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
@@ -214,25 +213,12 @@ public interface SystemAccessControl
 
     /**
      * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
-     * If this is implemented, checkCanSelectFromTable and checkCanSelectFromView can be pass-through.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
         denySelectColumns(table.toString(), columns);
-    }
-
-    /**
-     * Check if identity is allowed to select from the specified table in a catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-        checkCanSelectFromColumns(identity, table, new HashSet<>());
     }
 
     /**
@@ -273,42 +259,6 @@ public interface SystemAccessControl
     default void checkCanDropView(Identity identity, CatalogSchemaTableName view)
     {
         denyDropView(view.toString());
-    }
-
-    /**
-     * Check if identity is allowed to select from the specified view in a catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
-    {
-        checkCanSelectFromColumns(identity, view, new HashSet<>());
-    }
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified table in a catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanCreateViewWithSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-        checkCanCreateViewWithSelectFromColumns(identity, table, new HashSet<>());
-    }
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified view in a catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     * @deprecated Use {@link #checkCanCreateViewWithSelectFromColumns} instead
-     */
-    @Deprecated
-    default void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
-    {
-        checkCanCreateViewWithSelectFromColumns(identity, view, new HashSet<>());
     }
 
     /**

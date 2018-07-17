@@ -148,11 +148,6 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
-    {
-    }
-
-    @Override
     public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyInsertTable(tableName.toString());
@@ -174,21 +169,6 @@ public class DenyAllAccessControl
     public void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         denyDropView(viewName.toString());
-    }
-
-    @Override
-    public void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
-    {
     }
 
     @Override
