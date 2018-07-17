@@ -26,10 +26,10 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,12 +94,12 @@ public final class HiveSessionProperties
     public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig)
     {
         sessionProperties = ImmutableList.of(
-                booleanSessionProperty(
+                booleanProperty(
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
                         hiveClientConfig.isBucketExecutionEnabled(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
                         "Only schedule splits on workers colocated with data node",
                         hiveClientConfig.isForceLocalScheduling(),
@@ -113,7 +113,7 @@ public final class HiveSessionProperties
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveClientConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
-                booleanSessionProperty(
+                booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
                         hiveClientConfig.isOrcBloomFiltersEnabled(),
@@ -143,7 +143,7 @@ public final class HiveSessionProperties
                         "ORC: Soft max size of Presto blocks produced by ORC reader",
                         hiveClientConfig.getOrcMaxReadBlockSize(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         ORC_LAZY_READ_SMALL_RANGES,
                         "Experimental: ORC: Read small file segments lazily",
                         hiveClientConfig.isOrcLazyReadSmallRanges(),
@@ -153,22 +153,22 @@ public final class HiveSessionProperties
                         "ORC: Maximum size of string statistics; drop if exceeding",
                         orcFileWriterConfig.getStringStatisticsLimit(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         ORC_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: ORC: Enable optimized writer",
                         hiveClientConfig.isOrcOptimizedWriterEnabled(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
                         false),
-                doubleSessionProperty(
+                doubleProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
                         "Experimental: ORC: sample percentage for validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage(),
                         false),
-                stringSessionProperty(
+                stringProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
                         "Experimental: ORC: Level of detail in ORC validation",
                         hiveClientConfig.getOrcWriterValidationMode().toString(),
@@ -183,7 +183,7 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Max stripe size",
                         orcFileWriterConfig.getStripeMaxSize(),
                         false),
-                integerSessionProperty(
+                integerProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS,
                         "Experimental: ORC: Max stripe row count",
                         orcFileWriterConfig.getStripeMaxRowCount(),
@@ -193,27 +193,27 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
                         false),
-                stringSessionProperty(
+                stringProperty(
                         HIVE_STORAGE_FORMAT,
                         "Default storage format for new tables or partitions",
                         hiveClientConfig.getHiveStorageFormat().toString(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         RESPECT_TABLE_FORMAT,
                         "Write new partitions using table format rather than default storage format",
                         hiveClientConfig.isRespectTableFormat(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
                         "Experimental: Parquet: Enable optimized reader",
                         hiveClientConfig.isParquetOptimizedReaderEnabled(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PARQUET_PREDICATE_PUSHDOWN_ENABLED,
                         "Experimental: Parquet: Enable predicate pushdown for Parquet",
                         hiveClientConfig.isParquetPredicatePushdownEnabled(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PARQUET_USE_COLUMN_NAME,
                         "Experimental: Parquet: Access Parquet columns using names from the file",
                         hiveClientConfig.isUseParquetColumnNames(),
@@ -228,17 +228,17 @@ public final class HiveSessionProperties
                         "Max initial split size",
                         hiveClientConfig.getMaxInitialSplitSize(),
                         true),
-                booleanSessionProperty(
+                booleanProperty(
                         RCFILE_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: RCFile: Enable optimized writer",
                         hiveClientConfig.isRcfileOptimizedWriterEnabled(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: RCFile: Validate writer files",
                         hiveClientConfig.isRcfileWriterValidate(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         SORTED_WRITING_ENABLED,
                         "Enable writing to bucketed sorted tables",
                         hiveClientConfig.isSortedWritingEnabled(),
@@ -248,7 +248,7 @@ public final class HiveSessionProperties
                         "Writer sort buffer size",
                         hiveClientConfig.getWriterSortBufferSize(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         STATISTICS_ENABLED,
                         "Experimental: Expose table statistics",
                         hiveClientConfig.isTableStatisticsEnabled(),

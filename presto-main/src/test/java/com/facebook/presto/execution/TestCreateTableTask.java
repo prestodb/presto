@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -76,7 +76,7 @@ public class TestCreateTableTask
         testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         tablePropertyManager.addProperties(testCatalog.getConnectorId(),
-                ImmutableList.of(stringSessionProperty("baz", "test property", null, false)));
+                ImmutableList.of(stringProperty("baz", "test property", null, false)));
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();

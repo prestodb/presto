@@ -134,7 +134,7 @@ public final class PropertyMetadata<T>
         return encoder.apply(value);
     }
 
-    public static <T> PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
+    public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -147,7 +147,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<Integer> integerSessionProperty(String name, String description, Integer defaultValue, boolean hidden)
+    public static PropertyMetadata<Integer> integerProperty(String name, String description, Integer defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -160,7 +160,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<Long> longSessionProperty(String name, String description, Long defaultValue, boolean hidden)
+    public static PropertyMetadata<Long> longProperty(String name, String description, Long defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -173,7 +173,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<Double> doubleSessionProperty(String name, String description, Double defaultValue, boolean hidden)
+    public static PropertyMetadata<Double> doubleProperty(String name, String description, Double defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -186,7 +186,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<String> stringSessionProperty(String name, String description, String defaultValue, boolean hidden)
+    public static PropertyMetadata<String> stringProperty(String name, String description, String defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
