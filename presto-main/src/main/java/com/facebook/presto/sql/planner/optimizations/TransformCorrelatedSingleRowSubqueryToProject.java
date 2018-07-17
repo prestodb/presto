@@ -25,6 +25,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -95,14 +97,27 @@ public class TransformCorrelatedSingleRowSubqueryToProject
             if (subqueryProjections.size() == 0) {
                 return rewrittenLateral.getInput();
             }
-            else if (subqueryProjections.size() == 1) {
-                Assignments assignments = Assignments.builder()
-                        .putIdentities(rewrittenLateral.getInput().getOutputSymbols())
-                        .putAll(subqueryProjections.get(0).getAssignments())
-                        .build();
-                return projectNode(rewrittenLateral.getInput(), assignments);
+
+            List<ProjectNode> reverseSubqueryProjection = new ArrayList<>(subqueryProjections);
+
+            Collections.reverse(reverseSubqueryProjection);
+
+            Assignments assignments = Assignments.builder().putIdentities(rewrittenLateral.getInput().getOutputSymbols())
+                    .putAll(reverseSubqueryProjection.get(0).getAssignments())
+                    .build();
+
+            ProjectNode previousNode = projectNode(rewrittenLateral.getInput(), assignments);
+
+            for (int i = 1; i < reverseSubqueryProjection.size(); i++) {
+
+                    Assignments innerAssignments = Assignments.builder().putIdentities(previousNode.getOutputSymbols())
+                            .putAll(reverseSubqueryProjection.get(i).getAssignments())
+                            .build();
+                    ProjectNode currentNode = projectNode(previousNode, innerAssignments);
+                    previousNode = currentNode;
             }
-            return rewrittenLateral;
+
+            return previousNode;
         }
 
         private ProjectNode projectNode(PlanNode source, Assignments assignments)
