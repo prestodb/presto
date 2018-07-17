@@ -799,8 +799,6 @@ class StatementAnalyzer
 
                 analysis.registerNamedQuery(table, query);
 
-                accessControl.checkCanSelectFromView(session.getRequiredTransactionId(), session.getIdentity(), name);
-
                 analysis.registerTableForView(table);
                 RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
                 analysis.unregisterTableForView();
@@ -837,7 +835,6 @@ class StatementAnalyzer
                 }
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
             }
-            accessControl.checkCanSelectFromTable(session.getRequiredTransactionId(), session.getIdentity(), name);
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
