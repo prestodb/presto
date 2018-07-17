@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import io.airlift.slice.FixedLengthSliceInput;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -34,4 +35,6 @@ public interface LongOutputStream
     }
 
     void writeLong(long value);
+
+    FixedLengthSliceInput getSliceInput();
 }

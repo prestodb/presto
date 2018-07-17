@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ChainedSliceInput;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
@@ -20,6 +21,7 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.FixedLengthSliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -75,6 +77,13 @@ public class LongOutputStreamDwrf
     {
         checkState(closed);
         return ImmutableList.copyOf(checkpoints);
+    }
+
+    @Override
+    public FixedLengthSliceInput getSliceInput()
+    {
+        checkState(closed);
+        return new ChainedSliceInput(buffer.getCompressedSlices());
     }
 
     @Override
