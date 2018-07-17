@@ -14,8 +14,17 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.RealSumAggregation;
+import com.facebook.presto.operator.aggregation.VarianceAggregation;
+import com.facebook.presto.operator.scalar.ArrayEqualOperator;
+import com.facebook.presto.operator.scalar.ArrayHashCodeOperator;
+import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -25,7 +34,28 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.BigintOperators;
+import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.DateOperators;
+import com.facebook.presto.type.DateTimeOperators;
+import com.facebook.presto.type.DoubleOperators;
+import com.facebook.presto.type.HyperLogLogOperators;
+import com.facebook.presto.type.IntegerOperators;
+import com.facebook.presto.type.IntervalDayTimeOperators;
+import com.facebook.presto.type.IntervalYearMonthOperators;
+import com.facebook.presto.type.IpAddressOperators;
+import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.RealOperators;
+import com.facebook.presto.type.SmallintOperators;
+import com.facebook.presto.type.TimeOperators;
+import com.facebook.presto.type.TimeWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampOperators;
+import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.UnknownOperators;
+import com.facebook.presto.type.VarbinaryOperators;
+import com.facebook.presto.type.VarcharOperators;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -39,6 +69,7 @@ import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunct
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -63,6 +94,11 @@ public class TestFunctionRegistry
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .scalars(HyperLogLogOperators.class)
+                .function(IDENTITY_CAST)
+                .getFunctions();
+        registry.addFunctions(functions);
         Signature exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
@@ -74,6 +110,32 @@ public class TestFunctionRegistry
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .scalar(ArrayNotEqualOperator.class)
+                .scalar(ArrayEqualOperator.class)
+                .scalar(ArrayHashCodeOperator.class)
+                .scalars(UnknownOperators.class)
+                .scalars(BooleanOperators.class)
+                .scalars(BigintOperators.class)
+                .scalars(IntegerOperators.class)
+                .scalars(SmallintOperators.class)
+                .scalars(TinyintOperators.class)
+                .scalars(DoubleOperators.class)
+                .scalars(RealOperators.class)
+                .scalars(VarcharOperators.class)
+                .scalars(VarbinaryOperators.class)
+                .scalars(DateOperators.class)
+                .scalars(TimeOperators.class)
+                .scalars(TimestampOperators.class)
+                .scalars(IntervalDayTimeOperators.class)
+                .scalars(IntervalYearMonthOperators.class)
+                .scalars(TimeWithTimeZoneOperators.class)
+                .scalars(TimestampWithTimeZoneOperators.class)
+                .scalars(DateTimeOperators.class)
+                .scalars(HyperLogLogOperators.class)
+                .scalars(IpAddressOperators.class)
+                .getFunctions();
+        registry.addFunctions(functions);
         boolean foundOperator = false;
         for (SqlFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -128,6 +190,9 @@ public class TestFunctionRegistry
     public void testConflictingScalarAggregation()
     {
         List<SqlFunction> functions = new FunctionListBuilder()
+                .aggregates(DoubleSumAggregation.class)
+                .aggregates(RealSumAggregation.class)
+                .aggregates(LongSumAggregation.class)
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
@@ -141,7 +206,14 @@ public class TestFunctionRegistry
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        List<SqlFunction> functions = registry.list();
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .scalars(StringFunctions.class)
+                .aggregates(VarianceAggregation.class)
+                .window(RankFunction.class)
+                .scalars(LikeFunctions.class)
+                .getFunctions();
+        registry.addFunctions(functions);
+        functions = registry.list();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
