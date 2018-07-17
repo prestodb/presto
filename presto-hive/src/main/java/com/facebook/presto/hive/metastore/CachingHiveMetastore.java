@@ -965,7 +965,8 @@ public class CachingHiveMetastore
 
         public UserTableKey(PrestoPrincipal principal, String database, String table)
         {
-            this.principal = requireNonNull(principal, "principal is null");
+            // principal can be null when we want to list all privileges for admins
+            this.principal = principal;
             this.table = requireNonNull(table, "table is null");
             this.database = requireNonNull(database, "database is null");
         }

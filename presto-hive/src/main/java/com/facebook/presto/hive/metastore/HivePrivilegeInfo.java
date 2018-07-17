@@ -38,6 +38,7 @@ public class HivePrivilegeInfo
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
     private final PrestoPrincipal grantor;
+    private final PrestoPrincipal grantee;
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
     {
@@ -55,11 +56,17 @@ public class HivePrivilegeInfo
         }
     }
 
-    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption, PrestoPrincipal grantor)
+    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption, PrestoPrincipal grantor, PrestoPrincipal grantee)
     {
         this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
         this.grantor = requireNonNull(grantor, "grantor is null");
+        this.grantee = requireNonNull(grantee, "grantee is null");
+    }
+
+    public PrestoPrincipal getGrantee()
+    {
+        return grantee;
     }
 
     public HivePrivilege getHivePrivilege()
@@ -105,7 +112,7 @@ public class HivePrivilegeInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(hivePrivilege, grantOption);
+        return Objects.hash(hivePrivilege, grantOption, grantor, grantee);
     }
 
     @Override
@@ -119,7 +126,9 @@ public class HivePrivilegeInfo
         }
         HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
         return Objects.equals(hivePrivilege, hivePrivilegeInfo.hivePrivilege) &&
-                Objects.equals(grantOption, hivePrivilegeInfo.grantOption);
+                Objects.equals(grantOption, hivePrivilegeInfo.grantOption) &&
+                Objects.equals(grantor, hivePrivilegeInfo.grantor) &&
+                Objects.equals(grantee, hivePrivilegeInfo.grantee);
     }
 
     @Override
@@ -128,6 +137,8 @@ public class HivePrivilegeInfo
         return toStringHelper(this)
                 .add("privilege", hivePrivilege)
                 .add("grantOption", grantOption)
+                .add("grantor", grantor)
+                .add("grantee", grantee)
                 .toString();
     }
 }
