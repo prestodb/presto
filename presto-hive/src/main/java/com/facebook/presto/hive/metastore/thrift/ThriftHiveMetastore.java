@@ -67,6 +67,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromPrestoPrincipalType;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromRolePrincipalGrants;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.parsePrivilege;
@@ -821,7 +822,7 @@ public class ThriftHiveMetastore
                             Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                             Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
                             while (iterator.hasNext()) {
-                                HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next()));
+                                HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next(), Optional.empty()));
 
                                 for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
                                     if ((requestedPrivilege.isContainedIn(existingPrivilege))) {
@@ -872,7 +873,7 @@ public class ThriftHiveMetastore
                                     .collect(toSet());
 
                             Set<PrivilegeGrantInfo> privilegesToRevoke = requestedPrivileges.stream()
-                                    .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo)).getHivePrivilege()))
+                                    .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo, Optional.empty())).getHivePrivilege()))
                                     .collect(toSet());
 
                             if (privilegesToRevoke.isEmpty()) {
@@ -902,15 +903,26 @@ public class ThriftHiveMetastore
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             Table table = client.getTable(databaseName, tableName);
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
-                            if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
-                                privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, principal));
+                            List<HiveObjectPrivilege> hiveObjectPrivilegeList;
+                            // principal can be null when we want to list all privileges for admins
+                            if (principal == null) {
+                                hiveObjectPrivilegeList = client.listPrivileges(
+                                        null,
+                                        null,
+                                        new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                             }
-                            List<HiveObjectPrivilege> hiveObjectPrivilegeList = client.listPrivileges(
-                                    principal.getName(),
-                                    fromPrestoPrincipalType(principal.getType()),
-                                    new HiveObjectRef(TABLE, databaseName, tableName, null, null));
+                            else {
+                                if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
+                                    privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, principal, principal));
+                                }
+                                hiveObjectPrivilegeList = client.listPrivileges(
+                                        principal.getName(),
+                                        fromPrestoPrincipalType(principal.getType()),
+                                        new HiveObjectRef(TABLE, databaseName, tableName, null, null));
+                            }
                             for (HiveObjectPrivilege hiveObjectPrivilege : hiveObjectPrivilegeList) {
-                                privileges.addAll(parsePrivilege(hiveObjectPrivilege.getGrantInfo()));
+                                PrestoPrincipal grantee = new PrestoPrincipal(fromMetastoreApiPrincipalType(hiveObjectPrivilege.getPrincipalType()), hiveObjectPrivilege.getPrincipalName());
+                                privileges.addAll(parsePrivilege(hiveObjectPrivilege.getGrantInfo(), Optional.of(grantee)));
                             }
                             return privileges.build();
                         }
