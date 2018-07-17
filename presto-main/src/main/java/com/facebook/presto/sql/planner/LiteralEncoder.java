@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockSerdeUtil;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionUtils;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
@@ -192,12 +192,12 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
-            Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
+            Signature signature = FunctionUtils.getMagicLiteralFunctionSignature(type);
             return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
         }
 
-        Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-        Expression rawLiteral = toExpression(object, FunctionRegistry.typeForMagicLiteral(type));
+        Signature signature = FunctionUtils.getMagicLiteralFunctionSignature(type);
+        Expression rawLiteral = toExpression(object, FunctionUtils.typeForMagicLiteral(type));
 
         return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
     }

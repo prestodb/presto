@@ -65,9 +65,9 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
+import static com.facebook.presto.metadata.FunctionUtils.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.FunctionUtils.mangleOperatorName;
+import static com.facebook.presto.metadata.FunctionUtils.unmangleOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;

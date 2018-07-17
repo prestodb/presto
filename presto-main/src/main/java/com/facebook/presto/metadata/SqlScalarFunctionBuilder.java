@@ -144,7 +144,7 @@ public final class SqlScalarFunctionBuilder
     private static boolean isOperator(Signature signature)
     {
         for (OperatorType operator : OperatorType.values()) {
-            if (signature.getName().equals(FunctionRegistry.mangleOperatorName(operator))) {
+            if (signature.getName().equals(FunctionUtils.mangleOperatorName(operator))) {
                 return true;
             }
         }
