@@ -1238,6 +1238,27 @@ public class TestPrestoDriver
     }
 
     @Test
+    public void testGetMoreResultsClearsUpdateCount()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "default")) {
+            try (PrestoStatement statement = connection.createStatement().unwrap(PrestoStatement.class)) {
+                assertFalse(statement.execute("CREATE TABLE test_more_results_clears_update_count (id bigint)"));
+                assertEquals(statement.getUpdateCount(), 0);
+                assertEquals(statement.getUpdateType(), "CREATE TABLE");
+                assertFalse(statement.getMoreResults());
+                assertEquals(statement.getUpdateCount(), -1);
+                assertNull(statement.getUpdateType());
+            }
+            finally {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_more_results_clears_update_count");
+                }
+            }
+        }
+    }
+
+    @Test
     public void testSetTimeZoneId()
             throws Exception
     {
