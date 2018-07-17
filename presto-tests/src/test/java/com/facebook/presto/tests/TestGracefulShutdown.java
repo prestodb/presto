@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -47,7 +48,19 @@ public class TestGracefulShutdown
             .setSchema("tiny")
             .build();
 
-    private final ListeningExecutorService executor = MoreExecutors.listeningDecorator(newCachedThreadPool());
+    private ListeningExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+    {
+        executor = MoreExecutors.listeningDecorator(newCachedThreadPool());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void shutdown()
+    {
+        executor.shutdownNow();
+    }
 
     @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS)
     public void testShutdown()
@@ -90,12 +103,6 @@ public class TestGracefulShutdown
             shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
             assertTrue(shutdownAction.isWorkerShutdown());
         }
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void shutdown()
-    {
-        executor.shutdownNow();
     }
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
