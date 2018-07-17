@@ -77,6 +77,7 @@ public class TestMetadataManager
     {
         queryRunner.close();
         queryRunner = null;
+        metadataManager = null;
     }
 
     @Test

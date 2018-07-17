@@ -25,6 +25,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -67,7 +68,20 @@ public class TestMemoryManager
             .setSchema("tiny")
             .build();
 
-    private final ExecutorService executor = newCachedThreadPool();
+    private ExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+    {
+        executor = newCachedThreadPool();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void shutdown()
+    {
+        executor.shutdownNow();
+        executor = null;
+    }
 
     @Test(timeOut = 240_000)
     public void testResourceOverCommit()
@@ -331,12 +345,6 @@ public class TestMemoryManager
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
         }
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void shutdown()
-    {
-        executor.shutdownNow();
     }
 
     public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
