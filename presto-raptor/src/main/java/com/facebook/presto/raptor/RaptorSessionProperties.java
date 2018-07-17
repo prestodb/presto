@@ -24,9 +24,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class RaptorSessionProperties
@@ -46,7 +46,7 @@ public class RaptorSessionProperties
     public RaptorSessionProperties(StorageManagerConfig config)
     {
         sessionProperties = ImmutableList.of(
-                stringSessionProperty(
+                stringProperty(
                         EXTERNAL_BATCH_ID,
                         "Two-phase commit batch ID",
                         null,
@@ -71,12 +71,12 @@ public class RaptorSessionProperties
                         "Reader: Threshold below which an ORC stripe or file will read in its entirety",
                         config.getOrcTinyStripeThreshold(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         READER_LAZY_READ_SMALL_RANGES,
                         "Experimental: Reader: Read small file segments lazily",
                         config.isOrcLazyReadSmallRanges(),
                         false),
-                integerSessionProperty(
+                integerProperty(
                         ONE_SPLIT_PER_BUCKET_THRESHOLD,
                         "Experimental: Maximum bucket count at which to produce multiple splits per bucket",
                         config.getOneSplitPerBucketThreshold(),

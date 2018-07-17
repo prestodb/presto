@@ -44,7 +44,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -75,14 +75,14 @@ public class TestSetSessionTask
                 new TablePropertyManager(),
                 transactionManager);
 
-        metadata.getSessionPropertyManager().addSystemSessionProperty(stringSessionProperty(
+        metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,
                 "test property",
                 null,
                 false));
 
         Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), ImmutableList.of(stringSessionProperty(
+        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), ImmutableList.of(stringProperty(
                 "bar",
                 "test property",
                 null,

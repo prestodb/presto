@@ -110,33 +110,33 @@ public abstract class AbstractTestQueries
             .getFunctions();
 
     public static final List<PropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
-            PropertyMetadata.stringSessionProperty(
+            PropertyMetadata.stringProperty(
                     "test_string",
                     "test string property",
                     "test default",
                     false),
-            PropertyMetadata.longSessionProperty(
+            PropertyMetadata.longProperty(
                     "test_long",
                     "test long property",
                     42L,
                     false));
     public static final List<PropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
-            PropertyMetadata.stringSessionProperty(
+            PropertyMetadata.stringProperty(
                     "connector_string",
                     "connector string property",
                     "connector default",
                     false),
-            PropertyMetadata.longSessionProperty(
+            PropertyMetadata.longProperty(
                     "connector_long",
                     "connector long property",
                     33L,
                     false),
-            PropertyMetadata.booleanSessionProperty(
+            PropertyMetadata.booleanProperty(
                     "connector_boolean",
                     "connector boolean property",
                     true,
                     false),
-            PropertyMetadata.doubleSessionProperty(
+            PropertyMetadata.doubleProperty(
                     "connector_double",
                     "connector double property",
                     99.0,
