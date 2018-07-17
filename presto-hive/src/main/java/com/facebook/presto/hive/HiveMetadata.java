@@ -173,6 +173,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
+import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.createComputedStatisticsToPartitionMap;
@@ -834,13 +835,13 @@ public class HiveMetadata
 
     private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
-        PrestoPrincipal grantor = new PrestoPrincipal(USER, tableOwner);
+        PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, grantor))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, grantor))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, grantor))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, grantor))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, owner, owner))
                         .build(),
                 ImmutableMultimap.of());
     }
@@ -1736,7 +1737,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser())))
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser()), new PrestoPrincipal(USER, session.getUser())))
                 .collect(toSet());
 
         metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
@@ -1749,7 +1750,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser())))
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser()), new PrestoPrincipal(USER, session.getUser())))
                 .collect(toSet());
 
         metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
@@ -1760,25 +1761,43 @@ public class HiveMetadata
     {
         Set<PrestoPrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
                 .collect(toImmutableSet());
+        boolean isAdminRoleSet = hasAdminRole(principals);
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
-            for (PrestoPrincipal grantee : principals) {
-                Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), grantee);
-                for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
-                    Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
-                    for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
-                        GrantInfo grant = new GrantInfo(
-                                prestoPrivilege,
-                                grantee,
-                                tableName,
-                                Optional.of(hivePrivilege.getGrantor()),
-                                Optional.empty());
-                        result.add(grant);
-                    }
+            if (isAdminRoleSet) {
+                result.addAll(buildGrants(tableName, null));
+            }
+            else {
+                for (PrestoPrincipal grantee : principals) {
+                    result.addAll(buildGrants(tableName, grantee));
                 }
             }
         }
         return result.build();
+    }
+
+    private List<GrantInfo> buildGrants(SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
+        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), principal);
+        for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
+            Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
+            for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
+                GrantInfo grant = new GrantInfo(
+                        prestoPrivilege,
+                        hivePrivilege.getGrantee(),
+                        tableName,
+                        Optional.of(hivePrivilege.getGrantor()),
+                        Optional.empty());
+                result.add(grant);
+            }
+        }
+        return result.build();
+    }
+
+    private static boolean hasAdminRole(Set<PrestoPrincipal> roles)
+    {
+        return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
     }
 
     private void verifyJvmTimeZone()
