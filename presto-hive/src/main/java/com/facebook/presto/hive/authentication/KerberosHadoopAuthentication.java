@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.authentication;
 
+import com.facebook.presto.hive.HdfsConfiguration;
+import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authentication.util.KerberosName;
@@ -25,24 +27,16 @@ import static org.apache.hadoop.security.UserGroupInformationShim.createUserGrou
 public class KerberosHadoopAuthentication
         implements HadoopAuthentication
 {
-    static {
-        // In order to enable KERBEROS authentication method for HDFS
-        // UserGroupInformation.authenticationMethod static field must be set to KERBEROS
-        // It is further used in many places in DfsClient
-        Configuration configuration = new Configuration(false);
-        configuration.set("hadoop.security.authentication", "kerberos");
-        UserGroupInformation.setConfiguration(configuration);
-
-        // KerberosName#rules static field must be initialized
-        // It is used in KerberosName#getShortName which is used in User constructor invoked by UserGroupInformation#getUGIFromSubject
-        KerberosName.setRules("DEFAULT");
-    }
+    private static final Logger log = Logger.get(KerberosHadoopAuthentication.class);
 
     private final KerberosAuthentication kerberosAuthentication;
 
-    public KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication)
+    public KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfiguration hdfsConfiguration)
     {
         this.kerberosAuthentication = requireNonNull(kerberosAuthentication, "kerberosAuthentication is null");
+        requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
+        Configuration configuration = validateHDFSConfiguration(hdfsConfiguration);
+        UserGroupInformation.setConfiguration(configuration);
     }
 
     @Override
@@ -50,5 +44,23 @@ public class KerberosHadoopAuthentication
     {
         Subject subject = kerberosAuthentication.getSubject();
         return createUserGroupInformationForSubject(subject);
+    }
+
+    private Configuration validateHDFSConfiguration(HdfsConfiguration hdfsConfiguration)
+    {
+        Configuration config = hdfsConfiguration.getConfiguration(null, null);
+        String loadedHadoopAuthentication = config.get("hadoop.security.authentication");
+
+        if (!"kerberos".equals(loadedHadoopAuthentication)) {
+            log.warn("Contradicting security authentication type in hive.properties and hive config resources");
+            log.warn("Setting security authentication type to kerberos according to hive.properties");
+            config.set("hadoop.security.authentication", "kerberos");
+        }
+
+        String authToLocalRules = config.get("hadoop.security.auth_to_local");
+        if (authToLocalRules == null) {
+            KerberosName.setRules("DEFAULT");
+        }
+        return config;
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.authentication;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -101,5 +102,13 @@ public class KerberosAuthentication
                                 options)};
             }
         };
+    }
+
+    @VisibleForTesting
+    public KerberosAuthentication(String principal)
+    {
+        requireNonNull(principal, "principal is null");
+        this.principal = createKerberosPrincipal(principal);
+        this.configuration = null;
     }
 }
