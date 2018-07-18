@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
@@ -45,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
@@ -61,6 +63,8 @@ import static java.util.stream.Collectors.toList;
 @ThreadSafe
 public class TaskContext
 {
+    private static final Logger log = Logger.get(TaskContext.class);
+
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
     private final GcMonitor gcMonitor;
@@ -517,6 +521,35 @@ public class TaskContext
         return pipelineContexts.stream()
                 .map(pipelineContext -> pipelineContext.accept(visitor, context))
                 .collect(toList());
+    }
+
+    public void destroy()
+    {
+        // We cannot simply close taskMemoryContext here. Because, it's possible that after we close
+        // the taskMemoryContext, and free up all the allocated memory in the aggregated memory contexts,
+        // another thread may update the local memory contexts at the operator level, and we can
+        // end up with a double free problem resulting in an exception.
+        localSystemMemoryContext().close();
+
+        if (taskMemoryContext.getSystemMemory() != 0) {
+            log.warn("Task %s has non-zero system memory (%d bytes) after destroy()", this, taskMemoryContext.getSystemMemory());
+        }
+
+        if (taskMemoryContext.getUserMemory() != 0) {
+            log.warn("Task %s has non-zero user memory (%d bytes) after destroy()", this, taskMemoryContext.getUserMemory());
+        }
+
+        if (taskMemoryContext.getRevocableMemory() != 0) {
+            log.warn("Task %s has non-zero user revocable (%d bytes) after destroy()", this, taskMemoryContext.getRevocableMemory());
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("taskId", getTaskId())
+                .toString();
     }
 
     @VisibleForTesting

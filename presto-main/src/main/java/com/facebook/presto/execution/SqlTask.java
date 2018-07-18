@@ -111,46 +111,50 @@ public class SqlTask
                 // because we haven't created the task context that holds the the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (!newState.isDone()) {
-                    return;
-                }
+        taskStateMachine.addStateChangeListener(taskState -> cleanupTask(taskState, onDone));
+    }
 
-                // store final task info
-                while (true) {
-                    TaskHolder taskHolder = taskHolderReference.get();
-                    if (taskHolder.isFinished()) {
-                        // another concurrent worker already set the final state
-                        return;
-                    }
+    private void cleanupTask(TaskState newState, Function<SqlTask, ?> onDone)
+    {
+        if (!newState.isDone()) {
+            return;
+        }
 
-                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
-                        break;
-                    }
-                }
+        // release all task-level allocated memory
+        SqlTaskExecution taskExecution = taskHolderReference.get().getTaskExecution();
+        if (taskExecution != null) {
+            taskExecution.getTaskContext().destroy();
+        }
 
-                // make sure buffers are cleaned up
-                if (newState == TaskState.FAILED || newState == TaskState.ABORTED) {
-                    // don't close buffers for a failed query
-                    // closed buffers signal to upstream tasks that everything finished cleanly
-                    outputBuffer.fail();
-                }
-                else {
-                    outputBuffer.destroy();
-                }
-
-                try {
-                    onDone.apply(SqlTask.this);
-                }
-                catch (Exception e) {
-                    log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
-                }
+        // store final task info
+        while (true) {
+            TaskHolder taskHolder = taskHolderReference.get();
+            if (taskHolder.isFinished()) {
+                // another concurrent worker already set the final state
+                return;
             }
-        });
+
+            if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                break;
+            }
+        }
+
+        // make sure buffers are cleaned up
+        if (newState == TaskState.FAILED || newState == TaskState.ABORTED) {
+            // don't close buffers for a failed query
+            // closed buffers signal to upstream tasks that everything finished cleanly
+            outputBuffer.fail();
+        }
+        else {
+            outputBuffer.destroy();
+        }
+
+        try {
+            onDone.apply(SqlTask.this);
+        }
+        catch (Exception e) {
+            log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
+        }
     }
 
     public boolean isOutputBufferOverutilized()
