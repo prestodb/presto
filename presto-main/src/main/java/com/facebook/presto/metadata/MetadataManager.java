@@ -83,6 +83,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -377,6 +378,10 @@ public class MetadataManager
             throw new PrestoException(NOT_SUPPORTED, "Table has no columns: " + tableHandle);
         }
 
+        if (tableMetadata.getColumns().isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_SCHEMA, format("Table '%s' should contain at least single column", tableHandle));
+        }
+
         return new TableMetadata(connectorId, tableMetadata);
     }
 
@@ -394,6 +399,10 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
         Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+
+        if (handles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_SCHEMA, format("Table '%s' should contain at least single column", tableHandle));
+        }
 
         ImmutableMap.Builder<String, ColumnHandle> map = ImmutableMap.builder();
         for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
