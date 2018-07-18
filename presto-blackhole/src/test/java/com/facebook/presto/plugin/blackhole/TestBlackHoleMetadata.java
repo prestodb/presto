@@ -67,7 +67,7 @@ public class TestBlackHoleMetadata
 
         metadata.finishCreateTable(SESSION, table, ImmutableList.of());
 
-        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table.");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
     }
@@ -88,6 +88,6 @@ public class TestBlackHoleMetadata
 
     private void assertThatNoTableIsCreated()
     {
-        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(), "No table was expected");
     }
 }

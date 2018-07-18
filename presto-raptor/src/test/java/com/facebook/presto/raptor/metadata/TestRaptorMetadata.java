@@ -565,7 +565,7 @@ public class TestRaptorMetadata
     public void testListTables()
     {
         metadata.createTable(SESSION, getOrdersTable(), false);
-        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 

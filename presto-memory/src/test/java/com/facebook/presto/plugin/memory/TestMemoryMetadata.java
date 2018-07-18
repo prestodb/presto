@@ -71,7 +71,7 @@ public class TestMemoryMetadata
 
         metadata.finishCreateTable(SESSION, table, ImmutableList.of());
 
-        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
     }
@@ -143,7 +143,7 @@ public class TestMemoryMetadata
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty());
 
-        List<SchemaTableName> tableNames = metadata.listTables(SESSION, null);
+        List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tableNames.size() == 1, "Expected exactly one table");
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
@@ -174,9 +174,9 @@ public class TestMemoryMetadata
                         ImmutableMap.of()),
                 false);
 
-        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, "default"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
@@ -334,6 +334,6 @@ public class TestMemoryMetadata
 
     private void assertNoTables()
     {
-        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(), "No table was expected");
     }
 }
