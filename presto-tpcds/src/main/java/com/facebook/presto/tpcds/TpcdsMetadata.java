@@ -186,7 +186,7 @@ public class TpcdsMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(session, prefix.getSchemaName())) {
+        for (String schemaName : getSchemaNames(session, Optional.ofNullable(prefix.getSchemaName()))) {
             for (Table tpcdsTable : Table.getBaseTables()) {
                 if (prefix.getTableName() == null || tpcdsTable.getName().equals(prefix.getTableName())) {
                     ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpcdsTable);
@@ -198,10 +198,10 @@ public class TpcdsMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(session, schemaNameOrNull)) {
+        for (String schemaName : getSchemaNames(session, filterSchema)) {
             for (Table tpcdsTable : Table.getBaseTables()) {
                 builder.add(new SchemaTableName(schemaName, tpcdsTable.getName()));
             }
@@ -209,13 +209,13 @@ public class TpcdsMetadata
         return builder.build();
     }
 
-    private List<String> getSchemaNames(ConnectorSession session, String schemaNameOrNull)
+    private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
+        if (!schemaName.isPresent()) {
             return listSchemaNames(session);
         }
-        else if (schemaNameToScaleFactor(schemaNameOrNull) > 0) {
-            return ImmutableList.of(schemaNameOrNull);
+        if (schemaNameToScaleFactor(schemaName.get()) > 0) {
+            return ImmutableList.of(schemaName.get());
         }
         return ImmutableList.of();
     }
