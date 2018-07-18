@@ -283,4 +283,9 @@ public final class InternalResourceGroupManager<C>
     {
         return (ResourceGroupConfigurationManager<C>) manager;
     }
+
+    public static class QueuePositionEstimator
+    {
+
+    }
 }
