@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -126,6 +127,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Sets.intersection;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
@@ -1375,6 +1377,7 @@ public class AddExchanges
     {
         private final Map<Symbol, ColumnHandle> assignments;
         private final ExpressionInterpreter evaluator;
+        private final Set<ColumnHandle> arguments;
 
         public LayoutConstraintEvaluator(Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
         {
@@ -1383,10 +1386,16 @@ public class AddExchanges
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList());
 
             evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+            arguments = SymbolsExtractor.extractUnique(expression).stream()
+                    .map(assignments::get)
+                    .collect(toImmutableSet());
         }
 
         private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
         {
+            if (intersection(bindings.keySet(), arguments).isEmpty()) {
+                return true;
+            }
             LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
