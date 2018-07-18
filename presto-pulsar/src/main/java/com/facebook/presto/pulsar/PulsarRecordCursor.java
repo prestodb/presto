@@ -107,9 +107,9 @@ public class PulsarRecordCursor implements RecordCursor {
             case AVRO:
                 schemaHandler = new AvroSchemaHandler(schema, columnHandles);
                 break;
-            case PROTOBUF:
-                schemaHandler = null;
-                break;
+//            case PROTOBUF:
+//                schemaHandler = null;
+//                break;
             case STRING:
                 schemaHandler = null;
                 break;
@@ -117,7 +117,7 @@ public class PulsarRecordCursor implements RecordCursor {
                 schemaHandler = null;
                 break;
             default:
-                throw new PrestoException(NOT_SUPPORTED, "Unrecognized schema type: " + schemaType);
+                throw new PrestoException(NOT_SUPPORTED, "Not supported schema type: " + schemaType);
         }
         return schemaHandler;
     }
@@ -130,6 +130,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
         managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
 
+        log.info("opening read onl cursor: %s - %s", topicName, startPosition);
         ReadOnlyCursor cursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
                 startPosition, new ManagedLedgerConfig());
 

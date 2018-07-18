@@ -26,7 +26,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -38,6 +37,8 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
@@ -52,9 +53,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertColumnHandle;
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertTableHandle;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarMetadata implements ConnectorMetadata {
@@ -230,15 +233,24 @@ public class PulsarMetadata implements ConnectorMetadata {
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColums) {
         log.info("getTableMetadata - schemaTableName: %s", schemaTableName);
 
-        List<String> topics;
         try {
-            topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
-            log.info("topics: %s", topics);
+
             TopicName topicName = TopicName.get(
                     String.format("%s/%s", schemaTableName.getSchemaName(), schemaTableName.getTableName()));
-            log.info("topicName.getSchemaName(): %s", topicName.toString());
+
+            List<String> topics;
+            if (!Utils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
+                topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
+            } else {
+                topics = this.pulsarAdmin.topics().getPartitionedTopicList((schemaTableName.getSchemaName()));
+            }
+
+            log.info("topics: %s", topics);
+
             if (!topics.contains(topicName.toString())) {
-                log.error("table not found");
+                log.error("Table %s not found",
+                        String.format("%s/%s", schemaTableName.getSchemaName(),
+                                schemaTableName.getTableName()));
                 throw new TableNotFoundException(schemaTableName);
             }
         } catch (PulsarAdminException e) {
@@ -287,7 +299,7 @@ public class PulsarMetadata implements ConnectorMetadata {
         List<PulsarColumnMetadata> columnMetadataList = new LinkedList<>();
 
         if (isPrimitiveType(fieldSchema.getType())) {
-            columnMetadataList.add(new PulsarColumnMetadata(name, convertType(fieldSchema.getType()),
+            columnMetadataList.add(new PulsarColumnMetadata(name, convertType(fieldSchema.getType(), fieldSchema.getLogicalType()),
                     null, null, false, false, index));
         } else if (fieldSchema.getType() == Schema.Type.UNION) {
             boolean canBeNull = false;
@@ -296,10 +308,11 @@ public class PulsarMetadata implements ConnectorMetadata {
                     PulsarColumnMetadata columnMetadata;
                     if (type.getType() != Schema.Type.NULL) {
                         if (!canBeNull) {
-                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType()),
+                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType(),type.getLogicalType()),
                                     null, null, false, false, index);
                         } else {
-                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType()),
+                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType(), type
+                                    .getLogicalType()),
                                     "field can be null", null, false, false, index);
                         }
                         columnMetadataList.add(columnMetadata);
@@ -325,7 +338,8 @@ public class PulsarMetadata implements ConnectorMetadata {
         return columnMetadataList;
     }
 
-    private Type convertType(Schema.Type avroType) {
+    private Type convertType(Schema.Type avroType, LogicalType logicalType) {
+        log.info("avroType: %s logicalType: %s", avroType, logicalType);
 
         switch (avroType) {
 //            case NULL:
@@ -335,6 +349,9 @@ public class PulsarMetadata implements ConnectorMetadata {
             case INT:
                 return IntegerType.INTEGER;
             case LONG:
+                if (logicalType == LogicalTypes.timestampMillis()) {
+                    return TIMESTAMP;
+                }
                 return BigintType.BIGINT;
             case FLOAT:
                 return RealType.REAL;
