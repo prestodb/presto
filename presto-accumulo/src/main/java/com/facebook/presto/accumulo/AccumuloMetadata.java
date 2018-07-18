@@ -271,7 +271,7 @@ public class AccumuloMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout((AccumuloTableLayoutHandle) handle);
+        return new ConnectorTableLayout(handle);
     }
 
     @Override
