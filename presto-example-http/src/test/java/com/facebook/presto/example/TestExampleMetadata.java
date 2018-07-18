@@ -26,6 +26,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URL;
+import java.util.Optional;
 
 import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -111,20 +112,20 @@ public class TestExampleMetadata
     public void testListTables()
     {
         // all schemas
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, null)), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty())), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // specific schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "example")), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
                 new SchemaTableName("example", "numbers")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "tpch")), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch"))), ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // unknown schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "unknown")), ImmutableSet.of());
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown"))), ImmutableSet.of());
     }
 
     @Test

@@ -915,7 +915,7 @@ public abstract class AbstractTestHiveClient
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<SchemaTableName> tables = metadata.listTables(newSession(), null);
+            List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.empty());
             assertTrue(tables.contains(tablePartitionFormat));
             assertTrue(tables.contains(tableUnpartitioned));
         }

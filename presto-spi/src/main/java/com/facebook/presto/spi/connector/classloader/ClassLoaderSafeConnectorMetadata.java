@@ -147,6 +147,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listTables(session, schemaName);
+        }
+    }
+
+    @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -319,6 +327,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.dropView(session, viewName);
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listViews(session, schemaName);
         }
     }
 
