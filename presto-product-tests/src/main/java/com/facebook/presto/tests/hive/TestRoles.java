@@ -246,6 +246,32 @@ public class TestRoles
     }
 
     @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testRevokeRoleFromOwner()
+    {
+        try {
+            onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+            QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                    .containsOnly(ImmutableList.of(
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "SELECT", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "DELETE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "UPDATE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "INSERT", "YES", null)));
+
+            onPresto().executeQuery("REVOKE SELECT ON hive.default.test_table FROM USER alice");
+
+            // now there should be no SELECT privileges shown even though alice has OWNERSHIP
+            QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                    .containsOnly(ImmutableList.of(
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "DELETE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "UPDATE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "INSERT", "YES", null)));
+        }
+        finally {
+            onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+        }
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropGrantedRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
