@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.authentication;
 
+import com.facebook.presto.hive.HdfsConfiguration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authentication.util.KerberosName;
@@ -25,24 +26,36 @@ import static org.apache.hadoop.security.UserGroupInformationShim.createUserGrou
 public class KerberosHadoopAuthentication
         implements HadoopAuthentication
 {
-    static {
+    private final KerberosAuthentication kerberosAuthentication;
+
+    public static KerberosHadoopAuthentication createKerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfiguration hdfsConfiguration)
+    {
+        KerberosHadoopAuthentication kerberosHadoopAuthentication = new KerberosHadoopAuthentication(kerberosAuthentication);
+
+        Configuration configuration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null").getConfiguration();
+        initializeConfigs(configuration);
+        return kerberosHadoopAuthentication;
+    }
+
+    private KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication)
+    {
+        this.kerberosAuthentication = requireNonNull(kerberosAuthentication, "kerberosAuthentication is null");
+    }
+
+    private static void initializeConfigs(Configuration configuration)
+    {
         // In order to enable KERBEROS authentication method for HDFS
         // UserGroupInformation.authenticationMethod static field must be set to KERBEROS
         // It is further used in many places in DfsClient
-        Configuration configuration = new Configuration(false);
         configuration.set("hadoop.security.authentication", "kerberos");
+
+        String authToLocalRules = configuration.get("hadoop.security.auth_to_local");
+        if (authToLocalRules == null) {
+            // KerberosName#rules static field must be initialized if hadoop.security.auth_to_local is null
+            KerberosName.setRules("DEFAULT");
+        }
+
         UserGroupInformation.setConfiguration(configuration);
-
-        // KerberosName#rules static field must be initialized
-        // It is used in KerberosName#getShortName which is used in User constructor invoked by UserGroupInformation#getUGIFromSubject
-        KerberosName.setRules("DEFAULT");
-    }
-
-    private final KerberosAuthentication kerberosAuthentication;
-
-    public KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication)
-    {
-        this.kerberosAuthentication = requireNonNull(kerberosAuthentication, "kerberosAuthentication is null");
     }
 
     @Override
