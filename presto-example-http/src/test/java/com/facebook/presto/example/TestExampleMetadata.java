@@ -25,7 +25,6 @@ import com.google.common.io.Resources;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.net.URL;
 
 import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
@@ -43,7 +42,6 @@ public class TestExampleMetadata
     private static final String CONNECTOR_ID = "TEST";
     private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle(CONNECTOR_ID, "example", "numbers");
     private ExampleMetadata metadata;
-    private URI metadataUri;
 
     @BeforeMethod
     public void setUp()
@@ -51,8 +49,7 @@ public class TestExampleMetadata
     {
         URL metadataUrl = Resources.getResource(TestExampleClient.class, "/example-data/example-metadata.json");
         assertNotNull(metadataUrl, "metadataUrl is null");
-        metadataUri = metadataUrl.toURI();
-        ExampleClient client = new ExampleClient(new ExampleConfig().setMetadata(metadataUri), CATALOG_CODEC);
+        ExampleClient client = new ExampleClient(new ExampleConfig().setMetadata(metadataUrl.toURI()), CATALOG_CODEC);
         metadata = new ExampleMetadata(new ExampleConnectorId(CONNECTOR_ID), client);
     }
 
