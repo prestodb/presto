@@ -54,6 +54,7 @@ import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.memory.ClusterMemoryLeakDetector;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.memory.LowMemoryKiller;
@@ -174,6 +175,10 @@ public class CoordinatorModule
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        // cluster leak detector
+        binder.bind(ClusterMemoryLeakDetector.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ClusterMemoryLeakDetector.class).withGeneratedName();
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);

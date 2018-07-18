@@ -25,7 +25,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -360,7 +359,6 @@ public class ClusterMemoryManager
         }
     }
 
-    @VisibleForTesting
     synchronized Map<MemoryPoolId, ClusterMemoryPool> getPools()
     {
         return ImmutableMap.copyOf(pools);
