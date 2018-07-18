@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -146,6 +147,24 @@ public class TestMemoryContexts
         // since we have exhausted the memory above after the memory contexts are closed
         // the pool must still be exhausted
         assertEquals(reservationHandler.getReservation(), maxMemory);
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "SimpleLocalMemoryContext is already closed")
+    public void testClosedLocalMemoryContext()
+    {
+        AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
+        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext();
+        localContext.close();
+        localContext.setBytes(100);
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "SimpleAggregatedMemoryContext is already closed")
+    public void testClosedAggregateMemoryContext()
+    {
+        AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
+        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext();
+        aggregateContext.close();
+        localContext.setBytes(100);
     }
 
     private static class TestMemoryReservationHandler

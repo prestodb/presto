@@ -72,6 +72,11 @@ abstract class AbstractAggregatedMemoryContext
                 .toString();
     }
 
+    synchronized boolean isClosed()
+    {
+        return closed;
+    }
+
     synchronized void addBytes(long bytes)
     {
         usedBytes = addExact(usedBytes, bytes);
