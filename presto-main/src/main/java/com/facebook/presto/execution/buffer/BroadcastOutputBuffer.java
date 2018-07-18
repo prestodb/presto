@@ -315,6 +315,12 @@ public class BroadcastOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
+    @Override
+    public void forceFreeMemory()
+    {
+        memoryManager.close();
+    }
+
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
     {
         ClientBuffer buffer = buffers.get(id);
