@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.plugin.memory.MemoryQueryRunner.CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -110,15 +109,15 @@ public class TestMemorySmoke
     @Test
     public void testCreateTableInNonDefaultSchema()
     {
-        assertUpdate(format("CREATE SCHEMA %s.schema1", CATALOG));
-        assertUpdate(format("CREATE SCHEMA %s.schema2", CATALOG));
+        assertUpdate("CREATE SCHEMA schema1");
+        assertUpdate("CREATE SCHEMA schema2");
 
-        assertQueryResult(format("SHOW SCHEMAS FROM %s", CATALOG), "default", "information_schema", "schema1", "schema2");
-        assertUpdate(format("CREATE TABLE %s.schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 0", CATALOG), "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
-        assertUpdate(format("CREATE TABLE %s.schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 1", CATALOG), "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
+        assertQueryResult("SHOW SCHEMAS", "default", "information_schema", "schema1", "schema2");
+        assertUpdate("CREATE TABLE schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
+        assertUpdate("CREATE TABLE schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
 
-        assertQueryResult(format("SELECT count(*) FROM %s.schema1.nation", CATALOG), 13L);
-        assertQueryResult(format("SELECT count(*) FROM %s.schema2.nation", CATALOG), 12L);
+        assertQueryResult("SELECT count(*) FROM schema1.nation", 13L);
+        assertQueryResult("SELECT count(*) FROM schema2.nation", 12L);
     }
 
     @Test
