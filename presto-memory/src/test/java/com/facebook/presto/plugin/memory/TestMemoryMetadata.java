@@ -305,7 +305,7 @@ public class TestMemoryMetadata
     @Test
     public void testRenameTable()
     {
-        SchemaTableName tableName = new SchemaTableName("test_schema", "test_talbe_to_be_renamed");
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_to_be_renamed");
         metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
