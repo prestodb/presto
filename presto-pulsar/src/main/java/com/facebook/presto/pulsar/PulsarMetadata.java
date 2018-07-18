@@ -57,6 +57,8 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertColumnHandle;
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertTableHandle;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
@@ -347,6 +349,11 @@ public class PulsarMetadata implements ConnectorMetadata {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case INT:
+                if (logicalType == LogicalTypes.timeMillis()) {
+                    return TIME;
+                } else if (logicalType == LogicalTypes.date()) {
+                    return DATE;
+                }
                 return IntegerType.INTEGER;
             case LONG:
                 if (logicalType == LogicalTypes.timestampMillis()) {

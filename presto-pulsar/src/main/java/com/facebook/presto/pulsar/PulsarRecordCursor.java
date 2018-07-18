@@ -237,25 +237,25 @@ public class PulsarRecordCursor implements RecordCursor {
         Type type = getType(field);
 
         if (type.equals(BIGINT)) {
-            return (long) record;
+            return ((Number) record).longValue();
         }
         else if (type.equals(DATE)) {
-            return MILLISECONDS.toDays(new Date(TimeUnit.DAYS.toMillis((long) record)).getTime());
+            return MILLISECONDS.toDays(new Date(TimeUnit.DAYS.toMillis(((Number) record).longValue())).getTime());
         }
         else if (type.equals(INTEGER)) {
             return (int) record;
         }
         else if (type.equals(REAL)) {
-            return Float.floatToIntBits((float) record);
+            return Float.floatToIntBits(((Number) record).floatValue());
         }
         else if (type.equals(SMALLINT)) {
-            return (short) record;
+            return ((Number) record).shortValue();
         }
         else if (type.equals(TIME)) {
-            return new Time((long) record).getTime();
+            return new Time(((Number) record).longValue()).getTime();
         }
         else if (type.equals(TIMESTAMP)) {
-            return new Timestamp((long) record).getTime();
+            return new Timestamp(((Number) record).longValue()).getTime();
         }
         else if (type.equals(TINYINT)) {
             return Byte.parseByte(record.toString());
