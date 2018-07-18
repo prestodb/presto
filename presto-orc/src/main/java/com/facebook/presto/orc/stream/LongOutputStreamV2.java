@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ChainedSliceLoader;
+import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
@@ -20,13 +23,18 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.ChunkedSliceInput;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.encodeBitWidth;
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.findClosestNumBits;
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.getClosestAlignedFixedBits;
@@ -60,6 +68,8 @@ public class LongOutputStreamV2
     private static final int MAX_SHORT_REPEAT_LENGTH = 10;
 
     private final StreamKind streamKind;
+    private final CompressionKind compression;
+    private final int bufferSize;
     private final OrcOutputBuffer buffer;
     private final List<LongStreamCheckpoint> checkpoints = new ArrayList<>();
 
@@ -91,6 +101,8 @@ public class LongOutputStreamV2
     public LongOutputStreamV2(CompressionKind compression, int bufferSize, boolean signed, StreamKind streamKind)
     {
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
+        this.compression = requireNonNull(compression, "compression is null");
+        this.bufferSize = bufferSize;
         this.buffer = new OrcOutputBuffer(compression, bufferSize);
         this.signed = signed;
     }
@@ -750,6 +762,29 @@ public class LongOutputStreamV2
     public StreamDataOutput getStreamDataOutput(int column)
     {
         return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
+    }
+
+    @Override
+    public LongInputStream getLongInputStream()
+    {
+        checkState(closed);
+
+        FixedLengthSliceInput sliceInput = new ChunkedSliceInput(new ChainedSliceLoader(buffer.getCompressedSlices()), 32 * 1024);
+        OrcDataSourceId orcDataSourceId = new OrcDataSourceId("LongOutputStream");
+        try {
+            return new LongInputStreamV2(
+                    new OrcInputStream(
+                            orcDataSourceId,
+                            sliceInput,
+                            createOrcDecompressor(orcDataSourceId, compression, bufferSize),
+                            newSimpleAggregatedMemoryContext(),
+                            sliceInput.getRetainedSize()),
+                    signed,
+                    false);
+        }
+        catch (OrcCorruptionException e) {
+            throw new UncheckedIOException("Unable to create LongInputStream from LongOutputStream", e);
+        }
     }
 
     @Override
