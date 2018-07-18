@@ -55,8 +55,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
@@ -100,6 +103,23 @@ public class MemoryMetadata
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }
         schemas.add(schemaName);
+    }
+
+    @Override
+    public synchronized void dropSchema(ConnectorSession session, String schemaName)
+    {
+        if (!schemas.contains(schemaName)) {
+            throw new PrestoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
+        }
+
+        boolean tablesExist = tables.values().stream()
+                .anyMatch(table -> table.getSchemaName().equals(schemaName));
+
+        if (tablesExist) {
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+        }
+
+        verify(schemas.remove(schemaName));
     }
 
     @Override

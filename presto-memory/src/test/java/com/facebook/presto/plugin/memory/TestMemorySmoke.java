@@ -107,6 +107,20 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void testCreateSchema()
+    {
+        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
+        assertUpdate("CREATE SCHEMA schema1");
+        assertQueryFails("CREATE SCHEMA schema1", "line 1:1: Schema 'memory.schema1' already exists");
+        assertUpdate("CREATE TABLE schema1.x(t int)");
+        assertQueryFails("DROP SCHEMA schema1", "Schema not empty: schema1");
+        assertUpdate("DROP TABLE schema1.x");
+        assertUpdate("DROP SCHEMA schema1");
+        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
+        assertUpdate("DROP SCHEMA IF EXISTS schema1");
+    }
+
+    @Test
     public void testCreateTableInNonDefaultSchema()
     {
         assertUpdate("CREATE SCHEMA schema1");
@@ -144,6 +158,9 @@ public class TestMemorySmoke
         assertUpdate("CREATE SCHEMA test_different_schema");
         assertUpdate("ALTER TABLE test_table_renamed RENAME TO test_different_schema.test_table_renamed");
         assertQueryResult("SELECT count(*) FROM test_different_schema.test_table_renamed", 0L);
+
+        assertUpdate("DROP TABLE test_different_schema.test_table_renamed");
+        assertUpdate("DROP SCHEMA test_different_schema");
     }
 
     @Test
