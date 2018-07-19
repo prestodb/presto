@@ -69,6 +69,7 @@ public final class HiveSessionProperties
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String WRITER_SORT_BUFFER_SIZE = "writer_sort_buffer_size";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String STORE_STATISTICS = "store_statistics";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -252,6 +253,11 @@ public final class HiveSessionProperties
                         STATISTICS_ENABLED,
                         "Experimental: Expose table statistics",
                         hiveClientConfig.isTableStatisticsEnabled(),
+                        false),
+                booleanProperty(
+                        STORE_STATISTICS,
+                        "Experimental: Store basic statistics",
+                        hiveClientConfig.isStoreStatistics(),
                         false));
     }
 
@@ -423,6 +429,11 @@ public final class HiveSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStoreStatistics(ConnectorSession session)
+    {
+        return session.getProperty(STORE_STATISTICS, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

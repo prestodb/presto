@@ -60,6 +60,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.HiveSessionProperties.isStoreStatistics;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
@@ -302,7 +303,15 @@ public class SemiTransactionalHiveMetastore
         checkNoPartitionAction(table.getDatabaseName(), table.getTableName());
         SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
+        TableAndMore tableAndMore = new TableAndMore(
+                table,
+                Optional.of(principalPrivileges),
+                currentPath,
+                Optional.empty(),
+                ignoreExisting,
+                statistics,
+                statistics,
+                isStoreStatistics(session));
         if (oldTableAction == null) {
             HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
             tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, context));
@@ -398,7 +407,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(fileNames),
                                     false,
                                     merge(currentStatistics, statisticsUpdate),
-                                    statisticsUpdate),
+                                    statisticsUpdate,
+                                    isStoreStatistics(session)),
                             context));
             return;
         }
@@ -620,7 +630,16 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, Optional.empty(), statistics, statistics), context));
+                    new Action<>(
+                            ActionType.ADD,
+                            new PartitionAndMore(
+                                    partition,
+                                    currentLocation,
+                                    Optional.empty(),
+                                    statistics,
+                                    statistics,
+                                    isStoreStatistics(session)),
+                            context));
             return;
         }
         switch (oldPartitionAction.getType()) {
@@ -630,7 +649,16 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, Optional.empty(), statistics, statistics), context));
+                        new Action<>(
+                                ActionType.ALTER,
+                                new PartitionAndMore(
+                                        partition,
+                                        currentLocation,
+                                        Optional.empty(),
+                                        statistics,
+                                        statistics,
+                                        isStoreStatistics(session)),
+                                context));
                 break;
             }
             case ADD:
@@ -697,7 +725,8 @@ public class SemiTransactionalHiveMetastore
                                     currentLocation,
                                     Optional.of(fileNames),
                                     merge(currentStatistics, statisticsUpdate),
-                                    statisticsUpdate),
+                                    statisticsUpdate,
+                                    isStoreStatistics(session)),
                             context));
             return;
         }
@@ -1031,11 +1060,13 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                    Optional.empty(),
-                    tableAndMore.getStatisticsUpdate(),
-                    false));
+            if (tableAndMore.isStoreStatistics()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                        Optional.empty(),
+                        tableAndMore.getStatisticsUpdate(),
+                        false));
+            }
         }
 
         private void prepareInsertExistingTable(HdfsContext context, TableAndMore tableAndMore)
@@ -1049,11 +1080,13 @@ public class SemiTransactionalHiveMetastore
             if (!targetPath.equals(currentPath)) {
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                    Optional.empty(),
-                    tableAndMore.getStatisticsUpdate(),
-                    true));
+            if (tableAndMore.isStoreStatistics()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                        Optional.empty(),
+                        tableAndMore.getStatisticsUpdate(),
+                        true));
+            }
         }
 
         private void prepareDropPartition(SchemaTableName schemaTableName, List<String> partitionValues)
@@ -1116,11 +1149,13 @@ public class SemiTransactionalHiveMetastore
             // Partition alter must happen regardless of whether original and current location is the same
             // because metadata might change: e.g. storage format, column types, etc
             alterPartitionOperations.add(new AlterPartitionOperation(partition, oldPartition.get()));
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
-                    Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
-                    partitionAndMore.getStatisticsUpdate(),
-                    false));
+            if (partitionAndMore.isStoreStatistics()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                        Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
+                        partitionAndMore.getStatisticsUpdate(),
+                        false));
+            }
         }
 
         private void prepareAddPartition(HdfsContext context, PartitionAndMore partitionAndMore)
@@ -1146,11 +1181,13 @@ public class SemiTransactionalHiveMetastore
                         () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
             }
             partitionAdder.addPartition(partition);
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
-                    Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
-                    partitionAndMore.getStatisticsUpdate(),
-                    false));
+            if (partitionAndMore.isStoreStatistics()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                        Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
+                        partitionAndMore.getStatisticsUpdate(),
+                        false));
+            }
         }
 
         private void prepareInsertExistingPartition(HdfsContext context, PartitionAndMore partitionAndMore)
@@ -1164,11 +1201,13 @@ public class SemiTransactionalHiveMetastore
             if (!targetPath.equals(currentPath)) {
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, partitionAndMore.getFileNames());
             }
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
-                    Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
-                    partitionAndMore.getStatisticsUpdate(),
-                    true));
+            if (partitionAndMore.isStoreStatistics()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                        Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
+                        partitionAndMore.getStatisticsUpdate(),
+                        true));
+            }
         }
 
         private void executeCleanupTasksForAbort(List<String> filePrefixes)
@@ -1857,6 +1896,7 @@ public class SemiTransactionalHiveMetastore
         private final boolean ignoreExisting;
         private final PartitionStatistics statistics;
         private final PartitionStatistics statisticsUpdate;
+        private final boolean storeStatistics;
 
         public TableAndMore(
                 Table table,
@@ -1865,7 +1905,8 @@ public class SemiTransactionalHiveMetastore
                 Optional<List<String>> fileNames,
                 boolean ignoreExisting,
                 PartitionStatistics statistics,
-                PartitionStatistics statisticsUpdate)
+                PartitionStatistics statisticsUpdate,
+                boolean storeStatistics)
         {
             this.table = requireNonNull(table, "table is null");
             this.principalPrivileges = requireNonNull(principalPrivileges, "principalPrivileges is null");
@@ -1874,6 +1915,7 @@ public class SemiTransactionalHiveMetastore
             this.ignoreExisting = ignoreExisting;
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            this.storeStatistics = storeStatistics;
 
             checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for table without location");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
@@ -1915,6 +1957,11 @@ public class SemiTransactionalHiveMetastore
             return statisticsUpdate;
         }
 
+        public boolean isStoreStatistics()
+        {
+            return storeStatistics;
+        }
+
         @Override
         public String toString()
         {
@@ -1926,6 +1973,7 @@ public class SemiTransactionalHiveMetastore
                     .add("ignoreExisting", ignoreExisting)
                     .add("statistics", statistics)
                     .add("statisticsUpdate", statisticsUpdate)
+                    .add("storeStatistics", storeStatistics)
                     .toString();
         }
     }
@@ -1937,14 +1985,22 @@ public class SemiTransactionalHiveMetastore
         private final Optional<List<String>> fileNames;
         private final PartitionStatistics statistics;
         private final PartitionStatistics statisticsUpdate;
+        private final boolean storeStatistics;
 
-        public PartitionAndMore(Partition partition, Path currentLocation, Optional<List<String>> fileNames, PartitionStatistics statistics, PartitionStatistics statisticsUpdate)
+        public PartitionAndMore(
+                Partition partition,
+                Path currentLocation,
+                Optional<List<String>> fileNames,
+                PartitionStatistics statistics,
+                PartitionStatistics statisticsUpdate,
+                boolean storeStatistics)
         {
             this.partition = requireNonNull(partition, "partition is null");
             this.currentLocation = requireNonNull(currentLocation, "currentLocation is null");
             this.fileNames = requireNonNull(fileNames, "fileNames is null");
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            this.storeStatistics = storeStatistics;
         }
 
         public Partition getPartition()
@@ -1973,6 +2029,11 @@ public class SemiTransactionalHiveMetastore
             return statisticsUpdate;
         }
 
+        public boolean isStoreStatistics()
+        {
+            return storeStatistics;
+        }
+
         public Partition getAugmentedPartitionForInTransactionRead()
         {
             // This method augments the location field of the partition to the staging location.
@@ -1995,6 +2056,9 @@ public class SemiTransactionalHiveMetastore
                     .add("partition", partition)
                     .add("currentLocation", currentLocation)
                     .add("fileNames", fileNames)
+                    .add("statistics", statistics)
+                    .add("statisticsUpdate", statisticsUpdate)
+                    .add("storeStatistics", storeStatistics)
                     .toString();
         }
     }
