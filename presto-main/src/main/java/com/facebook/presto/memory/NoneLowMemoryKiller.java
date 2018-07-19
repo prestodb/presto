@@ -23,7 +23,7 @@ public class NoneLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> queries, List<MemoryInfo> nodes)
+    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         return Optional.empty();
     }
