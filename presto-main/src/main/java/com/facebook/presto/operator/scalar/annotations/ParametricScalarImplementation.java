@@ -285,6 +285,7 @@ public class ParametricScalarImplementation
                         "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]", typeParameter.value(), method);
             }
 
+            inferSpecialization(method, actualReturnType, returnType.value(), nullable);
             parseArguments(method);
 
             this.constructorMethodHandle = getConstructor(method, constructor);
@@ -344,13 +345,7 @@ public class ParametricScalarImplementation
                         checkArgument(!nullableArgument, "Method [%s] has parameter with primitive type %s annotated with @SqlNullable", method, parameterType.getSimpleName());
                     }
 
-                    if (typeParameterNames.contains(type.value()) && !(parameterType == Object.class && nullableArgument)) {
-                        // Infer specialization on this type parameter. We don't do this for @SqlNullable Object because it could match a type like BIGINT
-                        Class<?> specialization = specializedTypeParameters.get(type.value());
-                        Class<?> nativeParameterType = Primitives.unwrap(parameterType);
-                        checkArgument(specialization == null || specialization.equals(nativeParameterType), "Method [%s] type %s has conflicting specializations %s and %s", method, type.value(), specialization, nativeParameterType);
-                        specializedTypeParameters.put(type.value(), nativeParameterType);
-                    }
+                    inferSpecialization(method, parameterType, type.value(), nullableArgument);
                     argumentNativeContainerTypes.add(parameterType);
                     argumentTypes.add(typeSignature);
 
@@ -374,6 +369,17 @@ public class ParametricScalarImplementation
                         argumentProperties.add(valueTypeArgumentProperty(nullConvention));
                     }
                 }
+            }
+        }
+
+        private void inferSpecialization(Method method, Class<?> parameterType, String typeParameterName, boolean nullable)
+        {
+            if (typeParameterNames.contains(typeParameterName) && !(parameterType == Object.class && nullable)) {
+                // Infer specialization on this type parameter. We don't do this for @SqlNullable Object because it could match a type like BIGINT
+                Class<?> specialization = specializedTypeParameters.get(typeParameterName);
+                Class<?> nativeParameterType = Primitives.unwrap(parameterType);
+                checkArgument(specialization == null || specialization.equals(nativeParameterType), "Method [%s] type %s has conflicting specializations %s and %s", method, typeParameterName, specialization, nativeParameterType);
+                specializedTypeParameters.put(typeParameterName, nativeParameterType);
             }
         }
 
