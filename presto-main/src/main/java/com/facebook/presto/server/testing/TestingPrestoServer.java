@@ -70,6 +70,7 @@ import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.management.MBeanServer;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -124,6 +125,7 @@ public class TestingPrestoServer
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final boolean coordinator;
+    private final MBeanServer mbeanServer;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -251,6 +253,8 @@ public class TestingPrestoServer
         pluginManager = injector.getInstance(PluginManager.class);
 
         connectorManager = injector.getInstance(ConnectorManager.class);
+
+        mbeanServer = injector.getInstance(MBeanServer.class);
 
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
@@ -474,5 +478,10 @@ public class TestingPrestoServer
             }
         }
         throw new RuntimeException("Presto announcement not found: " + announcements);
+    }
+
+    public MBeanServer getMbeanServer()
+    {
+        return mbeanServer;
     }
 }

@@ -34,6 +34,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
@@ -76,6 +77,8 @@ public class TestMemoryRevokingScheduler
     private MemoryPool memoryPool;
 
     private Set<OperatorContext> allOperatorContexts;
+
+    private final CounterStat failedTasks = new CounterStat();
 
     @BeforeMethod
     public void setUp()
@@ -303,6 +306,7 @@ public class TestMemoryRevokingScheduler
                 sqlTaskExecutionFactory,
                 executor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE));
+                new DataSize(32, MEGABYTE),
+                failedTasks);
     }
 }
