@@ -82,7 +82,7 @@ import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Objects.requireNonNull;
 
-public class ScalarImplementation
+public class ParametricScalarImplementation
         implements ParametricImplementation
 {
     private final Signature signature;
@@ -95,7 +95,7 @@ public class ScalarImplementation
     private final List<Class<?>> argumentNativeContainerTypes;
     private final Map<String, Class<?>> specializedTypeParameters;
 
-    public ScalarImplementation(
+    public ParametricScalarImplementation(
             Signature signature,
             boolean nullable,
             List<ArgumentProperty> argumentProperties,
@@ -427,7 +427,7 @@ public class ScalarImplementation
             return methodHandle;
         }
 
-        public ScalarImplementation get()
+        public ParametricScalarImplementation get()
         {
             Signature signature = new Signature(
                     functionName,
@@ -437,7 +437,7 @@ public class ScalarImplementation
                     returnType,
                     argumentTypes,
                     false);
-            return new ScalarImplementation(
+            return new ParametricScalarImplementation(
                     signature,
                     nullable,
                     argumentProperties,
@@ -449,7 +449,7 @@ public class ScalarImplementation
                     specializedTypeParameters);
         }
 
-        public static ScalarImplementation parseImplementation(String functionName, Method method, Optional<Constructor<?>> constructor)
+        public static ParametricScalarImplementation parseImplementation(String functionName, Method method, Optional<Constructor<?>> constructor)
         {
             return new Parser(functionName, method, constructor).get();
         }

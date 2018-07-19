@@ -26,15 +26,15 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestScalarImplementationValidation
+public class TestParametricScalarImplementationValidation
 {
-    private static final MethodHandle STATE_FACTORY = methodHandle(TestScalarImplementationValidation.class, "createState");
+    private static final MethodHandle STATE_FACTORY = methodHandle(TestParametricScalarImplementationValidation.class, "createState");
 
     @Test
     public void testConnectorSessionPosition()
     {
         // Without cached instance factory
-        MethodHandle validFunctionMethodHandle = methodHandle(TestScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
+        MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
         ScalarFunctionImplementation validFunction = new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
@@ -50,7 +50,7 @@ public class TestScalarImplementationValidation
                     ImmutableList.of(
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                    methodHandle(TestScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class),
+                    methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class),
                     false);
             fail("expected exception");
         }
@@ -59,7 +59,7 @@ public class TestScalarImplementationValidation
         }
 
         // With cached instance factory
-        MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
+        MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
         ScalarFunctionImplementation validFunctionWithInstanceFactory = new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
@@ -76,7 +76,7 @@ public class TestScalarImplementationValidation
                     ImmutableList.of(
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                    methodHandle(TestScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),
+                    methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),
                     Optional.of(STATE_FACTORY),
                     false);
             fail("expected exception");

@@ -93,16 +93,16 @@ public final class ScalarFromAnnotationsParser
 
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)
     {
-        ParametricImplementationsGroup.Builder<ScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
+        ParametricImplementationsGroup.Builder<ParametricScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
 
         for (Method method : scalar.getMethods()) {
-            ScalarImplementation implementation = ScalarImplementation.Parser.parseImplementation(header.getName(), method, constructor);
+            ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header.getName(), method, constructor);
             implementationsBuilder.addImplementation(implementation);
         }
 
-        ParametricImplementationsGroup<ScalarImplementation> implementations = implementationsBuilder.build();
+        ParametricImplementationsGroup<ParametricScalarImplementation> implementations = implementationsBuilder.build();
         Signature scalarSignature = implementations.getSignature();
 
         header.getOperatorType().ifPresent(operatorType ->
