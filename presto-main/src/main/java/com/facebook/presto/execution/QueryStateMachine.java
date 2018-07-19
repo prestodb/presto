@@ -55,6 +55,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -502,7 +503,8 @@ public class QueryStateMachine
                 inputs.get(),
                 output.get(),
                 completeInfo,
-                getResourceGroup());
+                getResourceGroup(),
+                state == QUEUED ? queuePositionEstimator.getPosition(queryId) : OptionalInt.empty());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -896,7 +898,8 @@ public class QueryStateMachine
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),
-                queryInfo.getResourceGroupId());
+                queryInfo.getResourceGroupId(),
+                OptionalInt.empty());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

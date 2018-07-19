@@ -32,6 +32,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_PRIORITY;
@@ -171,7 +172,8 @@ public class MockQueryExecution
                 ImmutableSet.of(),
                 Optional.empty(),
                 state.isDone(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.empty());
     }
 
     @Override

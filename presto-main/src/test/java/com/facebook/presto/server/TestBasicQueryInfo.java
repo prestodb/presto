@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -116,7 +117,8 @@ public class TestBasicQueryInfo
                         ImmutableSet.of(),
                         Optional.empty(),
                         false,
-                        Optional.empty()));
+                        Optional.empty(),
+                        OptionalInt.empty()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

@@ -34,6 +34,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -70,6 +71,7 @@ public class QueryInfo
     private final Optional<Output> output;
     private final boolean completeInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
+    private final OptionalInt estimatedQueuePosition;
 
     @JsonCreator
     public QueryInfo(
@@ -98,7 +100,8 @@ public class QueryInfo
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
-            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
+            @JsonProperty("estimated_queue_position") OptionalInt estimatedQueuePosition)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -119,6 +122,7 @@ public class QueryInfo
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
+        requireNonNull(estimatedQueuePosition, "estimatedQueuePosition is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -147,6 +151,7 @@ public class QueryInfo
         this.output = output;
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
+        this.estimatedQueuePosition = estimatedQueuePosition;
     }
 
     @JsonProperty
@@ -313,6 +318,12 @@ public class QueryInfo
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    @JsonProperty
+    public OptionalInt getEstimatedQueuePosition()
+    {
+        return estimatedQueuePosition;
     }
 
     @Override

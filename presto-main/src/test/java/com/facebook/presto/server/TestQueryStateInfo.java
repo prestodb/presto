@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -160,6 +161,7 @@ public class TestQueryStateInfo
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.empty());
     }
 }
