@@ -104,7 +104,8 @@ public class TestHiveClientConfig
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
                 .setWritesToNonManagedTablesEnabled(false)
-                .setCreatesOfNonManagedTablesEnabled(true));
+                .setCreatesOfNonManagedTablesEnabled(true)
+                .setHdfsWireEncryptionEnabled(false));
     }
 
     @Test
@@ -178,6 +179,7 @@ public class TestHiveClientConfig
                 .put("hive.table-statistics-enabled", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
                 .put("hive.non-managed-table-creates-enabled", "false")
+                .put("hive.hdfs.wire-encryption.enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -247,7 +249,8 @@ public class TestHiveClientConfig
                 .setFileSystemMaxCacheSize(1010)
                 .setTableStatisticsEnabled(false)
                 .setWritesToNonManagedTablesEnabled(true)
-                .setCreatesOfNonManagedTablesEnabled(false);
+                .setCreatesOfNonManagedTablesEnabled(false)
+                .setHdfsWireEncryptionEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

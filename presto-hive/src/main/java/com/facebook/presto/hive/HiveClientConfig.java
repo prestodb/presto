@@ -121,6 +121,7 @@ public class HiveClientConfig
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
+    private boolean hdfsWireEncryptionEnabled;
 
     private boolean skipDeletionForAlter;
 
@@ -951,6 +952,19 @@ public class HiveClientConfig
     public HiveClientConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
     {
         this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;
+        return this;
+    }
+
+    public boolean isHdfsWireEncryptionEnabled()
+    {
+        return hdfsWireEncryptionEnabled;
+    }
+
+    @Config("hive.hdfs.wire-encryption.enabled")
+    @ConfigDescription("Should be turned on when HDFS wire encryption is enabled")
+    public HiveClientConfig setHdfsWireEncryptionEnabled(boolean hdfsWireEncryptionEnabled)
+    {
+        this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
         return this;
     }
 
