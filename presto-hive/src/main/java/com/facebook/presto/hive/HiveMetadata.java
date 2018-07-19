@@ -159,6 +159,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.reduce;
@@ -914,11 +915,15 @@ public class HiveMetadata
 
         PartitionStatistics tableStatistics;
         if (table.getPartitionColumns().isEmpty()) {
+            HiveBasicStatistics basicStatistics = partitionUpdates.stream()
+                    .map(PartitionUpdate::getStatistics)
+                    .reduce((first, second) -> reduce(first, second, ADD))
+                    .orElse(createZeroStatistics());
+            table = Table.builder(table)
+                    .setParameters(updateStatisticsParameters(table.getParameters(), basicStatistics))
+                    .build();
             tableStatistics = new PartitionStatistics(
-                    partitionUpdates.stream()
-                            .map(PartitionUpdate::getStatistics)
-                            .reduce((first, second) -> reduce(first, second, ADD))
-                            .orElse(createZeroStatistics()),
+                    basicStatistics,
                     ImmutableMap.of());
         }
         else {
@@ -1179,6 +1184,7 @@ public class HiveMetadata
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        .putAll(updateStatisticsParameters(ImmutableMap.of(), partitionUpdate.getStatistics()))
                         .build())
                 .withStorage(storage -> storage
                         .setStorageFormat(isRespectTableFormat(session) ?

@@ -133,6 +133,7 @@ public class HiveClientConfig
     private boolean createsOfNonManagedTablesEnabled = true;
 
     private boolean tableStatisticsEnabled = true;
+    private boolean storeStatistics = true;
 
     public int getMaxInitialSplits()
     {
@@ -1043,5 +1044,17 @@ public class HiveClientConfig
     public boolean isTableStatisticsEnabled()
     {
         return tableStatisticsEnabled;
+    }
+
+    public boolean isStoreStatistics()
+    {
+        return storeStatistics;
+    }
+
+    @Deprecated
+    @Config("hive.experimental.store-statistics")
+    public void setStoreStatistics(boolean storeStatistics)
+    {
+        this.storeStatistics = storeStatistics;
     }
 }
