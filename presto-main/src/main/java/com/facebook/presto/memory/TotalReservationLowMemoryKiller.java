@@ -25,11 +25,11 @@ public class TotalReservationLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> queries, List<MemoryInfo> nodes)
+    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         QueryId biggestQuery = null;
         long maxMemory = 0;
-        for (QueryMemoryInfo query : queries) {
+        for (QueryMemoryInfo query : runningQueries) {
             long bytesUsed = query.getMemoryReservation();
             if (bytesUsed > maxMemory && GENERAL_POOL.equals(query.getMemoryPoolId())) {
                 biggestQuery = query.getQueryId();
