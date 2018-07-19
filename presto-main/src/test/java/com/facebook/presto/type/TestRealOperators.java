@@ -239,6 +239,7 @@ public class TestRealOperators
         assertFunction("NULL IS DISTINCT FROM REAL'37.7'", BOOLEAN, true);
         assertFunction("REAL'37.7' IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("CAST(nan() AS REAL) IS DISTINCT FROM CAST(nan() AS REAL)", BOOLEAN, false);
+        assertFunction("bound_real IS DISTINCT FROM bound_real", BOOLEAN, false);
     }
 
     @Test

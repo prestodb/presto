@@ -244,6 +244,8 @@ public class TestDoubleOperators
         assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
         assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("nan() IS DISTINCT FROM nan()", BOOLEAN, false);
+        assertFunction("bound_double IS DISTINCT FROM bound_double", BOOLEAN, false);
+        assertFunction("bound_double IS DISTINCT FROM bound_null_double", BOOLEAN, true);
     }
 
     @Test

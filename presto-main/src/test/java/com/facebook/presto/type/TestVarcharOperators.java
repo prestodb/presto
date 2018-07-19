@@ -129,6 +129,7 @@ public class TestVarcharOperators
         assertFunction("'foo' IS DISTINCT FROM 'fo0'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 'foo'", BOOLEAN, true);
         assertFunction("'foo' IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("bound_string IS DISTINCT FROM bound_string", BOOLEAN, false);
     }
 
     @Test

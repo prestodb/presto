@@ -230,6 +230,7 @@ public class TestBigintOperators
         assertFunction("100000000037 IS DISTINCT FROM 100000000038", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 100000000037", BOOLEAN, true);
         assertFunction("100000000037 IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("bound_long IS DISTINCT FROM bound_long", BOOLEAN, false);
     }
 
     @Test

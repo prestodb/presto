@@ -250,6 +250,8 @@ public class TestIntegerOperators
         assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
         assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("bound_integer IS DISTINCT FROM bound_integer", BOOLEAN, false);
+        assertFunction("bound_integer IS DISTINCT FROM bound_null_integer", BOOLEAN, true);
     }
 
     @Test

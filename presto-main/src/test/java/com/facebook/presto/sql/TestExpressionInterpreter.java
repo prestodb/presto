@@ -93,10 +93,10 @@ public class TestExpressionInterpreter
             .put(new Symbol("bound_time"), TIME)
             .put(new Symbol("bound_timestamp"), TIMESTAMP)
             .put(new Symbol("bound_pattern"), VARCHAR)
-            .put(new Symbol("bound_null_string"), VARCHAR)
             .put(new Symbol("bound_decimal_short"), createDecimalType(5, 2))
             .put(new Symbol("bound_decimal_long"), createDecimalType(23, 3))
             .put(new Symbol("time"), BIGINT) // for testing reserved identifiers
+            .put(new Symbol("bound_null_string"), VARCHAR)
             .put(new Symbol("unbound_integer"), INTEGER)
             .put(new Symbol("unbound_long"), BIGINT)
             .put(new Symbol("unbound_long2"), BIGINT)

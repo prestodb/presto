@@ -235,6 +235,8 @@ public class TestExpressionCompiler
         assertFilter("bound_long = 1234", true);
         assertFilter("bound_long = BIGINT '1234'", true);
         assertFilter("bound_long = 5678", false);
+
+        assertFilter("bound_null_integer is null", true);
         assertFilter("bound_null_string is null", true);
         assertFilter("bound_null_string = 'foo'", false);
 

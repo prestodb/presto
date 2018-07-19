@@ -163,20 +163,41 @@ public final class DateOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType(StandardTypes.DATE) long left,
-            @IsNull boolean leftNull,
-            @SqlType(StandardTypes.DATE) long right,
-            @IsNull boolean rightNull)
+    public static class DateIsDistinctFrom
     {
-        if (leftNull != rightNull) {
-            return true;
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType(StandardTypes.DATE) long left,
+                @IsNull boolean leftNull,
+                @SqlType(StandardTypes.DATE) long right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return notEqual(left, right);
         }
-        if (leftNull) {
-            return false;
+
+        /*
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(StandardTypes.DATE) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(StandardTypes.DATE) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) && right.isNull(rightPosition)) {
+                return false;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            return DATE.equalTo(left, leftPosition, right, rightPosition);
         }
-        return notEqual(left, right);
+        */
     }
 
     @ScalarOperator(INDETERMINATE)
