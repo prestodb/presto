@@ -660,6 +660,10 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproximateCountDistinct()
     {
+        // test NULL
+        assertQuery("SELECT approx_distinct(NULL)", "SELECT 0");
+        assertQuery("SELECT approx_distinct(NULL, 0.023)", "SELECT 0");
+
         // test date
         assertQuery("SELECT approx_distinct(orderdate) FROM orders", "SELECT 2443");
         assertQuery("SELECT approx_distinct(orderdate, 0.023) FROM orders", "SELECT 2443");

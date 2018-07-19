@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
@@ -43,6 +44,16 @@ public final class ApproximateCountDistinctAggregation
     private static final double HIGHEST_MAX_STANDARD_ERROR = 0.26000;
 
     private ApproximateCountDistinctAggregation() {}
+
+    @InputFunction
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @BlockPosition @SqlType("unknown") Block block,
+            @BlockIndex int index,
+            @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        // do nothing
+    }
 
     @InputFunction
     @TypeParameter("T")
