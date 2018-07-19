@@ -68,7 +68,9 @@ public class LongStreamReader
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())
+                .getColumnEncoding(streamDescriptor.getSequence())
+                .getColumnEncodingKind();
         if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
             currentReader = directReader;
         }
