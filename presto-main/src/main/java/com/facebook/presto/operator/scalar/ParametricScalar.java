@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
-import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.MethodHandleAndConstructor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,7 +27,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
@@ -80,43 +78,26 @@ public class ParametricScalar
         Signature boundSignature = applyBoundVariables(getSignature(), boundVariables, arity);
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
             ParametricScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
-            Optional<MethodHandleAndConstructor> methodHandleAndConstructor = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
-            checkCondition(methodHandleAndConstructor.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, String.format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
-            return new ScalarFunctionImplementation(
-                    implementation.isNullable(),
-                    implementation.getArgumentProperties(),
-                    methodHandleAndConstructor.get().getMethodHandle(),
-                    methodHandleAndConstructor.get().getConstructor(),
-                    isDeterministic());
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry, isDeterministic());
+            return scalarFunctionImplementation.get();
         }
 
         ScalarFunctionImplementation selectedImplementation = null;
         for (ParametricScalarImplementation implementation : implementations.getSpecializedImplementations()) {
-            Optional<MethodHandleAndConstructor> methodHandle = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
-            if (methodHandle.isPresent()) {
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry, isDeterministic());
+            if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
-                selectedImplementation = new ScalarFunctionImplementation(
-                        implementation.isNullable(),
-                        implementation.getArgumentProperties(),
-                        methodHandle.get().getMethodHandle(),
-                        methodHandle.get().getConstructor(),
-                        isDeterministic());
+                selectedImplementation = scalarFunctionImplementation.get();
             }
         }
         if (selectedImplementation != null) {
             return selectedImplementation;
         }
-
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
-            Optional<MethodHandleAndConstructor> methodHandle = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
-            if (methodHandle.isPresent()) {
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry, isDeterministic());
+            if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
-                selectedImplementation = new ScalarFunctionImplementation(
-                        implementation.isNullable(),
-                        implementation.getArgumentProperties(),
-                        methodHandle.get().getMethodHandle(),
-                        methodHandle.get().getConstructor(),
-                        isDeterministic());
+                selectedImplementation = scalarFunctionImplementation.get();
             }
         }
         if (selectedImplementation != null) {

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
+import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -26,7 +27,9 @@ import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -97,9 +100,17 @@ public final class ScalarFromAnnotationsParser
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
 
+        Map<SpecializedSignature, ParametricScalarImplementation> signatures = new HashMap<SpecializedSignature, ParametricScalarImplementation>();
         for (Method method : scalar.getMethods()) {
             ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header.getName(), method, constructor);
-            implementationsBuilder.addImplementation(implementation);
+            if (!signatures.containsKey(implementation.getSpecializedSignature())) {
+                signatures.put(implementation.getSpecializedSignature(), implementation);
+                implementationsBuilder.addImplementation(implementation);
+            }
+            else {
+                ParametricScalarImplementation currentImplementation = signatures.get(implementation.getSpecializedSignature());
+                currentImplementation.updateChoices(implementation);
+            }
         }
 
         ParametricImplementationsGroup<ParametricScalarImplementation> implementations = implementationsBuilder.build();
