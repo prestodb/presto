@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -82,6 +83,8 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
+    private final CounterStat failedTasks;
+
     public SqlTask(
             TaskId taskId,
             URI location,
@@ -90,7 +93,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             final Function<SqlTask, ?> onDone,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            CounterStat failedTasks)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -101,6 +105,7 @@ public class SqlTask
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
+        this.failedTasks = requireNonNull(failedTasks, "failedTasks is null");
 
         outputBuffer = new LazyOutputBuffer(
                 taskId,
@@ -118,6 +123,11 @@ public class SqlTask
             {
                 if (!newState.isDone()) {
                     return;
+                }
+
+                // Update failed tasks counter
+                if (newState == TaskState.FAILED) {
+                    failedTasks.update(1);
                 }
 
                 // store final task info
