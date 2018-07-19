@@ -331,7 +331,9 @@ public class SliceDictionaryStreamReader
     {
         stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
         stripeDictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
-        stripeDictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        stripeDictionarySize = encoding.get(streamDescriptor.getStreamId())
+                .getColumnEncoding(streamDescriptor.getSequence())
+                .getDictionarySize();
         stripeDictionaryOpen = false;
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
