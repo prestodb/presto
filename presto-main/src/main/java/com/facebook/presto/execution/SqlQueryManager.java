@@ -20,6 +20,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuePositionEstimator;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -155,6 +156,8 @@ public class SqlQueryManager
 
     private final AtomicBoolean acceptQueries = new AtomicBoolean();
 
+    private final QueuePositionEstimator queuePositionEstimator;
+
     @Inject
     public SqlQueryManager(
             SqlParser sqlParser,
@@ -170,7 +173,8 @@ public class SqlQueryManager
             SessionSupplier sessionSupplier,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            Metadata metadata)
+            Metadata metadata,
+            QueuePositionEstimator queuePositionEstimator)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
 
@@ -195,6 +199,8 @@ public class SqlQueryManager
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
 
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+
+        this.queuePositionEstimator = requireNonNull(queuePositionEstimator, "queuePositionEstimator is null");
 
         this.path = sqlEnvironmentConfig.getPath();
         this.isIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();

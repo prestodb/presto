@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.resourceGroups.QueuePositionEstimator;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -123,7 +124,7 @@ public class TestSetSessionTask
 
     private void testSetSessionWithParameters(Expression expression, String expectedValue, List<Expression> parameters)
     {
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata, QueuePositionEstimator.NOOP);
         getFutureValue(new SetSessionTask().execute(new SetSession(QualifiedName.of(CATALOG_NAME, "bar"), expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

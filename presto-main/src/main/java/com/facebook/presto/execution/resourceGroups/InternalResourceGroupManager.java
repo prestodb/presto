@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
@@ -43,6 +44,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -82,14 +84,16 @@ public final class InternalResourceGroupManager<C>
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
+    private final InternalQueuePositionEstimator queuePositionEstimator;
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter, InternalQueuePositionEstimator queuePositionEstimator)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
+        this.queuePositionEstimator = requireNonNull(queuePositionEstimator, "queuePositionEstimator is null");
     }
 
     @Override
@@ -181,6 +185,7 @@ public final class InternalResourceGroupManager<C>
     {
         if (started.compareAndSet(false, true)) {
             refreshExecutor.scheduleWithFixedDelay(this::refreshAndStartQueries, 1, 1, TimeUnit.MILLISECONDS);
+            refreshExecutor.scheduleWithFixedDelay(() -> queuePositionEstimator.calculateQueryOrder(rootGroups), 2, 5, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -284,8 +289,20 @@ public final class InternalResourceGroupManager<C>
         return (ResourceGroupConfigurationManager<C>) manager;
     }
 
-    public static class QueuePositionEstimator
+    public static class InternalQueuePositionEstimator
+            implements QueuePositionEstimator
     {
+        private AtomicReference<Map<QueryId, OptionalInt>> queryOrder = new AtomicReference<>(new HashMap<>());
 
+        private void calculateQueryOrder(List<InternalResourceGroup.RootInternalResourceGroup> rootGroups)
+        {
+            //TODO: Implement this
+        }
+
+        @Override
+        public OptionalInt getPosition(QueryId queryId)
+        {
+            return queryOrder.get().getOrDefault(queryId, OptionalInt.empty());
+        }
     }
 }

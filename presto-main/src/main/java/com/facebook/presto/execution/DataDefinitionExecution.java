@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuePositionEstimator;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -251,6 +252,7 @@ public class DataDefinitionExecution<T extends Statement>
         private final AccessControl accessControl;
         private final ExecutorService executor;
         private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
+        private final QueuePositionEstimator queuePositionEstimator;
 
         @Inject
         public DataDefinitionExecutionFactory(
@@ -259,7 +261,8 @@ public class DataDefinitionExecution<T extends Statement>
                 MetadataManager metadata,
                 AccessControl accessControl,
                 @ForQueryExecution ExecutorService executor,
-                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
+                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks,
+                QueuePositionEstimator queuePositionEstimator)
         {
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -267,6 +270,7 @@ public class DataDefinitionExecution<T extends Statement>
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.executor = requireNonNull(executor, "executor is null");
             this.tasks = requireNonNull(tasks, "tasks is null");
+            this.queuePositionEstimator = requireNonNull(queuePositionEstimator, "queuePositionEstimator is null");
         }
 
         public String explain(Statement statement, List<Expression> parameters)
@@ -289,7 +293,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, queuePositionEstimator);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

@@ -48,7 +48,9 @@ import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager.InternalQueuePositionEstimator;
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
+import com.facebook.presto.execution.resourceGroups.QueuePositionEstimator;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
@@ -155,6 +157,8 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+        binder.bind(InternalQueuePositionEstimator.class).in(Scopes.SINGLETON);
+        binder.bind(QueuePositionEstimator.class).to(InternalQueuePositionEstimator.class);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);

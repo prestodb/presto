@@ -19,6 +19,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuePositionEstimator;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
@@ -138,7 +139,8 @@ public class SqlQueryExecution
             QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
             List<Expression> parameters,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            QueuePositionEstimator queuePositionEstimator)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -162,7 +164,8 @@ public class SqlQueryExecution
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata);
+            requireNonNull(queuePositionEstimator, "queuePositionEstimator is null");
+            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata, queuePositionEstimator);
 
             // analyze query
             Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
@@ -616,6 +619,7 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final ClusterMemoryManager clusterMemoryManager;
         private final DataSize preAllocateMemoryThreshold;
+        private final QueuePositionEstimator queuePositionEstimator;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -637,7 +641,8 @@ public class SqlQueryExecution
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
-                ClusterMemoryManager clusterMemoryManager)
+                ClusterMemoryManager clusterMemoryManager,
+                QueuePositionEstimator queuePositionEstimator)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -661,6 +666,7 @@ public class SqlQueryExecution
             this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
             this.preAllocateMemoryThreshold = requireNonNull(featuresConfig, "featuresConfig is null").getPreAllocateMemoryThreshold();
             this.planOptimizers = planOptimizers.get();
+            this.queuePositionEstimator = requireNonNull(queuePositionEstimator, "queuePositionEstimator is null");
         }
 
         @Override
@@ -694,7 +700,8 @@ public class SqlQueryExecution
                     queryExplainer,
                     executionPolicy,
                     parameters,
-                    schedulerStats);
+                    schedulerStats,
+                    queuePositionEstimator);
 
             if (preAllocateMemoryThreshold.toBytes() > 0 && session.getResourceEstimates().getPeakMemory().isPresent() &&
                     session.getResourceEstimates().getPeakMemory().get().compareTo(preAllocateMemoryThreshold) >= 0) {
