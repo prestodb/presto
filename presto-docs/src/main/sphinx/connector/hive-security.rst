@@ -499,3 +499,20 @@ See below for an example.
       ]
     }
 
+HDFS wire encryption
+--------------------
+
+In a Kerberized Hadoop cluster with enabled HDFS wire encryption you can enable
+Presto to access HDFS by using below property.
+
+===================================== ==========================================
+Property Name                         Description
+===================================== ==========================================
+``hive.hdfs.wire-encryption.enabled`` Enables HDFS wire encryption.
+                                      Possible values are ``true`` or ``false``.
+===================================== ==========================================
+
+.. note::
+
+    Depending on Presto installation configuration, using wire encryption may
+    impact query execution performance.
