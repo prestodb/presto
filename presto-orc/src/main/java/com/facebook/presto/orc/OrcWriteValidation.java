@@ -56,8 +56,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -217,7 +219,7 @@ public class OrcWriteValidation
         validateColumnStatisticsEquivalent(orcDataSourceId, "Stripe at " + stripeOffset, actual, expected.getColumnStatistics());
     }
 
-    public void validateRowGroupStatistics(OrcDataSourceId orcDataSourceId, long stripeOffset, Map<Integer, List<RowGroupIndex>> actualRowGroupStatistics)
+    public void validateRowGroupStatistics(OrcDataSourceId orcDataSourceId, long stripeOffset, Map<StreamId, List<RowGroupIndex>> actualRowGroupStatistics)
             throws OrcCorruptionException
     {
         requireNonNull(actualRowGroupStatistics, "actualRowGroupStatistics is null");
@@ -227,7 +229,11 @@ public class OrcWriteValidation
         }
 
         int rowGroupCount = expectedRowGroupStatistics.size();
-        for (Entry<Integer, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
+        for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
+            // TODO: Remove once the Presto writer supports flat map
+            if (entry.getKey().getSequence() > 0) {
+                throw new OrcCorruptionException(orcDataSourceId, "Unexpected sequence ID for column %s at offset %s", entry.getKey().getColumn(), stripeOffset);
+            }
             if (entry.getValue().size() != rowGroupCount) {
                 throw new OrcCorruptionException(orcDataSourceId, "Unexpected row group count stripe in at offset %s", stripeOffset);
             }
@@ -237,14 +243,15 @@ public class OrcWriteValidation
             RowGroupStatistics expectedRowGroup = expectedRowGroupStatistics.get(rowGroupIndex);
             if (expectedRowGroup.getValidationMode() != HASHED) {
                 Map<Integer, ColumnStatistics> expectedStatistics = expectedRowGroup.getColumnStatistics();
-                if (!expectedStatistics.keySet().equals(actualRowGroupStatistics.keySet())) {
+                Set<Integer> actualColumns = actualRowGroupStatistics.keySet().stream()
+                        .map(StreamId::getColumn)
+                        .collect(Collectors.toSet());
+                if (!expectedStatistics.keySet().equals(actualColumns)) {
                     throw new OrcCorruptionException(orcDataSourceId, "Unexpected column in row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
                 }
-                for (Entry<Integer, ColumnStatistics> entry : expectedStatistics.entrySet()) {
-                    int columnIndex = entry.getKey();
-                    List<RowGroupIndex> actualRowGroup = actualRowGroupStatistics.get(columnIndex);
-                    ColumnStatistics actual = actualRowGroup.get(rowGroupIndex).getColumnStatistics();
-                    ColumnStatistics expected = entry.getValue();
+                for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
+                    ColumnStatistics actual = entry.getValue().get(rowGroupIndex).getColumnStatistics();
+                    ColumnStatistics expected = expectedStatistics.get(entry.getKey().getColumn());
                     validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
                 }
             }
@@ -258,13 +265,13 @@ public class OrcWriteValidation
         }
     }
 
-    private static RowGroupStatistics buildActualRowGroupStatistics(int rowGroupIndex, Map<Integer, List<RowGroupIndex>> actualRowGroupStatistics)
+    private static RowGroupStatistics buildActualRowGroupStatistics(int rowGroupIndex, Map<StreamId, List<RowGroupIndex>> actualRowGroupStatistics)
     {
         return new RowGroupStatistics(
                 BOTH,
-                IntStream.range(1, actualRowGroupStatistics.size() + 1)
-                        .boxed()
-                        .collect(toImmutableMap(identity(), columnIndex -> actualRowGroupStatistics.get(columnIndex).get(rowGroupIndex).getColumnStatistics())));
+                actualRowGroupStatistics.entrySet()
+                        .stream()
+                        .collect(Collectors.toMap(entry -> entry.getKey().getColumn(), entry -> entry.getValue().get(rowGroupIndex).getColumnStatistics())));
     }
 
     public void validateRowGroupStatistics(

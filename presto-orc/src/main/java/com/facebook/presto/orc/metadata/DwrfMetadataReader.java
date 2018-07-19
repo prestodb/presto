@@ -34,6 +34,8 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,7 +56,6 @@ import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOL
 import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 
@@ -131,7 +132,7 @@ public class DwrfMetadataReader
 
     private static Stream toStream(DwrfProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), stream.getUseVInts());
+        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), stream.getUseVInts(), stream.getSequence());
     }
 
     private static List<Stream> toStream(List<DwrfProto.Stream> streams)
@@ -139,21 +140,60 @@ public class DwrfMetadataReader
         return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
     }
 
-    private static ColumnEncoding toColumnEncoding(OrcTypeKind type, DwrfProto.ColumnEncoding columnEncoding)
+    private static DwrfSequenceEncoding toSequenceEncoding(OrcType type, DwrfProto.ColumnEncoding columnEncoding)
     {
-        return new ColumnEncoding(toColumnEncodingKind(type, columnEncoding.getKind()), columnEncoding.getDictionarySize());
+        return new DwrfSequenceEncoding(
+                columnEncoding.getKey(),
+                new ColumnEncoding(
+                        toColumnEncodingKind(type.getOrcTypeKind(), columnEncoding.getKind()),
+                        columnEncoding.getDictionarySize()));
+    }
+
+    private static Optional<List<DwrfSequenceEncoding>> toAdditionalSequenceEncodings(List<DwrfProto.ColumnEncoding> columnEncodings, OrcType type)
+    {
+        if (columnEncodings.size() == 1) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<DwrfSequenceEncoding> additionalSequenceEncodings = ImmutableList.builder();
+
+        for (int i = 1; i < columnEncodings.size(); i++) {
+            additionalSequenceEncodings.add(toSequenceEncoding(type, columnEncodings.get(i)));
+        }
+
+        return Optional.of(additionalSequenceEncodings.build());
     }
 
     private static List<ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
-        checkArgument(types.size() == columnEncodings.size());
+        Map<Integer, List<DwrfProto.ColumnEncoding>> groupedColumnEncodings = new HashMap<>(columnEncodings.size());
 
-        ImmutableList.Builder<ColumnEncoding> encodings = ImmutableList.builder();
-        for (int i = 0; i < types.size(); i++) {
-            OrcType type = types.get(i);
-            encodings.add(toColumnEncoding(type.getOrcTypeKind(), columnEncodings.get(i)));
+        for (int i = 0; i < columnEncodings.size(); i++) {
+            DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
+            int column = columnEncoding.getColumn();
+
+            // DWRF prior to version 6.0.8 doesn't set the value of column, infer it from the index
+            if (!columnEncoding.hasColumn()) {
+                column = i;
+            }
+
+            groupedColumnEncodings.computeIfAbsent(column, key -> new ArrayList<>()).add(columnEncoding);
         }
-        return encodings.build();
+
+        ImmutableList.Builder<ColumnEncoding> resultBuilder = ImmutableList.builder();
+
+        for (Map.Entry<Integer, List<DwrfProto.ColumnEncoding>> entry : groupedColumnEncodings.entrySet()) {
+            OrcType type = types.get(entry.getKey());
+
+            DwrfProto.ColumnEncoding columnEncoding = entry.getValue().get(0);
+            resultBuilder.add(
+                    new ColumnEncoding(
+                            toColumnEncodingKind(type.getOrcTypeKind(), columnEncoding.getKind()),
+                            columnEncoding.getDictionarySize(),
+                            toAdditionalSequenceEncodings(entry.getValue(), type)));
+        }
+
+        return resultBuilder.build();
     }
 
     @Override
@@ -372,6 +412,8 @@ public class DwrfMetadataReader
                 return StreamKind.ROW_GROUP_DICTIONARY;
             case STRIDE_DICTIONARY_LENGTH:
                 return StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+            case IN_MAP:
+                return StreamKind.IN_MAP;
             default:
                 throw new IllegalArgumentException(kind + " stream type not implemented yet");
         }
@@ -389,6 +431,8 @@ public class DwrfMetadataReader
                 }
             case DICTIONARY:
                 return ColumnEncodingKind.DICTIONARY;
+            case MAP_FLAT:
+                return ColumnEncodingKind.DWRF_MAP_FLAT;
             default:
                 throw new IllegalArgumentException(kind + " stream encoding not implemented yet");
         }

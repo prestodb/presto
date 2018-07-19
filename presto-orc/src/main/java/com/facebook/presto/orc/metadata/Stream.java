@@ -32,19 +32,27 @@ public class Stream
         IN_DICTIONARY,
         ROW_GROUP_DICTIONARY,
         ROW_GROUP_DICTIONARY_LENGTH,
+        IN_MAP,
     }
 
     private final int column;
     private final StreamKind streamKind;
     private final int length;
     private final boolean useVInts;
+    private final int sequence;
 
     public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
+    {
+        this(column, streamKind, length, useVInts, ColumnEncoding.DEFAULT_SEQUENCE_ID);
+    }
+
+    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence)
     {
         this.column = column;
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
         this.length = length;
         this.useVInts = useVInts;
+        this.sequence = sequence;
     }
 
     public int getColumn()
@@ -67,6 +75,11 @@ public class Stream
         return useVInts;
     }
 
+    public int getSequence()
+    {
+        return sequence;
+    }
+
     @Override
     public String toString()
     {
@@ -75,6 +88,7 @@ public class Stream
                 .add("streamKind", streamKind)
                 .add("length", length)
                 .add("useVInts", useVInts)
+                .add("sequence", sequence)
                 .toString();
     }
 }
