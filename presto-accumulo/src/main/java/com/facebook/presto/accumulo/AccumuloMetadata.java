@@ -410,7 +410,7 @@ public class AccumuloMetadata
         }
 
         // Make sure requested table exists, returning the single table of it does
-        SchemaTableName table = new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+        SchemaTableName table = prefix.toSchemaTableName();
         if (getTableHandle(session, table) != null) {
             return ImmutableList.of(table);
         }

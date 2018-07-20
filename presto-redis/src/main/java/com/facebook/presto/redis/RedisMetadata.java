@@ -220,7 +220,7 @@ public class RedisMetadata
             tableNames = listTables(session, prefix.getSchemaName());
         }
         else {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            tableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
 
         for (SchemaTableName tableName : tableNames) {

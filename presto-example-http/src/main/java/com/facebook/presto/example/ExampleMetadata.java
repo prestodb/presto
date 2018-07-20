@@ -178,7 +178,7 @@ public class ExampleMetadata
         if (prefix.getSchemaName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return ImmutableList.of(prefix.toSchemaTableName());
     }
 
     @Override

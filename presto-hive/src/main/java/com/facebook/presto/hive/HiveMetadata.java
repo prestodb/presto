@@ -544,7 +544,7 @@ public class HiveMetadata
         if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return ImmutableList.of(prefix.toSchemaTableName());
     }
 
     /**
@@ -1271,7 +1271,7 @@ public class HiveMetadata
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         List<SchemaTableName> tableNames;
         if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            tableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
         else {
             tableNames = listViews(session, prefix.getSchemaName());

@@ -240,7 +240,7 @@ public class JmxMetadata
             tableNames = listTables(session, prefix.getSchemaName());
         }
         else {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            tableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
 
         return tableNames.stream()
