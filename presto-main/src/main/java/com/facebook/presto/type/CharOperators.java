@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.type.Chars.compareChars;
 
 public final class CharOperators
@@ -99,6 +100,14 @@ public final class CharOperators
     public static long hashCode(@SqlType("char(x)") Slice value)
     {
         return XxHash64.hash(value);
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType("char(x)") Slice slice)
+    {
+        return XxHash64.hash(slice);
     }
 
     @LiteralParameters({"x"})
