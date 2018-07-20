@@ -34,8 +34,14 @@ public class KerberosHadoopAuthentication
     public KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfiguration hdfsConfiguration)
     {
         this.kerberosAuthentication = requireNonNull(kerberosAuthentication, "kerberosAuthentication is null");
-        requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
-        Configuration configuration = validateHDFSConfiguration(hdfsConfiguration);
+        Configuration configuration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null").getConfiguration(null, null);
+        configuration.set("hadoop.security.authentication", "kerberos");
+
+        String authToLocalRules = configuration.get("hadoop.security.auth_to_local");
+        if (authToLocalRules == null) {
+            KerberosName.setRules("DEFAULT");
+        }
+
         UserGroupInformation.setConfiguration(configuration);
     }
 
@@ -44,23 +50,5 @@ public class KerberosHadoopAuthentication
     {
         Subject subject = kerberosAuthentication.getSubject();
         return createUserGroupInformationForSubject(subject);
-    }
-
-    private Configuration validateHDFSConfiguration(HdfsConfiguration hdfsConfiguration)
-    {
-        Configuration config = hdfsConfiguration.getConfiguration(null, null);
-        String loadedHadoopAuthentication = config.get("hadoop.security.authentication");
-
-        if (!"kerberos".equals(loadedHadoopAuthentication)) {
-            log.warn("Contradicting security authentication type in hive.properties and hive config resources");
-            log.warn("Setting security authentication type to kerberos according to hive.properties");
-            config.set("hadoop.security.authentication", "kerberos");
-        }
-
-        String authToLocalRules = config.get("hadoop.security.auth_to_local");
-        if (authToLocalRules == null) {
-            KerberosName.setRules("DEFAULT");
-        }
-        return config;
     }
 }

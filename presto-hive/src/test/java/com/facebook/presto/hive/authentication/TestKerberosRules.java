@@ -17,83 +17,49 @@ import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.apache.hadoop.security.authentication.util.KerberosName;
 import org.testng.annotations.Test;
-import sun.security.krb5.Config;
 
-import javax.security.auth.Subject;
-import javax.security.auth.kerberos.KerberosPrincipal;
-
-import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
-import static org.apache.hadoop.security.authentication.util.KerberosName.resetDefaultRealm;
 import static org.testng.Assert.assertEquals;
-import static java.util.Collections.emptySet;
 
 public class TestKerberosRules
 {
-    private String originalConf;
-
-    @BeforeClass
-    public void setup()
+    public void setRules(Configuration configuration)
     {
-        originalConf = System.getProperty("java.security.krb5.conf");
-
-        // default realm in this file is REALM1.COM
-        System.setProperty("java.security.krb5.conf", "src/test/resources/mock-krb5.conf");
+        String authToLocalRules = configuration.get("hadoop.security.auth_to_local");
+        if (authToLocalRules == null) {
+            KerberosName.setRules("DEFAULT");
+        }
+        UserGroupInformation.setConfiguration(configuration);
     }
 
-    public String tryExtractingUserName(String principalName, HdfsConfiguration hdfsConfiguration) throws Exception
+    @Test
+    public void tesKerberosRulesLoaded()
     {
-        KerberosHadoopAuthentication kerberosHadoopAuthentication = new KerberosHadoopAuthentication(new KerberosAuthentication(principalName), hdfsConfiguration);
-        KerberosPrincipal principal = new KerberosPrincipal(principalName);
-        Subject subject = new Subject(false, ImmutableSet.of(principal), emptySet(), emptySet());
-        UserGroupInformation ugi = createUserGroupInformationForSubject(subject);
-        String shortName = ugi.getShortUserName();
-        UserGroupInformation.reset();
-        return shortName;
+        String resourcePath = "src/test/resources/mock-core-site-with-rules.xml";
+        Configuration configuration = getConfiguration(resourcePath);
+        setRules(configuration);
+        checkKerberosRulesLoaded(resourcePath);
     }
 
-    public String testUserNameExtraction(String resourceConfigFile, String principalName) throws Exception
+    private Configuration getConfiguration(String resourcePath)
     {
-        HiveClientConfig hiveClientConfig = new HiveClientConfig().setResourceConfigFiles(resourceConfigFile);
+        HiveClientConfig hiveClientConfig = new HiveClientConfig().setResourceConfigFiles(resourcePath);
         HdfsConfigurationUpdater updater = new HdfsConfigurationUpdater(hiveClientConfig);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updater);
-        return tryExtractingUserName(principalName, hdfsConfiguration);
+
+        Configuration configuration = hdfsConfiguration.getConfiguration(null, null);
+        configuration.set("hadoop.security.authentication", "kerberos");
+        return configuration;
     }
 
-    @Test
-    public void testSameRealmWithoutRules() throws Exception
+    private void checkKerberosRulesLoaded(String resourcePath)
     {
-        String shortName = testUserNameExtraction("src/test/resources/mock-core-site-without-rules.xml", "presto@REALM1.COM");
-        assertEquals(shortName, "presto");
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testDifferentRealmWithoutRules() throws Exception
-    {
-        testUserNameExtraction("src/test/resources/mock-core-site-without-rules.xml", "presto@REALM2.COM");
-    }
-
-    @Test
-    public void testDifferentRealmWithRules() throws Exception
-    {
-        String shortName = testUserNameExtraction("src/test/resources/mock-core-site-with-rules.xml", "presto@REALM2.COM");
-        assertEquals(shortName, "presto");
-    }
-
-    @AfterClass
-    public void restore() throws Exception
-    {
-        if (originalConf == null) {
-            System.clearProperty("java.security.krb5.conf");
-        }
-        else {
-            System.setProperty("java.security.krb5.conf", originalConf);
-        }
-        Config.refresh();
-        resetDefaultRealm();
+        Configuration resourceProperties = new Configuration(false);
+        resourceProperties.addResource(new Path(resourcePath));
+        assertEquals(resourceProperties.get("hadoop.security.auth_to_local").trim(), KerberosName.getRules().trim());
     }
 }
