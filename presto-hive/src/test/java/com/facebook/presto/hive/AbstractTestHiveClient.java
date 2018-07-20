@@ -110,7 +110,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -2586,12 +2585,6 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("update_table_column_statistics");
-
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
-        if (!metastoreClient.supportsColumnStatistics()) {
-            throw new SkipException("column level statistics are not supported");
-        }
-
         try {
             doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
             testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2);
@@ -2606,12 +2599,6 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("update_table_column_statistics_empty_optional_fields");
-
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
-        if (!metastoreClient.supportsColumnStatistics()) {
-            throw new SkipException("column level statistics are not supported");
-        }
-
         try {
             doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
             testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, STATISTICS_EMPTY_OPTIONAL_FIELDS);
@@ -2673,12 +2660,6 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("update_partition_column_statistics");
-
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
-        if (!metastoreClient.supportsColumnStatistics()) {
-            throw new SkipException("column level statistics are not supported");
-        }
-
         try {
             createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
             testUpdatePartitionStatistics(
@@ -2697,12 +2678,6 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("update_partition_column_statistics");
-
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
-        if (!metastoreClient.supportsColumnStatistics()) {
-            throw new SkipException("column level statistics are not supported");
-        }
-
         try {
             createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
             testUpdatePartitionStatistics(

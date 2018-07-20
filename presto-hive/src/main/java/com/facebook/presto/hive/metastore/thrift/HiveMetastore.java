@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
@@ -73,7 +75,7 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    boolean supportsColumnStatistics();
+    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
     PartitionStatistics getTableStatistics(String databaseName, String tableName);
 

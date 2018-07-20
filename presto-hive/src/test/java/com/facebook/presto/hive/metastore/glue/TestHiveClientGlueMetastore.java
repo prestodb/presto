@@ -56,4 +56,28 @@ public class TestHiveClientGlueMetastore
     {
         // Glue metastore does not support column level statistics
     }
+
+    @Override
+    public void testUpdateTableColumnStatistics()
+    {
+        // column statistics are not supported by Glue
+    }
+
+    @Override
+    public void testUpdateTableColumnStatisticsEmptyOptionalFields()
+    {
+        // column statistics are not supported by Glue
+    }
+
+    @Override
+    public void testUpdatePartitionColumnStatistics()
+    {
+        // column statistics are not supported by Glue
+    }
+
+    @Override
+    public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
+    {
+        // column statistics are not supported by Glue
+    }
 }
