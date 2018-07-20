@@ -95,7 +95,8 @@ public class BeginTableWrite
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    node.getPartitioningScheme());
+                    node.getPartitioningScheme(),
+                    node.getStatisticsAggregation());
         }
 
         @Override
@@ -121,7 +122,13 @@ public class BeginTableWrite
             context.get().addMaterializedHandle(originalTarget, newTarget);
             child = child.accept(this, context);
 
-            return new TableFinishNode(node.getId(), child, newTarget, node.getOutputSymbols());
+            return new TableFinishNode(
+                    node.getId(),
+                    child,
+                    newTarget,
+                    node.getOutputSymbols(),
+                    node.getStatisticsAggregation(),
+                    node.getStatisticsAggregationDescriptor());
         }
 
         public TableWriterNode.WriterTarget getTarget(PlanNode node)

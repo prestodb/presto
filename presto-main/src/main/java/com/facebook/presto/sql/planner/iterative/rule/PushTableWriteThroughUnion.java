@@ -19,18 +19,24 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class PushTableWriteThroughUnion
         implements Rule<TableWriterNode>
@@ -59,31 +65,57 @@ public class PushTableWriteThroughUnion
     }
 
     @Override
-    public Result apply(TableWriterNode tableWriterNode, Captures captures, Context context)
+    public Result apply(TableWriterNode writerNode, Captures captures, Context context)
     {
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
-        ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
-        for (int i = 0; i < unionNode.getSources().size(); i++) {
-            int index = i;
-            ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
-            for (Symbol outputSymbol : tableWriterNode.getOutputSymbols()) {
-                Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
-                newSymbols.add(newSymbol);
-                mappings.put(outputSymbol, newSymbol);
-            }
-            rewrittenSources.add(new TableWriterNode(
-                    context.getIdAllocator().getNextId(),
-                    unionNode.getSources().get(index),
-                    tableWriterNode.getTarget(),
-                    tableWriterNode.getColumns().stream()
-                            .map(column -> unionNode.getSymbolMapping().get(column).get(index))
-                            .collect(toImmutableList()),
-                    tableWriterNode.getColumnNames(),
-                    newSymbols.build(),
-                    tableWriterNode.getPartitioningScheme()));
+        List<Map<Symbol, Symbol>> sourceMappings = new ArrayList<>();
+        for (int source = 0; source < unionNode.getSources().size(); source++) {
+            rewrittenSources.add(rewriteSource(writerNode, unionNode, source, sourceMappings, context));
         }
 
-        return Result.ofPlanNode(new UnionNode(context.getIdAllocator().getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        ImmutableListMultimap.Builder<Symbol, Symbol> unionMappings = ImmutableListMultimap.builder();
+        sourceMappings.forEach(mappings -> mappings.forEach(unionMappings::put));
+
+        return Result.ofPlanNode(
+                new UnionNode(
+                        context.getIdAllocator().getNextId(),
+                        rewrittenSources.build(),
+                        unionMappings.build(),
+                        ImmutableList.copyOf(unionMappings.build().keySet())));
+    }
+
+    private static TableWriterNode rewriteSource(
+            TableWriterNode writerNode,
+            UnionNode unionNode,
+            int source,
+            List<Map<Symbol, Symbol>> sourceMappings,
+            Context context)
+    {
+        Map<Symbol, Symbol> inputMappings = getInputSymbolMapping(unionNode, source);
+        ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
+        mappings.putAll(inputMappings);
+        ImmutableMap.Builder<Symbol, Symbol> outputMappings = ImmutableMap.builder();
+        for (Symbol outputSymbol : writerNode.getOutputSymbols()) {
+            if (inputMappings.containsKey(outputSymbol)) {
+                outputMappings.put(outputSymbol, inputMappings.get(outputSymbol));
+            }
+            else {
+                Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
+                outputMappings.put(outputSymbol, newSymbol);
+                mappings.put(outputSymbol, newSymbol);
+            }
+        }
+        sourceMappings.add(outputMappings.build());
+        SymbolMapper symbolMapper = new SymbolMapper(mappings.build());
+        return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
+    }
+
+    private static Map<Symbol, Symbol> getInputSymbolMapping(UnionNode node, int source)
+    {
+        return node.getSymbolMapping()
+                .keySet()
+                .stream()
+                .collect(toImmutableMap(key -> key, key -> node.getSymbolMapping().get(key).get(source)));
     }
 }
