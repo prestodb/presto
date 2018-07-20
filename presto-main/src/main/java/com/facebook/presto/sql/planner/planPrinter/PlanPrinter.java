@@ -36,6 +36,8 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
+import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -79,6 +81,8 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.StatisticAggregations;
+import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -125,6 +129,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarize
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -132,6 +137,7 @@ import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class PlanPrinter
@@ -1152,6 +1158,11 @@ public class PlanPrinter
                 print(indent + 2, "%s := %s", name, symbol);
             }
 
+            if (node.getStatisticsAggregation().isPresent()) {
+                verify(node.getStatisticsAggregationDescriptor().isPresent(), "statisticsAggregationDescriptor is not present");
+                printStatisticAggregations(node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get(), indent + 2);
+            }
+
             return processChildren(node, indent + 1);
         }
 
@@ -1162,7 +1173,53 @@ public class PlanPrinter
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
 
+            if (node.getStatisticsAggregation().isPresent()) {
+                verify(node.getStatisticsAggregationDescriptor().isPresent(), "statisticsAggregationDescriptor is not present");
+                printStatisticAggregations(node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get(), indent + 2);
+            }
+
             return processChildren(node, indent + 1);
+        }
+
+        private void printStatisticAggregations(StatisticAggregations aggregations, StatisticAggregationsDescriptor<Symbol> descriptor, int indent)
+        {
+            print(indent, "Collected statistics:");
+            printStatisticAggregationsInfo(descriptor.getTableStatistics(), descriptor.getColumnStatistics(), aggregations.getAggregations(), indent + 1);
+            print(indent + 1, "grouped by => [%s]", getStatisticGroupingSetsInfo(aggregations.getGroupingSymbols(), descriptor.getGrouping()));
+        }
+
+        private String getStatisticGroupingSetsInfo(List<Symbol> groupingSymbols, Map<Symbol, String> columnMappings)
+        {
+            return groupingSymbols.stream()
+                    .map(symbol -> format("%s := %s", symbol, columnMappings.get(symbol)))
+                    .collect(joining(", "));
+        }
+
+        private void printStatisticAggregationsInfo(
+                Map<Symbol, TableStatisticType> tableStatistics,
+                Map<Symbol, ColumnStatisticMetadata> columnStatistics,
+                Map<Symbol, Aggregation> aggregations,
+                int indent)
+        {
+            print(indent, "aggregations =>");
+            for (Map.Entry<Symbol, TableStatisticType> tableStatistic : tableStatistics.entrySet()) {
+                print(
+                        indent + 1,
+                        "%s => [%s := %s]",
+                        tableStatistic.getValue(),
+                        tableStatistic.getKey(),
+                        aggregations.get(tableStatistic.getKey()).getCall());
+            }
+
+            for (Map.Entry<Symbol, ColumnStatisticMetadata> columnStatistic : columnStatistics.entrySet()) {
+                print(
+                        indent + 1,
+                        "%s[%s] => [%s := %s]",
+                        columnStatistic.getValue().getStatisticType(),
+                        columnStatistic.getValue().getColumnName(),
+                        columnStatistic.getKey(),
+                        aggregations.get(columnStatistic.getKey()).getCall());
+            }
         }
 
         @Override

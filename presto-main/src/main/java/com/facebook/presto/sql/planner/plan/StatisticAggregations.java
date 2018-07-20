@@ -62,11 +62,13 @@ public class StatisticAggregations
     {
         ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Aggregation> finalAggregation = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             Signature signature = originalAggregation.getSignature();
             InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
             Symbol partialSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
+            mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
@@ -74,20 +76,24 @@ public class StatisticAggregations
                             signature,
                             Optional.empty()));
         }
+        groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(
                 new StatisticAggregations(partialAggregation.build(), groupingSymbols),
-                new StatisticAggregations(finalAggregation.build(), groupingSymbols));
+                new StatisticAggregations(finalAggregation.build(), groupingSymbols),
+                mappings.build());
     }
 
     public static class Parts
     {
         private final StatisticAggregations partialAggregation;
         private final StatisticAggregations finalAggregation;
+        private final Map<Symbol, Symbol> mappings;
 
-        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation)
+        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation, Map<Symbol, Symbol> mappings)
         {
             this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
             this.finalAggregation = requireNonNull(finalAggregation, "finalAggregation is null");
+            this.mappings = ImmutableMap.copyOf(requireNonNull(mappings, "mappings is null"));
         }
 
         public StatisticAggregations getPartialAggregation()
@@ -98,6 +104,11 @@ public class StatisticAggregations
         public StatisticAggregations getFinalAggregation()
         {
             return finalAggregation;
+        }
+
+        public Map<Symbol, Symbol> getMappings()
+        {
+            return mappings;
         }
     }
 }
