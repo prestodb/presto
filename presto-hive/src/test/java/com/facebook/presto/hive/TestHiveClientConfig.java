@@ -106,7 +106,8 @@ public class TestHiveClientConfig
                 .setWritesToNonManagedTablesEnabled(false)
                 .setCreatesOfNonManagedTablesEnabled(true)
                 .setHdfsWireEncryptionEnabled(false)
-                .setPartitionStatisticsSampleSize(100));
+                .setPartitionStatisticsSampleSize(100)
+                .setCollectColumnStatisticsOnWrite(false));
     }
 
     @Test
@@ -182,6 +183,7 @@ public class TestHiveClientConfig
                 .put("hive.non-managed-table-creates-enabled", "false")
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.partition-statistics-sample-size", "1234")
+                .put("hive.collect-column-statistics-on-write", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -253,7 +255,8 @@ public class TestHiveClientConfig
                 .setWritesToNonManagedTablesEnabled(true)
                 .setCreatesOfNonManagedTablesEnabled(false)
                 .setHdfsWireEncryptionEnabled(true)
-                .setPartitionStatisticsSampleSize(1234);
+                .setPartitionStatisticsSampleSize(1234)
+                .setCollectColumnStatisticsOnWrite(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
