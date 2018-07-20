@@ -448,7 +448,7 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("t_date", DATE))
             .add(new ColumnMetadata("t_timestamp", TIMESTAMP))
             .add(new ColumnMetadata("t_short_decimal", createDecimalType(5, 2)))
-            .add(new ColumnMetadata("t_long_decimal", createDecimalType(20, 4)))
+            .add(new ColumnMetadata("t_long_decimal", createDecimalType(20, 3)))
             .build();
 
     private static final List<ColumnMetadata> STATISTICS_PARTITIONED_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
@@ -478,7 +478,7 @@ public abstract class AbstractTestHiveClient
                             .put("t_date", createDateColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(1)), Optional.of(java.time.LocalDate.ofEpochDay(2)), OptionalLong.of(7), OptionalLong.of(6)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(1234567L), OptionalLong.of(71234567L), OptionalLong.of(7), OptionalLong.of(5)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(10)), Optional.of(new BigDecimal(12)), OptionalLong.of(3), OptionalLong.of(5)))
-                            .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("12345678901234567.123")), Optional.of(new BigDecimal("812345678901234567.123")), OptionalLong.of(2), OptionalLong.of(1)))
+                            .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("12345678901234567.123")), Optional.of(new BigDecimal("81234567890123456.123")), OptionalLong.of(2), OptionalLong.of(1)))
                             .build());
 
     private static final PartitionStatistics STATISTICS_1_1 =
@@ -515,7 +515,7 @@ public abstract class AbstractTestHiveClient
                             .put("t_date", createDateColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(2)), Optional.of(java.time.LocalDate.ofEpochDay(3)), OptionalLong.of(8), OptionalLong.of(7)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(2345671L), OptionalLong.of(12345677L), OptionalLong.of(9), OptionalLong.of(1)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(11)), Optional.of(new BigDecimal(14)), OptionalLong.of(5), OptionalLong.of(7)))
-                            .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("781234567890123456.123")), OptionalLong.of(2), OptionalLong.of(1)))
+                            .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("78123456789012345.123")), OptionalLong.of(2), OptionalLong.of(1)))
                             .build());
 
     private static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
@@ -2810,6 +2810,45 @@ public abstract class AbstractTestHiveClient
         });
         assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
                 .isEqualTo(ImmutableMap.of(firstPartitionName, initialStatistics, secondPartitionName, initialStatistics));
+    }
+
+    /**
+     * This test creates 2 identical partitions and verifies that the statistics projected based on
+     * a single partition sample are equal to the statistics computed in a fair way
+     */
+    @Test
+    public void testPartitionStatisticsSampling()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_partition_statistics_sampling");
+
+        try {
+            createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> STATISTICS_1);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-02", actualStatistics -> STATISTICS_1);
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+
+                ConnectorTableHandle tableHandle = metadata.getTableHandle(session, tableName);
+                TableStatistics unsampledStatistics = metadata.getTableStatistics(sampleSize(2), tableHandle, Constraint.alwaysTrue());
+                TableStatistics sampledStatistics = metadata.getTableStatistics(sampleSize(1), tableHandle, Constraint.alwaysTrue());
+                assertEquals(sampledStatistics, unsampledStatistics);
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private ConnectorSession sampleSize(int sampleSize)
+    {
+        HiveSessionProperties properties = new HiveSessionProperties(
+                getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
+                new OrcFileWriterConfig());
+        return new TestingConnectorSession(properties.getSessionProperties());
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)
