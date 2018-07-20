@@ -182,6 +182,14 @@ public class TestSubqueries
     }
 
     @Test
+    public void testLateralWithUnnest()
+    {
+        assertions.assertFails(
+                "SELECT * FROM (VALUES ARRAY[1]) t(x), LATERAL (SELECT * FROM UNNEST(x))",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
     public void testCorrelatedScalarSubquery()
     {
         assertions.assertQuery(

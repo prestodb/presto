@@ -352,7 +352,15 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
         {
-            return context.defaultRewrite(node);
+            List<List<Expression>> canonicalizedRows = node.getRows().stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableList());
+            List<Symbol> canonicalizedOutputSymbols = canonicalizeAndDistinct(node.getOutputSymbols());
+            checkState(node.getOutputSymbols().size() == canonicalizedOutputSymbols.size(), "Values output symbols were pruned");
+            return new ValuesNode(
+                    node.getId(),
+                    canonicalizedOutputSymbols,
+                    canonicalizedRows);
         }
 
         @Override
@@ -626,6 +634,13 @@ public class UnaliasSymbolReferences
                 canonical = mapping.get(canonical);
             }
             return canonical;
+        }
+
+        private List<Expression> canonicalize(List<Expression> values)
+        {
+            return values.stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableList());
         }
 
         private Expression canonicalize(Expression value)
