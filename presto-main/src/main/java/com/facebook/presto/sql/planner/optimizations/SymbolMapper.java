@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
+import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -157,7 +158,8 @@ public class SymbolMapper
                 node.getColumnNames(),
                 map(node.getOutputSymbols()),
                 node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
-                node.getStatisticsAggregation().map(this::map));
+                node.getStatisticsAggregation().map(this::map),
+                node.getStatisticsAggregationDescriptor().map(this::map));
     }
 
     public TableFinishNode map(TableFinishNode node, PlanNode source)
@@ -186,6 +188,11 @@ public class SymbolMapper
         Map<Symbol, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
                 .collect(toImmutableMap(entry -> map(entry.getKey()), entry -> map(entry.getValue())));
         return new StatisticAggregations(aggregations, map(statisticAggregations.getGroupingSymbols()));
+    }
+
+    private StatisticAggregationsDescriptor<Symbol> map(StatisticAggregationsDescriptor<Symbol> descriptor)
+    {
+        return descriptor.map(this::map);
     }
 
     private List<Symbol> map(List<Symbol> outputs)
