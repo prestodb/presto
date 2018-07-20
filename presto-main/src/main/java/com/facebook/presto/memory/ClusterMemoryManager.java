@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.io.Closer;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -39,12 +40,12 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -80,6 +81,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
 public class ClusterMemoryManager
         implements ClusterMemoryPoolManager
@@ -166,9 +168,8 @@ public class ClusterMemoryManager
         for (MemoryPoolId poolId : POOLS) {
             ClusterMemoryPool pool = new ClusterMemoryPool(poolId);
             builder.put(poolId, pool);
-            String objectName = ObjectNames.builder(ClusterMemoryPool.class, poolId.toString()).build();
             try {
-                exporter.export(objectName, pool);
+                exporter.export(generatedNameOf(ClusterMemoryPool.class, poolId.toString()), pool);
             }
             catch (JmxException e) {
                 log.error(e, "Error exporting memory pool %s", poolId);
@@ -242,8 +243,7 @@ public class ClusterMemoryManager
                 outOfMemory &&
                 !queryKilled &&
                 nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
-            boolean lastKilledQueryGone = isLastKilledQueryGone();
-            if (lastKilledQueryGone) {
+            if (isLastKilledQueryGone()) {
                 callOomKiller(runningQueries);
             }
             else {
@@ -526,25 +526,13 @@ public class ClusterMemoryManager
 
     @PreDestroy
     public synchronized void destroy()
+            throws IOException
     {
-        try {
+        try (Closer closer = Closer.create()) {
             for (ClusterMemoryPool pool : pools.values()) {
-                unexport(pool);
+                closer.register(() -> exporter.unexport(generatedNameOf(ClusterMemoryPool.class, pool.getId().toString())));
             }
-        }
-        finally {
-            listenerExecutor.shutdownNow();
-        }
-    }
-
-    private void unexport(ClusterMemoryPool pool)
-    {
-        try {
-            String objectName = ObjectNames.builder(ClusterMemoryPool.class, pool.getId().toString()).build();
-            exporter.unexport(objectName);
-        }
-        catch (JmxException e) {
-            log.error(e, "Failed to unexport pool %s", pool.getId());
+            closer.register(listenerExecutor::shutdownNow);
         }
     }
 
