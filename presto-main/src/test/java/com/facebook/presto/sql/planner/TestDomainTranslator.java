@@ -910,6 +910,14 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromInPredicateWithFunctions()
+    {
+        assertUnsupportedPredicate(equal(
+                function("date", C_TIMESTAMP.toSymbolReference()),
+                toExpression(DATE_VALUE, DATE)));
+    }
+
+    @Test
     public void testFromBetweenPredicate()
     {
         assertPredicateTranslates(

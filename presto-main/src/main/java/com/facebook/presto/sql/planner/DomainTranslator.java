@@ -697,13 +697,27 @@ public final class DomainTranslator
             InListExpression valueList = (InListExpression) node.getValueList();
             checkState(!valueList.getValues().isEmpty(), "InListExpression should never be empty");
 
-            ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
-            for (Expression expression : valueList.getValues()) {
-                disjuncts.add(new ComparisonExpression(EQUAL, node.getValue(), expression));
+            ExtractionResult extractionResult;
+            if (complement) {
+                ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
+                for (Expression expression : valueList.getValues()) {
+                    disjuncts.add(new ComparisonExpression(EQUAL, node.getValue(), expression));
+                }
+                extractionResult = process(or(disjuncts.build()), true);
             }
-            ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
+            else {
+                TupleDomain<Symbol> tupleDomain = TupleDomain.none();
+                for (Expression expression : valueList.getValues()) {
+                    ExtractionResult result = process(new ComparisonExpression(EQUAL, node.getValue(), expression), complement);
+                    tupleDomain = TupleDomain.columnWiseUnion(tupleDomain, result.getTupleDomain());
+                    // preserve original IN predicate as remaining predicate
+                    if (tupleDomain.isAll() || !result.isFullyRewritten()) {
+                        return new ExtractionResult(tupleDomain, node);
+                    }
+                }
+                extractionResult = new ExtractionResult(tupleDomain, TRUE_LITERAL);
+            }
 
-            // preserve original IN predicate as remaining predicate
             if (extractionResult.tupleDomain.isAll()) {
                 Expression originalPredicate = node;
                 if (complement) {
@@ -711,6 +725,7 @@ public final class DomainTranslator
                 }
                 return new ExtractionResult(extractionResult.tupleDomain, originalPredicate);
             }
+
             return extractionResult;
         }
 
@@ -822,6 +837,11 @@ public final class DomainTranslator
         public Expression getRemainingExpression()
         {
             return remainingExpression;
+        }
+
+        public boolean isFullyRewritten()
+        {
+            return remainingExpression.equals(TRUE_LITERAL);
         }
     }
 }
