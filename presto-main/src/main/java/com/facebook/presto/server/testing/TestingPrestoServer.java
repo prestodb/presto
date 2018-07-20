@@ -21,6 +21,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.memory.ClusterMemoryLeakDetector;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -115,6 +116,7 @@ public class TestingPrestoServer
     private final SplitManager splitManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ClusterMemoryManager clusterMemoryManager;
+    private final ClusterMemoryLeakDetector clusterMemoryLeakDetector;
     private final LocalMemoryManager localMemoryManager;
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
@@ -264,11 +266,13 @@ public class TestingPrestoServer
             resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
+            clusterMemoryLeakDetector = injector.getInstance(ClusterMemoryLeakDetector.class);
         }
         else {
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = null;
             clusterMemoryManager = null;
+            clusterMemoryLeakDetector = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -405,6 +409,12 @@ public class TestingPrestoServer
     {
         checkState(coordinator, "not a coordinator");
         return clusterMemoryManager;
+    }
+
+    public ClusterMemoryLeakDetector getClusterMemoryLeakDetector()
+    {
+        checkState(coordinator, "not a coordinator");
+        return clusterMemoryLeakDetector;
     }
 
     public GracefulShutdownHandler getGracefulShutdownHandler()
