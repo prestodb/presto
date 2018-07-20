@@ -25,6 +25,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -148,6 +150,11 @@ public class SemiTransactionalHiveMetastore
             default:
                 throw new IllegalStateException("Unknown action type");
         }
+    }
+
+    public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    {
+        return delegate.getSupportedColumnStatistics(type);
     }
 
     public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
