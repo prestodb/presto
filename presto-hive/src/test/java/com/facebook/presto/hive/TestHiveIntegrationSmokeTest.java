@@ -775,6 +775,14 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreatePartitionedUnionAll()
+    {
+        assertUpdate("CREATE TABLE test_create_partitioned_union_all (a varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
+        assertUpdate("INSERT INTO test_create_partitioned_union_all SELECT 'a', '2013-05-17' UNION ALL SELECT 'b', '2013-05-17'", 2);
+        assertUpdate("DROP TABLE test_create_partitioned_union_all");
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTableFewRows()
     {
         // go through all storage formats to make sure the empty buckets are correctly created

@@ -261,7 +261,7 @@ public class TableFinishOperator
         state = State.FINISHED;
 
         List<ComputedStatistics> statistics = getComputedStatistics();
-        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build());
+        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build(), statistics);
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -317,6 +317,6 @@ public class TableFinishOperator
 
     public interface TableFinisher
     {
-        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments);
+        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
     }
 }
