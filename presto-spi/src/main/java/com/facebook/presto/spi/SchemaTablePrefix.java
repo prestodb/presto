@@ -14,64 +14,80 @@
 package com.facebook.presto.spi;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 
 public class SchemaTablePrefix
 {
-    /* nullable */
-    private final String schemaName;
-    /* nullable */
-    private final String tableName;
+    private final Optional<String> schemaName;
+    private final Optional<String> tableName;
 
     public SchemaTablePrefix()
     {
-        this.schemaName = null;
-        this.tableName = null;
+        this.schemaName = Optional.empty();
+        this.tableName = Optional.empty();
     }
 
     public SchemaTablePrefix(String schemaName)
     {
-        this.schemaName = checkNotEmpty(schemaName, "schemaName");
-        this.tableName = null;
+        this.schemaName = Optional.of(checkNotEmpty(schemaName, "schemaName"));
+        this.tableName = Optional.empty();
     }
 
     public SchemaTablePrefix(String schemaName, String tableName)
     {
-        this.schemaName = checkNotEmpty(schemaName, "schemaName");
-        this.tableName = checkNotEmpty(tableName, "tableName");
+        this.schemaName = Optional.of(checkNotEmpty(schemaName, "schemaName"));
+        this.tableName = Optional.of(checkNotEmpty(tableName, "tableName"));
     }
 
+    /**
+     * @deprecated replaced by {@link SchemaTablePrefix#getSchema()}
+     */
+    @Deprecated
     public String getSchemaName()
+    {
+        return schemaName.orElse(null);
+    }
+
+    public Optional<String> getSchema()
     {
         return schemaName;
     }
 
+    /**
+     * @deprecated replaced by {@link SchemaTablePrefix#getTable()}
+     */
+    @Deprecated
     public String getTableName()
+    {
+        return tableName.orElse(null);
+    }
+
+    public Optional<String> getTable()
     {
         return tableName;
     }
 
     public boolean matches(SchemaTableName schemaTableName)
     {
-        // null schema name matches everything
-        if (schemaName == null) {
+        if (!schemaName.isPresent()) {
             return true;
         }
 
-        if (!schemaName.equals(schemaTableName.getSchemaName())) {
+        if (!schemaName.get().equals(schemaTableName.getSchemaName())) {
             return false;
         }
 
-        return tableName == null || tableName.equals(schemaTableName.getTableName());
+        return !tableName.isPresent() || tableName.get().equals(schemaTableName.getTableName());
     }
 
     public SchemaTableName toSchemaTableName()
     {
-        if (schemaName == null || tableName == null) {
-            throw new IllegalStateException("both schemaName and tableName must be set");
+        if (schemaName.isPresent() && tableName.isPresent()) {
+            return new SchemaTableName(schemaName.get(), tableName.get());
         }
-        return new SchemaTableName(schemaName, tableName);
+        throw new IllegalStateException("both schemaName and tableName must be set");
     }
 
     @Override
@@ -97,8 +113,6 @@ public class SchemaTablePrefix
     @Override
     public String toString()
     {
-        return (schemaName == null ? "*" : schemaName) +
-                '.' +
-                (tableName == null ? "*" : tableName);
+        return schemaName.orElse("*") + '.' + tableName.orElse("*");
     }
 }
