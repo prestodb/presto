@@ -20,10 +20,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import com.facebook.presto.util.AutoCloseableCloser;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -44,6 +46,8 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +55,9 @@ import static java.util.Objects.requireNonNull;
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
+    public static final int ROW_COUNT_CHANNEL = 0;
+    public static final int FRAGMENT_CHANNEL = 1;
+    private static final int WRITER_CHANNELS = 2;
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
@@ -60,24 +66,30 @@ public class TableWriterOperator
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
-        private final List<Integer> inputChannels;
+        private final List<Integer> columnChannels;
         private final Session session;
+        private final OperatorFactory statisticsAggregationOperatorFactory;
+        private final List<Type> types;
         private boolean closed;
 
         public TableWriterOperatorFactory(int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
-                List<Integer> inputChannels,
-                Session session)
+                List<Integer> columnChannels,
+                Session session,
+                OperatorFactory statisticsAggregationOperatorFactory,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
+            this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
+            this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -85,7 +97,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, createPageSink(), inputChannels);
+            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregationOperatorFactory.createOperator(driverContext), types);
         }
 
         private ConnectorPageSink createPageSink()
@@ -108,7 +120,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, session);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types);
         }
     }
 
@@ -120,8 +132,10 @@ public class TableWriterOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
-    private final List<Integer> inputChannels;
+    private final List<Integer> columnChannels;
     private final AtomicLong pageSinkPeakMemoryUsage = new AtomicLong();
+    private final Operator statisticAggregationOperator;
+    private final List<Type> types;
 
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private CompletableFuture<Collection<Slice>> finishFuture;
@@ -131,15 +145,20 @@ public class TableWriterOperator
     private boolean closed;
     private long writtenBytes;
 
-    public TableWriterOperator(OperatorContext operatorContext,
+    public TableWriterOperator(
+            OperatorContext operatorContext,
             ConnectorPageSink pageSink,
-            List<Integer> inputChannels)
+            List<Integer> columnChannels,
+            Operator statisticAggregationOperator,
+            List<Type> types)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
-        this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
+        this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.operatorContext.setInfoSupplier(this::getInfo);
+        this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -151,40 +170,44 @@ public class TableWriterOperator
     @Override
     public void finish()
     {
+        ListenableFuture<?> currentlyBlocked = blocked;
+        statisticAggregationOperator.finish();
+        ListenableFuture<?> blockedOnAggregation = statisticAggregationOperator.isBlocked();
+        ListenableFuture<?> blockedOnFinish = NOT_BLOCKED;
         if (state == State.RUNNING) {
             state = State.FINISHING;
             finishFuture = pageSink.finish();
-            blocked = toListenableFuture(finishFuture);
+            blockedOnFinish = toListenableFuture(finishFuture);
             updateWrittenBytes();
         }
+        this.blocked = allAsList(currentlyBlocked, blockedOnAggregation, blockedOnFinish);
     }
 
     @Override
     public boolean isFinished()
     {
-        updateBlockedIfNecessary();
-        return state == State.FINISHED && blocked == NOT_BLOCKED;
+        return state == State.FINISHED && blocked.isDone();
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        updateBlockedIfNecessary();
         return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        updateBlockedIfNecessary();
-        return state == State.RUNNING && blocked == NOT_BLOCKED;
-    }
-
-    private void updateBlockedIfNecessary()
-    {
-        if (blocked != NOT_BLOCKED && blocked.isDone()) {
-            blocked = NOT_BLOCKED;
+        if (state != State.RUNNING || !blocked.isDone()) {
+            return false;
         }
+        // AggregationOperator doesn't return false unless it is finished.
+        // HashAggregationOperator doesn't return false unless it is full or there is some unfinishedWork,
+        // that is not the option here.
+        // The assumption is that the spill is always disabled for the statistics aggregation, and
+        // since it is not a partial aggregation it doesn't have a partial aggregation memory limit.
+        verify(statisticAggregationOperator.needsInput());
+        return true;
     }
 
     @Override
@@ -193,16 +216,17 @@ public class TableWriterOperator
         requireNonNull(page, "page is null");
         checkState(needsInput(), "Operator does not need input");
 
-        Block[] blocks = new Block[inputChannels.size()];
-        for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
-            blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
+        Block[] blocks = new Block[columnChannels.size()];
+        for (int outputChannel = 0; outputChannel < columnChannels.size(); outputChannel++) {
+            blocks[outputChannel] = page.getBlock(columnChannels.get(outputChannel));
         }
 
+        statisticAggregationOperator.addInput(page);
+        ListenableFuture<?> blockedOnAggregation = statisticAggregationOperator.isBlocked();
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
         updateMemoryUsage();
-        if (!future.isDone()) {
-            this.blocked = toListenableFuture(future);
-        }
+        ListenableFuture<?> blockedOnWrite = toListenableFuture(future);
+        blocked = allAsList(blockedOnAggregation, blockedOnWrite);
         rowCount += page.getPositionCount();
         updateWrittenBytes();
     }
@@ -213,15 +237,50 @@ public class TableWriterOperator
         if (state != State.FINISHING || !blocked.isDone()) {
             return null;
         }
-        state = State.FINISHED;
 
+        if (!statisticAggregationOperator.isFinished()) {
+            Page aggregationOutput = statisticAggregationOperator.getOutput();
+            if (aggregationOutput == null) {
+                return null;
+            }
+            int positionCount = aggregationOutput.getPositionCount();
+            Block[] outputBlocks = new Block[types.size()];
+            for (int channel = 0; channel < types.size(); channel++) {
+                if (channel < WRITER_CHANNELS) {
+                    outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
+                }
+                else {
+                    outputBlocks[channel] = aggregationOutput.getBlock(channel - 2);
+                }
+            }
+            return new Page(positionCount, outputBlocks);
+        }
+
+        Page fragmentsPage = createFragmentsPage();
+        int positionCount = fragmentsPage.getPositionCount();
+        Block[] outputBlocks = new Block[types.size()];
+        for (int channel = 0; channel < types.size(); channel++) {
+            if (channel < WRITER_CHANNELS) {
+                outputBlocks[channel] = fragmentsPage.getBlock(channel);
+            }
+            else {
+                outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
+            }
+        }
+
+        state = State.FINISHED;
+        return new Page(positionCount, outputBlocks);
+    }
+
+    private Page createFragmentsPage()
+    {
         Collection<Slice> fragments = getFutureValue(finishFuture);
         committed = true;
         updateWrittenBytes();
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
-        PageBuilder page = new PageBuilder(fragments.size() + 1, TYPES);
+        PageBuilder page = new PageBuilder(fragments.size() + 1, ImmutableList.of(types.get(ROW_COUNT_CHANNEL), types.get(FRAGMENT_CHANNEL)));
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
 
@@ -242,13 +301,17 @@ public class TableWriterOperator
 
     @Override
     public void close()
+            throws Exception
     {
+        AutoCloseableCloser closer = AutoCloseableCloser.create();
         if (!closed) {
             closed = true;
             if (!committed) {
-                pageSink.abort();
+                closer.register(pageSink::abort);
             }
         }
+        closer.register(statisticAggregationOperator);
+        closer.close();
     }
 
     private void updateWrittenBytes()
