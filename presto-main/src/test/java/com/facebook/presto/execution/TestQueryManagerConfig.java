@@ -45,7 +45,8 @@ public class TestQueryManagerConfig
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(1)
-                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES)));
+                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setQueryMaxSplitNum(0));
     }
 
     @Test
@@ -71,6 +72,7 @@ public class TestQueryManagerConfig
                 .put("query.max-cpu-time", "2d")
                 .put("query-manager.initialization-required-workers", "200")
                 .put("query-manager.initialization-timeout", "1m")
+                .put("query.max-split-num", "1000")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -92,7 +94,8 @@ public class TestQueryManagerConfig
                 .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(200)
-                .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES));
+                .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
+                .setQueryMaxSplitNum(1000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

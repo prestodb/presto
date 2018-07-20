@@ -86,6 +86,7 @@ import static com.facebook.presto.execution.ParameterExtractor.getParameterCount
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SPLIT_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -155,6 +156,8 @@ public class SqlQueryManager
 
     private final AtomicBoolean acceptQueries = new AtomicBoolean();
 
+    private final int maxQuerySplitNum;
+
     @Inject
     public SqlQueryManager(
             SqlParser sqlParser,
@@ -206,6 +209,7 @@ public class SqlQueryManager
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
         this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
         this.initialNanos = System.nanoTime();
+        this.maxQuerySplitNum = queryManagerConfig.getQueryMaxSplitNum();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
@@ -259,6 +263,13 @@ public class SqlQueryManager
                 }
                 catch (Throwable e) {
                     log.error(e, "Error pruning expired queries");
+                }
+
+                try {
+                    enforceQuerySplitLimits();
+                }
+                catch (Throwable e) {
+                    log.error(e, "Error enforcing query split limits");
                 }
             }
         }, 1, 1, TimeUnit.SECONDS);
@@ -710,6 +721,24 @@ public class SqlQueryManager
         DateTime lastHeartbeat = queryInfo.getQueryStats().getLastHeartbeat();
 
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
+    }
+
+    /**
+     * Enforce query max split limits
+     */
+    public void enforceQuerySplitLimits()
+    {
+        if (maxQuerySplitNum > 0) {
+            for (QueryExecution query : queries.values()) {
+                if (query.getState().isDone()) {
+                    continue;
+                }
+
+                if (query.getQueryInfo().getQueryStats().getTotalDrivers() > maxQuerySplitNum) {
+                    query.fail(new PrestoException(EXCEEDED_SPLIT_LIMIT, "Query exceeded maximum query split limit of " + maxQuerySplitNum));
+                }
+            }
+        }
     }
 
     private void addStatsListeners(QueryExecution queryExecution)

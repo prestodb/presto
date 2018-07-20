@@ -59,6 +59,8 @@ public class QueryManagerConfig
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
+    private int queryMaxSplitNum;
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -314,6 +316,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
     {
         this.initializationTimeout = initializationTimeout;
+        return this;
+    }
+
+    @Min(0)
+    public int getQueryMaxSplitNum()
+    {
+        return queryMaxSplitNum;
+    }
+
+    @Config("query.max-split-num")
+    public QueryManagerConfig setQueryMaxSplitNum(int queryMaxSplitNum)
+    {
+        this.queryMaxSplitNum = queryMaxSplitNum;
         return this;
     }
 }
