@@ -385,7 +385,7 @@ public class TestRaptorMetadata
         assertEquals(partitioning.getDistributionId(), 1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));
-        metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
@@ -667,7 +667,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit table creation
-        metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
@@ -690,7 +690,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit insert
-        metadata.finishInsert(SESSION, insertHandle, ImmutableList.of());
+        metadata.finishInsert(SESSION, insertHandle, ImmutableList.of(), ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
@@ -755,7 +755,7 @@ public class TestRaptorMetadata
 
         // commit table creation
         try {
-            metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
+            metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
             fail("expected exception");
         }
         catch (PrestoException e) {

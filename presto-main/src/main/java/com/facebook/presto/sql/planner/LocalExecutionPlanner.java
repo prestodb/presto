@@ -2529,10 +2529,10 @@ public class LocalExecutionPlanner
         WriterTarget target = node.getTarget();
         return fragments -> {
             if (target instanceof CreateHandle) {
-                return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
+                return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, ImmutableList.of());
             }
             else if (target instanceof InsertHandle) {
-                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments);
+                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, ImmutableList.of());
             }
             else if (target instanceof DeleteHandle) {
                 metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);

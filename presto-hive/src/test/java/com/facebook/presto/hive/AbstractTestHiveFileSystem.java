@@ -371,7 +371,7 @@ public abstract class AbstractTestHiveFileSystem
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // commit the table
-            metadata.finishCreateTable(session, outputHandle, fragments);
+            metadata.finishCreateTable(session, outputHandle, fragments, ImmutableList.of());
 
             transaction.commit();
 

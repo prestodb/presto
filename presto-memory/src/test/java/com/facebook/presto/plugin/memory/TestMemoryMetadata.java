@@ -69,7 +69,7 @@ public class TestMemoryMetadata
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty());
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table");
@@ -154,7 +154,7 @@ public class TestMemoryMetadata
         assertTrue(tableLayoutHandle instanceof MemoryTableLayoutHandle);
         assertTrue(((MemoryTableLayoutHandle) tableLayoutHandle).getDataFragments().isEmpty(), "Data fragments should be empty");
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
     }
 
     @Test
@@ -311,7 +311,7 @@ public class TestMemoryMetadata
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty());
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         // rename table to schema which does not exist
         SchemaTableName invalidSchemaTableName = new SchemaTableName("test_schema_not_exist", "test_table_renamed");
