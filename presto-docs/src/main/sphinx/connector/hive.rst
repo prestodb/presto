@@ -111,9 +111,9 @@ security options in the Hive connector.
 Hive Configuration Properties
 -----------------------------
 
-================================================== ============================================================ ==========
+================================================== ============================================================ ============
 Property Name                                      Description                                                  Default
-================================================== ============================================================ ==========
+================================================== ============================================================ ============
 ``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
                                                    Thrift protocol. If multiple URIs are provided, the first
                                                    URI is used by default and the rest of the URIs are
@@ -175,7 +175,11 @@ Property Name                                      Description                  
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 
 ``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
-================================================== ============================================================ ==========
+
+``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``false``
+                                                   on write. See `Table Statistics <#table-statistics>`__ for
+                                                   details.
+================================================== ============================================================ ============
 
 Amazon S3 Configuration
 -----------------------
@@ -333,6 +337,36 @@ classpath and must be able to communicate with your custom key management system
 the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, then the Hadoop configuration
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
+
+Table Statistics
+----------------
+
+The Hive connector automatically collects basic statistics
+(``numFiles', ``numRows``, ``rawDataSize``, ``totalSize``)
+on ``INSERT`` and ``CREATE TABLE AS`` operations.
+
+The Hive connector can also collect column level statistics:
+
+============= ====================================================================
+Column Type   Collectible Statistics
+============= ====================================================================
+``TINYINT``   number of nulls, number of distinct values, min/max values
+``SMALLINT``  number of nulls, number of distinct values, min/max values
+``INTEGER``   number of nulls, number of distinct values, min/max values
+``BIGINT``    number of nulls, number of distinct values, min/max values
+``DOUBLE``    number of nulls, number of distinct values, min/max values
+``REAL``      number of nulls, number of distinct values, min/max values
+``DECIMAL``   number of nulls, number of distinct values, min/max values
+``DATE``      number of nulls, number of distinct values, min/max values
+``TIMESTAMP`` number of nulls, number of distinct values, min/max values
+``VARCHAR``   number of nulls, number of distinct values
+``CHAR``      number of nulls, number of distinct values
+``VARBINARY`` number of nulls
+``BOOLEAN``   number of nulls, number of true/false values
+============= ====================================================================
+
+Automatic column level statistics collection on write is controlled by
+the ``collect-column-statistics-on-write`` catalog session property.
 
 Schema Evolution
 ----------------
