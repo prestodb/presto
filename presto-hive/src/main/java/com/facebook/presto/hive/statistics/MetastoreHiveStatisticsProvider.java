@@ -74,7 +74,7 @@ public class MetastoreHiveStatisticsProvider
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.timeZone = timeZone;
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
