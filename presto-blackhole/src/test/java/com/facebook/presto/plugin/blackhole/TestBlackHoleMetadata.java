@@ -65,7 +65,7 @@ public class TestBlackHoleMetadata
 
         assertThatNoTableIsCreated();
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table.");
