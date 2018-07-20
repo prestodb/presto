@@ -434,6 +434,13 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitValues(ValuesNode node, Set<Symbol> boundSymbols)
         {
+            Set<Symbol> correlatedDependencies = SymbolsExtractor.extractUnique(node);
+            checkDependencies(
+                    boundSymbols,
+                    correlatedDependencies,
+                    "Invalid node. Expression correlated dependencies (%s) not satisfied by (%s)",
+                    correlatedDependencies,
+                    boundSymbols);
             return null;
         }
 
