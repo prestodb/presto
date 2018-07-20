@@ -39,7 +39,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.units.DataSize.succinctBytes;
 
-@Test(singleThreaded = true)
+//@Test(singleThreaded = true)
 public class TestMemoryAwareExecution
 {
     private TestingPrestoServer server;
@@ -92,7 +92,7 @@ public class TestMemoryAwareExecution
         queryManager = null;
     }
 
-    @Test
+//    @Test
     public void testWaitingForResources()
             throws Exception
     {
@@ -105,7 +105,7 @@ public class TestMemoryAwareExecution
         waitForState(normalQuery, FAILED);
     }
 
-    @Test
+//    @Test
     public void testPreAllocateTooMuch()
             throws Exception
     {
@@ -115,7 +115,7 @@ public class TestMemoryAwareExecution
         assertState(highMemoryQuery, FAILED);
     }
 
-    @Test(invocationCount = 5, invocationTimeOut = 60000)
+//    @Test(invocationCount = 5, invocationTimeOut = 60000)
     public void testStartWhenPreAllocationClears()
             throws Exception
     {
