@@ -13,17 +13,21 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.google.common.collect.ImmutableList;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.Requirements;
 import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.assertions.QueryAssert.Row;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestodb.tempto.fulfillment.table.hive.InlineDataSource;
 import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
@@ -37,6 +41,7 @@ import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTab
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static java.lang.String.format;
 
 public class TestHiveTableStatistics
         extends ProductTest
@@ -69,6 +74,7 @@ public class TestHiveTableStatistics
 
     private static final String ALL_TYPES_TABLE_NAME = "all_types";
     private static final String EMPTY_ALL_TYPES_TABLE_NAME = "empty_all_types";
+    private static final String ALL_TYPES_ALL_NULL_TABLE_NAME = "all_types_all_null";
 
     private static final HiveTableDefinition ALL_TYPES_TABLE = HiveTableDefinition.like(ALL_HIVE_SIMPLE_TYPES_TEXTFILE)
             .setDataSource(InlineDataSource.createStringDataSource(
@@ -78,6 +84,67 @@ public class TestHiveTableStatistics
                             "127|32767|2147483647|9223372036854775807|123.345|235.567|345.678|345.678|2015-05-10 12:15:35.123456|2015-06-10|ala ma kota|ala ma kot|ala ma    |true|a290IGJpbmFybnk=|\n"))
             .build();
 
+    private static final HiveTableDefinition ALL_TYPES_ALL_NULL_TABLE = HiveTableDefinition.like(ALL_HIVE_SIMPLE_TYPES_TEXTFILE)
+            .setDataSource(InlineDataSource.createStringDataSource(
+                    "all_analyzable_types_all_null",
+                    "",
+                    "\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\n"))
+            .build();
+
+    private static final List<Row> ALL_TYPES_TABLE_STATISTICS = ImmutableList.of(
+            row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
+            row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
+            row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
+            row("c_bigint", null, 2.0, 0.0, null, "9223372036854775801", "9223372036854775807"),
+            row("c_float", null, 2.0, 0.0, null, "123.341", "123.345"),
+            row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
+            row("c_decimal", null, 2.0, 0.0, null, "345", "346"),
+            row("c_decimal_w_params", null, 2.0, 0.0, null, "345.67100", "345.67800"),
+            row("c_timestamp", null, 2.0, 0.0, null, "2015-05-10 12:15:31.000", "2015-05-10 12:15:35.000"),
+            row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+            row("c_string", null, 2.0, 0.0, null, null, null),
+            row("c_varchar", null, 2.0, 0.0, null, null, null),
+            row("c_char", null, 2.0, 0.0, null, null, null),
+            row("c_boolean", null, 2.0, 0.0, null, null, null),
+            row("c_binary", null, null, 0.0, null, null, null),
+            row(null, null, null, null, 2.0, null, null));
+
+    private static final List<Row> ALL_TYPES_ALL_NULL_TABLE_STATISTICS = ImmutableList.of(
+            row("c_tinyint", null, 0.0, 1.0, null, null, null),
+            row("c_smallint", null, 0.0, 1.0, null, null, null),
+            row("c_int", null, 0.0, 1.0, null, null, null),
+            row("c_bigint", null, 0.0, 1.0, null, null, null),
+            row("c_float", null, 0.0, 1.0, null, null, null),
+            row("c_double", null, 0.0, 1.0, null, null, null),
+            row("c_decimal", null, 0.0, 1.0, null, null, null),
+            row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
+            row("c_timestamp", null, 0.0, 1.0, null, null, null),
+            row("c_date", null, 0.0, 1.0, null, null, null),
+            row("c_string", null, 0.0, 1.0, null, null, null),
+            row("c_varchar", null, 0.0, 1.0, null, null, null),
+            row("c_char", null, 0.0, 1.0, null, null, null),
+            row("c_boolean", null, 0.0, 1.0, null, null, null),
+            row("c_binary", null, null, 1.0, null, null, null),
+            row(null, null, null, null, 1.0, null, null));
+
+    private static final List<Row> ALL_TYPES_EMPTY_TABLE_STATISTICS = ImmutableList.of(
+            row("c_tinyint", null, 0.0, 0.0, null, null, null),
+            row("c_smallint", null, 0.0, 0.0, null, null, null),
+            row("c_int", null, 0.0, 0.0, null, null, null),
+            row("c_bigint", null, 0.0, 0.0, null, null, null),
+            row("c_float", null, 0.0, 0.0, null, null, null),
+            row("c_double", null, 0.0, 0.0, null, null, null),
+            row("c_decimal", null, 0.0, 0.0, null, null, null),
+            row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
+            row("c_timestamp", null, 0.0, 0.0, null, null, null),
+            row("c_date", null, 0.0, 0.0, null, null, null),
+            row("c_string", null, 0.0, 0.0, null, null, null),
+            row("c_varchar", null, 0.0, 0.0, null, null, null),
+            row("c_char", null, 0.0, 0.0, null, null, null),
+            row("c_boolean", null, 0.0, 0.0, null, null, null),
+            row("c_binary", null, null, 0.0, null, null, null),
+            row(null, null, null, null, 0.0, null, null));
+
     private static final class AllTypesTable
             implements RequirementsProvider
     {
@@ -86,6 +153,7 @@ public class TestHiveTableStatistics
         {
             return Requirements.compose(
                     mutableTable(ALL_TYPES_TABLE, ALL_TYPES_TABLE_NAME, MutableTableRequirement.State.LOADED),
+                    mutableTable(ALL_TYPES_ALL_NULL_TABLE, ALL_TYPES_ALL_NULL_TABLE_NAME, MutableTableRequirement.State.LOADED),
                     mutableTable(ALL_TYPES_TABLE, EMPTY_ALL_TYPES_TABLE_NAME, MutableTableRequirement.State.CREATED));
         }
     }
@@ -399,6 +467,354 @@ public class TestHiveTableStatistics
                 row("c_boolean", null, 0.0, 1.0, null, null, null),
                 row("c_binary", null, null, 1.0, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
+    }
+
+    @Test
+    @Requires(AllTypesTable.class)
+    public void testComputeTableStatisticsOnCreateTable()
+    {
+        String allTypesTable = mutableTablesState().get(ALL_TYPES_TABLE_NAME).getNameInDatabase();
+        String emptyAllTypesTable = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
+        String allTypesAllNullTable = mutableTablesState().get(ALL_TYPES_ALL_NULL_TABLE_NAME).getNameInDatabase();
+
+        assertComputeTableStatisticsOnCreateTable(allTypesTable, ALL_TYPES_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnCreateTable(emptyAllTypesTable, ALL_TYPES_EMPTY_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
+    }
+
+    @Test
+    @Requires(AllTypesTable.class)
+    public void testComputeTableStatisticsOnInsert()
+    {
+        String allTypesTable = mutableTablesState().get(ALL_TYPES_TABLE_NAME).getNameInDatabase();
+        String emptyAllTypesTable = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
+        String allTypesAllNullTable = mutableTablesState().get(ALL_TYPES_ALL_NULL_TABLE_NAME).getNameInDatabase();
+
+        assertComputeTableStatisticsOnInsert(allTypesTable, ALL_TYPES_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnInsert(emptyAllTypesTable, ALL_TYPES_EMPTY_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnInsert(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
+
+        String tableName = "test_update_table_statistics";
+        query(format("DROP TABLE IF EXISTS %s", tableName));
+        try {
+            query(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", tableName, allTypesTable));
+            query(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesTable));
+            query(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
+            query(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
+            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+                    row("c_tinyint", null, 2.0, 0.5, null, "121", "127"),
+                    row("c_smallint", null, 2.0, 0.5, null, "32761", "32767"),
+                    row("c_int", null, 2.0, 0.5, null, "2147483641", "2147483647"),
+                    row("c_bigint", null, 2.0, 0.5, null, "9223372036854775801", "9223372036854775807"),
+                    row("c_float", null, 2.0, 0.5, null, "123.341", "123.345"),
+                    row("c_double", null, 2.0, 0.5, null, "234.561", "235.567"),
+                    row("c_decimal", null, 2.0, 0.5, null, "345", "346"),
+                    row("c_decimal_w_params", null, 2.0, 0.5, null, "345.67100", "345.67800"),
+                    row("c_timestamp", null, 2.0, 0.5, null, "2015-05-10 12:15:31.000", "2015-05-10 12:15:35.000"),
+                    row("c_date", null, 2.0, 0.5, null, "2015-05-09", "2015-06-10"),
+                    row("c_string", null, 2.0, 0.5, null, null, null),
+                    row("c_varchar", null, 2.0, 0.5, null, null, null),
+                    row("c_char", null, 2.0, 0.5, null, null, null),
+                    row("c_boolean", null, 2.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row(null, null, null, null, 4.0, null, null));
+
+            query(format("INSERT INTO %s VALUES( " +
+                    "TINYINT '120', " +
+                    "SMALLINT '32760', " +
+                    "INTEGER '2147483640', " +
+                    "BIGINT '9223372036854775800', " +
+                    "REAL '123.340', " +
+                    "DOUBLE '234.560', " +
+                    "CAST(343.0 AS DECIMAL(10, 0)), " +
+                    "CAST(345.670 AS DECIMAL(10, 5)), " +
+                    "TIMESTAMP '2015-05-10 12:15:30', " +
+                    "DATE '2015-05-08', " +
+                    "CAST('ela ma kot' AS VARCHAR), " +
+                    "CAST('ela ma ko' AS VARCHAR(10)), " +
+                    "CAST('ela m     ' AS CHAR(10)), " +
+                    "false, " +
+                    "CAST('cGllcyBiaW5hcm54' as VARBINARY))", tableName));
+
+            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 2.0, 0.4, null, "120", "127"),
+                    row("c_smallint", null, 2.0, 0.4, null, "32760", "32767"),
+                    row("c_int", null, 2.0, 0.4, null, "2147483640", "2147483647"),
+                    row("c_bigint", null, 2.0, 0.4, null, "9223372036854775800", "9223372036854775807"),
+                    row("c_float", null, 2.0, 0.4, null, "123.34", "123.345"),
+                    row("c_double", null, 2.0, 0.4, null, "234.56", "235.567"),
+                    row("c_decimal", null, 2.0, 0.4, null, "343", "346"),
+                    row("c_decimal_w_params", null, 2.0, 0.4, null, "345.67000", "345.67800"),
+                    row("c_timestamp", null, 2.0, 0.4, null, "2015-05-10 12:15:30.000", "2015-05-10 12:15:35.000"),
+                    row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
+                    row("c_string", null, 2.0, 0.4, null, null, null),
+                    row("c_varchar", null, 2.0, 0.4, null, null, null),
+                    row("c_char", null, 2.0, 0.4, null, null, null),
+                    row("c_boolean", null, 2.0, 0.4, null, null, null),
+                    row("c_binary", null, null, 0.4, null, null, null),
+                    row(null, null, null, null, 5.0, null, null)));
+        }
+        finally {
+            query(format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    @Test
+    @Requires(AllTypesTable.class)
+    public void testComputePartitionStatisticsOnCreateTable()
+    {
+        String tableName = "test_compute_partition_statistics_on_create_table";
+        query(format("DROP TABLE IF EXISTS %s", tableName));
+        try {
+            query(format("CREATE TABLE %s WITH ( " +
+                    " partitioned_by = ARRAY['p_bigint', 'p_varchar']" +
+                    ") AS " +
+                    "SELECT * FROM ( " +
+                    "    VALUES " +
+                    "        (" +
+                    "           TINYINT '120', " +
+                    "           SMALLINT '32760', " +
+                    "           INTEGER '2147483640', " +
+                    "           BIGINT '9223372036854775800', " +
+                    "           REAL '123.340', DOUBLE '234.560', " +
+                    "           CAST(343.0 AS DECIMAL(10, 0)), " +
+                    "           CAST(345.670 AS DECIMAL(10, 5)), " +
+                    "           TIMESTAMP '2015-05-10 12:15:30', " +
+                    "           DATE '2015-05-08', " +
+                    "           CAST('p1 varchar' AS VARCHAR), " +
+                    "           CAST('p1 varchar10' AS VARCHAR(10)), " +
+                    "           CAST('p1 char10' AS CHAR(10)), false, " +
+                    "           CAST('p1 binary' as VARBINARY), " +
+                    "           BIGINT '1', " +
+                    "           CAST('partition1' AS VARCHAR)" +
+                    "        ), " +
+                    "        (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1'), " +
+                    "        (" +
+                    "           TINYINT '99', " +
+                    "           SMALLINT '333'," +
+                    "           INTEGER '444', " +
+                    "           BIGINT '555', " +
+                    "           REAL '666.340', " +
+                    "           DOUBLE '777.560', " +
+                    "           CAST(888.0 AS DECIMAL(10, 0)), " +
+                    "           CAST(999.670 AS DECIMAL(10, 5)), " +
+                    "           TIMESTAMP '2015-05-10 12:45:30', " +
+                    "           DATE '2015-05-09', " +
+                    "           CAST('p2 varchar' AS VARCHAR), " +
+                    "           CAST('p2 varchar10' AS VARCHAR(10)), " +
+                    "           CAST('p2 char10' AS CHAR(10)), " +
+                    "           true, " +
+                    "           CAST('p2 binary' as VARBINARY), " +
+                    "           BIGINT '2', " +
+                    "           CAST('partition2' AS VARCHAR)" +
+                    "        ), " +
+                    "        (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2') " +
+                    "" +
+                    ") AS t (c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, c_date, c_string, c_varchar, c_char, c_boolean, c_binary, p_bigint, p_varchar)", tableName));
+
+            assertThat(query(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName))).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
+                    row("c_smallint", null, 1.0, 0.5, null, "32760", "32760"),
+                    row("c_int", null, 1.0, 0.5, null, "2147483640", "2147483640"),
+                    row("c_bigint", null, 1.0, 0.5, null, "9223372036854775800", "9223372036854775800"),
+                    row("c_float", null, 1.0, 0.5, null, "123.34", "123.34"),
+                    row("c_double", null, 1.0, 0.5, null, "234.56", "234.56"),
+                    row("c_decimal", null, 1.0, 0.5, null, "343", "343"),
+                    row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67000", "345.67000"),
+                    row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:15:30.000", "2015-05-10 12:15:30.000"),
+                    row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
+                    row("c_string", null, 1.0, 0.5, null, null, null),
+                    row("c_varchar", null, 1.0, 0.5, null, null, null),
+                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_boolean", null, 1.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("p_bigint", null, 1.0, 0.0, null, "1", "1"),
+                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row(null, null, null, null, 2.0, null, null)));
+
+            assertThat(query(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName))).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 1.0, 0.5, null, "99", "99"),
+                    row("c_smallint", null, 1.0, 0.5, null, "333", "333"),
+                    row("c_int", null, 1.0, 0.5, null, "444", "444"),
+                    row("c_bigint", null, 1.0, 0.5, null, "555", "555"),
+                    row("c_float", null, 1.0, 0.5, null, "666.34", "666.34"),
+                    row("c_double", null, 1.0, 0.5, null, "777.56", "777.56"),
+                    row("c_decimal", null, 1.0, 0.5, null, "888", "888"),
+                    row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67000", "999.67000"),
+                    row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:45:30.000", "2015-05-10 12:45:30.000"),
+                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
+                    row("c_string", null, 1.0, 0.5, null, null, null),
+                    row("c_varchar", null, 1.0, 0.5, null, null, null),
+                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_boolean", null, 1.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("p_bigint", null, 1.0, 0.0, null, "2", "2"),
+                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row(null, null, null, null, 2.0, null, null)));
+        }
+        finally {
+            query(format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    @Test
+    @Requires(AllTypesTable.class)
+    public void testComputePartitionStatisticsOnInsert()
+    {
+        String tableName = "test_compute_partition_statistics_on_insert";
+
+        query(format("DROP TABLE IF EXISTS %s", tableName));
+        try {
+            query(format("CREATE TABLE %s(" +
+                    "c_tinyint            TINYINT, " +
+                    "c_smallint           SMALLINT, " +
+                    "c_int                INT, " +
+                    "c_bigint             BIGINT, " +
+                    "c_float              REAL, " +
+                    "c_double             DOUBLE, " +
+                    "c_decimal            DECIMAL(10,0), " +
+                    "c_decimal_w_params   DECIMAL(10,5), " +
+                    "c_timestamp          TIMESTAMP, " +
+                    "c_date               DATE, " +
+                    "c_string             VARCHAR, " +
+                    "c_varchar            VARCHAR(10), " +
+                    "c_char               CHAR(10), " +
+                    "c_boolean            BOOLEAN, " +
+                    "c_binary             VARBINARY, " +
+                    "p_bigint             BIGINT, " +
+                    "p_varchar            VARCHAR " +
+                    ") WITH ( " +
+                    " partitioned_by = ARRAY['p_bigint', 'p_varchar']" +
+                    ")", tableName));
+
+            query(format("INSERT INTO %s VALUES " +
+                    "(TINYINT '120', SMALLINT '32760', INTEGER '2147483640', BIGINT '9223372036854775800', REAL '123.340', DOUBLE '234.560', CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')," +
+                    "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
+
+            query(format("INSERT INTO %s VALUES " +
+                    "(TINYINT '99', SMALLINT '333', INTEGER '444', BIGINT '555', REAL '666.340', DOUBLE '777.560', CAST(888.0 AS DECIMAL(10, 0)), CAST(999.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:30', DATE '2015-05-09', 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')," +
+                    "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
+
+            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName);
+            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName);
+
+            assertThat(query(showStatsPartitionOne)).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
+                    row("c_smallint", null, 1.0, 0.5, null, "32760", "32760"),
+                    row("c_int", null, 1.0, 0.5, null, "2147483640", "2147483640"),
+                    row("c_bigint", null, 1.0, 0.5, null, "9223372036854775800", "9223372036854775800"),
+                    row("c_float", null, 1.0, 0.5, null, "123.34", "123.34"),
+                    row("c_double", null, 1.0, 0.5, null, "234.56", "234.56"),
+                    row("c_decimal", null, 1.0, 0.5, null, "343", "343"),
+                    row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67000", "345.67000"),
+                    row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:15:30.000", "2015-05-10 12:15:30.000"),
+                    row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
+                    row("c_string", null, 1.0, 0.5, null, null, null),
+                    row("c_varchar", null, 1.0, 0.5, null, null, null),
+                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_boolean", null, 1.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("p_bigint", null, 1.0, 0.0, null, "1", "1"),
+                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row(null, null, null, null, 2.0, null, null)));
+
+            assertThat(query(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 1.0, 0.5, null, "99", "99"),
+                    row("c_smallint", null, 1.0, 0.5, null, "333", "333"),
+                    row("c_int", null, 1.0, 0.5, null, "444", "444"),
+                    row("c_bigint", null, 1.0, 0.5, null, "555", "555"),
+                    row("c_float", null, 1.0, 0.5, null, "666.34", "666.34"),
+                    row("c_double", null, 1.0, 0.5, null, "777.56", "777.56"),
+                    row("c_decimal", null, 1.0, 0.5, null, "888", "888"),
+                    row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67000", "999.67000"),
+                    row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:45:30.000", "2015-05-10 12:45:30.000"),
+                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
+                    row("c_string", null, 1.0, 0.5, null, null, null),
+                    row("c_varchar", null, 1.0, 0.5, null, null, null),
+                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_boolean", null, 1.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("p_bigint", null, 1.0, 0.0, null, "2", "2"),
+                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row(null, null, null, null, 2.0, null, null)));
+
+            query(format("INSERT INTO %s VALUES( TINYINT '119', SMALLINT '32759', INTEGER '2147483639', BIGINT '9223372036854775799', REAL '122.340', DOUBLE '233.560', CAST(342.0 AS DECIMAL(10, 0)), CAST(344.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:29', DATE '2015-05-07', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), true, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')", tableName));
+            query(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
+
+            assertThat(query(showStatsPartitionOne)).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 1.0, 0.5, null, "119", "120"),
+                    row("c_smallint", null, 1.0, 0.5, null, "32759", "32760"),
+                    row("c_int", null, 1.0, 0.5, null, "2147483639", "2147483640"),
+                    row("c_bigint", null, 1.0, 0.5, null, "9223372036854775799", "9223372036854775800"),
+                    row("c_float", null, 1.0, 0.5, null, "122.34", "123.34"),
+                    row("c_double", null, 1.0, 0.5, null, "233.56", "234.56"),
+                    row("c_decimal", null, 1.0, 0.5, null, "342", "343"),
+                    row("c_decimal_w_params", null, 1.0, 0.5, null, "344.67000", "345.67000"),
+                    row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:15:29.000", "2015-05-10 12:15:30.000"),
+                    row("c_date", null, 1.0, 0.5, null, "2015-05-07", "2015-05-08"),
+                    row("c_string", null, 1.0, 0.5, null, null, null),
+                    row("c_varchar", null, 1.0, 0.5, null, null, null),
+                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_boolean", null, 2.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("p_bigint", null, 1.0, 0.0, null, "1", "1"),
+                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row(null, null, null, null, 4.0, null, null)));
+
+            query(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', CAST('p2 varchar' AS VARCHAR), CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
+            query(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
+
+            assertThat(query(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
+                    row("c_tinyint", null, 1.0, 0.5, null, "99", "100"),
+                    row("c_smallint", null, 1.0, 0.5, null, "333", "334"),
+                    row("c_int", null, 1.0, 0.5, null, "444", "445"),
+                    row("c_bigint", null, 1.0, 0.5, null, "555", "556"),
+                    row("c_float", null, 1.0, 0.5, null, "666.34", "667.34"),
+                    row("c_double", null, 1.0, 0.5, null, "777.56", "778.56"),
+                    row("c_decimal", null, 1.0, 0.5, null, "888", "889"),
+                    row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67000", "1000.67000"),
+                    row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:45:30.000", "2015-05-10 12:45:31.000"),
+                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-10"),
+                    row("c_string", null, 1.0, 0.5, null, null, null),
+                    row("c_varchar", null, 1.0, 0.5, null, null, null),
+                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_boolean", null, 1.0, 0.5, null, null, null),
+                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("p_bigint", null, 1.0, 0.0, null, "2", "2"),
+                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row(null, null, null, null, 4.0, null, null)));
+        }
+        finally {
+            query(format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    private static void assertComputeTableStatisticsOnCreateTable(String sourceTableName, List<Row> expectedStatistics)
+    {
+        String copiedTableName = "assert_compute_table_statistics_on_create_table_" + sourceTableName;
+        query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        try {
+            query(format("CREATE TABLE %s AS SELECT * FROM %s", copiedTableName, sourceTableName));
+            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
+        }
+        finally {
+            query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        }
+    }
+
+    private static void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
+    {
+        String copiedTableName = "assert_compute_table_statistics_on_insert_" + sourceTableName;
+        query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        try {
+            query(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", copiedTableName, sourceTableName));
+            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(ALL_TYPES_EMPTY_TABLE_STATISTICS);
+            query(format("INSERT INTO %s SELECT * FROM %s", copiedTableName, sourceTableName));
+            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
+        }
+        finally {
+            query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        }
     }
 
     private static QueryExecutor onHive()
