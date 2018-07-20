@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -607,12 +608,15 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getColumns());
             if (node.getPartitioningScheme().isPresent()) {
                 PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
-                partitioningScheme.getPartitioning().getColumns().stream()
-                        .forEach(expectedInputs::add);
+                partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
                 partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }
+            if (node.getStatisticsAggregation().isPresent()) {
+                StatisticAggregations aggregations = node.getStatisticsAggregation().get();
+                expectedInputs.addAll(aggregations.getGroupingSymbols());
+                aggregations.getAggregations().values().forEach(aggregation -> expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall())));
+            }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-
             return new TableWriterNode(
                     node.getId(),
                     source,
@@ -620,15 +624,21 @@ public class PruneUnreferencedOutputs
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    node.getPartitioningScheme());
+                    node.getPartitioningScheme(),
+                    node.getStatisticsAggregation());
         }
 
         @Override
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Set<Symbol>> context)
         {
-            // Maintain the existing inputs needed for TableCommitNode
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
-            return new TableFinishNode(node.getId(), source, node.getTarget(), node.getOutputSymbols());
+            return new TableFinishNode(
+                    node.getId(),
+                    source,
+                    node.getTarget(),
+                    node.getOutputSymbols(),
+                    node.getStatisticsAggregation(),
+                    node.getStatisticsAggregationDescriptor());
         }
 
         @Override

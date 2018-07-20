@@ -2146,10 +2146,8 @@ public class LocalExecutionPlanner
                     inputChannels,
                     session);
 
-            Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
-                    .put(node.getOutputSymbols().get(0), 0)
-                    .put(node.getOutputSymbols().get(1), 1)
-                    .build();
+            Map<Symbol, Integer> layout = IntStream.range(0, node.getOutputSymbols().size()).boxed()
+                    .collect(toImmutableMap(i -> node.getOutputSymbols().get(i), i -> i));
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
         }
