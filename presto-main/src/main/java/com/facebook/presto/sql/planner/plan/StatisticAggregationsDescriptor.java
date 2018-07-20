@@ -31,6 +31,11 @@ public class StatisticAggregationsDescriptor<T>
     private final Map<T, TableStatisticType> tableStatistics;
     private final Map<T, ColumnStatisticMetadata> columnStatistics;
 
+    public static <T> StatisticAggregationsDescriptor<T> empty()
+    {
+        return StatisticAggregationsDescriptor.<T>builder().build();
+    }
+
     @JsonCreator
     public StatisticAggregationsDescriptor(
             @JsonProperty("grouping") Map<T, String> grouping,
