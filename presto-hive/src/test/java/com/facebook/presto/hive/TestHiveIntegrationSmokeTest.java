@@ -2558,6 +2558,110 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_accounts");
     }
 
+    @Test
+    public void testCollectColumnStatisticsOnCreateTable()
+    {
+        String tableName = "test_collect_column_statistics_on_create_table";
+        assertUpdate(format("" +
+                "CREATE TABLE %s " +
+                "WITH ( " +
+                "   partitioned_by = ARRAY['p_varchar'] " +
+                ") " +
+                "AS " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar " +
+                "FROM ( " +
+                "  VALUES " +
+                "    (null, null, null, null, null, null, 'p1'), " +
+                "    (null, null, null, null, null, null, 'p1'), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), 'p1')," +
+                "    (null, null, null, null, null, null, 'p2'), " +
+                "    (null, null, null, null, null, null, 'p2'), " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), 'p2') " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar)", tableName), 8);
+
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
+                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('p_varchar', null, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
+                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('p_varchar', null, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)");
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testCollectColumnStatisticsOnInsert()
+    {
+        String tableName = "test_collect_column_statistics_on_insert";
+        assertUpdate(format("" +
+                "CREATE TABLE %s ( " +
+                "   c_boolean BOOLEAN, " +
+                "   c_bigint BIGINT, " +
+                "   c_double DOUBLE, " +
+                "   c_timestamp TIMESTAMP, " +
+                "   c_varchar VARCHAR, " +
+                "   c_varbinary VARBINARY, " +
+                "   p_varchar VARCHAR " +
+                ") " +
+                "WITH ( " +
+                "   partitioned_by = ARRAY['p_varchar'] " +
+                ")", tableName));
+
+        assertUpdate(format("" +
+                "INSERT INTO %s " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar " +
+                "FROM ( " +
+                "  VALUES " +
+                "    (null, null, null, null, null, null, 'p1'), " +
+                "    (null, null, null, null, null, null, 'p1'), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), 'p1')," +
+                "    (null, null, null, null, null, null, 'p2'), " +
+                "    (null, null, null, null, null, null, 'p2'), " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), 'p2') " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar)", tableName), 8);
+
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
+                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('p_varchar', null, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
+                        "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
+                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('p_varchar', null, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 4.0E0, null, null)");
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
