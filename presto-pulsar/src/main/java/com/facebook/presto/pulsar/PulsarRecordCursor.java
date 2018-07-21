@@ -72,7 +72,6 @@ public class PulsarRecordCursor implements RecordCursor {
     private Message currentMessage;
     private Map<String, PulsarInternalColumn> internalColumnMap = PulsarInternalColumn.getInternalFieldsMap();
     private final SchemaHandler schemaHandler;
-    private static final int NUM_ENTRY_READ_BATCH = 100;
 
     private static final Logger log = Logger.get(PulsarRecordCursor.class);
 
@@ -107,9 +106,6 @@ public class PulsarRecordCursor implements RecordCursor {
             case AVRO:
                 schemaHandler = new AvroSchemaHandler(schema, columnHandles);
                 break;
-//            case PROTOBUF:
-//                schemaHandler = null;
-//                break;
             case STRING:
                 schemaHandler = null;
                 break;
@@ -171,7 +167,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
             List<Entry> newEntries;
             try {
-                newEntries = this.cursor.readEntries(NUM_ENTRY_READ_BATCH);
+                newEntries = this.cursor.readEntries(this.pulsarConnectorConfig.getEntryReadBatchSize());
             } catch (InterruptedException | ManagedLedgerException e) {
                 log.error(e, "Failed to read new entries from pulsar topic %s", topicName.toString());
                 throw new RuntimeException(e);

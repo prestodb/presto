@@ -23,6 +23,8 @@ public class PulsarConnectorConfig implements AutoCloseable {
 
     private String brokerServiceUrl = "http://localhost:8080";
     private String zookeeperUri = "localhost:2181";
+    private int entryReadBatchSize = 100;
+    private int targetNumSplits = 4;
     private PulsarAdmin pulsarAdmin;
 
     @NotNull
@@ -44,6 +46,28 @@ public class PulsarConnectorConfig implements AutoCloseable {
     @Config("pulsar.zookeeper-uri")
     public PulsarConnectorConfig setZookeeperUri(String zookeeperUri) {
         this.zookeeperUri = zookeeperUri;
+        return this;
+    }
+
+    @NotNull
+    public int getEntryReadBatchSize() {
+        return this.entryReadBatchSize;
+    }
+
+    @Config("pulsar.entry-read-batch-size")
+    public PulsarConnectorConfig setEntryReadBatchSize(int batchSize) {
+        this.entryReadBatchSize = batchSize;
+        return this;
+    }
+
+    @NotNull
+    public int getTargetNumSplits() {
+        return this.targetNumSplits;
+    }
+
+    @Config("pulsar.target-num-splits")
+    public PulsarConnectorConfig setTargetNumSplits(int targetNumSplits) {
+        this.targetNumSplits = targetNumSplits;
         return this;
     }
 

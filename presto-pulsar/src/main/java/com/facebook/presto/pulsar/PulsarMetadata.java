@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -40,6 +41,7 @@ import io.airlift.log.Logger;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaParseException;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -57,6 +59,8 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertColumnHandle;
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertTableHandle;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -92,8 +96,7 @@ public class PulsarMetadata implements ConnectorMetadata {
                prestoSchemas.addAll(pulsarAdmin.namespaces().getNamespaces(tenant));
             }
         } catch (PulsarAdminException e) {
-            log.error(e, "Failed to get schemas from pulsar");
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to get schemas from pulsar", e);
         }
         return new LinkedList<>(prestoSchemas);
     }
@@ -110,7 +113,9 @@ public class PulsarMetadata implements ConnectorMetadata {
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns) {
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table,
+                                                            Constraint<ColumnHandle> constraint,
+                                                            Optional<Set<ColumnHandle>> desiredColumns) {
         log.info("getTableLayouts - %s - %s - %s", table, constraint, desiredColumns);
 
         PulsarTableHandle handle = convertTableHandle(table);
@@ -141,7 +146,10 @@ public class PulsarMetadata implements ConnectorMetadata {
             try {
                 pulsarTopicList = this.pulsarAdmin.topics().getList(schemaNameOrNull);
             } catch (PulsarAdminException e) {
-                log.error(e, "Failed to get a list of topics for schema %s", schemaNameOrNull);
+                if (e.getStatusCode() == 404) {
+                    throw new PrestoException(NOT_FOUND, "Schema " + schemaNameOrNull + " does not exsit");
+                }
+                throw new RuntimeException("Failed to get tables/topics in " + schemaNameOrNull, e);
             }
             if (pulsarTopicList != null) {
                 pulsarTopicList.forEach(topic -> builder.add(
@@ -219,15 +227,8 @@ public class PulsarMetadata implements ConnectorMetadata {
         }
 
         for (SchemaTableName tableName : tableNames) {
-            try {
-                columns.put(tableName, getTableMetadata(tableName, true).getColumns());
-            }
-            catch (TableNotFoundException e) {
-               throw new RuntimeException(e);
-            }
+            columns.put(tableName, getTableMetadata(tableName, true).getColumns());
         }
-
-
 
         return columns.build();
     }
@@ -235,16 +236,23 @@ public class PulsarMetadata implements ConnectorMetadata {
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColums) {
         log.info("getTableMetadata - schemaTableName: %s", schemaTableName);
 
-        try {
+        TopicName topicName;
 
-            TopicName topicName = TopicName.get(
+             topicName = TopicName.get(
                     String.format("%s/%s", schemaTableName.getSchemaName(), schemaTableName.getTableName()));
 
             List<String> topics;
-            if (!Utils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
-                topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
-            } else {
-                topics = this.pulsarAdmin.topics().getPartitionedTopicList((schemaTableName.getSchemaName()));
+            try {
+                if (!Utils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
+                    topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
+                } else {
+                    topics = this.pulsarAdmin.topics().getPartitionedTopicList((schemaTableName.getSchemaName()));
+                }
+            } catch (PulsarAdminException e) {
+                if (e.getStatusCode() == 404) {
+                    throw new PrestoException(NOT_FOUND, "Schema " +  schemaTableName.getSchemaName() + " does not exist");
+                }
+                throw new RuntimeException(e);
             }
 
             log.info("topics: %s", topics);
@@ -255,25 +263,28 @@ public class PulsarMetadata implements ConnectorMetadata {
                                 schemaTableName.getTableName()));
                 throw new TableNotFoundException(schemaTableName);
             }
-        } catch (PulsarAdminException e) {
-            throw new RuntimeException(e);
-        }
 
-
-        SchemaInfo schemaInfo = null;
+        SchemaInfo schemaInfo;
         try {
             schemaInfo = this.pulsarAdmin.schemas().getSchemaInfo(
                     String.format("%s/%s", schemaTableName.getSchemaName(), schemaTableName.getTableName()));
         } catch (PulsarAdminException e) {
-            log.error(e);
+            if (e.getStatusCode() == 404) {
+                throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString() + " does not have a schema");
+            }
             throw new RuntimeException(e);
         }
 
         log.info("schema: " + new String(schemaInfo.getSchema()));
         Schema.Parser parser = new Schema.Parser();
         String schemaJson = new String(schemaInfo.getSchema());
-        Schema schema = parser.parse(schemaJson);
-
+        Schema schema;
+        try {
+            schema = parser.parse(schemaJson);
+        } catch (SchemaParseException ex) {
+            throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString()
+                    + " does not have a valid schema");
+        }
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
@@ -344,8 +355,6 @@ public class PulsarMetadata implements ConnectorMetadata {
         log.info("avroType: %s logicalType: %s", avroType, logicalType);
 
         switch (avroType) {
-//            case NULL:
-//                break;
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case INT:
