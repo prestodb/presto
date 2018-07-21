@@ -24,23 +24,23 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class LambdaAndTryExpressionExtractor
+public class LambdaExpressionExtractor
 {
-    private LambdaAndTryExpressionExtractor()
+    private LambdaExpressionExtractor()
     {
     }
 
-    public static List<RowExpression> extractLambdaAndTryExpressions(RowExpression expression)
+    public static List<LambdaDefinitionExpression> extractLambdaExpressions(RowExpression expression)
     {
         Visitor visitor = new Visitor();
         expression.accept(visitor, new Context(false));
-        return visitor.getLambdaAndTryExpressionsPostOrder();
+        return visitor.getLambdaExpressionsPostOrder();
     }
 
     private static class Visitor
             implements RowExpressionVisitor<Void, Context>
     {
-        private final ImmutableList.Builder<RowExpression> lambdaAndTryExpressions = ImmutableList.builder();
+        private final ImmutableList.Builder<LambdaDefinitionExpression> lambdaExpressions = ImmutableList.builder();
 
         @Override
         public Void visitInputReference(InputReferenceExpression node, Context context)
@@ -69,7 +69,7 @@ public class LambdaAndTryExpressionExtractor
         public Void visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
             lambda.getBody().accept(this, new Context(true));
-            lambdaAndTryExpressions.add(lambda);
+            lambdaExpressions.add(lambda);
             return null;
         }
 
@@ -79,9 +79,9 @@ public class LambdaAndTryExpressionExtractor
             return null;
         }
 
-        private List<RowExpression> getLambdaAndTryExpressionsPostOrder()
+        private List<LambdaDefinitionExpression> getLambdaExpressionsPostOrder()
         {
-            return lambdaAndTryExpressions.build();
+            return lambdaExpressions.build();
         }
     }
 
