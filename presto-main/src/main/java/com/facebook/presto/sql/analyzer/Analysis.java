@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
@@ -60,7 +61,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,9 +87,10 @@ public class Analysis
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
+    private final Map<NodeRef<SimpleGroupBy>, List<Expression>> simpleGroupByExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
-    private final Map<NodeRef<QuerySpecification>, List<List<Expression>>> groupByExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<Expression>> groupByExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
@@ -264,9 +265,24 @@ public class Analysis
         return unmodifiableMap(lambdaArgumentReferences);
     }
 
-    public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
+    public void setGroupByExpressions(QuerySpecification node, List<Expression> expressions)
     {
-        groupByExpressions.put(NodeRef.of(node), listOfListsCopy(expressions));
+        groupByExpressions.put(NodeRef.of(node), expressions);
+    }
+
+    public boolean isAggregation(QuerySpecification node)
+    {
+        return groupByExpressions.containsKey(NodeRef.of(node));
+    }
+
+    public void setResolvedExpressions(SimpleGroupBy groupBy, List<Expression> expressions)
+    {
+        simpleGroupByExpressions.put(NodeRef.of(groupBy), expressions);
+    }
+
+    public List<Expression> getResolvedExpressions(SimpleGroupBy groupBy)
+    {
+        return simpleGroupByExpressions.get(NodeRef.of(groupBy));
     }
 
     public boolean isTypeOnlyCoercion(Expression expression)
@@ -274,7 +290,7 @@ public class Analysis
         return typeOnlyCoercions.contains(NodeRef.of(expression));
     }
 
-    public List<List<Expression>> getGroupingSets(QuerySpecification node)
+    public List<Expression> getGroupByExpressions(QuerySpecification node)
     {
         return groupByExpressions.get(NodeRef.of(node));
     }

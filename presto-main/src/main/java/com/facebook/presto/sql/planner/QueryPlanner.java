@@ -41,18 +41,23 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Rollup;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
@@ -63,9 +68,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -73,16 +78,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 class QueryPlanner
 {
@@ -153,7 +162,7 @@ class QueryPlanner
         builder = handleSubqueries(builder, node, outputs);
 
         if (node.getOrderBy().isPresent()) {
-            if (analysis.getGroupingSets(node).isEmpty()) {
+            if (!analysis.isAggregation(node)) {
                 // ORDER BY requires both output and source fields to be visible if there are no aggregations
                 builder = project(builder, outputs, fromRelationPlan);
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
@@ -417,15 +426,12 @@ class QueryPlanner
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
     {
-        List<List<Expression>> groupingSets = analysis.getGroupingSets(node);
-        if (groupingSets.isEmpty()) {
+        if (!analysis.isAggregation(node)) {
             return subPlan;
         }
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
-        Set<Expression> distinctGroupingColumns = groupingSets.stream()
-                .flatMap(Collection::stream)
-                .collect(toImmutableSet());
+        Set<Expression> groupByExpressions = ImmutableSet.copyOf(analysis.getGroupByExpressions(node));
 
         ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
         analysis.getAggregates(node).stream()
@@ -449,7 +455,7 @@ class QueryPlanner
                 .map(Optional::get)
                 .forEach(arguments::add);
 
-        Iterable<Expression> inputs = Iterables.concat(distinctGroupingColumns, arguments.build());
+        Iterable<Expression> inputs = Iterables.concat(groupByExpressions, arguments.build());
         subPlan = handleSubqueries(subPlan, node, inputs);
 
         if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
@@ -472,31 +478,35 @@ class QueryPlanner
         // 2.b. Rewrite grouping columns
         TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
         Map<Symbol, Symbol> groupingSetMappings = new HashMap<>();
-        List<List<Symbol>> groupingSymbols = new ArrayList<>();
 
-        for (List<Expression> groupingSet : groupingSets) {
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            for (Expression expression : groupingSet) {
-                Symbol input = subPlan.translate(expression);
+        for (Expression expression : groupByExpressions) {
+            Symbol input = subPlan.translate(expression);
+            Symbol output = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression), "gid");
+            groupingTranslations.put(expression, output);
+            groupingSetMappings.put(output, input);
+        }
 
-                Symbol output;
-                if (!groupingTranslations.containsSymbol(expression)) {
-                    output = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression), "gid");
-                    groupingTranslations.put(expression, output);
-                }
-                else {
-                    output = groupingTranslations.get(expression);
-                }
+        List<Set<NodeRef<Expression>>> groupingSets = ImmutableList.of(ImmutableSet.of());
+        List<List<Symbol>> groupingSymbols = ImmutableList.of(ImmutableList.of());
+        if (node.getGroupBy().isPresent()) {
+            groupingSets = enumerateGroupingSets(node.getGroupBy().get().getGroupingElements());
 
-                groupingSetMappings.put(output, input);
-                symbols.add(output);
+            Stream<List<Symbol>> stream = groupingSets.stream()
+                    .map(set -> set.stream()
+                            .map(reference -> groupingTranslations.get(reference.getNode()))
+                            .distinct()
+                            .collect(Collectors.toList()));
+
+            if (node.getGroupBy().get().isDistinct()) {
+                stream = stream.distinct();
             }
-            groupingSymbols.add(symbols.build());
+
+            groupingSymbols = stream.collect(Collectors.toList());
         }
 
         // 2.c. Generate GroupIdNode (multiple grouping sets) or ProjectNode (single grouping set)
         Optional<Symbol> groupIdSymbol = Optional.empty();
-        if (groupingSets.size() > 1) {
+        if (groupingSymbols.size() > 1) {
             groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
             GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSymbols, groupingSetMappings, aggregationArguments, groupIdSymbol.get());
             subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
@@ -549,17 +559,96 @@ class QueryPlanner
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
             ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
-            alreadyCoerced.addAll(distinctGroupingColumns);
+            alreadyCoerced.addAll(groupByExpressions);
             groupIdSymbol.map(Symbol::toSymbolReference).ifPresent(alreadyCoerced::add);
 
             subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
         }
 
         // 4. Project and re-write all grouping functions
-        return handleGroupingOperations(subPlan, node, groupIdSymbol);
+        return handleGroupingOperations(subPlan, node, groupIdSymbol, groupingSets);
     }
 
-    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol)
+    private List<Set<NodeRef<Expression>>> enumerateGroupingSets(List<GroupingElement> groupingElements)
+    {
+        List<List<Set<NodeRef<Expression>>>> enumeratedSets = new ArrayList<>();
+
+        for (GroupingElement element : groupingElements) {
+            if (element instanceof SimpleGroupBy) {
+                // simple GROUP BY might contain ordinals, so we need to use the list of expressions resolved during analysis
+                Set<NodeRef<Expression>> set = analysis.getResolvedExpressions((SimpleGroupBy) element).stream()
+                        .map(NodeRef::of)
+                        .collect(toSet());
+
+                enumeratedSets.add(ImmutableList.of(set));
+            }
+            else if (element instanceof Cube) {
+                Set<NodeRef<Expression>> columns = element.getColumns().stream()
+                        .map(NodeRef::of)
+                        .collect(toSet());
+
+                enumeratedSets.add(ImmutableList.copyOf(Sets.powerSet(columns)));
+            }
+            else if (element instanceof Rollup) {
+                List<NodeRef<Expression>> columns = element.getColumns().stream()
+                        .map(NodeRef::of)
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                int columnCount = columns.size();
+
+                List<Set<NodeRef<Expression>>> sets = IntStream.range(0, columnCount)
+                        .mapToObj(i -> ImmutableSet.copyOf(columns.subList(0, columnCount - i)))
+                        .collect(Collectors.toList());
+
+                enumeratedSets.add(ImmutableList.<Set<NodeRef<Expression>>>builder()
+                        .addAll(sets)
+                        .add(ImmutableSet.of())
+                        .build());
+            }
+            else if (element instanceof GroupingSets) {
+                List<Set<NodeRef<Expression>>> sets = ((GroupingSets) element).getSets().stream()
+                        .map(set -> set.stream()
+                                .map(NodeRef::of)
+                                .collect(toSet()))
+                        .collect(Collectors.toList());
+
+                enumeratedSets.add(sets);
+            }
+        }
+
+        return computeGroupingSetsCrossProduct(enumeratedSets);
+    }
+
+    private List<Set<NodeRef<Expression>>> computeGroupingSetsCrossProduct(List<List<Set<NodeRef<Expression>>>> enumeratedGroupingSets)
+    {
+        checkState(!enumeratedGroupingSets.isEmpty(), "enumeratedGroupingSets cannot be empty");
+
+        List<Set<NodeRef<Expression>>> crossProduct = new ArrayList<>();
+        enumeratedGroupingSets.get(0)
+                .stream()
+                .map(ImmutableSet::copyOf)
+                .forEach(crossProduct::add);
+
+        for (int i = 1; i < enumeratedGroupingSets.size(); i++) {
+            List<Set<NodeRef<Expression>>> groupingSets = enumeratedGroupingSets.get(i);
+            List<Set<NodeRef<Expression>>> oldGroupingSetsCrossProduct = ImmutableList.copyOf(crossProduct);
+            crossProduct.clear();
+            for (Set<NodeRef<Expression>> existingSet : oldGroupingSetsCrossProduct) {
+                for (Set<NodeRef<Expression>> groupingSet : groupingSets) {
+                    Set<NodeRef<Expression>> concatenatedSet = ImmutableSet.<NodeRef<Expression>>builder()
+                            .addAll(existingSet)
+                            .addAll(groupingSet)
+                            .build();
+                    crossProduct.add(concatenatedSet);
+                }
+            }
+        }
+
+        return crossProduct;
+    }
+
+    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol, List<Set<NodeRef<Expression>>> groupingSets)
     {
         if (analysis.getGroupingOperations(node).isEmpty()) {
             return subPlan;
@@ -571,7 +660,7 @@ class QueryPlanner
         projections.putIdentities(subPlan.getRoot().getOutputSymbols());
 
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
-            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, analysis.getGroupingSets(node), analysis.getColumnReferenceFields(), groupIdSymbol);
+            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, groupingSets, analysis.getColumnReferenceFields(), groupIdSymbol);
             Type coercion = analysis.getCoercion(groupingOperation);
             Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
