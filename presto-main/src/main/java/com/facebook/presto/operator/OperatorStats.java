@@ -19,15 +19,17 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -35,6 +37,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @Immutable
 public class OperatorStats
 {
+    private static final TimeUnit[] TIME_UNITS = TimeUnit.values();
+    private static final Unit[] DATASIZE_UNITS = Unit.values();
+
     private final int pipelineId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
@@ -461,17 +466,17 @@ public class OperatorStats
                 totalDrivers,
 
                 addInputCalls,
-                new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                convertToMostSuccinctTimeUnit(new Duration(addInputWall, NANOSECONDS)),
+                convertToMostSuccinctTimeUnit(new Duration(addInputCpu, NANOSECONDS)),
+                convertToMostSuccinctTimeUnit(new Duration(addInputUser, NANOSECONDS)),
                 succinctBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
 
                 getOutputCalls,
-                new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                convertToMostSuccinctTimeUnit(new Duration(getOutputWall, NANOSECONDS)),
+                convertToMostSuccinctTimeUnit(new Duration(getOutputCpu, NANOSECONDS)),
+                convertToMostSuccinctTimeUnit(new Duration(getOutputUser, NANOSECONDS)),
                 succinctBytes(outputDataSize),
                 outputPositions,
 
@@ -480,9 +485,9 @@ public class OperatorStats
                 new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 finishCalls,
-                new Duration(finishWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                convertToMostSuccinctTimeUnit(new Duration(finishWall, NANOSECONDS)),
+                convertToMostSuccinctTimeUnit(new Duration(finishCpu, NANOSECONDS)),
+                convertToMostSuccinctTimeUnit(new Duration(finishUser, NANOSECONDS)),
 
                 succinctBytes(memoryReservation),
                 succinctBytes(revocableMemoryReservation),
@@ -547,5 +552,51 @@ public class OperatorStats
                 peakTotalMemoryReservation,
                 blockedReason,
                 (info != null && info.isFinal()) ? info : null);
+    }
+
+    /**
+     * OperatorStats::add() is a hot method, and if it calls Duration::convertToMostSuccinctTimeUnit()
+     * non-trivial amount of memory gets allocated. The reason is, Duration::convertToMostSuccinctTimeUnit()
+     * method iterates over TimeUnit.values(), which allocates an array at every call. Instead, we extract
+     * the TIME_UNITS as a constant and iterate over that here.
+     *
+     * Copied from Duration::convertToMostSuccinctTimeUnit().
+     */
+    private static Duration convertToMostSuccinctTimeUnit(Duration duration)
+    {
+        TimeUnit unitToUse = NANOSECONDS;
+        for (TimeUnit unitToTest : TIME_UNITS) {
+            // since time units are powers of ten, we can get rounding errors here, so fuzzy match
+            if (duration.getValue(unitToTest) > 0.9999) {
+                unitToUse = unitToTest;
+            }
+            else {
+                break;
+            }
+        }
+        return duration.convertTo(unitToUse);
+    }
+
+    /**
+     * OperatorStats::add() is a hot method, and if it calls DataSize::succinctBytes()
+     * non-trivial amount of memory gets allocated. The reason is, DataSize::succinctBytes()
+     * method iterates over Unit.values(), which allocates an array at every call. Instead, we extract
+     * the DATASIZE_UNITS as a constant and iterate over that here.
+     *
+     * Copied from DataSize::succinctBytes().
+     */
+    private static DataSize succinctBytes(long bytes)
+    {
+        Unit unitToUse = BYTE;
+        DataSize dataSize = new DataSize(bytes, unitToUse);
+        for (Unit unitToTest : DATASIZE_UNITS) {
+            if (dataSize.getValue(unitToTest) >= 1.0) {
+                unitToUse = unitToTest;
+            }
+            else {
+                break;
+            }
+        }
+        return dataSize.convertTo(unitToUse);
     }
 }
