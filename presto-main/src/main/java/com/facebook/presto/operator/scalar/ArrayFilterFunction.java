@@ -152,25 +152,6 @@ public final class ArrayFilterFunction
         return resultBuilder.build();
     }
 
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = void.class)
-    @SqlType("array(T)")
-    public static Block filterVoid(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterVoidLambda function)
-    {
-        int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Boolean keep = function.apply(null);
-            if (TRUE.equals(keep)) {
-                resultBuilder.appendNull();
-            }
-        }
-        return resultBuilder.build();
-    }
-
     @FunctionalInterface
     public interface FilterLongLambda
             extends LambdaFunctionInterface

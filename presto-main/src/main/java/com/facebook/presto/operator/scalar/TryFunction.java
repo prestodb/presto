@@ -110,21 +110,6 @@ public final class TryFunction
         }
     }
 
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = void.class)
-    @SqlNullable
-    @SqlType("T")
-    public static Void tryVoid(@SqlType("function(T)") TryVoidLambda function)
-    {
-        try {
-            return function.apply();
-        }
-        catch (PrestoException e) {
-            propagateIfUnhandled(e);
-            return null;
-        }
-    }
-
     @FunctionalInterface
     public interface TryLongLambda
             extends LambdaFunctionInterface
@@ -158,13 +143,6 @@ public final class TryFunction
             extends LambdaFunctionInterface
     {
         Block apply();
-    }
-
-    @FunctionalInterface
-    public interface TryVoidLambda
-            extends LambdaFunctionInterface
-    {
-        Void apply();
     }
 
     private static void propagateIfUnhandled(PrestoException e)
