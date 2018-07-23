@@ -107,7 +107,10 @@ public class ClusterMemoryManager
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
 
-    private final Map<QueryId, Long> preAllocations = new HashMap<>();
+    @GuardedBy("this")
+    public final Map<QueryId, Long> preAllocations = new HashMap<>();
+
+    @GuardedBy("this")
     private final Map<QueryId, Long> preAllocationsConsumed = new HashMap<>();
 
     @GuardedBy("this")

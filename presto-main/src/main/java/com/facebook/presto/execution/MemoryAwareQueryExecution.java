@@ -43,6 +43,9 @@ public class MemoryAwareQueryExecution
     @GuardedBy("this")
     private boolean startedWaiting;
 
+    @GuardedBy("this")
+    private boolean preAllocationSucceeded;
+
     public MemoryAwareQueryExecution(ClusterMemoryManager memoryManager, SqlQueryExecution delegate)
     {
         this.memoryManager = memoryManager;
@@ -139,14 +142,17 @@ public class MemoryAwareQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", delegate.getQueryId())) {
             try {
-                if (memoryManager.preAllocateQueryMemory(delegate.getQueryId(), peakMemoryEstimate)) {
-                    delegate.addStateChangeListener(state -> {
-                        if (state.isDone()) {
-                            memoryManager.removePreAllocation(delegate.getQueryId());
-                        }
-                    });
-                    delegate.start();
-                    return;
+                if (!preAllocationSucceeded) {
+                    if (memoryManager.preAllocateQueryMemory(delegate.getQueryId(), peakMemoryEstimate)) {
+                        preAllocationSucceeded = true;
+                        delegate.addStateChangeListener(state -> {
+                            if (state.isDone()) {
+                                memoryManager.removePreAllocation(delegate.getQueryId());
+                            }
+                        });
+                        delegate.start();
+                        return;
+                    }
                 }
 
                 if (!startedWaiting) {
