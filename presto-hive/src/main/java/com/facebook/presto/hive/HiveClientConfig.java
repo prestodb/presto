@@ -101,7 +101,6 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
-    private boolean parquetPredicatePushdownEnabled = true;
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -666,20 +665,6 @@ public class HiveClientConfig
     public HiveClientConfig setVerifyChecksum(boolean verifyChecksum)
     {
         this.verifyChecksum = verifyChecksum;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isParquetPredicatePushdownEnabled()
-    {
-        return parquetPredicatePushdownEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.parquet-predicate-pushdown.enabled")
-    public HiveClientConfig setParquetPredicatePushdownEnabled(boolean parquetPredicatePushdownEnabled)
-    {
-        this.parquetPredicatePushdownEnabled = parquetPredicatePushdownEnabled;
         return this;
     }
 

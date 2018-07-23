@@ -60,7 +60,6 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
@@ -125,7 +124,6 @@ public class ParquetPageSourceFactory
                 columns,
                 isUseParquetColumnNames(session),
                 typeManager,
-                isParquetPredicatePushdownEnabled(session),
                 effectivePredicate,
                 stats));
     }
@@ -142,7 +140,6 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             TypeManager typeManager,
-            boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats)
     {
@@ -173,15 +170,13 @@ public class ParquetPageSourceFactory
                 }
             }
 
-            if (predicatePushdownEnabled) {
-                Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-                TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
-                Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
-                final ParquetDataSource finalDataSource = dataSource;
-                blocks = blocks.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain))
-                        .collect(toList());
-            }
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
+            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
+            final ParquetDataSource finalDataSource = dataSource;
+            blocks = blocks.stream()
+                    .filter(block -> predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain))
+                    .collect(toList());
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,

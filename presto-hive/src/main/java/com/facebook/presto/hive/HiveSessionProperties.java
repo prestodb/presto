@@ -61,7 +61,6 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
-    private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
@@ -219,11 +218,6 @@ public final class HiveSessionProperties
                         RESPECT_TABLE_FORMAT,
                         "Write new partitions using table format rather than default storage format",
                         hiveClientConfig.isRespectTableFormat(),
-                        false),
-                booleanProperty(
-                        PARQUET_PREDICATE_PUSHDOWN_ENABLED,
-                        "Experimental: Parquet: Enable predicate pushdown for Parquet",
-                        hiveClientConfig.isParquetPredicatePushdownEnabled(),
                         false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_NAME,
@@ -402,11 +396,6 @@ public final class HiveSessionProperties
     public static boolean isRespectTableFormat(ConnectorSession session)
     {
         return session.getProperty(RESPECT_TABLE_FORMAT, Boolean.class);
-    }
-
-    public static boolean isParquetPredicatePushdownEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isUseParquetColumnNames(ConnectorSession session)
