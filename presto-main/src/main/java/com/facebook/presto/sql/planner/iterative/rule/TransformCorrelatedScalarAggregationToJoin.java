@@ -96,7 +96,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return Result.empty();
         }
 
-        ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionManager, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
+        ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionManager, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
 
         PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 

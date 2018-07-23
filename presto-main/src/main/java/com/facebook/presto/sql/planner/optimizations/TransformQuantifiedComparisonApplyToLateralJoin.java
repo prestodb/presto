@@ -83,7 +83,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata), plan, null);
+        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata, session), plan, null);
     }
 
     private static class Rewriter
@@ -97,13 +97,15 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
+        private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.types = requireNonNull(types, "types is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override

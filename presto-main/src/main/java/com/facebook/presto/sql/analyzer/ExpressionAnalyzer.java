@@ -857,7 +857,7 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            Signature function = resolveFunction(node, argumentTypes, functionManager);
+            Signature function = resolveFunction(node, session, argumentTypes, functionManager);
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
@@ -1410,7 +1410,7 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static Signature resolveFunction(FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
+    public static Signature resolveFunction(FunctionCall node, Session session, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
     {
         try {
             return functionManager.resolveFunction(session, node.getName(), argumentTypes);

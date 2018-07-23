@@ -20,7 +20,10 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_CATALOG;
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_SCHEMA;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 
 public class TestSessionFunctions
 {
@@ -37,7 +40,7 @@ public class TestSessionFunctions
     public void testCurrentPath()
     {
         Session session = testSessionBuilder()
-                .setPath(new SqlPath(Optional.of("testPath")))
+                .setPath(new SqlPath(Optional.of(format("%s.%s", DEFAULT_FUNCTION_CATALOG, DEFAULT_FUNCTION_SCHEMA))))
                 .build();
 
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {

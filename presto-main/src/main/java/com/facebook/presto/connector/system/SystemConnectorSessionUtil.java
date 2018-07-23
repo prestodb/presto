@@ -24,6 +24,10 @@ import com.facebook.presto.transaction.TransactionId;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_CATALOG;
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_SCHEMA;
+import static java.lang.String.format;
+
 public final class SystemConnectorSessionUtil
 {
     private static final SystemSessionProperties SYSTEM_SESSION_PROPERTIES = new SystemSessionProperties();
@@ -39,7 +43,7 @@ public final class SystemConnectorSessionUtil
                 .setTransactionId(transactionId)
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(new SqlPath(Optional.of("path")))
+                .setPath(new SqlPath(Optional.of(format("%s.%s", DEFAULT_FUNCTION_CATALOG, DEFAULT_FUNCTION_SCHEMA))))
                 .setIdentity(session.getIdentity())
                 .setTimeZoneKey(session.getTimeZoneKey())
                 .setLocale(session.getLocale())

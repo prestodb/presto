@@ -35,6 +35,9 @@ import java.util.Optional;
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_CATALOG;
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_SCHEMA;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
@@ -57,7 +60,7 @@ public final class TestingSession
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(new SqlPath(Optional.of("path")))
+                .setPath(new SqlPath(Optional.of(format("%s.%s", DEFAULT_FUNCTION_CATALOG, DEFAULT_FUNCTION_SCHEMA))))
                 .setTimeZoneKey(UTC_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")

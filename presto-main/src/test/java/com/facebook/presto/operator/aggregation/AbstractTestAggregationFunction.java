@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
@@ -34,17 +35,20 @@ import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public abstract class AbstractTestAggregationFunction
 {
     protected TypeRegistry typeRegistry;
     protected FunctionManager functionManager;
+    protected Session session;
 
     @BeforeClass
     public final void initTestAggregationFunction()
     {
         typeRegistry = new TypeRegistry();
         functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        session = testSessionBuilder().build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -52,6 +56,7 @@ public abstract class AbstractTestAggregationFunction
     {
         functionManager = null;
         typeRegistry = null;
+        session = null;
     }
 
     public abstract Block[] getSequenceBlocks(int start, int length);

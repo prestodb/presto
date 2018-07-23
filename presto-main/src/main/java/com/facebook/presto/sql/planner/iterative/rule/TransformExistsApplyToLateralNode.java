@@ -80,12 +80,12 @@ public class TransformExistsApplyToLateralNode
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
-    private final Signature countSignature;
+
+    private final FunctionManager functionManager;
 
     public TransformExistsApplyToLateralNode(FunctionManager functionManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        countSignature = functionManager.resolveFunction(session, COUNT, ImmutableList.of());
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -150,6 +150,7 @@ public class TransformExistsApplyToLateralNode
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
     {
+        Signature countSignature = functionManager.resolveFunction(context.getSession(), COUNT, ImmutableList.of());
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
