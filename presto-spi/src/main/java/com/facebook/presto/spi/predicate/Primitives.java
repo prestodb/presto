@@ -58,7 +58,6 @@ final class Primitives
         add(primToWrap, wrapToPrim, int.class, Integer.class);
         add(primToWrap, wrapToPrim, long.class, Long.class);
         add(primToWrap, wrapToPrim, short.class, Short.class);
-        add(primToWrap, wrapToPrim, void.class, Void.class);
 
         PRIMITIVE_TO_WRAPPER_TYPE = Collections.unmodifiableMap(primToWrap);
         WRAPPER_TO_PRIMITIVE_TYPE = Collections.unmodifiableMap(wrapToPrim);
@@ -84,8 +83,7 @@ final class Primitives
     }
 
     /**
-     * Returns an immutable set of all nine primitive-wrapper types (including
-     * {@link Void}).
+     * Returns an immutable set of all eight primitive-wrapper types
      *
      * @since 3.0
      */

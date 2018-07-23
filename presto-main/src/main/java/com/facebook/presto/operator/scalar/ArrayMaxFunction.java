@@ -42,16 +42,6 @@ public final class ArrayMaxFunction
     @TypeParameter("T")
     @SqlType("T")
     @SqlNullable
-    public static Void arrayWithUnknownType(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
-            @SqlType("array(T)") Block block)
-    {
-        return null;
-    }
-
-    @TypeParameter("T")
-    @SqlType("T")
-    @SqlNullable
     public static Long longArrayMax(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,

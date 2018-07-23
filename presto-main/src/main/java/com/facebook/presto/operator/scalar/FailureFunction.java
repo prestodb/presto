@@ -33,7 +33,7 @@ public final class FailureFunction
     @Description("Decodes json to an exception and throws it")
     @ScalarFunction(value = "fail", hidden = true)
     @SqlType("unknown")
-    public static void failWithException(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
+    public static boolean failWithException(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
     {
         FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
         // wrap the failure in a new exception to append the current stack trace
@@ -43,7 +43,7 @@ public final class FailureFunction
     @Description("Throws an exception with a given message")
     @ScalarFunction(value = "fail", hidden = true)
     @SqlType("unknown")
-    public static void fail(@SqlType(StandardTypes.VARCHAR) Slice message)
+    public static boolean fail(@SqlType(StandardTypes.VARCHAR) Slice message)
     {
         throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, message.toStringUtf8());
     }
@@ -51,7 +51,7 @@ public final class FailureFunction
     @Description("Throws an exception with a given error code and message")
     @ScalarFunction(value = "fail", hidden = true)
     @SqlType("unknown")
-    public static void fail(
+    public static boolean fail(
             @SqlType(StandardTypes.INTEGER) long errorCode,
             @SqlType(StandardTypes.VARCHAR) Slice message)
     {
