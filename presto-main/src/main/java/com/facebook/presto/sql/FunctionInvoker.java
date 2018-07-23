@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
@@ -33,9 +33,9 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionInvoker
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
 
-    public FunctionInvoker(FunctionRegistry registry)
+    public FunctionInvoker(FunctionManager registry)
     {
         this.registry = requireNonNull(registry, "registry is null");
     }

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
@@ -337,9 +337,9 @@ public class ShowStatsRewrite
             if (!value.isPresent()) {
                 return new Cast(new NullLiteral(), VARCHAR);
             }
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
-            Signature castSignature = functionRegistry.getCoercion(valueType, VarcharType.createUnboundedVarcharType());
+            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionInvoker functionInvoker = new FunctionInvoker(functionManager);
+            Signature castSignature = functionManager.getCoercion(valueType, VarcharType.createUnboundedVarcharType());
             Slice varcharValue = (Slice) functionInvoker.invoke(castSignature, session.toConnectorSession(), singletonList(value.get()));
             String stringValue = varcharValue.toStringUtf8();
             if (stringValue.length() > MAX_LOW_HIGH_LENGTH) {

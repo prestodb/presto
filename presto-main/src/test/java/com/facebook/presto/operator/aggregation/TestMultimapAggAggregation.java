@@ -113,7 +113,7 @@ public class TestMultimapAggAggregation
 
         MapType mapType = mapType(keyType, new ArrayType(valueType));
         Signature signature = new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(signature);
 
         Map<K, List<V>> map = new HashMap<>();
         for (int i = 0; i < expectedKeys.size(); i++) {

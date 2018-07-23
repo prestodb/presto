@@ -158,15 +158,15 @@ public final class SqlScalarFunctionBuilder
         private final List<Type> parameterTypes;
         private final Type returnType;
         private final TypeManager typeManager;
-        private final FunctionRegistry functionRegistry;
+        private final FunctionManager functionManager;
 
-        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionRegistry functionRegistry)
+        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionManager functionManager)
         {
             this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
-            this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+            this.functionManager = requireNonNull(functionManager, "functionManager is null");
         }
 
         public Type getType(String name)
@@ -194,9 +194,9 @@ public final class SqlScalarFunctionBuilder
             return typeManager;
         }
 
-        public FunctionRegistry getFunctionRegistry()
+        public FunctionManager getFunctionManager()
         {
-            return functionRegistry;
+            return functionManager;
         }
     }
 

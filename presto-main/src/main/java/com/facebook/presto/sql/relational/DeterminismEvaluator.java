@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 
 import static java.util.Objects.requireNonNull;
 
 public class DeterminismEvaluator
 {
-    final FunctionRegistry registry;
+    final FunctionManager registry;
 
-    public DeterminismEvaluator(FunctionRegistry registry)
+    public DeterminismEvaluator(FunctionManager registry)
     {
         this.registry = requireNonNull(registry, "registry is null");
     }
@@ -35,9 +35,9 @@ public class DeterminismEvaluator
     private static class Visitor
             implements RowExpressionVisitor<Boolean, Void>
     {
-        private final FunctionRegistry registry;
+        private final FunctionManager registry;
 
-        public Visitor(FunctionRegistry registry)
+        public Visitor(FunctionManager registry)
         {
             this.registry = registry;
         }

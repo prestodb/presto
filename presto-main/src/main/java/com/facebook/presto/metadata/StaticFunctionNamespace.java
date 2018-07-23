@@ -21,7 +21,6 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 
@@ -35,9 +34,9 @@ public class StaticFunctionNamespace
 {
     private final FunctionRegistry functionRegistry;
 
-    public StaticFunctionNamespace(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    public StaticFunctionNamespace(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionManager functionManager)
     {
-        functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
+        functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, functionManager);
     }
 
     public void addFunctions(List<? extends SqlFunction> functions)

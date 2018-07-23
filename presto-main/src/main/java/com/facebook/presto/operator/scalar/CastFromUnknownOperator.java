@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -53,7 +53,7 @@ public final class CastFromUnknownOperator
     @Override
     public ScalarFunctionImplementation specialize(
             BoundVariables boundVariables, int arity, TypeManager typeManager,
-            FunctionRegistry functionRegistry)
+            FunctionManager functionManager)
     {
         Type toType = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle;

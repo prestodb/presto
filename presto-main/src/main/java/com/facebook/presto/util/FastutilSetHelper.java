@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +41,7 @@ public final class FastutilSetHelper
     private FastutilSetHelper() {}
 
     @SuppressWarnings({"unchecked"})
-    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionManager registry)
     {
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
         // and the return set is assumed to be read-heavy.
@@ -90,7 +90,7 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private LongStrategy(FunctionRegistry registry, Type type)
+        private LongStrategy(FunctionManager registry, Type type)
         {
             hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
             equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
@@ -129,7 +129,7 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private DoubleStrategy(FunctionRegistry registry, Type type)
+        private DoubleStrategy(FunctionManager registry, Type type)
         {
             hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
             equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
@@ -168,7 +168,7 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private ObjectStrategy(FunctionRegistry registry, Type type)
+        private ObjectStrategy(FunctionManager registry, Type type)
         {
             hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type)))
                     .getMethodHandle()

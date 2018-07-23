@@ -166,6 +166,7 @@ import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -308,17 +309,19 @@ public class FunctionManager
     private final FunctionNamespace operatorNamespace;
     private final TypeManager typeManager;
     private final BlockEncodingSerde blockEncodingSerde;
-    private final FeaturesConfig featuresConfig;
 
     public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
         functionNamespaces = ImmutableMap.of();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
-        operatorNamespace = new StaticFunctionNamespace(typeManager, blockEncodingSerde, featuresConfig);
+        operatorNamespace = new StaticFunctionNamespace(typeManager, blockEncodingSerde, this);
 
         addDefaultFunctions(featuresConfig);
+
+        if (typeManager instanceof TypeRegistry) {
+            ((TypeRegistry) typeManager).setFunctionManager(this);
+        }
     }
 
     public void addFunctions(List<? extends SqlFunction> functions)
@@ -334,7 +337,7 @@ public class FunctionManager
         operatorNamespace.addFunctions(operatorAndFunctionMap.get(true));
 
         if (!functionNamespaces.containsKey(catalog)) {
-            FunctionNamespace namespace = new StaticFunctionNamespace(typeManager, blockEncodingSerde, featuresConfig);
+            FunctionNamespace namespace = new StaticFunctionNamespace(typeManager, blockEncodingSerde, this);
             namespace.addFunctions(operatorAndFunctionMap.get(false));
             functionNamespaces = ImmutableMap.<String, FunctionNamespace>builder()
                     .putAll(functionNamespaces)

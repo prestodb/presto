@@ -162,7 +162,7 @@ public class BenchmarkGroupedTypedHistogram
         MapType mapType = mapType(VARCHAR, BIGINT);
         MetadataManager metadata = getMetadata(groupMode);
 
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        return metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),

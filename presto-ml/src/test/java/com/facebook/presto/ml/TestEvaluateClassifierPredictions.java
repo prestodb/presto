@@ -45,7 +45,7 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction aggregation = metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("evaluate_classifier_predictions",
                         AGGREGATE,
                         parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));

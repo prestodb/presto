@@ -364,7 +364,7 @@ public class FilterStatsCalculator
                     .map(symbol -> requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol)))
                     .orElseGet(() -> {
                         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                                metadata.getFunctionRegistry(),
+                                metadata.getFunctionManager(),
                                 metadata.getTypeManager(),
                                 session,
                                 types,

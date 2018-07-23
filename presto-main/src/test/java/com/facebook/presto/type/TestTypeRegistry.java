@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -68,7 +68,7 @@ import static org.testng.Assert.fail;
 public class TestTypeRegistry
 {
     private final TypeManager typeRegistry = new TypeRegistry();
-    private final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    private final FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
     @Test
     public void testNonexistentType()
@@ -251,7 +251,7 @@ public class TestTypeRegistry
         for (Type sourceType : types) {
             for (Type resultType : types) {
                 if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
-                    assertTrue(functionRegistry.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
+                    assertTrue(functionManager.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
                             format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
                 }
             }
@@ -263,16 +263,16 @@ public class TestTypeRegistry
     {
         for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
-                functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(type));
+                functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
+                functionManager.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
+                functionManager.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+                functionManager.resolveOperator(HASH_CODE, ImmutableList.of(type));
             }
             if (type.isOrderable()) {
-                functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
+                functionManager.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
+                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionManager.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
             }
         }
     }

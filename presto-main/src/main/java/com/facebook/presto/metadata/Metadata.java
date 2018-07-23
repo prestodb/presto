@@ -49,7 +49,7 @@ public interface Metadata
 
     boolean isAggregationFunction(QualifiedName name);
 
-    List<SqlFunction> listFunctions();
+    List<SqlFunction> listFunctions(Session session);
 
     void addFunctions(List<? extends SqlFunction> functions);
 
@@ -276,7 +276,7 @@ public interface Metadata
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
-    FunctionRegistry getFunctionRegistry();
+    FunctionManager getFunctionManager();
 
     ProcedureRegistry getProcedureRegistry();
 

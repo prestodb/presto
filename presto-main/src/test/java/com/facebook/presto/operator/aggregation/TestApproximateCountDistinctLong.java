@@ -28,7 +28,7 @@ public class TestApproximateCountDistinctLong
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        return metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 

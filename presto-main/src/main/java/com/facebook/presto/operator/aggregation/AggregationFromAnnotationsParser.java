@@ -49,7 +49,7 @@ public class AggregationFromAnnotationsParser
     }
 
     // This function should only be used for function matching for testing purposes.
-    // General purpose function matching is done through FunctionRegistry.
+    // General purpose function matching is done through FunctionManager.
     @VisibleForTesting
     public static ParametricAggregation parseFunctionDefinitionWithTypesConstraint(Class<?> clazz, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {

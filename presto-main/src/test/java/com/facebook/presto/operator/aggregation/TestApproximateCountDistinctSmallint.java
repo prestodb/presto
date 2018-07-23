@@ -29,7 +29,7 @@ public class TestApproximateCountDistinctSmallint
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        return metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), SMALLINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 

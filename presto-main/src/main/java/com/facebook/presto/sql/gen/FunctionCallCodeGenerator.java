@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
@@ -32,7 +32,7 @@ public class FunctionCallCodeGenerator
     @Override
     public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
-        FunctionRegistry registry = context.getRegistry();
+        FunctionManager registry = context.getRegistry();
 
         ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
 

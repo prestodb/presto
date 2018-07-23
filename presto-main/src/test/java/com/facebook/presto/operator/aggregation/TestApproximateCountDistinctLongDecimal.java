@@ -33,7 +33,7 @@ public class TestApproximateCountDistinctLongDecimal
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        return metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), LONG_DECIMAL.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 

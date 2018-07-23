@@ -215,7 +215,7 @@ public class CursorProcessorCompiler
                         preGeneratedExpressions,
                         callSiteBinder,
                         cachedInstanceBinder,
-                        metadata.getFunctionRegistry());
+                        metadata.getFunctionManager());
                 compiledLambdaMap.put(lambdaExpression, compiledLambda);
             }
             else {
@@ -247,7 +247,7 @@ public class CursorProcessorCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata.getFunctionRegistry(),
+                metadata.getFunctionManager(),
                 preGeneratedExpressions);
 
         LabelNode end = new LabelNode("end");
@@ -287,7 +287,7 @@ public class CursorProcessorCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata.getFunctionRegistry(),
+                metadata.getFunctionManager(),
                 preGeneratedExpressions);
 
         method.getBody()

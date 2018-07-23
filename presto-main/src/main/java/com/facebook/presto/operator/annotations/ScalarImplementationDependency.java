@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -39,9 +39,9 @@ public abstract class ScalarImplementationDependency
     }
 
     @Override
-    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
     {
         Signature signature = applyBoundVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
-        return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
+        return functionManager.getScalarFunctionImplementation(signature).getMethodHandle();
     }
 }

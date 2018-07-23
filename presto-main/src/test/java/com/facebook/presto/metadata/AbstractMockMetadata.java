@@ -66,8 +66,7 @@ public abstract class AbstractMockMetadata
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public List<SqlFunction> listFunctions()
+    public List<SqlFunction> listFunctions(Session session)
     {
         throw new UnsupportedOperationException();
     }
@@ -349,7 +348,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionRegistry getFunctionRegistry()
+    public FunctionManager getFunctionManager()
     {
         throw new UnsupportedOperationException();
     }

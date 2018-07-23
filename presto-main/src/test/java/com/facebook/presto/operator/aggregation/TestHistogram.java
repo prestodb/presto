@@ -87,7 +87,7 @@ public class TestHistogram
                 createStringsBlock("a", "b", "c"));
 
         mapType = mapType(BIGINT, BIGINT);
-        aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -98,7 +98,7 @@ public class TestHistogram
                 createLongsBlock(100L, 200L, 300L));
 
         mapType = mapType(DOUBLE, BIGINT);
-        aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -109,7 +109,7 @@ public class TestHistogram
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -163,7 +163,7 @@ public class TestHistogram
                 createStringsBlock("a", "b", "a"));
 
         mapType = mapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
-        aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -187,7 +187,7 @@ public class TestHistogram
                 createLongsBlock(2L, null, 1L));
 
         mapType = mapType(BIGINT, BIGINT);
-        aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -437,7 +437,7 @@ public class TestHistogram
                 AGGREGATE,
                 returnType,
                 Arrays.asList(arguments));
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+        return metadata.getFunctionManager().getAggregateFunctionImplementation(signature);
     }
 
     public MetadataManager getMetadata()

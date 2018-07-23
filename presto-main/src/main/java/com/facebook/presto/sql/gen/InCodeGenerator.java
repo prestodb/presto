@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.BigintType;
@@ -60,9 +60,9 @@ import static java.util.Objects.requireNonNull;
 public class InCodeGenerator
         implements BytecodeGenerator
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
 
-    public InCodeGenerator(FunctionRegistry registry)
+    public InCodeGenerator(FunctionManager registry)
     {
         this.registry = requireNonNull(registry, "registry is null");
     }

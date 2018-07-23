@@ -14,7 +14,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.function.OperatorType;
@@ -64,7 +64,7 @@ public class TestExpressionOptimizer
     public void setUp()
     {
         typeManager = new TypeRegistry();
-        optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
+        optimizer = new ExpressionOptimizer(new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)

@@ -93,7 +93,8 @@ public class TestFunctionRegistry
     public void testIdentityCast()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager manager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), manager);
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(HyperLogLogOperators.class)
                 .function(IDENTITY_CAST)
@@ -109,7 +110,8 @@ public class TestFunctionRegistry
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager manager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), manager);
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalar(ArrayNotEqualOperator.class)
                 .scalar(ArrayEqualOperator.class)
@@ -164,7 +166,8 @@ public class TestFunctionRegistry
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager manager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), manager);
         Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -181,7 +184,8 @@ public class TestFunctionRegistry
                 .collect(toImmutableList());
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager manager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), manager);
         registry.addFunctions(functions);
         registry.addFunctions(functions);
     }
@@ -197,7 +201,8 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager manager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), manager);
         registry.addFunctions(functions);
     }
 
@@ -205,7 +210,8 @@ public class TestFunctionRegistry
     public void testListingHiddenFunctions()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager manager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), manager);
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(StringFunctions.class)
                 .aggregates(VarianceAggregation.class)
@@ -440,9 +446,10 @@ public class TestFunctionRegistry
 
         private Signature resolveSignature()
         {
-            FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, blockEncoding, new FeaturesConfig());
-            functionRegistry.addFunctions(createFunctionsFromSignatures());
-            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            FunctionManager manager = new FunctionManager(typeRegistry, blockEncoding, new FeaturesConfig());
+            FunctionRegistry registry = new FunctionRegistry(typeRegistry, blockEncoding, manager);
+            registry.addFunctions(createFunctionsFromSignatures());
+            return registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()
@@ -457,7 +464,7 @@ public class TestFunctionRegistry
                             BoundVariables boundVariables,
                             int arity,
                             TypeManager typeManager,
-                            FunctionRegistry functionRegistry)
+                            FunctionManager functionManager)
                     {
                         return new ScalarFunctionImplementation(
                                 false,

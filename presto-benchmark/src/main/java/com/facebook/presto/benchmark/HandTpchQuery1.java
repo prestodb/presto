@@ -58,13 +58,13 @@ public class HandTpchQuery1
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
-        longAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        longAverage = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-        doubleAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        doubleAverage = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        doubleSum = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        countFunction = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+        countFunction = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
     }
 

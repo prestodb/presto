@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.relational.optimizer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
@@ -67,11 +67,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ExpressionOptimizer
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
     private final TypeManager typeManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, Session session)
+    public ExpressionOptimizer(FunctionManager registry, TypeManager typeManager, Session session)
     {
         this.registry = registry;
         this.typeManager = typeManager;

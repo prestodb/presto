@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
@@ -33,7 +33,7 @@ public class BytecodeGeneratorContext
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -41,7 +41,7 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry registry)
+            FunctionManager registry)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -77,7 +77,7 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
     }
 
-    public FunctionRegistry getRegistry()
+    public FunctionManager getRegistry()
     {
         return registry;
     }
