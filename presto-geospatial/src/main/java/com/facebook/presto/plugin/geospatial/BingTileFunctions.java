@@ -28,8 +28,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import static com.esri.core.geometry.GeometryEngine.contains;
-import static com.esri.core.geometry.GeometryEngine.disjoint;
 import static com.facebook.presto.geospatial.GeometryUtils.contains;
 import static com.facebook.presto.geospatial.GeometryUtils.disjoint;
 import static com.facebook.presto.geospatial.GeometryUtils.getEnvelope;
@@ -45,8 +43,15 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.asin;
+import static java.lang.Math.atan2;
+import static java.lang.Math.cos;
 import static java.lang.Math.multiplyExact;
+import static java.lang.Math.sin;
+import static java.lang.Math.sqrt;
+import static java.lang.Math.toDegrees;
 import static java.lang.Math.toIntExact;
+import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 
 /**
@@ -62,6 +67,7 @@ public class BingTileFunctions
     private static final double MIN_LATITUDE = -85.05112878;
     private static final double MIN_LONGITUDE = -180;
     private static final double MAX_LONGITUDE = 180;
+    private static final double EARTH_RADIUS_KM = 6371.01;
     private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
     private static final Block EMPTY_TILE_ARRAY = BIGINT.createFixedSizeBlockBuilder(0).build();
 
@@ -190,6 +196,142 @@ public class BingTileFunctions
         return blockBuilder.build();
     }
 
+    @Description("Given a (latitude, longitude) point, a radius in kilometers and a zoom level, " +
+            "returns a minimum set of Bing tiles at specified zoom level that cover a circle of " +
+            "specified radius around the specified point.")
+    @ScalarFunction("bing_tiles_around")
+    @SqlType("array(" + BingTileType.NAME + ")")
+    public static Block bingTilesAround(
+            @SqlType(StandardTypes.DOUBLE) double latitude,
+            @SqlType(StandardTypes.DOUBLE) double longitude,
+            @SqlType(StandardTypes.INTEGER) long zoomLevelAsLong,
+            @SqlType(StandardTypes.DOUBLE) double radiusInKm)
+    {
+        checkLatitude(latitude, LATITUDE_OUT_OF_RANGE);
+        checkLongitude(longitude, LONGITUDE_OUT_OF_RANGE);
+        checkZoomLevel(zoomLevelAsLong);
+        checkCondition(radiusInKm >= 0, "Radius must be >= 0");
+        checkCondition(radiusInKm <= 1_000, "Radius must be <= 1,000 km");
+
+        int zoomLevel = toIntExact(zoomLevelAsLong);
+        long mapSize = mapSize(zoomLevel);
+        int maxTileIndex = (int) (mapSize / TILE_PIXELS) - 1;
+
+        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileX = longitudeToTileX(longitude, mapSize);
+
+        // Find top, bottom, left and right tiles from center of circle
+        double topLatitude = addDistanceToLatitude(latitude, radiusInKm, 0);
+        BingTile topTile = latitudeLongitudeToTile(topLatitude, longitude, zoomLevel);
+
+        double bottomLatitude = addDistanceToLatitude(latitude, radiusInKm, 180);
+        BingTile bottomTile = latitudeLongitudeToTile(bottomLatitude, longitude, zoomLevel);
+
+        double leftLongitude = addDistanceToLongitude(latitude, longitude, radiusInKm, 270);
+        BingTile leftTile = latitudeLongitudeToTile(latitude, leftLongitude, zoomLevel);
+
+        double rightLongitude = addDistanceToLongitude(latitude, longitude, radiusInKm, 90);
+        BingTile rightTile = latitudeLongitudeToTile(latitude, rightLongitude, zoomLevel);
+
+        boolean wrapAroundX = rightTile.getX() < leftTile.getX();
+
+        int tileCountX = wrapAroundX ?
+                (rightTile.getX() + maxTileIndex - leftTile.getX() + 2) :
+                (rightTile.getX() - leftTile.getX() + 1);
+
+        int tileCountY = bottomTile.getY() - topTile.getY() + 1;
+
+        int totalTileCount = tileCountX * tileCountY;
+        checkCondition(totalTileCount <= 1_000_000,
+                "The number of input tiles is too large (more than 1M) to compute a set of covering Bing tiles.");
+
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, totalTileCount);
+
+        for (int i = 0; i < tileCountX; i++) {
+            int x = (leftTile.getX() + i) % (maxTileIndex + 1);
+            BIGINT.writeLong(blockBuilder, BingTile.fromCoordinates(x, tileY, zoomLevel).encode());
+        }
+
+        for (int y = topTile.getY(); y <= bottomTile.getY(); y++) {
+            if (y != tileY) {
+                BIGINT.writeLong(blockBuilder, BingTile.fromCoordinates(tileX, y, zoomLevel).encode());
+            }
+        }
+
+        GreatCircleDistanceToPoint distanceToCenter = new GreatCircleDistanceToPoint(latitude, longitude);
+
+        // Remove tiles from each corner if they are outside the radius
+        for (int x = rightTile.getX(); x != tileX; x = (x == 0) ? maxTileIndex : x - 1) {
+            // Top Right Corner
+            boolean include = false;
+            for (int y = topTile.getY(); y < tileY; y++) {
+                BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
+                if (include) {
+                    BIGINT.writeLong(blockBuilder, tile.encode());
+                }
+                else {
+                    Point bottomLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY() + 1, tile.getZoomLevel());
+                    if (withinDistance(distanceToCenter, radiusInKm, bottomLeftCorner)) {
+                        include = true;
+                        BIGINT.writeLong(blockBuilder, tile.encode());
+                    }
+                }
+            }
+
+            // Bottom Right Corner
+            include = false;
+            for (int y = bottomTile.getY(); y > tileY; y--) {
+                BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
+                if (include) {
+                    BIGINT.writeLong(blockBuilder, tile.encode());
+                }
+                else {
+                    Point topLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
+                    if (withinDistance(distanceToCenter, radiusInKm, topLeftCorner)) {
+                        include = true;
+                        BIGINT.writeLong(blockBuilder, tile.encode());
+                    }
+                }
+            }
+        }
+
+        for (int x = leftTile.getX(); x != tileX; x = (x + 1) % (maxTileIndex + 1)) {
+            // Top Left Corner
+            boolean include = false;
+            for (int y = topTile.getY(); y < tileY; y++) {
+                BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
+                if (include) {
+                    BIGINT.writeLong(blockBuilder, tile.encode());
+                }
+                else {
+                    Point bottomRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
+                    if (withinDistance(distanceToCenter, radiusInKm, bottomRightCorner)) {
+                        include = true;
+                        BIGINT.writeLong(blockBuilder, tile.encode());
+                    }
+                }
+            }
+
+            // Bottom Left Corner
+            include = false;
+            for (int y = bottomTile.getY(); y > tileY; y--) {
+                BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
+                if (include) {
+                    BIGINT.writeLong(blockBuilder, tile.encode());
+                }
+                else {
+                    Point topRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY(), tile.getZoomLevel());
+                    if (withinDistance(distanceToCenter, radiusInKm, topRightCorner)) {
+                        include = true;
+                        BIGINT.writeLong(blockBuilder, tile.encode());
+                    }
+                }
+            }
+        }
+
+        return blockBuilder.build();
+    }
+
     @Description("Given a Bing tile, returns the polygon representation of the tile")
     @ScalarFunction("bing_tile_polygon")
     @SqlType(GEOMETRY_TYPE_NAME)
@@ -303,6 +445,57 @@ public class BingTileFunctions
             checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. " +
                     "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         }
+    }
+
+    private static double addDistanceToLongitude(
+            @SqlType(StandardTypes.DOUBLE) double latitude,
+            @SqlType(StandardTypes.DOUBLE) double longitude,
+            @SqlType(StandardTypes.DOUBLE) double radiusInKm,
+            @SqlType(StandardTypes.DOUBLE) double bearing)
+    {
+        double latitudeInRadians = toRadians(latitude);
+        double longitudeInRadians = toRadians(longitude);
+        double bearingInRadians = toRadians(bearing);
+        double radiusRatio = radiusInKm / EARTH_RADIUS_KM;
+
+        // Haversine formula
+        double newLongitude = toDegrees(longitudeInRadians +
+                atan2(sin(bearingInRadians) * sin(radiusRatio) * cos(latitudeInRadians),
+                        cos(radiusRatio) - sin(latitudeInRadians) * sin(latitudeInRadians)));
+
+        if (newLongitude > MAX_LONGITUDE) {
+            return MIN_LONGITUDE + (newLongitude - MAX_LONGITUDE);
+        }
+
+        if (newLongitude < MIN_LONGITUDE) {
+            return MAX_LONGITUDE + (newLongitude - MIN_LONGITUDE);
+        }
+
+        return newLongitude;
+    }
+
+    private static double addDistanceToLatitude(
+            @SqlType(StandardTypes.DOUBLE) double latitude,
+            @SqlType(StandardTypes.DOUBLE) double radiusInKm,
+            @SqlType(StandardTypes.DOUBLE) double bearing)
+    {
+        double latitudeInRadians = toRadians(latitude);
+        double bearingInRadians = toRadians(bearing);
+        double radiusRatio = radiusInKm / EARTH_RADIUS_KM;
+
+        // Haversine formula
+        double newLatitude = toDegrees(asin(sin(latitudeInRadians) * cos(radiusRatio) +
+                cos(latitudeInRadians) * sin(radiusRatio) * cos(bearingInRadians)));
+
+        if (newLatitude > MAX_LATITUDE) {
+            return MAX_LATITUDE;
+        }
+
+        if (newLatitude < MIN_LATITUDE) {
+            return MIN_LATITUDE;
+        }
+
+        return newLatitude;
     }
 
     private static BingTile[] getTilesInBetween(BingTile leftUpperTile, BingTile rightLowerTile, int zoomLevel)
@@ -471,6 +664,43 @@ public class BingTileFunctions
     private static void checkLongitude(double longitude, String errorMessage)
     {
         checkCondition(longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE, errorMessage);
+    }
+
+    private static boolean withinDistance(GreatCircleDistanceToPoint distanceFunction, double maxDistance, Point point)
+    {
+        return distanceFunction.distance(point.getY(), point.getX()) <= maxDistance;
+    }
+
+    private static final class GreatCircleDistanceToPoint
+    {
+        private double sinLatitude;
+        private double cosLatitude;
+        private double radianLongitude;
+
+        private GreatCircleDistanceToPoint(double latitude, double longitude)
+        {
+            double radianLatitude = toRadians(latitude);
+
+            this.sinLatitude = sin(radianLatitude);
+            this.cosLatitude = cos(radianLatitude);
+
+            this.radianLongitude = toRadians(longitude);
+        }
+
+        public double distance(double latitude2, double longitude2)
+        {
+            double radianLatitude2 = toRadians(latitude2);
+            double sin2 = sin(radianLatitude2);
+            double cos2 = cos(radianLatitude2);
+
+            double deltaLongitude = radianLongitude - toRadians(longitude2);
+            double cosDeltaLongitude = cos(deltaLongitude);
+
+            double t1 = cos2 * sin(deltaLongitude);
+            double t2 = cosLatitude * sin2 - sinLatitude * cos2 * cosDeltaLongitude;
+            double t3 = sinLatitude * sin2 + cosLatitude * cos2 * cosDeltaLongitude;
+            return atan2(sqrt(t1 * t1 + t2 * t2), t3) * EARTH_RADIUS_KM;
+        }
     }
 
     private static void checkCondition(boolean condition, String formatString, Object... args)

@@ -125,6 +125,123 @@ public class TestBingTileFunctions
         assertCachedInstanceHasBoundedRetainedSize("bing_tile_coordinates(bing_tile('213'))");
     }
 
+    private void assertBingTilesAroundWithRadius(
+            double latitude,
+            double longitude,
+            int zoomLevel,
+            double radius,
+            String...expectedQuadKeys)
+    {
+        assertFunction(
+                format("transform(bing_tiles_around(%s, %s, %s, %s), x -> bing_tile_quadkey(x))",
+                        latitude, longitude, zoomLevel, radius),
+                new ArrayType(VARCHAR),
+                ImmutableList.copyOf(expectedQuadKeys));
+    }
+
+    @Test
+    public void testBingTilesAroundWithRadius()
+    {
+        assertBingTilesAroundWithRadius(30.12, 60, 1, 1000, "1");
+
+        assertBingTilesAroundWithRadius(30.12, 60, 15, .5,
+                "123030123010120", "123030123010121", "123030123010123");
+
+        assertBingTilesAroundWithRadius(30.12, 60, 19, .05,
+                "1230301230101212120",
+                "1230301230101212121",
+                "1230301230101212130",
+                "1230301230101212103",
+                "1230301230101212123",
+                "1230301230101212112",
+                "1230301230101212102");
+    }
+
+    @Test
+    public void testBingTilesAroundCornerWithRadius()
+    {
+        // Different zoom Level
+        assertBingTilesAroundWithRadius(-85.05112878, -180, 1, 500,
+                "3", "2");
+
+        assertBingTilesAroundWithRadius(-85.05112878, -180, 5, 200,
+                "33332",
+                "33333",
+                "22222",
+                "22223",
+                "22220",
+                "22221",
+                "33330",
+                "33331");
+
+        assertBingTilesAroundWithRadius(-85.05112878, -180, 15, .2,
+                "333333333333332",
+                "333333333333333",
+                "222222222222222",
+                "222222222222223",
+                "222222222222220",
+                "222222222222221",
+                "333333333333330",
+                "333333333333331");
+
+        // Different Corners
+        // Starting Corner 0,3
+        assertBingTilesAroundWithRadius(-85.05112878, -180, 4, 500,
+                "3323", "3332", "3333", "2222", "2223", "2232", "2220", "2221", "3330", "3331");
+
+        assertBingTilesAroundWithRadius(-85.05112878, 180, 4, 500,
+                "3323", "3332", "3333", "2222", "2223", "2232", "3331", "2221", "2220", "3330");
+
+        assertBingTilesAroundWithRadius(85.05112878, -180, 4, 500,
+                "1101", "1110", "1111", "0000", "0001", "0010", "0002", "0003", "1112", "1113");
+
+        assertBingTilesAroundWithRadius(85.05112878, 180, 4, 500,
+                "1101", "1110", "1111", "0000", "0001", "0010", "1113", "0003", "0002", "1112");
+    }
+
+    @Test
+    public void testBingTilesAroundEdgeWithRadius()
+    {
+        // Different zoom Level
+        assertBingTilesAroundWithRadius(-85.05112878, 0, 3, 300,
+                "233", "322");
+
+        assertBingTilesAroundWithRadius(-85.05112878, 0, 12, 1,
+                "233333333332",
+                "233333333333",
+                "322222222222",
+                "322222222223",
+                "322222222220",
+                "233333333331");
+
+        // Different Edges
+        // Starting Edge 2,3
+        assertBingTilesAroundWithRadius(-85.05112878, 0, 4, 100,
+                "2333", "3222");
+
+        assertBingTilesAroundWithRadius(85.05112878, 0, 4, 100,
+                "0111", "1000");
+
+        assertBingTilesAroundWithRadius(0, 180, 4, 100,
+                "3111", "2000", "1333", "0222");
+
+        assertBingTilesAroundWithRadius(0, -180, 4, 100,
+                "3111", "2000", "0222", "1333");
+    }
+
+    @Test
+    public void testBingTilesWithRadiusBadInput()
+    {
+        // Invalid radius
+        assertInvalidFunction("bing_tiles_around(30.12, 60.0, 1, -1)", "Radius must be >= 0");
+        assertInvalidFunction("bing_tiles_around(30.12, 60.0, 1, 2000)",
+                "Radius must be <= 1,000 km");
+
+        // Too many tiles
+        assertInvalidFunction("bing_tiles_around(30.12, 60.0, 20, 100)",
+                "The number of input tiles is too large (more than 1M) to compute a set of covering Bing tiles.");
+    }
+
     @Test
     public void testBingTilesAround()
     {
