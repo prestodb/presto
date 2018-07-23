@@ -17,9 +17,14 @@ import io.airlift.configuration.Config;
 
 import java.util.Optional;
 
+import static java.lang.String.format;
+
 public class SqlEnvironmentConfig
 {
-    private Optional<String> path = Optional.empty();
+    public static final String DEFAULT_FUNCTION_CATALOG = "system";
+    public static final String DEFAULT_FUNCTION_SCHEMA = "functions";
+
+    private Optional<String> path = Optional.of(format("%s.%s", DEFAULT_FUNCTION_CATALOG, DEFAULT_FUNCTION_SCHEMA));
 
     @Config("sql.path")
     public SqlEnvironmentConfig setPath(String path)

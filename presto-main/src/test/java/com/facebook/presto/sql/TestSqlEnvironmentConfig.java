@@ -28,7 +28,7 @@ public class TestSqlEnvironmentConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlEnvironmentConfig.class)
-                .setPath(null));
+                .setPath("system.functions"));
     }
 
     @Test

@@ -254,6 +254,8 @@ import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_CATALOG;
+import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_SCHEMA;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -302,9 +304,6 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class FunctionManager
 {
-    private static final String TEMP_DEFAULT_CATALOG = "system";
-    private static final String TEMP_DEFAULT_SCHEMA = "functions";
-
     private volatile Map<String, FunctionNamespace> functionNamespaces;
     private final FunctionNamespace operatorNamespace;
     private final TypeManager typeManager;
@@ -326,7 +325,7 @@ public class FunctionManager
 
     public void addFunctions(List<? extends SqlFunction> functions)
     {
-        addFunctions(TEMP_DEFAULT_CATALOG, functions);
+        addFunctions(DEFAULT_FUNCTION_CATALOG, functions);
     }
 
     public synchronized void addFunctions(String catalog, List<? extends SqlFunction> functions)
@@ -375,7 +374,7 @@ public class FunctionManager
             if (namespace != null) {
                 try {
                     Signature signature = namespace.resolveFunction(name, parameterTypes);
-                    return qualifySignature(signature, getCatalog(element, session), TEMP_DEFAULT_SCHEMA);
+                    return qualifySignature(signature, getCatalog(element, session), DEFAULT_FUNCTION_SCHEMA);
                 }
                 catch (PrestoException e) {
                     if (!e.getErrorCode().equals(FUNCTION_NOT_FOUND.toErrorCode())) {
@@ -702,6 +701,6 @@ public class FunctionManager
             builder.scalar(MathFunctions.LegacyLogFunction.class);
         }
 
-        addFunctions(TEMP_DEFAULT_CATALOG, builder.getFunctions());
+        addFunctions(DEFAULT_FUNCTION_CATALOG, builder.getFunctions());
     }
 }
