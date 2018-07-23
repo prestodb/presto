@@ -2820,13 +2820,19 @@ public abstract class AbstractTestHiveClient
     public void testPartitionStatisticsSampling()
             throws Exception
     {
+        testPartitionStatisticsSampling(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1);
+    }
+
+    protected void testPartitionStatisticsSampling(List<ColumnMetadata> columns, PartitionStatistics statistics)
+            throws Exception
+    {
         SchemaTableName tableName = temporaryTable("test_partition_statistics_sampling");
 
         try {
-            createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
-
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> STATISTICS_1);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-02", actualStatistics -> STATISTICS_1);
+            createDummyPartitionedTable(tableName, columns);
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> statistics);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-02", actualStatistics -> statistics);
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
