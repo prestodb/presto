@@ -35,13 +35,6 @@ public final class ArrayContains
 {
     private ArrayContains() {}
 
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean arrayWithUnknownType(@SqlType("array(unknown)") Block arrayBlock, @SqlNullable @SqlType("unknown") Void value)
-    {
-        return null;
-    }
-
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable

@@ -33,7 +33,6 @@ public final class MethodHandleUtil
     private static final MethodHandle GET_BOOLEAN = methodHandle(Type.class, "getBoolean", Block.class, int.class);
     private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
     private static final MethodHandle GET_BLOCK = methodHandle(Type.class, "getObject", Block.class, int.class).asType(methodType(Block.class, Type.class, Block.class, int.class));
-    private static final MethodHandle GET_UNKNOWN = methodHandle(MethodHandleUtil.class, "unknownGetter", Type.class, Block.class, int.class);
 
     private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
     private static final MethodHandle WRITE_DOUBLE = methodHandle(Type.class, "writeDouble", BlockBuilder.class, double.class);
@@ -146,9 +145,6 @@ public final class MethodHandleUtil
         else if (javaType == Block.class) {
             methodHandle = GET_BLOCK;
         }
-        else if (javaType == void.class) {
-            methodHandle = GET_UNKNOWN;
-        }
         else {
             throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
         }
@@ -181,10 +177,5 @@ public final class MethodHandleUtil
         }
 
         return methodHandle.bindTo(type);
-    }
-
-    public static Void unknownGetter(Type type, Block block, int position)
-    {
-        throw new IllegalArgumentException("For UNKNOWN type, getter should never be invoked on Block");
     }
 }

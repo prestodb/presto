@@ -43,12 +43,6 @@ public class NullIfCodeGenerator
         RowExpression first = arguments.get(0);
         RowExpression second = arguments.get(1);
 
-        if (first.getType().getJavaType() == void.class) {
-            return new BytecodeBlock()
-                            .comment("NULLIF(NULL, *) = NULL")
-                            .append(generatorContext.generate(first));
-        }
-
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack

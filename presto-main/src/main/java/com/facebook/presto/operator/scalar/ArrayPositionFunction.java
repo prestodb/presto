@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -158,12 +157,5 @@ public final class ArrayPositionFunction
             }
         }
         return 0;
-    }
-
-    @SqlType(StandardTypes.BIGINT)
-    @SqlNullable
-    public static Long arrayPosition(@SqlType("array(unknown)") Block array, @SqlNullable @SqlType("unknown") Void element)
-    {
-        return null;
     }
 }

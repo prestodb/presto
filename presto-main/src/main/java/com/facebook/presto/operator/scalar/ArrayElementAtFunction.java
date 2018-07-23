@@ -35,15 +35,6 @@ public final class ArrayElementAtFunction
     @TypeParameter("E")
     @SqlNullable
     @SqlType("E")
-    public static Void voidElementAt(@SqlType("array(E)") Block array, @SqlType("bigint") long index)
-    {
-        checkedIndexToBlockPosition(array, index);
-        return null;
-    }
-
-    @TypeParameter("E")
-    @SqlNullable
-    @SqlType("E")
     public static Long longElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);

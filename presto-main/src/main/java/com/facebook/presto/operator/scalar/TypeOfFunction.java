@@ -65,13 +65,4 @@ public final class TypeOfFunction
     {
         return typeof(type, (Object) value);
     }
-
-    @TypeParameter("T")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice typeof(
-            @TypeParameter("T") Type type,
-            @SqlNullable @SqlType("T") Void value)
-    {
-        return typeof(type, (Object) value);
-    }
 }
