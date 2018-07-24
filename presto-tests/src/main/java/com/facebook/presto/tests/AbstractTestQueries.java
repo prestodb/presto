@@ -244,6 +244,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCoercionWithExplicitPrecisionInCorrelatedSubquery()
+    {
+        assertQuery("SELECT 1 FROM nation n WHERE 1 = (SELECT cast(n.nationkey as decimal(7,2)))");
+    }
+
+    @Test
     public void testLambdaInAggregationContext()
     {
         assertQuery("SELECT apply(sum(x), i -> i * i) FROM (VALUES 1, 2, 3, 4, 5) t(x)", "SELECT 225");
