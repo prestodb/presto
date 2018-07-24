@@ -77,6 +77,8 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -532,11 +534,28 @@ class QueryPlanner
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
+        ImmutableSet.Builder<Integer> globalGroupingSets = ImmutableSet.builder();
+        for (int i = 0; i < groupingSets.size(); i++) {
+            if (groupingSets.get(i).isEmpty()) {
+                globalGroupingSets.add(i);
+            }
+        }
+
+        ImmutableList.Builder<Symbol> groupingKeys = ImmutableList.builder();
+        groupingSymbols.stream()
+                .flatMap(List::stream)
+                .distinct()
+                .forEach(groupingKeys::add);
+        groupIdSymbol.ifPresent(groupingKeys::add);
+
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 aggregations,
-                groupingSymbols,
+                groupingSets(
+                        groupingKeys.build(),
+                        groupingSets.size(),
+                        globalGroupingSets.build()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
@@ -747,7 +766,7 @@ class QueryPlanner
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
-                            ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
+                            singleGroupingSet(subPlan.getRoot().getOutputSymbols()),
                             ImmutableList.of(),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),

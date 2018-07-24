@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import java.util.HashSet;
@@ -38,6 +37,7 @@ import static com.facebook.presto.SystemSessionProperties.isPushAggregationThrou
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -65,7 +65,7 @@ public class PushPartialAggregationThroughJoin
             // TODO: add support for hash symbol in aggregation node
             return false;
         }
-        return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSets().size() == 1;
+        return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSetCount() == 1;
     }
 
     @Override
@@ -135,7 +135,7 @@ public class PushPartialAggregationThroughJoin
 
     private List<Symbol> getPushedDownGroupingSet(AggregationNode aggregation, Set<Symbol> availableSymbols, Set<Symbol> requiredJoinSymbols)
     {
-        List<Symbol> groupingSet = Iterables.getOnlyElement(aggregation.getGroupingSets());
+        List<Symbol> groupingSet = aggregation.getGroupingKeys();
 
         // keep symbols that are directly from the join's child (availableSymbols)
         List<Symbol> pushedDownGroupingSet = groupingSet.stream()
@@ -154,13 +154,13 @@ public class PushPartialAggregationThroughJoin
     private AggregationNode replaceAggregationSource(
             AggregationNode aggregation,
             PlanNode source,
-            List<Symbol> groupingSet)
+            List<Symbol> groupingKeys)
     {
         return new AggregationNode(
                 aggregation.getId(),
                 source,
                 aggregation.getAggregations(),
-                ImmutableList.of(groupingSet),
+                singleGroupingSet(groupingKeys),
                 ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),

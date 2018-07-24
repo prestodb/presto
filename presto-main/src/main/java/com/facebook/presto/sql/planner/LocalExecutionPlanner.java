@@ -2161,7 +2161,7 @@ public class LocalExecutionPlanner
                 return createHashAggregationOperatorFactory(
                         node.getId(),
                         aggregation.getAggregations(),
-                        ImmutableList.of(groupingSymbols),
+                        ImmutableSet.of(),
                         groupingSymbols,
                         PARTIAL,
                         Optional.empty(),
@@ -2215,7 +2215,7 @@ public class LocalExecutionPlanner
                 return createHashAggregationOperatorFactory(
                         node.getId(),
                         aggregation.getAggregations(),
-                        ImmutableList.of(groupingSymbols),
+                        ImmutableSet.of(),
                         groupingSymbols,
                         FINAL,
                         Optional.empty(),
@@ -2531,7 +2531,7 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = createHashAggregationOperatorFactory(
                     node.getId(),
                     node.getAggregations(),
-                    node.getGroupingSets(),
+                    node.getGlobalGroupingSets(),
                     node.getGroupingKeys(),
                     node.getStep(),
                     node.getHashSymbol(),
@@ -2550,7 +2550,7 @@ public class LocalExecutionPlanner
         private OperatorFactory createHashAggregationOperatorFactory(
                 PlanNodeId planNodeId,
                 Map<Symbol, Aggregation> aggregations,
-                List<List<Symbol>> groupingSets,
+                Set<Integer> globalGroupingSets,
                 List<Symbol> groupBySymbols,
                 Step step,
                 Optional<Symbol> hashSymbol,
@@ -2572,13 +2572,6 @@ public class LocalExecutionPlanner
 
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
                 aggregationOutputSymbols.add(symbol);
-            }
-
-            ImmutableList.Builder<Integer> globalAggregationGroupIds = ImmutableList.builder();
-            for (int i = 0; i < groupingSets.size(); i++) {
-                if (groupingSets.get(i).isEmpty()) {
-                    globalAggregationGroupIds.add(i);
-                }
             }
 
             // add group-by key fields each in a separate channel
@@ -2608,8 +2601,6 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
-            Map<Symbol, Integer> mappings = outputMappings.build();
-
             if (isStreamable) {
                 return new StreamingAggregationOperatorFactory(
                         context.getNextOperatorId(),
@@ -2628,7 +2619,7 @@ public class LocalExecutionPlanner
                         planNodeId,
                         groupByTypes,
                         groupByChannels,
-                        globalAggregationGroupIds.build(),
+                        ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
                         accumulatorFactories,
