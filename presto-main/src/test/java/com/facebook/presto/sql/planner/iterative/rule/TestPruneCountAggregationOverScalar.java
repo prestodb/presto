@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
 public class TestPruneCountAggregationOverScalar
@@ -116,9 +117,12 @@ public class TestPruneCountAggregationOverScalar
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(
-                                        p.aggregation(aggregationBuilder -> aggregationBuilder
-                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
-                                                .groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("orderkey"))))))))
+                                        p.aggregation(aggregationBuilder -> {
+                                            aggregationBuilder
+                                                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))));
+                                            aggregationBuilder
+                                                                                            .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
+                                        }))))
                 .doesNotFire();
     }
 

@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
@@ -63,6 +64,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -81,6 +83,7 @@ import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -206,7 +209,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            List<List<String>> groupingSets,
+            GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             Map<Symbol, Symbol> masks,
             Optional<Symbol> groupId,
@@ -217,7 +220,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            List<List<String>> groupingSets,
+            GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             List<String> preGroupedSymbols,
             Map<Symbol, Symbol> masks,
@@ -777,6 +780,68 @@ public final class PlanMatchPattern
     private static String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
+    }
+
+    public static GroupingSetDescriptor globalAggregation()
+    {
+        return singleGroupingSet();
+    }
+
+    public static GroupingSetDescriptor singleGroupingSet(String... groupingKeys)
+    {
+        return singleGroupingSet(ImmutableList.copyOf(groupingKeys));
+    }
+
+    public static GroupingSetDescriptor singleGroupingSet(List<String> groupingKeys)
+    {
+        Set<Integer> globalGroupingSets;
+        if (groupingKeys.size() == 0) {
+            globalGroupingSets = ImmutableSet.of(0);
+        }
+        else {
+            globalGroupingSets = ImmutableSet.of();
+        }
+
+        return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
+    }
+
+    public static class GroupingSetDescriptor
+    {
+        private final List<String> groupingKeys;
+        private final int groupingSetCount;
+        private final Set<Integer> globalGroupingSets;
+
+        private GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+        {
+            this.groupingKeys = groupingKeys;
+            this.groupingSetCount = groupingSetCount;
+            this.globalGroupingSets = globalGroupingSets;
+        }
+
+        public List<String> getGroupingKeys()
+        {
+            return groupingKeys;
+        }
+
+        public int getGroupingSetCount()
+        {
+            return groupingSetCount;
+        }
+
+        public Set<Integer> getGlobalGroupingSets()
+        {
+            return globalGroupingSets;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("keys", groupingKeys)
+                    .add("count", groupingSetCount)
+                    .add("globalSets", globalGroupingSets)
+                    .toString();
+        }
     }
 
     public static class Ordering
