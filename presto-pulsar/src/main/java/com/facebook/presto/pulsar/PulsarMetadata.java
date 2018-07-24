@@ -98,7 +98,7 @@ public class PulsarMetadata implements ConnectorMetadata {
         } catch (PulsarAdminException e) {
             throw new RuntimeException("Failed to get schemas from pulsar", e);
         }
-        return new LinkedList<>(prestoSchemas);
+        return prestoSchemas;
     }
 
     @Override
@@ -147,7 +147,8 @@ public class PulsarMetadata implements ConnectorMetadata {
                 pulsarTopicList = this.pulsarAdmin.topics().getList(schemaNameOrNull);
             } catch (PulsarAdminException e) {
                 if (e.getStatusCode() == 404) {
-                    throw new PrestoException(NOT_FOUND, "Schema " + schemaNameOrNull + " does not exsit");
+                    log.warn("Schema " + schemaNameOrNull + " does not exsit");
+                    return builder.build();
                 }
                 throw new RuntimeException("Failed to get tables/topics in " + schemaNameOrNull, e);
             }
@@ -233,7 +234,7 @@ public class PulsarMetadata implements ConnectorMetadata {
         return columns.build();
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColums) {
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColumns) {
         log.info("getTableMetadata - schemaTableName: %s", schemaTableName);
 
         TopicName topicName;
@@ -293,7 +294,7 @@ public class PulsarMetadata implements ConnectorMetadata {
             Schema.Field field = fields.get(i);
             builder.addAll(getColumns(field.name(), field.schema(), i));
         }
-        if (withInternalColums) {
+        if (withInternalColumns) {
             PulsarInternalColumn.getInternalFields().stream().forEach(new Consumer<PulsarInternalColumn>() {
                 @Override
                 public void accept(PulsarInternalColumn pulsarInternalColumn) {
