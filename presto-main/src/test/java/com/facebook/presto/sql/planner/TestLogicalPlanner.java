@@ -72,6 +72,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -403,7 +404,7 @@ public class TestLogicalPlanner
                 "SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey AND length(name) > length(nation.name)) FROM nation",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),
+                                singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(),
@@ -422,7 +423,7 @@ public class TestLogicalPlanner
                 "SELECT name, (SELECT max(name) FROM region WHERE regionkey > nation.regionkey) FROM nation",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),
+                                singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(),
@@ -446,7 +447,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l WHERE o.orderkey=l.orderkey GROUP BY 1",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("o_orderkey")),
+                                singleGroupingSet("o_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 ImmutableMap.of(),
@@ -462,7 +463,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o LEFT JOIN lineitem l ON o.orderkey=l.orderkey GROUP BY 1",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("o_orderkey")),
+                                singleGroupingSet("o_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 ImmutableMap.of(),
@@ -478,7 +479,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l GROUP BY 1",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("orderkey")),
+                                singleGroupingSet("orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of(), // not streaming
                                 ImmutableMap.of(),

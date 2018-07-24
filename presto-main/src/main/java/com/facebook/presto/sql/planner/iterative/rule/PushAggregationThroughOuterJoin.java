@@ -45,6 +45,8 @@ import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationT
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -128,7 +130,7 @@ public class PushAggregationThroughOuterJoin
                 aggregation.getId(),
                 getInnerTable(join),
                 aggregation.getAggregations(),
-                ImmutableList.of(groupingKeys),
+                singleGroupingSet(groupingKeys),
                 ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
@@ -287,7 +289,7 @@ public class PushAggregationThroughOuterJoin
                 idAllocator.getNextId(),
                 nullRow,
                 aggregationsOverNullBuilder.build(),
-                ImmutableList.of(ImmutableList.of()),
+                globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),

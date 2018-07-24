@@ -218,7 +218,9 @@ public class PushPartialAggregationThroughExchange
                 context.getIdAllocator().getNextId(),
                 node.getSource(),
                 intermediateAggregation,
-                node.getGroupingSets(),
+                node.getGroupingKeys(),
+                node.getGroupingSetCount(),
+                node.getGlobalGroupingSets(),
                 // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
@@ -230,7 +232,9 @@ public class PushPartialAggregationThroughExchange
                 node.getId(),
                 partial,
                 finalAggregation,
-                node.getGroupingSets(),
+                node.getGroupingKeys(),
+                node.getGroupingSetCount(),
+                node.getGlobalGroupingSets(),
                 // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
