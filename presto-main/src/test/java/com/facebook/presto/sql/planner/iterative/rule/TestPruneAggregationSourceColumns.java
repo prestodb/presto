@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -45,7 +46,7 @@ public class TestPruneAggregationSourceColumns
                 .on(p -> buildAggregation(p, alwaysTrue()))
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("key")),
+                                singleGroupingSet("key"),
                                 ImmutableMap.of(
                                         Optional.of("avg"),
                                         functionCall("avg", ImmutableList.of("input"))),
@@ -79,7 +80,7 @@ public class TestPruneAggregationSourceColumns
         Symbol unused = planBuilder.symbol("unused");
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask, unused);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
-                .addGroupingSet(key)
+                .singleGroupingSet(key)
                 .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)
                 .source(
