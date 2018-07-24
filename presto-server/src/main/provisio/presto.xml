@@ -175,4 +175,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/pulsar">
+        <artifact id="${project.groupId}:presto-pulsar:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
