@@ -163,20 +163,15 @@ groupBy
     ;
 
 groupingElement
-    : groupingExpressions                                               #singleGroupingSet
-    | ROLLUP '(' (qualifiedName (',' qualifiedName)*)? ')'              #rollup
-    | CUBE '(' (qualifiedName (',' qualifiedName)*)? ')'                #cube
-    | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'              #multipleGroupingSets
-    ;
-
-groupingExpressions
-    : '(' (expression (',' expression)*)? ')'
-    | expression
+    : groupingSet                                            #singleGroupingSet
+    | ROLLUP '(' (expression (',' expression)*)? ')'         #rollup
+    | CUBE '(' (expression (',' expression)*)? ')'           #cube
+    | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
     ;
 
 groupingSet
-    : '(' (qualifiedName (',' qualifiedName)*)? ')'
-    | qualifiedName
+    : '(' (expression (',' expression)*)? ')'
+    | expression
     ;
 
 namedQuery

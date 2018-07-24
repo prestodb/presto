@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
@@ -38,7 +39,7 @@ public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<List<Expression>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<NodeRef<Expression>>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -64,7 +65,6 @@ public final class GroupingOperationRewriter
 
             List<List<Integer>> groupingSetDescriptors = groupingSets.stream()
                     .map(groupingSet -> groupingSet.stream()
-                            .map(NodeRef::of)
                             .filter(columnReferenceFields::containsKey)
                             .map(columnReferenceFields::get)
                             .map(fieldId -> translateFieldToInteger(fieldId, relationId))
