@@ -81,6 +81,14 @@ public class PrestoPreparedStatement
     }
 
     @Override
+    public void close()
+            throws SQLException
+    {
+        super.execute(format("DEALLOCATE PREPARE %s", statementName));
+        super.close();
+    }
+
+    @Override
     public ResultSet executeQuery()
             throws SQLException
     {

@@ -39,6 +39,7 @@ import java.time.ZoneId;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
+import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -96,6 +97,22 @@ public class TestJdbcPreparedStatement
                 assertEquals(rs.getInt(1), 123);
                 assertEquals(rs.getString(2), "hello");
                 assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testDeallocate()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            for (int i = 0; i < 200; i++) {
+                try {
+                    connection.prepareStatement("SELECT '" + repeat("a", 300) + "'").close();
+                }
+                catch (Exception e) {
+                    throw new RuntimeException("Failed at " + i, e);
+                }
             }
         }
     }
