@@ -37,7 +37,7 @@ public final class ThriftExceptions
             throw new PrestoException(THRIFT_SERVICE_NO_AVAILABLE_HOSTS, e);
         }
         if ((e instanceof TApplicationException) || (e instanceof PrestoThriftServiceException)) {
-            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by remote Thrift server", e);
+            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by remote Thrift server: " + e.getMessage(), e);
         }
         if (e instanceof TException) {
             return new PrestoException(THRIFT_SERVICE_CONNECTION_ERROR, "Error communicating with remote Thrift server", e);
