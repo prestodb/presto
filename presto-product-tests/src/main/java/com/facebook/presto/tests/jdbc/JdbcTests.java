@@ -33,6 +33,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -45,6 +46,7 @@ import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbc4Driver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static com.google.common.base.Strings.repeat;
 import static io.prestodb.tempto.Requirements.compose;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -282,6 +284,27 @@ public class JdbcTests
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo("BROADCAST");
         resetSessionProperty(connection(), joinDistributionType);
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
+    }
+
+    /**
+     * Same as {@code com.facebook.presto.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for TeradataJdbcDriver as well.
+     */
+    @Test(groups = JDBC)
+    public void testDeallocate()
+            throws Exception
+    {
+        try (Connection connection = connection()) {
+            for (int i = 0; i < 200; i++) {
+                try {
+                    try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT '" + repeat("a", 300) + "'")) {
+                        preparedStatement.executeQuery().close(); // Let's not assume when PREPARE actually happens
+                    }
+                }
+                catch (Exception e) {
+                    throw new RuntimeException("Failed at " + i, e);
+                }
+            }
+        }
     }
 
     private QueryResult queryResult(Statement statement, String query)
