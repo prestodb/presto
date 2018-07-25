@@ -60,7 +60,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -89,7 +88,9 @@ public class Analysis
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
-    private final Map<NodeRef<QuerySpecification>, List<List<Expression>>> groupByExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<Expression>> groupByExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
+
     private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
@@ -264,9 +265,19 @@ public class Analysis
         return unmodifiableMap(lambdaArgumentReferences);
     }
 
-    public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
+    public void setGroupingSets(QuerySpecification node, GroupingSetAnalysis groupingSets)
     {
-        groupByExpressions.put(NodeRef.of(node), listOfListsCopy(expressions));
+        this.groupingSets.put(NodeRef.of(node), groupingSets);
+    }
+
+    public void setGroupByExpressions(QuerySpecification node, List<Expression> expressions)
+    {
+        groupByExpressions.put(NodeRef.of(node), expressions);
+    }
+
+    public boolean isAggregation(QuerySpecification node)
+    {
+        return groupByExpressions.containsKey(NodeRef.of(node));
     }
 
     public boolean isTypeOnlyCoercion(Expression expression)
@@ -274,7 +285,12 @@ public class Analysis
         return typeOnlyCoercions.contains(NodeRef.of(expression));
     }
 
-    public List<List<Expression>> getGroupingSets(QuerySpecification node)
+    public GroupingSetAnalysis getGroupingSets(QuerySpecification node)
+    {
+        return groupingSets.get(NodeRef.of(node));
+    }
+
+    public List<Expression> getGroupByExpressions(QuerySpecification node)
     {
         return groupByExpressions.get(NodeRef.of(node));
     }
@@ -695,6 +711,46 @@ public class Analysis
         public List<Integer> getOtherRightFields()
         {
             return otherRightFields;
+        }
+    }
+
+    public static class GroupingSetAnalysis
+    {
+        private final List<Set<FieldId>> cubes;
+        private final List<List<FieldId>> rollups;
+        private final List<List<Set<FieldId>>> ordinarySets;
+        private final List<Expression> complexExpressions;
+
+        public GroupingSetAnalysis(
+                List<Set<FieldId>> cubes,
+                List<List<FieldId>> rollups,
+                List<List<Set<FieldId>>> ordinarySets,
+                List<Expression> complexExpressions)
+        {
+            this.cubes = ImmutableList.copyOf(cubes);
+            this.rollups = ImmutableList.copyOf(rollups);
+            this.ordinarySets = ImmutableList.copyOf(ordinarySets);
+            this.complexExpressions = ImmutableList.copyOf(complexExpressions);
+        }
+
+        public List<Set<FieldId>> getCubes()
+        {
+            return cubes;
+        }
+
+        public List<List<FieldId>> getRollups()
+        {
+            return rollups;
+        }
+
+        public List<List<Set<FieldId>>> getOrdinarySets()
+        {
+            return ordinarySets;
+        }
+
+        public List<Expression> getComplexExpressions()
+        {
+            return complexExpressions;
         }
     }
 

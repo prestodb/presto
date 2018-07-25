@@ -14,20 +14,16 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.collectingAndThen;
 
 public final class GroupingSets
         extends GroupingElement
@@ -55,14 +51,6 @@ public final class GroupingSets
     public List<List<Expression>> getSets()
     {
         return sets;
-    }
-
-    @Override
-    public List<Set<Expression>> enumerateGroupingSets()
-    {
-        return sets.stream()
-                .map(ImmutableSet::copyOf)
-                .collect(collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
     }
 
     @Override

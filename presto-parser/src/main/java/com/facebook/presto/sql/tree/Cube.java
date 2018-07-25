@@ -14,13 +14,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -50,12 +47,6 @@ public final class Cube
     public List<Expression> getColumns()
     {
         return columns;
-    }
-
-    @Override
-    public List<Set<Expression>> enumerateGroupingSets()
-    {
-        return ImmutableList.copyOf(Sets.powerSet(ImmutableSet.copyOf(columns)));
     }
 
     @Override

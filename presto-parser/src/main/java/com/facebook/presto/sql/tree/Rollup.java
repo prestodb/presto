@@ -14,17 +14,13 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public final class Rollup
         extends GroupingElement
@@ -51,18 +47,6 @@ public final class Rollup
     public List<Expression> getColumns()
     {
         return columns;
-    }
-
-    @Override
-    public List<Set<Expression>> enumerateGroupingSets()
-    {
-        int numColumns = columns.size();
-        return ImmutableList.<Set<Expression>>builder()
-                .addAll(IntStream.range(0, numColumns)
-                        .mapToObj(i -> ImmutableSet.copyOf(columns.subList(0, numColumns - i)))
-                        .collect(toList()))
-                .add(ImmutableSet.of())
-                .build();
     }
 
     @Override
