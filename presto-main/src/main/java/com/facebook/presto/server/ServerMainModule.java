@@ -139,7 +139,6 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -213,10 +212,6 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
-
-        // discovery server
-        // TODO: move to CoordinatorModule
-        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         install(new InternalCommunicationModule());
 

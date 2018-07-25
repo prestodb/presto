@@ -111,6 +111,7 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -150,6 +151,9 @@ public class CoordinatorModule
     {
         httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
         httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
+
+        // discovery server
+        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         // presto coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
