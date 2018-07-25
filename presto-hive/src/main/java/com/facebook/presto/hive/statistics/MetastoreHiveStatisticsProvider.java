@@ -292,19 +292,14 @@ public class MetastoreHiveStatisticsProvider
             double partitionRowCount = statistics.getBasicStatistics().getRowCount().getAsLong();
 
             HiveColumnStatistics partitionColumnStatistics = statistics.getColumnStatistics().get(columnName);
-            if (partitionColumnStatistics == null || !partitionColumnStatistics.getAverageColumnLength().isPresent()) {
+            if (partitionColumnStatistics == null || !partitionColumnStatistics.getTotalSizeInBytes().isPresent()) {
                 continue;
             }
 
-            double partitionNonNullCount = partitionRowCount - partitionColumnStatistics.getNullsCount().orElse(0);
-            if (partitionNonNullCount < 0) {
-                log.debug("null count bigger than row count in partition stats");
-                continue;
-            }
             knownPartitionCount++;
             knownRowCount += partitionRowCount;
             // Note: average column length from Hive might not translate directly into internal data size
-            knownDataSize += partitionColumnStatistics.getAverageColumnLength().getAsDouble() * partitionNonNullCount;
+            knownDataSize += partitionColumnStatistics.getTotalSizeInBytes().getAsLong();
         }
 
         if (knownPartitionCount == 0) {
