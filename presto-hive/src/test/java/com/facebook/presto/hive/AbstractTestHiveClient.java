@@ -456,8 +456,8 @@ public abstract class AbstractTestHiveClient
             .build();
 
     protected static final PartitionStatistics EMPTY_TABLE_STATISTICS = new PartitionStatistics(createZeroStatistics(), ImmutableMap.of());
-    protected static final PartitionStatistics BASIC_STATISTICS_1 = new PartitionStatistics(new HiveBasicStatistics(0, 2, 3, 0), ImmutableMap.of());
-    protected static final PartitionStatistics BASIC_STATISTICS_2 = new PartitionStatistics(new HiveBasicStatistics(0, 3, 2, 0), ImmutableMap.of());
+    protected static final PartitionStatistics BASIC_STATISTICS_1 = new PartitionStatistics(new HiveBasicStatistics(0, 20, 3, 0), ImmutableMap.of());
+    protected static final PartitionStatistics BASIC_STATISTICS_2 = new PartitionStatistics(new HiveBasicStatistics(0, 30, 2, 0), ImmutableMap.of());
 
     private static final PartitionStatistics STATISTICS_1 =
             new PartitionStatistics(
@@ -470,10 +470,10 @@ public abstract class AbstractTestHiveClient
                             .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.of(1L), OptionalLong.of(2L), OptionalLong.of(1), OptionalLong.of(3)))
                             .put("t_double", createDoubleColumnStatistics(OptionalDouble.of(1234.25), OptionalDouble.of(5678.58), OptionalLong.of(7), OptionalLong.of(8)))
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.of(123.25), OptionalDouble.of(567.58), OptionalLong.of(9), OptionalLong.of(10)))
-                            .put("t_string", createStringColumnStatistics(OptionalLong.of(10), OptionalDouble.of(5.0), OptionalLong.of(3), OptionalLong.of(7)))
-                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(100), OptionalDouble.of(23.3), OptionalLong.of(5), OptionalLong.of(3)))
-                            .put("t_char", createStringColumnStatistics(OptionalLong.of(5), OptionalDouble.of(5.0), OptionalLong.of(1), OptionalLong.of(4)))
-                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(4), OptionalDouble.of(3.0), OptionalLong.of(1)))
+                            .put("t_string", createStringColumnStatistics(OptionalLong.of(10), OptionalLong.of(50), OptionalLong.of(3), OptionalLong.of(7)))
+                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(100), OptionalLong.of(230), OptionalLong.of(5), OptionalLong.of(3)))
+                            .put("t_char", createStringColumnStatistics(OptionalLong.of(5), OptionalLong.of(500), OptionalLong.of(1), OptionalLong.of(4)))
+                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(4), OptionalLong.of(300), OptionalLong.of(1)))
                             .put("t_date", createDateColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(1)), Optional.of(java.time.LocalDate.ofEpochDay(2)), OptionalLong.of(7), OptionalLong.of(6)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(1234567L), OptionalLong.of(71234567L), OptionalLong.of(7), OptionalLong.of(5)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(10)), Optional.of(new BigDecimal(12)), OptionalLong.of(3), OptionalLong.of(5)))
@@ -482,7 +482,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_1_1 =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(2), OptionalLong.empty(), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().hashCode() % 2 == 0)
@@ -490,7 +490,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_1_2 =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(3), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.of(3), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().hashCode() % 2 == 1)
@@ -507,10 +507,10 @@ public abstract class AbstractTestHiveClient
                             .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.of(12), OptionalLong.of(3L), OptionalLong.of(2), OptionalLong.of(3)))
                             .put("t_double", createDoubleColumnStatistics(OptionalDouble.of(2345.25), OptionalDouble.of(6785.58), OptionalLong.of(6), OptionalLong.of(3)))
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.of(235.25), OptionalDouble.of(676.58), OptionalLong.of(7), OptionalLong.of(11)))
-                            .put("t_string", createStringColumnStatistics(OptionalLong.of(11), OptionalDouble.of(6.0), OptionalLong.of(2), OptionalLong.of(6)))
-                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(99), OptionalDouble.of(22.3), OptionalLong.of(7), OptionalLong.of(1)))
-                            .put("t_char", createStringColumnStatistics(OptionalLong.of(6), OptionalDouble.of(6.0), OptionalLong.of(0), OptionalLong.of(3)))
-                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(2), OptionalDouble.of(1.0), OptionalLong.of(2)))
+                            .put("t_string", createStringColumnStatistics(OptionalLong.of(11), OptionalLong.of(600), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(99), OptionalLong.of(223), OptionalLong.of(7), OptionalLong.of(1)))
+                            .put("t_char", createStringColumnStatistics(OptionalLong.of(6), OptionalLong.of(60), OptionalLong.of(0), OptionalLong.of(3)))
+                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(2), OptionalLong.of(10), OptionalLong.of(2)))
                             .put("t_date", createDateColumnStatistics(Optional.of(java.time.LocalDate.ofEpochDay(2)), Optional.of(java.time.LocalDate.ofEpochDay(3)), OptionalLong.of(8), OptionalLong.of(7)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(2345671L), OptionalLong.of(12345677L), OptionalLong.of(9), OptionalLong.of(1)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(11)), Optional.of(new BigDecimal(14)), OptionalLong.of(5), OptionalLong.of(7)))
@@ -528,10 +528,10 @@ public abstract class AbstractTestHiveClient
                             .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(3)))
                             .put("t_double", createDoubleColumnStatistics(OptionalDouble.empty(), OptionalDouble.empty(), OptionalLong.of(6), OptionalLong.of(3)))
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.empty(), OptionalDouble.empty(), OptionalLong.of(7), OptionalLong.of(11)))
-                            .put("t_string", createStringColumnStatistics(OptionalLong.of(0), OptionalDouble.of(0), OptionalLong.of(2), OptionalLong.of(6)))
-                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(0), OptionalDouble.of(0), OptionalLong.of(7), OptionalLong.of(1)))
-                            .put("t_char", createStringColumnStatistics(OptionalLong.of(0), OptionalDouble.of(0), OptionalLong.of(0), OptionalLong.of(3)))
-                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(0), OptionalDouble.of(0), OptionalLong.of(2)))
+                            .put("t_string", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(1)))
+                            .put("t_char", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(0), OptionalLong.of(3)))
+                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(2)))
                             // https://issues.apache.org/jira/browse/HIVE-20098
                             // .put("t_date", createDateColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(8), OptionalLong.of(7)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(1)))

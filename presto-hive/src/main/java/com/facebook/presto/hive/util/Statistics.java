@@ -82,7 +82,7 @@ public final class Statistics
     {
         return new PartitionStatistics(
                 reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
-                merge(first.getColumnStatistics(), first.getBasicStatistics().getRowCount(), second.getColumnStatistics(), second.getBasicStatistics().getRowCount()));
+                merge(first.getColumnStatistics(), second.getColumnStatistics()));
     }
 
     public static HiveBasicStatistics reduce(HiveBasicStatistics first, HiveBasicStatistics second, ReduceOperator operator)
@@ -94,21 +94,17 @@ public final class Statistics
                 reduce(first.getOnDiskDataSizeInBytes(), second.getOnDiskDataSizeInBytes(), operator, false));
     }
 
-    public static Map<String, HiveColumnStatistics> merge(
-            Map<String, HiveColumnStatistics> first,
-            OptionalLong firstRowCount,
-            Map<String, HiveColumnStatistics> second,
-            OptionalLong secondRowCount)
+    public static Map<String, HiveColumnStatistics> merge(Map<String, HiveColumnStatistics> first, Map<String, HiveColumnStatistics> second)
     {
         // only keep columns that have statistics for both sides
         Set<String> columns = intersection(first.keySet(), second.keySet());
         return columns.stream()
                 .collect(toImmutableMap(
                         column -> column,
-                        column -> merge(first.get(column), firstRowCount, second.get(column), secondRowCount)));
+                        column -> merge(first.get(column), second.get(column))));
     }
 
-    public static HiveColumnStatistics merge(HiveColumnStatistics first, OptionalLong firstRowCount, HiveColumnStatistics second, OptionalLong secondRowCount)
+    public static HiveColumnStatistics merge(HiveColumnStatistics first, HiveColumnStatistics second)
     {
         return new HiveColumnStatistics(
                 mergeIntegerStatistics(first.getIntegerStatistics(), second.getIntegerStatistics()),
@@ -116,8 +112,8 @@ public final class Statistics
                 mergeDecimalStatistics(first.getDecimalStatistics(), second.getDecimalStatistics()),
                 mergeDateStatistics(first.getDateStatistics(), second.getDateStatistics()),
                 mergeBooleanStatistics(first.getBooleanStatistics(), second.getBooleanStatistics()),
-                reduce(first.getMaxColumnLength(), second.getMaxColumnLength(), MAX, true),
-                mergeAverage(first.getAverageColumnLength(), firstRowCount, second.getAverageColumnLength(), secondRowCount),
+                reduce(first.getMaxValueSizeInBytes(), second.getMaxValueSizeInBytes(), MAX, true),
+                reduce(first.getTotalSizeInBytes(), second.getTotalSizeInBytes(), ADD, true),
                 reduce(first.getNullsCount(), second.getNullsCount(), ADD, false),
                 reduce(first.getDistinctValuesCount(), second.getDistinctValuesCount(), MAX, false));
     }
