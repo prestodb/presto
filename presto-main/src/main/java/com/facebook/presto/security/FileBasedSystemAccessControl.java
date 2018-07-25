@@ -78,9 +78,13 @@ public class FileBasedSystemAccessControl
             checkState(
                     configFileName != null,
                     "Security configuration must contain the '%s' property", CONFIG_FILE_NAME);
+            Path path = Paths.get(configFileName);
+            return RefreshingSystemAccessControl.optionallyRefresh(config, previousControl -> load(path));
+        }
 
+        private FileBasedSystemAccessControl load(Path path)
+        {
             try {
-                Path path = Paths.get(configFileName);
                 if (!path.isAbsolute()) {
                     path = path.toAbsolutePath();
                 }
@@ -98,7 +102,8 @@ public class FileBasedSystemAccessControl
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(Pattern.compile("system"))));
 
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
+                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(),
+                        rules.getPrincipalUserMatchRules());
             }
             catch (SecurityException | IOException | InvalidPathException e) {
                 throw new RuntimeException(e);
