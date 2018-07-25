@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.List;
@@ -23,30 +24,30 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 
 public final class Cube
         extends GroupingElement
 {
-    private final List<QualifiedName> columns;
+    private final List<Expression> columns;
 
-    public Cube(List<QualifiedName> columns)
+    public Cube(List<Expression> columns)
     {
         this(Optional.empty(), columns);
     }
 
-    public Cube(NodeLocation location, List<QualifiedName> columns)
+    public Cube(NodeLocation location, List<Expression> columns)
     {
         this(Optional.of(location), columns);
     }
 
-    private Cube(Optional<NodeLocation> location, List<QualifiedName> columns)
+    private Cube(Optional<NodeLocation> location, List<Expression> columns)
     {
         super(location);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
-    public List<QualifiedName> getColumns()
+    @Override
+    public List<Expression> getColumns()
     {
         return columns;
     }
@@ -54,9 +55,7 @@ public final class Cube
     @Override
     public List<Set<Expression>> enumerateGroupingSets()
     {
-        return ImmutableList.copyOf(Sets.powerSet(columns.stream()
-                .map(DereferenceExpression::from)
-                .collect(toSet())));
+        return ImmutableList.copyOf(Sets.powerSet(ImmutableSet.copyOf(columns)));
     }
 
     @Override

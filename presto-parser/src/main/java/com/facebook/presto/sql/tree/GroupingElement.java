@@ -25,6 +25,8 @@ public abstract class GroupingElement
         super(location);
     }
 
+    public abstract List<Expression> getColumns();
+
     public abstract List<Set<Expression>> enumerateGroupingSets();
 
     @Override
