@@ -672,6 +672,48 @@ public class TestRoles
     }
 
     @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanShowGrantsOnlyFromCurrentSchema()
+    {
+        try {
+            onPrestoBob().executeQuery("CREATE TABLE hive.default.test_table_bob (foo BIGINT)");
+            onPresto().executeQuery("CREATE SCHEMA hive.test");
+            onPresto().executeQuery("GRANT admin TO alice");
+            onPrestoAlice().executeQuery("SET ROLE ADMIN");
+            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT)");
+
+            QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table_bob"))
+                    .containsOnly(ImmutableList.of(
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "SELECT", "YES", null),
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "DELETE", "YES", null),
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "UPDATE", "YES", null),
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "INSERT", "YES", null)));
+
+            QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.test.test_table_bob"))
+                    .containsOnly(ImmutableList.of(
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "SELECT", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "DELETE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "UPDATE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "INSERT", "YES", null)));
+            QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.table_privileges where table_name = 'test_table_bob'"))
+                    .containsOnly(ImmutableList.of(
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "SELECT", "YES", null),
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "DELETE", "YES", null),
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "UPDATE", "YES", null),
+                            row("bob", "USER", "bob", "USER", "hive", "default", "test_table_bob", "INSERT", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "SELECT", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "DELETE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "UPDATE", "YES", null),
+                            row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "INSERT", "YES", null)));
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE hive.default.test_table_bob");
+            onPrestoAlice().executeQuery("DROP TABLE hive.test.test_table_bob");
+            onPresto().executeQuery("DROP SCHEMA hive.test");
+            onPresto().executeQuery("REVOKE admin FROM alice");
+        }
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRoleTablePermissions()
     {
         onPresto().executeQuery("CREATE ROLE role1");
