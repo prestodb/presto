@@ -494,7 +494,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
     {
-        for (Expression expression : node.getColumnExpressions()) {
+        for (Expression expression : node.getExpressions()) {
             process(expression, context);
         }
 
