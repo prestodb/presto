@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -40,6 +41,8 @@ public final class Signature
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
 
     @JsonCreator
     public Signature(
@@ -49,7 +52,9 @@ public final class Signature
             @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
             @JsonProperty("returnType") TypeSignature returnType,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
-            @JsonProperty("variableArity") boolean variableArity)
+            @JsonProperty("variableArity") boolean variableArity,
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
@@ -62,6 +67,19 @@ public final class Signature
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+    }
+
+    public Signature(String name,
+            FunctionKind kind,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
+            TypeSignature returnType,
+            List<TypeSignature> argumentTypes,
+            boolean variableArity)
+    {
+        this(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity, Optional.empty(), Optional.empty());
     }
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -109,6 +127,19 @@ public final class Signature
         return new Signature(name, SCALAR, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
+    public static Signature qualifySignature(Signature signature, String catalog, String schema)
+    {
+        return new Signature(signature.name,
+                signature.kind,
+                signature.typeVariableConstraints,
+                signature.longVariableConstraints,
+                signature.returnType,
+                signature.argumentTypes,
+                signature.variableArity,
+                Optional.of(catalog),
+                Optional.of(schema));
+    }
+
     public Signature withAlias(String name)
     {
         return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, getReturnType(), getArgumentTypes(), variableArity);
@@ -154,6 +185,18 @@ public final class Signature
     public List<LongVariableConstraint> getLongVariableConstraints()
     {
         return longVariableConstraints;
+    }
+
+    @JsonProperty
+    public Optional<String> getCatalog()
+    {
+        return catalog;
+    }
+
+    @JsonProperty
+    public Optional<String> getSchema()
+    {
+        return schema;
     }
 
     @Override
