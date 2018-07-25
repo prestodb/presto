@@ -83,8 +83,7 @@
                             <architecture>x86_64</architecture>
                             <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
                             <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>
-                            <postUninstallScriptFile>src/main/rpm/postremove
-                            </postUninstallScriptFile>
+                            <postUninstallScriptFile>src/main/rpm/postremove</postUninstallScriptFile>
 
                             <dependencies>
                                 <dependency>
