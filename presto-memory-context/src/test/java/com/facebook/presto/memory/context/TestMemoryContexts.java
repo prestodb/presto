@@ -20,7 +20,6 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -186,7 +185,7 @@ public class TestMemoryContexts
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(Optional<String> allocationTag, long delta)
+        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
         {
             reservation += delta;
             if (delta >= 0) {
@@ -206,7 +205,7 @@ public class TestMemoryContexts
         }
 
         @Override
-        public boolean tryReserveMemory(Optional<String> allocationTag, long delta)
+        public boolean tryReserveMemory(String allocationTag, long delta)
         {
             if (reservation + delta > maxMemory) {
                 return false;
