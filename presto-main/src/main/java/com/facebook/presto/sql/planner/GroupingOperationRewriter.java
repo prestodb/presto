@@ -117,9 +117,11 @@ public final class GroupingOperationRewriter
         long grouping = (1L << columns.size()) - 1;
 
         Set<Integer> groupingSet = groupingSetDescriptors.get(toIntExact(groupId));
-        for (Integer groupingColumn : groupingSet) {
-            int index = columns.indexOf(groupingColumn);
-            if (index != -1) {
+
+        for (int index = 0; index < columns.size(); index++) {
+            int column = columns.get(index);
+
+            if (groupingSet.contains(column)) {
                 // Leftmost argument to grouping() (i.e. when index = 0) corresponds to
                 // the most significant bit in the result. That is why we shift 1L starting
                 // from the columns.size() - 1 bit index.
