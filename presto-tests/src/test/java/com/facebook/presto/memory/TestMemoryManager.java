@@ -125,7 +125,7 @@ public class TestMemoryManager
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingPrestoServer server : queryRunner.getServers()) {
                 for (MemoryPool pool : server.getLocalMemoryManager().getPools()) {
-                    assertTrue(pool.tryReserve(fakeQueryId, pool.getMaxBytes()));
+                    assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
                 }
             }
 
@@ -152,7 +152,7 @@ public class TestMemoryManager
             for (TestingPrestoServer server : queryRunner.getServers()) {
                 MemoryPool reserved = server.getLocalMemoryManager().getPool(RESERVED_POOL);
                 // Free up the entire pool
-                reserved.free(fakeQueryId, reserved.getMaxBytes());
+                reserved.free(fakeQueryId, "test", reserved.getMaxBytes());
                 assertTrue(reserved.getFreeBytes() > 0);
             }
 
@@ -208,7 +208,7 @@ public class TestMemoryManager
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingPrestoServer server : queryRunner.getServers()) {
                 for (MemoryPool pool : server.getLocalMemoryManager().getPools()) {
-                    assertTrue(pool.tryReserve(fakeQueryId, pool.getMaxBytes()));
+                    assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
                 }
             }
 
@@ -252,7 +252,7 @@ public class TestMemoryManager
             for (TestingPrestoServer server : queryRunner.getServers()) {
                 MemoryPool reserved = server.getLocalMemoryManager().getPool(RESERVED_POOL);
                 // Free up the entire pool
-                reserved.free(fakeQueryId, reserved.getMaxBytes());
+                reserved.free(fakeQueryId, "test", reserved.getMaxBytes());
                 assertTrue(reserved.getFreeBytes() > 0);
             }
 
@@ -273,7 +273,7 @@ public class TestMemoryManager
                 assertEquals(reserved.getMaxBytes(), reserved.getFreeBytes());
                 MemoryPool general = worker.getLocalMemoryManager().getPool(GENERAL_POOL);
                 // Free up the memory we reserved earlier
-                general.free(fakeQueryId, general.getMaxBytes());
+                general.free(fakeQueryId, "test", general.getMaxBytes());
                 assertEquals(general.getMaxBytes(), general.getFreeBytes());
             }
         }

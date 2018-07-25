@@ -20,8 +20,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.Optional;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 
@@ -30,6 +28,11 @@ abstract class AbstractAggregatedMemoryContext
         implements AggregatedMemoryContext
 {
     static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
+
+    // When an aggregated memory context is closed, it force-frees the memory allocated by its
+    // children local memory contexts. Since the memory pool API enforces a tag to be used for
+    // reserve/free operations, we define this special tag to use with such free operations.
+    protected static final String FORCE_FREE_TAG = "FORCE_FREE_OPERATION";
 
     @GuardedBy("this")
     private long usedBytes;
@@ -84,9 +87,9 @@ abstract class AbstractAggregatedMemoryContext
         usedBytes = addExact(usedBytes, bytes);
     }
 
-    abstract ListenableFuture<?> updateBytes(Optional<String> allocationTag, long bytes);
+    abstract ListenableFuture<?> updateBytes(String allocationTag, long bytes);
 
-    abstract boolean tryUpdateBytes(Optional<String> allocationTag, long delta);
+    abstract boolean tryUpdateBytes(String allocationTag, long delta);
 
     @Nullable
     abstract AbstractAggregatedMemoryContext getParent();

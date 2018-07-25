@@ -82,7 +82,7 @@ public class TestQueryContext
         MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, new DataSize(10, BYTE));
         long secondQueryMemory = reservedPool.getMaxBytes() - 1;
         if (useReservedPool) {
-            assertTrue(reservedPool.reserve(secondQuery, secondQueryMemory).isDone());
+            assertTrue(reservedPool.reserve(secondQuery, "test", secondQueryMemory).isDone());
         }
 
         try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION)) {
@@ -107,7 +107,7 @@ public class TestQueryContext
             queryContext.setMemoryPool(reservedPool);
 
             if (useReservedPool) {
-                reservedPool.free(secondQuery, secondQueryMemory);
+                reservedPool.free(secondQuery, "test", secondQueryMemory);
             }
 
             // Free memory
