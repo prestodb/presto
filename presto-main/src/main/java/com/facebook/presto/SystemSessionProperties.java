@@ -65,6 +65,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
@@ -265,6 +266,11 @@ public final class SystemSessionProperties
                         "Use resources which are not guaranteed to be available to the query",
                         false,
                         false),
+                integerProperty(
+                        QUERY_MAX_STAGE_COUNT,
+                        "Temporary: Maximum number of stages a query can have",
+                        queryManagerConfig.getMaxStageCount(),
+                        true),
                 booleanProperty(
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
@@ -604,6 +610,11 @@ public final class SystemSessionProperties
     public static boolean resourceOvercommit(Session session)
     {
         return session.getSystemProperty(RESOURCE_OVERCOMMIT, Boolean.class);
+    }
+
+    public static int getQueryMaxStageCount(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
     }
 
     public static boolean planWithTableNodePartitioning(Session session)

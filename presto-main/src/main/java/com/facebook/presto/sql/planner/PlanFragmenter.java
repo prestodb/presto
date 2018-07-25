@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
@@ -71,18 +72,14 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
-    private final int maxStageCount;
-
     @Inject
     public PlanFragmenter(QueryManagerConfig queryManagerConfig)
     {
-        this(queryManagerConfig.getMaxStageCount());
+        // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
+        this();
     }
 
-    private PlanFragmenter(int maxStageCount)
-    {
-        this.maxStageCount = maxStageCount;
-    }
+    private PlanFragmenter() {}
 
     public SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
     {
@@ -98,12 +95,12 @@ public class PlanFragmenter
         subPlan = analyzeGroupedExecution(session, metadata, nodePartitioningManager, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
-        sanityCheckFragmentedPlan(subPlan);
+        sanityCheckFragmentedPlan(subPlan, getQueryMaxStageCount(session));
 
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(SubPlan subPlan)
+    private void sanityCheckFragmentedPlan(SubPlan subPlan, int maxStageCount)
     {
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
