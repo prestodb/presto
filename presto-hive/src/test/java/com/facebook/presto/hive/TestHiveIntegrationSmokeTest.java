@@ -2587,8 +2587,8 @@ public class TestHiveIntegrationSmokeTest
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
-                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
-                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tableName),
@@ -2597,8 +2597,8 @@ public class TestHiveIntegrationSmokeTest
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
-                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
-                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
 
@@ -2644,8 +2644,8 @@ public class TestHiveIntegrationSmokeTest
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
-                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
-                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tableName),
@@ -2654,8 +2654,8 @@ public class TestHiveIntegrationSmokeTest
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
-                        "('c_varchar', null, 2.0E0, 0.5E0, null, null, null), " +
-                        "('c_varbinary', null, null, 0.5E0, null, null, null), " +
+                        "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
 
