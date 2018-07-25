@@ -83,7 +83,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -92,7 +91,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.PrimitiveIterator;
-import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
@@ -753,7 +751,7 @@ public final class ExpressionFormatter
         for (GroupingElement groupingElement : groupingElements) {
             String result = "";
             if (groupingElement instanceof SimpleGroupBy) {
-                Set<Expression> columns = ImmutableSet.copyOf(((SimpleGroupBy) groupingElement).getColumnExpressions());
+                List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
                 if (columns.size() == 1) {
                     result = formatExpression(getOnlyElement(columns), parameters);
                 }
@@ -764,14 +762,14 @@ public final class ExpressionFormatter
             else if (groupingElement instanceof GroupingSets) {
                 result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
                         ((GroupingSets) groupingElement).getSets().stream()
-                                .map(ExpressionFormatter::formatGroupingSet)
+                                .map(e -> formatGroupingSet(e, parameters))
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getColumns()));
+                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters));
             }
             else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getColumns()));
+                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters));
             }
             resultStrings.add(result);
         }
@@ -786,16 +784,11 @@ public final class ExpressionFormatter
         return true;
     }
 
-    private static String formatGroupingSet(Set<Expression> groupingSet, Optional<List<Expression>> parameters)
+    private static String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
     {
         return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
                 .map(e -> formatExpression(e, parameters))
                 .iterator()));
-    }
-
-    private static String formatGroupingSet(List<QualifiedName> groupingSet)
-    {
-        return format("(%s)", Joiner.on(", ").join(groupingSet));
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
