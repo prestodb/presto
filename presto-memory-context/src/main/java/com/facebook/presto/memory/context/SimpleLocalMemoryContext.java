@@ -19,8 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.Optional;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,7 +63,7 @@ public final class SimpleLocalMemoryContext
         }
 
         // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
-        ListenableFuture<?> future = parentMemoryContext.updateBytes(Optional.of(allocationTag), bytes - usedBytes);
+        ListenableFuture<?> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes);
         usedBytes = bytes;
         return future;
     }
@@ -76,7 +74,7 @@ public final class SimpleLocalMemoryContext
         checkState(!closed, "SimpleLocalMemoryContext is already closed");
         checkArgument(bytes >= 0, "bytes cannot be negative");
         long delta = bytes - usedBytes;
-        if (parentMemoryContext.tryUpdateBytes(Optional.of(allocationTag), delta)) {
+        if (parentMemoryContext.tryUpdateBytes(allocationTag, delta)) {
             usedBytes = bytes;
             return true;
         }
@@ -90,7 +88,7 @@ public final class SimpleLocalMemoryContext
             return;
         }
         closed = true;
-        parentMemoryContext.updateBytes(Optional.of(allocationTag), -usedBytes);
+        parentMemoryContext.updateBytes(allocationTag, -usedBytes);
         usedBytes = 0;
     }
 
