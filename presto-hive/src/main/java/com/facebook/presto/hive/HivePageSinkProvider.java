@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
 
@@ -53,7 +54,8 @@ public class HivePageSinkProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
     private final int maxOpenPartitions;
-    private final int maxSortFilesPerBucket;
+    private final int maxOpenSortFiles;
+    private final DataSize writerSortBufferSize;
     private final boolean immutablePartitions;
     private final LocationService locationService;
     private final ListeningExecutorService writeVerificationExecutor;
@@ -88,7 +90,8 @@ public class HivePageSinkProvider
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
-        this.maxSortFilesPerBucket = config.getMaxSortFilesPerBucket();
+        this.maxOpenSortFiles = config.getMaxOpenSortFiles();
+        this.writerSortBufferSize = requireNonNull(config.getWriterSortBufferSize(), "writerSortBufferSize is null");
         this.immutablePartitions = config.isImmutablePartitions();
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
@@ -140,7 +143,8 @@ public class HivePageSinkProvider
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,
-                maxSortFilesPerBucket,
+                writerSortBufferSize,
+                maxOpenSortFiles,
                 immutablePartitions,
                 session,
                 nodeManager,
