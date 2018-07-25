@@ -727,7 +727,7 @@ public abstract class AbstractTestHiveClient
         metastoreClient = hiveMetastore;
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
-        locationService = new HiveLocationService(hdfsEnvironment);
+        locationService = new HiveLocationService(hdfsEnvironment, hiveClientConfig);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 metastoreClient,

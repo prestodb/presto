@@ -24,6 +24,8 @@ import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
@@ -41,11 +43,13 @@ public class HiveLocationService
         implements LocationService
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final Map<String, String> viewFsTempDirMapping;
 
     @Inject
-    public HiveLocationService(HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HdfsEnvironment hdfsEnvironment, HiveClientConfig config)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.viewFsTempDirMapping = requireNonNull(config.getViewFsTempDirMapping(), "HiveClientConfig is null");
     }
 
     @Override
@@ -60,7 +64,7 @@ public class HiveLocationService
         }
 
         if (shouldUseTemporaryDirectory(context, targetPath)) {
-            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
+            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath, viewFsTempDirMapping);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -75,7 +79,7 @@ public class HiveLocationService
         Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(context, targetPath)) {
-            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
+            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath, Collections.emptyMap());
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {

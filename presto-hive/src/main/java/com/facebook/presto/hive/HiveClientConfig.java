@@ -17,6 +17,8 @@ import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -33,10 +35,13 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
@@ -137,6 +142,8 @@ public class HiveClientConfig
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
     private boolean collectColumnStatisticsOnWrite;
+
+    private Map<String, String> viewFsTempDirMapping = Collections.emptyMap();
 
     public int getMaxInitialSplits()
     {
@@ -1087,5 +1094,22 @@ public class HiveClientConfig
     {
         this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
         return this;
+    }
+
+    @Config("hive.hdfs.viewfs.tmpdirs")
+    @ConfigDescription("HDFS Viewfs temp directories mapping")
+    public HiveClientConfig setViewFsTempDirMapping(String mapping)
+    {
+        this.viewFsTempDirMapping = ImmutableMap.copyOf(transform(SPLITTER.split(mapping), (s) -> {
+            String[] item = s.split("#");
+            return Maps.immutableEntry(item[0], item[1]);
+        }));
+        return this;
+    }
+
+    @NotNull
+    public Map<String, String> getViewFsTempDirMapping()
+    {
+        return viewFsTempDirMapping;
     }
 }

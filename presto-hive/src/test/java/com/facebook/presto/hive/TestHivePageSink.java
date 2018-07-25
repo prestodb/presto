@@ -258,7 +258,7 @@ public class TestHivePageSink
                 new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
                 TYPE_MANAGER,
                 config,
-                new HiveLocationService(hdfsEnvironment),
+                new HiveLocationService(hdfsEnvironment, config),
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),

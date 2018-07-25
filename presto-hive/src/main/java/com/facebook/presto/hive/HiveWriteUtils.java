@@ -541,7 +541,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path createTemporaryPath(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Path createTemporaryPath(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath, Map<String, String> viewFsTempDirMapping)
     {
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = "/tmp/presto-" + context.getIdentity().getUser();
@@ -549,6 +549,12 @@ public final class HiveWriteUtils
         // use relative temporary directory on ViewFS
         if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
             temporaryPrefix = ".hive-staging";
+            for (String key : viewFsTempDirMapping.keySet()) {
+                if (targetPath.toString().startsWith(key)) {
+                    temporaryPrefix = viewFsTempDirMapping.get(key);
+                    break;
+                }
+            }
         }
 
         // create a temporary directory on the same filesystem
