@@ -1,0 +1,6 @@
+# Pre erase script
+
+if ! /etc/init.d/presto status | grep -q 'Not running'; then 
+    echo "Please stop the Presto service before erasing RPM"
+    exit 1
+fi
