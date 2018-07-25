@@ -253,6 +253,20 @@ public class MemoryPool
         }
     }
 
+    public synchronized ListenableFuture<?> moveQuery(QueryId queryId, MemoryPool targetMemoryPool)
+    {
+        long originalReserved = getQueryMemoryReservation(queryId);
+        long originalRevocableReserved = getQueryRevocableMemoryReservation(queryId);
+        // Get the tags before we call free() as that would remove the tags and we will lose the tags.
+        Map<String, Long> taggedAllocations = taggedMemoryAllocations.remove(queryId);
+        ListenableFuture<?> future = targetMemoryPool.reserve(queryId, originalReserved);
+        free(queryId, originalReserved);
+        targetMemoryPool.reserveRevocable(queryId, originalRevocableReserved);
+        freeRevocable(queryId, originalRevocableReserved);
+        targetMemoryPool.taggedMemoryAllocations.put(queryId, taggedAllocations);
+        return future;
+    }
+
     /**
      * Returns the number of free bytes. This value may be negative, which indicates that the pool is over-committed.
      */
