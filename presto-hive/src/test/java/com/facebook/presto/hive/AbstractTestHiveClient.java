@@ -242,7 +242,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -787,7 +787,9 @@ public abstract class AbstractTestHiveClient
      */
     protected HiveClientConfig getHiveClientConfig()
     {
-        return new HiveClientConfig();
+        return new HiveClientConfig()
+                .setMaxOpenSortFiles(10)
+                .setWriterSortBufferSize(new DataSize(100, KILOBYTE));
     }
 
     protected ConnectorSession newSession()
@@ -2261,10 +2263,7 @@ public abstract class AbstractTestHiveClient
         int bucketCount = 3;
 
         try (Transaction transaction = newTransaction()) {
-            HiveClientConfig hiveConfig = getHiveClientConfig()
-                    .setSortedWritingEnabled(true)
-                    .setWriterSortBufferSize(new DataSize(1, MEGABYTE));
-            ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig()).getSessionProperties());
+            ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
 
             // begin creating the table
@@ -2295,7 +2294,7 @@ public abstract class AbstractTestHiveClient
                     .map(ColumnMetadata::getType)
                     .collect(toList());
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            for (int i = 0; i < 200; i++) {
+            for (int i = 0; i < 50; i++) {
                 MaterializedResult.Builder builder = MaterializedResult.resultBuilder(session, types);
                 for (int j = 0; j < 1000; j++) {
                     builder.row(
@@ -2307,12 +2306,12 @@ public abstract class AbstractTestHiveClient
                 sink.appendPage(builder.build().toPage());
             }
 
-            // verify we have several temporary files per bucket
+            // verify we have enough temporary files per bucket to require multiple passes
             Path stagingPathRoot = getStagingPathRoot(outputHandle);
             HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
             assertThat(listAllDataFiles(context, stagingPathRoot))
                     .filteredOn(file -> file.contains(".tmp-sort."))
-                    .size().isGreaterThanOrEqualTo(bucketCount * 3);
+                    .size().isGreaterThan(bucketCount * getHiveClientConfig().getMaxOpenSortFiles() * 2);
 
             // finish the write
             Collection<Slice> fragments = getFutureValue(sink.finish());

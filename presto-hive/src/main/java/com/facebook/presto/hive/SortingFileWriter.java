@@ -39,14 +39,22 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_BUCKET_SORT_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.min;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class SortingFileWriter
@@ -58,29 +66,30 @@ public class SortingFileWriter
 
     private final FileSystem fileSystem;
     private final Path tempFilePrefix;
-    private final int maxTempFiles;
+    private final int maxOpenTempFiles;
     private final List<Type> types;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
     private final HiveFileWriter outputWriter;
     private final SortBuffer sortBuffer;
-    private final List<Path> tempFiles = new ArrayList<>();
+    private final NavigableSet<TempFile> tempFiles = new TreeSet<>(comparing(TempFile::getSize));
+    private final AtomicLong nextFileId = new AtomicLong();
 
     public SortingFileWriter(
             FileSystem fileSystem,
             Path tempFilePrefix,
             HiveFileWriter outputWriter,
             DataSize maxMemory,
-            int maxTempFiles,
+            int maxOpenTempFiles,
             List<Type> types,
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
             PageSorter pageSorter)
     {
-        checkArgument(maxTempFiles > 0, "maxTempFiles must be greater than zero");
+        checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.tempFilePrefix = requireNonNull(tempFilePrefix, "tempFilePrefix is null");
-        this.maxTempFiles = maxTempFiles;
+        this.maxOpenTempFiles = maxOpenTempFiles;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
@@ -127,7 +136,8 @@ public class SortingFileWriter
             writeSorted();
             outputWriter.commit();
 
-            for (Path file : tempFiles) {
+            for (TempFile tempFile : tempFiles) {
+                Path file = tempFile.getPath();
                 fileSystem.delete(file, false);
                 if (fileSystem.exists(file)) {
                     throw new IOException("Failed to delete temporary file: " + file);
@@ -142,16 +152,8 @@ public class SortingFileWriter
     @Override
     public void rollback()
     {
-        for (Path file : tempFiles) {
-            try {
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
-                    throw new IOException("Delete failed");
-                }
-            }
-            catch (IOException e) {
-                log.warn(e, "Failed to delete temporary file: " + file);
-            }
+        for (TempFile file : tempFiles) {
+            cleanupFile(file.getPath());
         }
 
         outputWriter.rollback();
@@ -172,14 +174,39 @@ public class SortingFileWriter
         return outputWriter.getVerificationTask();
     }
 
+    private void flushToTempFile()
+    {
+        writeTempFile(writer -> sortBuffer.flushTo(writer::writePage));
+    }
+
     // TODO: change connector SPI to make this resumable and have memory tracking
     private void writeSorted()
-            throws IOException
+    {
+        combineFiles();
+
+        mergeFiles(tempFiles, outputWriter::appendRows);
+    }
+
+    private void combineFiles()
+    {
+        while (tempFiles.size() > maxOpenTempFiles) {
+            int count = min(maxOpenTempFiles, tempFiles.size() - (maxOpenTempFiles - 1));
+
+            List<TempFile> smallestFiles = IntStream.range(0, count)
+                    .mapToObj(i -> tempFiles.pollFirst())
+                    .collect(toImmutableList());
+
+            writeTempFile(writer -> mergeFiles(smallestFiles, writer::writePage));
+        }
+    }
+
+    private void mergeFiles(Iterable<TempFile> files, Consumer<Page> consumer)
     {
         try (Closer closer = Closer.create()) {
             Collection<Iterator<Page>> iterators = new ArrayList<>();
 
-            for (Path file : tempFiles) {
+            for (TempFile tempFile : files) {
+                Path file = tempFile.getPath();
                 OrcDataSource dataSource = new HdfsOrcDataSource(
                         new OrcDataSourceId(file.toString()),
                         fileSystem.getFileStatus(file).getLen(),
@@ -194,24 +221,94 @@ public class SortingFileWriter
             }
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders)
-                    .forEachRemaining(outputWriter::appendRows);
+                    .forEachRemaining(consumer);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
-    private void flushToTempFile()
+    private void writeTempFile(Consumer<TempFileWriter> consumer)
     {
-        if (tempFiles.size() == maxTempFiles) {
-            throw new PrestoException(HIVE_TOO_MANY_BUCKET_SORT_FILES, "Too many temporary files for sorted bucket writer");
-        }
-
-        Path tempFile = new Path(tempFilePrefix + "." + tempFiles.size());
-        tempFiles.add(tempFile);
+        Path tempFile = getTempFileName();
 
         try (TempFileWriter writer = new TempFileWriter(types, fileSystem.create(tempFile))) {
-            sortBuffer.flushTo(writer::writePage);
+            consumer.accept(writer);
+            writer.close();
+            tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
         }
         catch (IOException | UncheckedIOException e) {
+            cleanupFile(tempFile);
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to write temporary file: " + tempFile, e);
+        }
+    }
+
+    private void cleanupFile(Path file)
+    {
+        try {
+            fileSystem.delete(file, false);
+            if (fileSystem.exists(file)) {
+                throw new IOException("Delete failed");
+            }
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to delete temporary file: " + file);
+        }
+    }
+
+    private Path getTempFileName()
+    {
+        return new Path(tempFilePrefix + "." + nextFileId.getAndIncrement());
+    }
+
+    private static class TempFile
+    {
+        private final Path path;
+        private final long size;
+
+        public TempFile(Path path, long size)
+        {
+            checkArgument(size >= 0, "size is negative");
+            this.path = requireNonNull(path, "path is null");
+            this.size = size;
+        }
+
+        public Path getPath()
+        {
+            return path;
+        }
+
+        public long getSize()
+        {
+            return size;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+            TempFile other = (TempFile) obj;
+            return Objects.equals(path, other.path);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(path);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("path", path)
+                    .add("size", size)
+                    .toString();
         }
     }
 }

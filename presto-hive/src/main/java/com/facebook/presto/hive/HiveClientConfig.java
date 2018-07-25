@@ -42,6 +42,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
+        "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
@@ -91,7 +92,7 @@ public class HiveClientConfig
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private int maxPartitionsPerWriter = 100;
-    private int maxSortFilesPerBucket = 100;
+    private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
 
     private List<String> resourceConfigFiles;
@@ -597,18 +598,18 @@ public class HiveClientConfig
         return this;
     }
 
-    @Min(1)
+    @Min(2)
     @Max(1000)
-    public int getMaxSortFilesPerBucket()
+    public int getMaxOpenSortFiles()
     {
-        return maxSortFilesPerBucket;
+        return maxOpenSortFiles;
     }
 
-    @Config("hive.max-sort-files-per-bucket")
-    @ConfigDescription("Maximum number of writer temporary files per sorted bucket")
-    public HiveClientConfig setMaxSortFilesPerBucket(int maxSortFilesPerBucket)
+    @Config("hive.max-open-sort-files")
+    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
+    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
     {
-        this.maxSortFilesPerBucket = maxSortFilesPerBucket;
+        this.maxOpenSortFiles = maxOpenSortFiles;
         return this;
     }
 
