@@ -214,7 +214,7 @@ public class DefaultQueryContext
     }
 
     @Override
-    public synchronized void setMemoryPool(MemoryPool pool)
+    public synchronized void setMemoryPool(MemoryPool newMemoryPool)
     {
         // This method first acquires the monitor of this instance.
         // After that in this method if we acquire the monitors of the
@@ -228,19 +228,13 @@ public class DefaultQueryContext
         // That's why instead of calling methods on queryMemoryContext to get the
         // user/revocable memory reservations, we call the MemoryPool to get the same
         // information.
-        requireNonNull(pool, "pool is null");
-        if (memoryPool == pool) {
+        requireNonNull(newMemoryPool, "newMemoryPool is null");
+        if (memoryPool == newMemoryPool) {
             // Don't unblock our tasks and thrash the pools, if this is a no-op
             return;
         }
-        MemoryPool originalPool = memoryPool;
-        long originalReserved = originalPool.getQueryMemoryReservation(queryId);
-        long originalRevocableReserved = originalPool.getQueryRevocableMemoryReservation(queryId);
-        memoryPool = pool;
-        ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
-        originalPool.free(queryId, originalReserved);
-        pool.reserveRevocable(queryId, originalRevocableReserved);
-        originalPool.freeRevocable(queryId, originalRevocableReserved);
+        ListenableFuture<?> future = memoryPool.moveQuery(queryId, newMemoryPool);
+        memoryPool = newMemoryPool;
         future.addListener(() -> {
             // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
             taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
