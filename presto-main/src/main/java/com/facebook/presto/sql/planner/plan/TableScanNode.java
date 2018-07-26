@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -66,8 +67,19 @@ public class TableScanNode
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout,
-            @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint,
             @JsonProperty("originalConstraint") @Nullable Expression originalConstraint)
+    {
+        this(id, table, outputs, assignments, tableLayout, null, originalConstraint);
+    }
+
+    public TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<Symbol> outputs,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout,
+            @Nullable TupleDomain<ColumnHandle> currentConstraint,
+            @Nullable Expression originalConstraint)
     {
         super(id);
         requireNonNull(table, "table is null");
@@ -75,15 +87,16 @@ public class TableScanNode
         requireNonNull(assignments, "assignments is null");
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         requireNonNull(tableLayout, "tableLayout is null");
-        requireNonNull(currentConstraint, "currentConstraint is null");
-        checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
+        if (currentConstraint != null) {
+            checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
+        }
 
         this.table = table;
         this.outputSymbols = ImmutableList.copyOf(outputs);
         this.assignments = ImmutableMap.copyOf(assignments);
-        this.originalConstraint = originalConstraint;
         this.tableLayout = tableLayout;
         this.currentConstraint = currentConstraint;
+        this.originalConstraint = originalConstraint;
     }
 
     @JsonProperty("table")
@@ -118,9 +131,10 @@ public class TableScanNode
         return originalConstraint;
     }
 
-    @JsonProperty("currentConstraint")
     public TupleDomain<ColumnHandle> getCurrentConstraint()
     {
+        // currentConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
+        checkState(currentConstraint != null, "currentConstraint should only be used in planner. It is not transported to workers.");
         return currentConstraint;
     }
 
