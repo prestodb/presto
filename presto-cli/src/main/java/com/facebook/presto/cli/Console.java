@@ -369,7 +369,15 @@ public class Console
 
     private static MemoryHistory getHistory()
     {
-        return getHistory(new File(getUserHome(), ".presto_history"));
+        String historyFilePath = System.getenv("PRESTO_HISTORY_FILE");
+        File historyFile;
+        if (isNullOrEmpty(historyFilePath)) {
+            historyFile = new File(getUserHome(), ".presto_history");
+        }
+        else {
+            historyFile = new File(historyFilePath);
+        }
+        return getHistory(historyFile);
     }
 
     @VisibleForTesting
