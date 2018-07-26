@@ -26,6 +26,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -276,6 +278,7 @@ public class QueryStats
         return lastHeartbeat;
     }
 
+    @Nullable
     @JsonProperty
     public DateTime getEndTime()
     {
