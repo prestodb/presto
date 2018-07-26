@@ -34,6 +34,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionUtils.isOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
@@ -69,13 +70,13 @@ public class ExpressionOptimizer
 {
     private final FunctionManager registry;
     private final TypeManager typeManager;
-    private final ConnectorSession session;
+    private final Session session;
 
     public ExpressionOptimizer(FunctionManager registry, TypeManager typeManager, Session session)
     {
         this.registry = registry;
         this.typeManager = typeManager;
-        this.session = session.toConnectorSession();
+        this.session = session;
     }
 
     public RowExpression optimize(RowExpression expression)
@@ -163,7 +164,9 @@ public class ExpressionOptimizer
                     return call(signature, call.getType(), arguments);
                 }
             }
-
+            if (!isOperator(signature)) {
+                signature = registry.resolveFunction(session, signature);
+            }
             ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
@@ -174,7 +177,7 @@ public class ExpressionOptimizer
                 MethodHandle method = function.getMethodHandle();
 
                 if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
-                    method = method.bindTo(session);
+                    method = method.bindTo(session.toConnectorSession());
                 }
 
                 int index = 0;
