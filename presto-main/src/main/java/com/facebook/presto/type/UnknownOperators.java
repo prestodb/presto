@@ -103,9 +103,9 @@ public final class UnknownOperators
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @SqlType("unknown") @SqlNullable Void left,
+            @SqlType("unknown") Void left,
             @IsNull boolean leftNull,
-            @SqlType("unknown") @SqlNullable Void right,
+            @SqlType("unknown") Void right,
             @IsNull boolean rightNull)
     {
         return false;
