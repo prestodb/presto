@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.testing.TestingSession;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -41,7 +42,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 public abstract class TestTimeBase
         extends AbstractTestFunctions
 {
-    protected static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
+    protected static final TimeZoneKey TIME_ZONE_KEY = TestingSession.DEFAULT_TIME_ZONE_KEY;
     protected static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
 
     public TestTimeBase(boolean legacyTimestamp)
