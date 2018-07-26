@@ -135,9 +135,9 @@ public abstract class PulsarInternalColumn {
 
     public static final PulsarInternalColumn PRODUCER_NAME = new ProducerNameColumn("__producer_name__", VarcharType.VARCHAR, "The name of the producer that publish the message used to generate this row");
 
-    public static final PulsarInternalColumn KEY = new KeyColumn("__KEY__", VarcharType.VARCHAR, "The partition key for the topic");
+    public static final PulsarInternalColumn KEY = new KeyColumn("__key__", VarcharType.VARCHAR, "The partition key for the topic");
 
-    public static final PulsarInternalColumn PROPERTIES = new PropertiesColumn("__PROPERTIES__", VarcharType.VARCHAR,"User defined properties");
+    public static final PulsarInternalColumn PROPERTIES = new PropertiesColumn("__properties__", VarcharType.VARCHAR,"User defined properties");
 
     private final String name;
     private final Type type;

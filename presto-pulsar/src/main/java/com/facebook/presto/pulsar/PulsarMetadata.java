@@ -42,6 +42,7 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -279,6 +280,10 @@ public class PulsarMetadata implements ConnectorMetadata {
         log.info("schema: " + new String(schemaInfo.getSchema()));
         Schema.Parser parser = new Schema.Parser();
         String schemaJson = new String(schemaInfo.getSchema());
+        if (StringUtils.isBlank(schemaJson)) {
+            throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString()
+                    + " does not have a valid schema");
+        }
         Schema schema;
         try {
             schema = parser.parse(schemaJson);
