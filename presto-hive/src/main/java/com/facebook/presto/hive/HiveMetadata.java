@@ -1676,7 +1676,7 @@ public class HiveMetadata
         List<Column> tableColumns = table.getDataColumns();
         ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
         for (Column field : concat(tableColumns, table.getPartitionColumns())) {
-            if ((field.getComment() != null) && !Optional.of("from deserializer").equals(field.getComment())) {
+            if (field.getComment().isPresent() && !field.getComment().get().equals("from deserializer")) {
                 builder.put(field.getName(), field.getComment());
             }
             else {
