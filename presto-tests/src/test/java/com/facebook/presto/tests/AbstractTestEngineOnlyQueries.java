@@ -75,14 +75,14 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testLocallyUnrepresentableTimeLiterals()
     {
-        LocalDateTime localTimeThatDidNotExist = LocalDateTime.of(1986, 1, 1, 0, 10);
+        LocalDateTime localTimeThatDidNotExist = LocalDateTime.of(2017, 4, 2, 2, 10);
         checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotExist).isEmpty(), "This test assumes certain JVM time zone");
         // This tests that both Presto runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss''").format(localTimeThatDidNotExist);
         assertEquals(computeScalar(sql), localTimeThatDidNotExist); // this tests Presto and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
 
-        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1986, 1, 1);
+        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1970, 1, 1);
         checkState(ZoneId.systemDefault().getRules().getValidOffsets(localDateThatDidNotHaveMidnight.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
         // This tests that both Presto runner and H2 can return DATE value for a day which midnight never happened in JVM's zone (e.g. is not exactly representable using java.sql.Date)
         sql = DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(localDateThatDidNotHaveMidnight);
