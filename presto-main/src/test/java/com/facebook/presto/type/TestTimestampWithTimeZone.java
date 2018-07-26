@@ -17,7 +17,9 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 
 public class TestTimestampWithTimeZone
         extends TestTimestampWithTimeZoneBase
@@ -41,6 +43,7 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
+    @Override
     public void testCastToTimeWithTimeZone()
     {
         super.testCastToTimeWithTimeZone();
@@ -51,5 +54,19 @@ public class TestTimestampWithTimeZone
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000 Asia/Kathmandu' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
                 "10:00:00.000 Asia/Kathmandu");
+    }
+
+    @Test
+    @Override
+    public void testCastToTimestamp()
+    {
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+
+        // This TZ had switch in 2014, so if we test for 2014 and used unpacked value we would use wrong shift
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
     }
 }
