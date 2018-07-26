@@ -52,6 +52,7 @@ import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static java.lang.Integer.parseInt;
@@ -82,8 +83,8 @@ public class Console
     public boolean run()
     {
         ClientSession session = clientOptions.toClientSession();
-        boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
-        boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
+        boolean hasQuery = !isNullOrEmpty(clientOptions.execute);
+        boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
         if (!hasQuery && !isFromFile) {
             AnsiConsole.systemInstall();
