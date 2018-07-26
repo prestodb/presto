@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.ArrayType;
@@ -29,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -113,7 +115,9 @@ public class TestMultimapAggAggregation
 
         MapType mapType = mapType(keyType, new ArrayType(valueType));
         Signature signature = new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(signature);
+        FunctionManager functionManager = metadata.getFunctionManager();
+        InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION, signature));
 
         Map<K, List<V>> map = new HashMap<>();
         for (int i = 0; i < expectedKeys.size(); i++) {

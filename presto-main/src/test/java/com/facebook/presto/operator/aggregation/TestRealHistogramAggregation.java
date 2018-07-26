@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
@@ -52,12 +53,13 @@ public class TestRealHistogramAggregation
         TypeRegistry typeRegistry = new TypeRegistry();
         FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                new Signature("numeric_histogram",
-                        AGGREGATE,
-                        parseTypeSignature("map(real, real)"),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.REAL),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("numeric_histogram",
+                                AGGREGATE,
+                                parseTypeSignature("map(real, real)"),
+                                parseTypeSignature(StandardTypes.BIGINT),
+                                parseTypeSignature(StandardTypes.REAL),
+                                parseTypeSignature(StandardTypes.DOUBLE))));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);

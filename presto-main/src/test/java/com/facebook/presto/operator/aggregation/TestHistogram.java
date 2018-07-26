@@ -14,6 +14,7 @@
 
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
@@ -48,6 +49,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -87,33 +89,36 @@ public class TestHistogram
                 createStringsBlock("a", "b", "c"));
 
         mapType = mapType(BIGINT, BIGINT);
-        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(
+                getFunctionManager().resolveFunction(TEST_SESSION,
+                        new Signature(NAME,
+                                AGGREGATE,
+                                mapType.getTypeSignature(),
+                                parseTypeSignature(StandardTypes.BIGINT))));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
         mapType = mapType(DOUBLE, BIGINT);
-        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(
+                getFunctionManager().resolveFunction(TEST_SESSION,
+                        new Signature(NAME,
+                                AGGREGATE,
+                                mapType.getTypeSignature(),
+                                parseTypeSignature(StandardTypes.DOUBLE))));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BOOLEAN)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(
+                getFunctionManager().resolveFunction(TEST_SESSION,
+                        new Signature(NAME,
+                                AGGREGATE,
+                                mapType.getTypeSignature(),
+                                parseTypeSignature(StandardTypes.BOOLEAN))));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(true, 1L, false, 1L),
@@ -163,11 +168,12 @@ public class TestHistogram
                 createStringsBlock("a", "b", "a"));
 
         mapType = mapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
-        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(
+                getFunctionManager().resolveFunction(TEST_SESSION,
+                        new Signature(NAME,
+                                AGGREGATE,
+                                mapType.getTypeSignature(),
+                                parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
@@ -187,11 +193,12 @@ public class TestHistogram
                 createLongsBlock(2L, null, 1L));
 
         mapType = mapType(BIGINT, BIGINT);
-        aggregationFunction = getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(
+                getFunctionManager().resolveFunction(TEST_SESSION,
+                        new Signature(NAME,
+                                AGGREGATE,
+                                mapType.getTypeSignature(),
+                                parseTypeSignature(StandardTypes.BIGINT))));
         assertAggregation(
                 aggregationFunction,
                 null,
@@ -432,24 +439,25 @@ public class TestHistogram
 
     private InternalAggregationFunction getAggregation(TypeSignature returnType, TypeSignature... arguments)
     {
-        MetadataManager metadata = getMetadata(NEW);
+        FunctionManager functionManager = getFunctionManager(NEW);
         Signature signature = new Signature(NAME,
                 AGGREGATE,
                 returnType,
                 Arrays.asList(arguments));
-        return metadata.getFunctionManager().getAggregateFunctionImplementation(signature);
+        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, signature));
     }
 
-    public MetadataManager getMetadata()
+    public FunctionManager getFunctionManager()
     {
-        return getMetadata(NEW);
+        return getFunctionManager(NEW);
     }
 
-    public MetadataManager getMetadata(HistogramGroupImplementation groupMode)
+    public FunctionManager getFunctionManager(HistogramGroupImplementation groupMode)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FeaturesConfig()
-                .setHistogramGroupImplementation(groupMode));
+        FunctionManager functionManager = MetadataManager.createTestMetadataManager(new FeaturesConfig()
+                .setHistogramGroupImplementation(groupMode))
+                .getFunctionManager();
 
-        return metadata;
+        return functionManager;
     }
 }

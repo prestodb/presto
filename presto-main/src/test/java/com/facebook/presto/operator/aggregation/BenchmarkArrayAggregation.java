@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
@@ -44,6 +45,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -105,7 +107,9 @@ public class BenchmarkArrayAggregation
             }
             ArrayType arrayType = new ArrayType(elementType);
             Signature signature = new Signature(name, AGGREGATE, arrayType.getTypeSignature(), elementType.getTypeSignature());
-            InternalAggregationFunction function = metadata.getFunctionManager().getAggregateFunctionImplementation(signature);
+            FunctionManager functionManager = metadata.getFunctionManager();
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
+                    functionManager.resolveFunction(TEST_SESSION, signature));
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);

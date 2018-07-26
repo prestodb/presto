@@ -14,6 +14,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -58,14 +59,20 @@ public class HandTpchQuery1
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
-        longAverage = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-        doubleAverage = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        doubleSum = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        countFunction = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        
+        longAverage = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session,
+                        new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature())));
+        doubleAverage = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session,
+                        new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
+        doubleSum = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session,
+                        new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
+        countFunction = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session,
+                        new Signature("count", AGGREGATE, BIGINT.getTypeSignature())));
     }
 
     @Override

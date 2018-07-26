@@ -23,6 +23,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -2405,9 +2406,8 @@ public class LocalExecutionPlanner
                         .collect(toImmutableList());
             }
 
-            return metadata
-                    .getFunctionManager()
-                    .getAggregateFunctionImplementation(aggregation.getSignature())
+            FunctionManager functionManager = metadata.getFunctionManager();
+            return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(session, aggregation.getSignature()))
                     .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory, aggregation.getCall().isDistinct(), joinCompiler, session);
         }
 

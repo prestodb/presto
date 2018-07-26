@@ -83,7 +83,7 @@ public class PushPartialAggregationThroughExchange
     {
         ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 
-        boolean decomposable = aggregationNode.isDecomposable(functionManager);
+        boolean decomposable = aggregationNode.isDecomposable(functionManager, context.getSession());
 
         if (aggregationNode.getStep().equals(SINGLE) &&
                 aggregationNode.hasEmptyGroupingSet() &&
@@ -200,7 +200,7 @@ public class PushPartialAggregationThroughExchange
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(signature);
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(context.getSession(), signature));
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
 
             checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");

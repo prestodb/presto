@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -55,8 +56,10 @@ public class HandTpchQuery6
     {
         super(localQueryRunner, "hand_tpch_query_6", 10, 100);
 
-        doubleSum = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        doubleSum = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session,
+                        new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
     }
 
     @Override

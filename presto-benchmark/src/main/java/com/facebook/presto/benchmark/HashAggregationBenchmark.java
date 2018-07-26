@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
@@ -42,8 +43,10 @@ public class HashAggregationBenchmark
     {
         super(localQueryRunner, "hash_agg", 5, 25);
 
-        doubleSum = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        doubleSum = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session,
+                        new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
     }
 
     @Override

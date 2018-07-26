@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
@@ -41,8 +42,9 @@ public class CountAggregationBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey");
-        InternalAggregationFunction countFunction = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        InternalAggregationFunction countFunction = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(session, new Signature("count", AGGREGATE, BIGINT.getTypeSignature())));
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(countFunction.bind(ImmutableList.of(0), Optional.empty())));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

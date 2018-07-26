@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -79,12 +80,14 @@ import static org.testng.Assert.assertEquals;
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
 public class BenchmarkHashAndStreamingAggregationOperators
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction COUNT = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION,
+                    new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature())));
+    private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION,
+                    new Signature("count", AGGREGATE, BIGINT.getTypeSignature())));
 
     @State(Thread)
     public static class Context

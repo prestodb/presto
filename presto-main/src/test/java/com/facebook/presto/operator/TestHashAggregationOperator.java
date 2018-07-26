@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -93,14 +94,19 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestHashAggregationOperator
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction COUNT = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_AVERAGE = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION,
+                    new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature())));
+
+    private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION,
+                    new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature())));
+
+    private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION,
+                    new Signature("count", AGGREGATE, BIGINT.getTypeSignature())));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
@@ -151,13 +157,18 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        InternalAggregationFunction countVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
-        InternalAggregationFunction countBooleanColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN)));
-        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction countVarcharColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR))));
+
+        InternalAggregationFunction countBooleanColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN))));
+
+        InternalAggregationFunction maxVarcharColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR))));
+
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -212,13 +223,17 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        InternalAggregationFunction countVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
-        InternalAggregationFunction countBooleanColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN)));
-        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction countVarcharColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR))));
+
+        InternalAggregationFunction countBooleanColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN))));
+
+        InternalAggregationFunction maxVarcharColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR))));
 
         Optional<Integer> groupIdChannel = Optional.of(1);
         List<Integer> groupByChannels = Ints.asList(1, 2);
@@ -262,9 +277,9 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        InternalAggregationFunction arrayAggColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
+        InternalAggregationFunction arrayAggColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT))));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
@@ -305,9 +320,9 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of 10B")
     public void testMemoryLimit(boolean hashEnabled)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction maxVarcharColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR))));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -604,9 +619,9 @@ public class TestHashAggregationOperator
     @Test
     public void testSpillerFailure()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction maxVarcharColumn = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION,
+                        new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR))));
 
         List<Integer> hashChannels = Ints.asList(1);
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
