@@ -13,14 +13,24 @@
  */
 package com.facebook.presto.pulsar;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.log.Logger;
+import org.apache.avro.Schema;
 import org.apache.pulsar.client.admin.Namespaces;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
@@ -55,6 +65,9 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -79,7 +92,6 @@ public class PulsarMetadataTest {
     private static List<TopicName> partitionedTopicNames;
     private static Map<String, Integer> partitionedTopicsToPartitions;
     private static Map<String, SchemaInfo> topicsToSchemas;
-    private static Map<String, SchemaInfo> partitionedTopicsToSchemas;
 
     private static final NamespaceName NAMESPACE_NAME_1 = NamespaceName.get("tenant-1", "ns-1");
     private static final NamespaceName NAMESPACE_NAME_2 = NamespaceName.get("tenant-1", "ns-2");
@@ -112,7 +124,16 @@ public class PulsarMetadataTest {
         float field3;
         double field4;
         boolean field5;
+        long field6;
+        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"long\", \"logicalType\": \"timestamp-millis\" }")
+        private long timestamp;
+        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"time-millis\" }")
+        private int time;
+        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        private int date;
     }
+
+    private static Map<String, Type> fooTypes;
 
     static {
         topicNames = new LinkedList<>();
@@ -146,6 +167,25 @@ public class PulsarMetadataTest {
         topicsToSchemas.put(TOPIC_4.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
         topicsToSchemas.put(TOPIC_5.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
         topicsToSchemas.put(TOPIC_6.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
+
+
+        topicsToSchemas.put(PARTITIONED_TOPIC_1.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
+        topicsToSchemas.put(PARTITIONED_TOPIC_2.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
+        topicsToSchemas.put(PARTITIONED_TOPIC_3.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
+        topicsToSchemas.put(PARTITIONED_TOPIC_4.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
+        topicsToSchemas.put(PARTITIONED_TOPIC_5.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
+        topicsToSchemas.put(PARTITIONED_TOPIC_6.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
+
+        fooTypes = new HashMap<>();
+        fooTypes.put("field1", IntegerType.INTEGER);
+        fooTypes.put("field2", VarcharType.VARCHAR);
+        fooTypes.put("field3", RealType.REAL);
+        fooTypes.put("field4", DoubleType.DOUBLE);
+        fooTypes.put("field5", BooleanType.BOOLEAN);
+        fooTypes.put("field6", BigintType.BIGINT);
+        fooTypes.put("timestamp", TIMESTAMP);
+        fooTypes.put("time", TIME);
+        fooTypes.put("date", DATE);
     }
 
     private final static PulsarConnectorId pulsarConnectorId = new PulsarConnectorId("test-connector");
@@ -318,42 +358,48 @@ public class PulsarMetadataTest {
     @Test
     public void testGetTableMetadata() {
 
-        PulsarTableHandle pulsarTableHandle = new PulsarTableHandle(
-                pulsarConnectorId.toString(),
-                TOPIC_1.getNamespace(),
-                TOPIC_1.getLocalName(),
-                TOPIC_1.getLocalName()
-        );
+        List<TopicName> allTopics = new LinkedList<>();
+        allTopics.addAll(topicNames);
+        allTopics.addAll(partitionedTopicNames);
 
-        ConnectorTableMetadata tableMetadata = this.pulsarMetadata.getTableMetadata(mock(ConnectorSession.class),
-                pulsarTableHandle);
+        for (TopicName topic : allTopics) {
+            PulsarTableHandle pulsarTableHandle = new PulsarTableHandle(
+                    topic.toString(),
+                    topic.getNamespace(),
+                    topic.getLocalName(),
+                    topic.getLocalName()
+            );
 
-        Assert.assertEquals(tableMetadata.getTable().getSchemaName(), TOPIC_1.getNamespace());
-        Assert.assertEquals(tableMetadata.getTable().getTableName(), TOPIC_1.getLocalName());
+            ConnectorTableMetadata tableMetadata = this.pulsarMetadata.getTableMetadata(mock(ConnectorSession.class),
+                    pulsarTableHandle);
 
-        Assert.assertEquals(tableMetadata.getColumns().size(),
-                Foo.class.getDeclaredFields().length + PulsarInternalColumn.getInternalFields().size());
+            Assert.assertEquals(tableMetadata.getTable().getSchemaName(), topic.getNamespace());
+            Assert.assertEquals(tableMetadata.getTable().getTableName(), topic.getLocalName());
 
-        List<String> fieldNames = new LinkedList<>();
-        for (Field field : Foo.class.getDeclaredFields()) {
-            fieldNames.add(field.getName());
-        }
+            Assert.assertEquals(tableMetadata.getColumns().size(),
+                    Foo.class.getDeclaredFields().length + PulsarInternalColumn.getInternalFields().size());
 
-        for (PulsarInternalColumn internalField : PulsarInternalColumn.getInternalFields()) {
-            fieldNames.add(internalField.getName());
-        }
-
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
-            if (PulsarInternalColumn.getInternalFieldsMap().containsKey(column.getName())) {
-                Assert.assertEquals(column.getComment(),
-                        PulsarInternalColumn.getInternalFieldsMap()
-                                .get(column.getName()).getColumnMetadata(true).getComment());
+            List<String> fieldNames = new LinkedList<>();
+            for (Field field : Foo.class.getDeclaredFields()) {
+                fieldNames.add(field.getName());
             }
 
-            fieldNames.remove(column.getName());
-        }
+            for (PulsarInternalColumn internalField : PulsarInternalColumn.getInternalFields()) {
+                fieldNames.add(internalField.getName());
+            }
 
-        Assert.assertTrue(fieldNames.isEmpty());
+            for (ColumnMetadata column : tableMetadata.getColumns()) {
+                if (PulsarInternalColumn.getInternalFieldsMap().containsKey(column.getName())) {
+                    Assert.assertEquals(column.getComment(),
+                            PulsarInternalColumn.getInternalFieldsMap()
+                                    .get(column.getName()).getColumnMetadata(true).getComment());
+                }
+
+                fieldNames.remove(column.getName());
+            }
+
+            Assert.assertTrue(fieldNames.isEmpty());
+        }
     }
 
     @Test
@@ -470,11 +516,6 @@ public class PulsarMetadataTest {
     }
 
     @Test
-    public void testGetTableMetadataTablePartitionedTopic() {
-        
-    }
-
-    @Test
     public void testListTable() {
         Assert.assertTrue(this.pulsarMetadata.listTables(mock(ConnectorSession.class), null).isEmpty());
         Assert.assertTrue(this.pulsarMetadata.listTables(mock(ConnectorSession.class), "wrong-tenant/wrong-ns")
@@ -493,5 +534,132 @@ public class PulsarMetadataTest {
     @Test
     public void testGetColumnHandles() {
 
+        PulsarTableHandle pulsarTableHandle = new PulsarTableHandle(pulsarConnectorId.toString(), TOPIC_1.getNamespace(),
+                TOPIC_1.getLocalName(), TOPIC_1.getLocalName());
+        Map<String, ColumnHandle> columnHandleMap
+                = new HashMap<>(this.pulsarMetadata.getColumnHandles(mock(ConnectorSession.class), pulsarTableHandle));
+
+        List<String> fieldNames = new LinkedList<>();
+        for (Field field : Foo.class.getDeclaredFields()) {
+            fieldNames.add(field.getName());
+        }
+
+        for (PulsarInternalColumn internalField : PulsarInternalColumn.getInternalFields()) {
+            fieldNames.add(internalField.getName());
+        }
+
+        for (String field : fieldNames) {
+            Assert.assertNotNull(columnHandleMap.get(field));
+            PulsarColumnHandle pulsarColumnHandle = (PulsarColumnHandle) columnHandleMap.get(field);
+            PulsarInternalColumn pulsarInternalColumn = PulsarInternalColumn.getInternalFieldsMap().get(field);
+            if (pulsarInternalColumn != null) {
+                Assert.assertEquals(pulsarColumnHandle,
+                        pulsarInternalColumn.getColumnHandle(pulsarConnectorId.toString(), false));
+            } else {
+                Schema schema = new Schema.Parser().parse(new String(topicsToSchemas.get(TOPIC_1.getSchemaName())
+                        .getSchema()));
+                Assert.assertEquals(pulsarColumnHandle.getConnectorId(), pulsarConnectorId.toString());
+                Assert.assertEquals(pulsarColumnHandle.getName(), schema.getField(field).name());
+                Assert.assertNotNull(pulsarColumnHandle.getPositionIndex());
+                Assert.assertEquals(pulsarColumnHandle.getPositionIndex().intValue(), schema.getField(field).pos());
+                Assert.assertEquals(pulsarColumnHandle.getType(), fooTypes.get(field));
+                Assert.assertEquals(pulsarColumnHandle.isHidden(), false);
+            }
+            columnHandleMap.remove(field);
+        }
+        Assert.assertTrue(columnHandleMap.isEmpty());
+    }
+
+    @Test
+    public void testListTableColumns() {
+        Map<SchemaTableName, List<ColumnMetadata>> tableColumnsMap
+                = this.pulsarMetadata.listTableColumns(mock(ConnectorSession.class),
+                new SchemaTablePrefix(TOPIC_1.getNamespace()));
+
+        Assert.assertEquals(tableColumnsMap.size(), 2);
+        List<ColumnMetadata> columnMetadataList
+                = tableColumnsMap.get(new SchemaTableName(TOPIC_1.getNamespace(), TOPIC_1.getLocalName()));
+        Assert.assertNotNull(columnMetadataList);
+        Assert.assertEquals(columnMetadataList.size(), Foo.class.getDeclaredFields().length,
+                PulsarInternalColumn.getInternalFields().size());
+
+        List<String> fieldNames = new LinkedList<>();
+        for (Field field : Foo.class.getDeclaredFields()) {
+            fieldNames.add(field.getName());
+        }
+
+        for (PulsarInternalColumn internalField : PulsarInternalColumn.getInternalFields()) {
+            fieldNames.add(internalField.getName());
+        }
+
+        for (ColumnMetadata column : columnMetadataList) {
+            if (PulsarInternalColumn.getInternalFieldsMap().containsKey(column.getName())) {
+                Assert.assertEquals(column.getComment(),
+                        PulsarInternalColumn.getInternalFieldsMap()
+                                .get(column.getName()).getColumnMetadata(true).getComment());
+            }
+
+            fieldNames.remove(column.getName());
+        }
+
+        Assert.assertTrue(fieldNames.isEmpty());
+
+        columnMetadataList = tableColumnsMap.get(new SchemaTableName(TOPIC_2.getNamespace(), TOPIC_2.getLocalName()));
+        Assert.assertNotNull(columnMetadataList);
+        Assert.assertEquals(columnMetadataList.size(), Foo.class.getDeclaredFields().length,
+                PulsarInternalColumn.getInternalFields().size());
+
+        fieldNames = new LinkedList<>();
+        for (Field field : Foo.class.getDeclaredFields()) {
+            fieldNames.add(field.getName());
+        }
+
+        for (PulsarInternalColumn internalField : PulsarInternalColumn.getInternalFields()) {
+            fieldNames.add(internalField.getName());
+        }
+
+        for (ColumnMetadata column : columnMetadataList) {
+            if (PulsarInternalColumn.getInternalFieldsMap().containsKey(column.getName())) {
+                Assert.assertEquals(column.getComment(),
+                        PulsarInternalColumn.getInternalFieldsMap()
+                                .get(column.getName()).getColumnMetadata(true).getComment());
+            }
+
+            fieldNames.remove(column.getName());
+        }
+
+        Assert.assertTrue(fieldNames.isEmpty());
+
+        // test table and schema
+        tableColumnsMap
+                = this.pulsarMetadata.listTableColumns(mock(ConnectorSession.class),
+                new SchemaTablePrefix(TOPIC_4.getNamespace(), TOPIC_4.getLocalName()));
+
+        Assert.assertEquals(tableColumnsMap.size(), 1);
+        columnMetadataList = tableColumnsMap.get(new SchemaTableName(TOPIC_4.getNamespace(), TOPIC_4.getLocalName()));
+        Assert.assertNotNull(columnMetadataList);
+        Assert.assertEquals(columnMetadataList.size(), Foo.class.getDeclaredFields().length,
+                PulsarInternalColumn.getInternalFields().size());
+
+        fieldNames = new LinkedList<>();
+        for (Field field : Foo.class.getDeclaredFields()) {
+            fieldNames.add(field.getName());
+        }
+
+        for (PulsarInternalColumn internalField : PulsarInternalColumn.getInternalFields()) {
+            fieldNames.add(internalField.getName());
+        }
+
+        for (ColumnMetadata column : columnMetadataList) {
+            if (PulsarInternalColumn.getInternalFieldsMap().containsKey(column.getName())) {
+                Assert.assertEquals(column.getComment(),
+                        PulsarInternalColumn.getInternalFieldsMap()
+                                .get(column.getName()).getColumnMetadata(true).getComment());
+            }
+
+            fieldNames.remove(column.getName());
+        }
+
+        Assert.assertTrue(fieldNames.isEmpty());
     }
 }

@@ -35,6 +35,7 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -277,15 +278,15 @@ public class PulsarMetadata implements ConnectorMetadata {
             throw new RuntimeException(e);
         }
 
-        log.info("schema: " + new String(schemaInfo.getSchema()));
-        Schema.Parser parser = new Schema.Parser();
         String schemaJson = new String(schemaInfo.getSchema());
         if (StringUtils.isBlank(schemaJson)) {
             throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString()
                     + " does not have a valid schema");
         }
+        log.info("schema: " + schemaJson);
         Schema schema;
         try {
+            Schema.Parser parser = new Schema.Parser();
             schema = parser.parse(schemaJson);
         } catch (SchemaParseException ex) {
             throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString()
@@ -357,7 +358,8 @@ public class PulsarMetadata implements ConnectorMetadata {
         return columnMetadataList;
     }
 
-    private Type convertType(Schema.Type avroType, LogicalType logicalType) {
+    @VisibleForTesting
+    static Type convertType(Schema.Type avroType, LogicalType logicalType) {
         log.info("avroType: %s logicalType: %s", avroType, logicalType);
 
         switch (avroType) {
