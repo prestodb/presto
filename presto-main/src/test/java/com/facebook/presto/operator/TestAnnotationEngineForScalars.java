@@ -148,7 +148,7 @@ public class TestAnnotationEngineForScalars
         @SqlType(StandardTypes.DOUBLE)
         public static double fun(
                 @SqlType(StandardTypes.DOUBLE) double v,
-                @SqlNullable @SqlType(StandardTypes.DOUBLE) double v2,
+                @SqlType(StandardTypes.DOUBLE) double v2,
                 @IsNull boolean v2isNull)
         {
             return v;
