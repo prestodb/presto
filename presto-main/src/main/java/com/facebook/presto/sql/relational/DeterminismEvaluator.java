@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.PrestoException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -58,8 +59,13 @@ public class DeterminismEvaluator
         public Boolean visitCall(CallExpression call, Void context)
         {
             Signature signature = call.getSignature();
-            if (registry.isRegistered(signature) && !registry.getScalarFunctionImplementation(signature).isDeterministic()) {
-                return false;
+            try {
+                if (!registry.getScalarFunctionImplementation(signature).isDeterministic()) {
+                    return false;
+                }
+            }
+            catch (PrestoException e) {
+                //function not registered - keep going
             }
 
             return call.getArguments().stream()
