@@ -31,35 +31,35 @@ public class TestTimestampLegacy
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 21, 20, 55, 5, 321, session));
+                sqlTimestampOf(2001, 1, 21, 8, 55, 5, 321, session));
         assertFunction(
                 "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 21, 20, 55, 5, 0, session));
+                sqlTimestampOf(2001, 1, 21, 8, 55, 5, 0, session));
         assertFunction(
                 "cast('2001-1-22 03:04 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 21, 20, 55, 0, 0, session));
+                sqlTimestampOf(2001, 1, 21, 8, 55, 0, 0, session));
         assertFunction(
                 "cast('2001-1-22 +07:09' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 21, 17, 51, 0, 0, session));
+                sqlTimestampOf(2001, 1, 21, 5, 51, 0, 0, session));
 
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 0, 4, 5, 321, session));
+                sqlTimestampOf(2001, 1, 21, 12, 4, 5, 321, session));
         assertFunction(
                 "cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 0, 4, 5, 0, session));
+                sqlTimestampOf(2001, 1, 21, 12, 4, 5, 0, session));
         assertFunction(
                 "cast('2001-1-22 03:04 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 0, 4, 0, 0, session));
+                sqlTimestampOf(2001, 1, 21, 12, 4, 0, 0, session));
         assertFunction(
                 "cast('2001-1-22 Asia/Oral' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 21, 21, 0, 0, 0, session));
+                sqlTimestampOf(2001, 1, 21, 9, 0, 0, 0, session));
     }
 }

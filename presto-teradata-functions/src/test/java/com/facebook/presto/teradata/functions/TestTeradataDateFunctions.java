@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
@@ -26,7 +25,6 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -35,11 +33,9 @@ import static java.lang.Math.toIntExact;
 public class TestTeradataDateFunctions
         extends AbstractTestFunctions
 {
-    private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final Session SESSION = testSessionBuilder()
             .setCatalog("catalog")
             .setSchema("schema")
-            .setTimeZoneKey(TIME_ZONE_KEY)
             .build();
 
     protected TestTeradataDateFunctions()
