@@ -305,11 +305,11 @@ public class MetastoreHiveStatisticsProvider
             knownDataSize += partitionColumnStatistics.getAverageColumnLength().getAsDouble() * partitionNonNullCount;
         }
 
-        if (knownNonNullRowCount <= 0) {
+        if (knownNonNullRowCount == 0) {
             return Estimate.unknownValue();
         }
 
-        double nonNullCount = rowCount.getValue() * (1 - (nullsFraction.isValueUnknown() ? nullsFraction.getValue() : 0));
+        double nonNullCount = rowCount.getValue() * (1 - (nullsFraction.isValueUnknown() ? 0 : nullsFraction.getValue()));
         return new Estimate(knownDataSize / knownNonNullRowCount * nonNullCount);
     }
 
@@ -380,7 +380,7 @@ public class MetastoreHiveStatisticsProvider
             knownDataSize += length * partitionRowCount;
         }
 
-        if (knownRowCount <= 0) {
+        if (knownRowCount == 0) {
             return Estimate.unknownValue();
         }
 
