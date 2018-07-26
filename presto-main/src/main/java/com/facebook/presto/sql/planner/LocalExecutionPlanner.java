@@ -886,6 +886,9 @@ public class LocalExecutionPlanner
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }
                 Symbol symbol = entry.getKey();
+
+                //resolve the signature before getting the implementation
+                signature = metadata.getFunctionManager().resolveFunction(session, signature);
                 WindowFunctionSupplier windowFunctionSupplier = metadata.getFunctionManager().getWindowFunctionImplementation(signature);
                 Type type = metadata.getType(signature.getReturnType());
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, arguments.build()));

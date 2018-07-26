@@ -256,6 +256,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_CATALOG;
 import static com.facebook.presto.sql.SqlEnvironmentConfig.DEFAULT_FUNCTION_SCHEMA;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -384,6 +385,11 @@ public class FunctionManager
             }
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, format("Function %s not found in path: %s", name, session.getPath()));
+    }
+
+    public Signature resolveFunction(Session session, Signature signature)
+    {
+        return resolveFunction(session, QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
