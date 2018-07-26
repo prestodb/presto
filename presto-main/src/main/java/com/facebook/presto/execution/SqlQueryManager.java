@@ -595,9 +595,10 @@ public class SqlQueryManager
      */
     public void enforceMemoryLimits()
     {
-        memoryManager.process(queries.values().stream()
+        List<QueryExecution> runningQueries = queries.values().stream()
                 .filter(query -> query.getState() == RUNNING)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
+        memoryManager.process(runningQueries, () -> getAllQueryInfo());
     }
 
     /**
