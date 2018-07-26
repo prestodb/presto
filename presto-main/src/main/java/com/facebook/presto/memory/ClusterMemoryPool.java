@@ -130,12 +130,12 @@ public class ClusterMemoryPool
 
     public synchronized Map<QueryId, Long> getQueryMemoryReservations()
     {
-        return queryMemoryReservations;
+        return ImmutableMap.copyOf(queryMemoryReservations);
     }
 
     public synchronized Map<QueryId, Long> getQueryMemoryRevocableReservations()
     {
-        return queryMemoryRevocableReservations;
+        return ImmutableMap.copyOf(queryMemoryRevocableReservations);
     }
 
     public synchronized void update(List<MemoryInfo> memoryInfos, int assignedQueries)
