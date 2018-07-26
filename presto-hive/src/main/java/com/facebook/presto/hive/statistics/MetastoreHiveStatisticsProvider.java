@@ -360,6 +360,7 @@ public class MetastoreHiveStatisticsProvider
 
         String baseType = partitionColumn.getTypeSignature().getBase();
         if (!VARCHAR.equals(baseType) && !CHAR.equalsIgnoreCase(baseType)) {
+            // TODO support VARBINARY
             return Estimate.unknownValue();
         }
 
