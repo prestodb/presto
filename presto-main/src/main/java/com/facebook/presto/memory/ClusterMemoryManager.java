@@ -16,6 +16,7 @@ package com.facebook.presto.memory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.ServerConfig;
@@ -57,6 +58,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalTotalLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalUserLimit;
@@ -91,6 +93,7 @@ public class ClusterMemoryManager
     private static final Logger log = Logger.get(ClusterMemoryManager.class);
 
     private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor();
+    private final ClusterMemoryLeakDetector memoryLeakDetector = new ClusterMemoryLeakDetector();
     private final InternalNodeManager nodeManager;
     private final LocationFactory locationFactory;
     private final HttpClient httpClient;
@@ -184,11 +187,15 @@ public class ClusterMemoryManager
         changeListeners.computeIfAbsent(poolId, id -> new ArrayList<>()).add(listener);
     }
 
-    public synchronized void process(Iterable<QueryExecution> runningQueries)
+    public synchronized void process(Iterable<QueryExecution> runningQueries, Supplier<List<QueryInfo>> allQueryInfoSupplier)
     {
         if (!enabled) {
             return;
         }
+
+        // TODO revocable memory reservations can also leak and may need to be detected in the future
+        // We are only concerned about the leaks in general pool.
+        memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pools.get(GENERAL_POOL).getQueryMemoryReservations());
 
         boolean outOfMemory = isClusterOutOfMemory();
         if (!outOfMemory) {
@@ -292,6 +299,16 @@ public class ClusterMemoryManager
         if (lastKilledQuery == null) {
             return true;
         }
+
+        // If the lastKilledQuery is marked as leaked by the ClusterMemoryLeakDetector we consider the lastKilledQuery as gone,
+        // so that the ClusterMemoryManager can continue to make progress even if there are leaks.
+        // Even if the weak references to the leaked queries are GCed in the ClusterMemoryLeakDetector, it will mark the same queries
+        // as leaked in its next run, and eventually the ClusterMemoryManager will make progress.
+        if (memoryLeakDetector.wasQueryPossiblyLeaked(lastKilledQuery)) {
+            lastKilledQuery = null;
+            return true;
+        }
+
         // pools fields is updated based on nodes field.
         // Therefore, if the query is gone from pools field, it should also be gone from nodes field.
         // However, since nodes can updated asynchronously, it has the potential of coming back after being gone.
@@ -534,6 +551,12 @@ public class ClusterMemoryManager
             }
             closer.register(listenerExecutor::shutdownNow);
         }
+    }
+
+    @Managed
+    public int getNumberOfLeakedQueries()
+    {
+        return memoryLeakDetector.getNumberOfLeakedQueries();
     }
 
     @Managed
