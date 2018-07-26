@@ -110,7 +110,7 @@ import static parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 
 public class ParquetTester
 {
-    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
+    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
     private static final boolean OPTIMIZED = true;
     private static final HiveClientConfig HIVE_CLIENT_CONFIG = createHiveClientConfig(false);
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG);

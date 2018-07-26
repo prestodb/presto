@@ -132,9 +132,9 @@ public class TestJdbcResultSet
         });
 
         checkRepresentation("TIME '09:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
-            assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(14, 9, 7))); // TODO this should represent TIME '09:39:07 +01:00'
+            assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should represent TIME '09:39:07 +01:00'
             assertThrows(() -> rs.getDate(column));
-            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(14, 9, 7))); // TODO this should fail, or represent TIME '09:39:07 +01:00'
+            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should fail, or represent TIME '09:39:07 +01:00'
             assertThrows(() -> rs.getTimestamp(column));
         });
 
@@ -146,10 +146,10 @@ public class TestJdbcResultSet
         });
 
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
             assertThrows(() -> rs.getDate(column));
             assertThrows(() -> rs.getTime(column));
-            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should fail or represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should fail or represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
         });
     }
 
