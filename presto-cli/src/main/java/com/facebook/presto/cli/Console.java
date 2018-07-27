@@ -53,6 +53,7 @@ import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.nullOutputStream;
+import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -374,17 +375,12 @@ public class Console
     @VisibleForTesting
     static MemoryHistory getHistory(File historyFile)
     {
-        if (!historyFile.canWrite() || !historyFile.canRead()) {
-            System.err.printf("WARNING: History file is not readable/writable: %s. " +
-                            "History will not be available during this session.%n",
-                    historyFile.getAbsolutePath());
-            MemoryHistory history = new MemoryHistory();
-            history.setAutoTrim(true);
-            return history;
-        }
-
         MemoryHistory history;
         try {
+            //  try creating the history file and its parents to check
+            // whether the directory tree is readable/writeable
+            createParentDirs(historyFile.getParentFile());
+            historyFile.createNewFile();
             history = new FileHistory(historyFile);
             history.setMaxSize(10000);
         }
