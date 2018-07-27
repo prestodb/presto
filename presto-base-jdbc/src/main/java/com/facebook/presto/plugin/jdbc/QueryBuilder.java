@@ -17,20 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
-import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -45,7 +32,20 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -92,7 +92,14 @@ public class QueryBuilder
         this.quote = requireNonNull(quote, "quote is null");
     }
 
-    public PreparedStatement buildSql(JdbcClient client, Connection connection, String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public PreparedStatement buildSql(
+            JdbcClient client,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -126,73 +133,83 @@ public class QueryBuilder
         }
 
         PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
+        setStatementParameters(statement, accumulator);
+        return statement;
+    }
 
+    private void setStatementParameters(PreparedStatement statement, List<TypeAndValue> accumulator)
+            throws SQLException
+    {
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
-            if (typeAndValue.getType().equals(BigintType.BIGINT)) {
-                statement.setLong(i + 1, (long) typeAndValue.getValue());
+            int index = i + 1;
+            if (isType(typeAndValue, BIGINT)) {
+                statement.setLong(index, (long) typeAndValue.getValue());
             }
-            else if (typeAndValue.getType().equals(IntegerType.INTEGER)) {
-                statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
+            else if (isType(typeAndValue, INTEGER)) {
+                statement.setInt(index, ((Number) typeAndValue.getValue()).intValue());
             }
-            else if (typeAndValue.getType().equals(SmallintType.SMALLINT)) {
-                statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
+            else if (isType(typeAndValue, SMALLINT)) {
+                statement.setShort(index, ((Number) typeAndValue.getValue()).shortValue());
             }
-            else if (typeAndValue.getType().equals(TinyintType.TINYINT)) {
-                statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
+            else if (isType(typeAndValue, TINYINT)) {
+                statement.setByte(index, ((Number) typeAndValue.getValue()).byteValue());
             }
-            else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
-                statement.setDouble(i + 1, (double) typeAndValue.getValue());
+            else if (isType(typeAndValue, DOUBLE)) {
+                statement.setDouble(index, (double) typeAndValue.getValue());
             }
-            else if (typeAndValue.getType().equals(RealType.REAL)) {
-                statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
+            else if (isType(typeAndValue, REAL)) {
+                statement.setFloat(index, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
             }
-            else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
-                statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
+            else if (isType(typeAndValue, BOOLEAN)) {
+                statement.setBoolean(index, (boolean) typeAndValue.getValue());
             }
-            else if (typeAndValue.getType().equals(DateType.DATE)) {
+            else if (isType(typeAndValue, DATE)) {
                 long millis = DAYS.toMillis((long) typeAndValue.getValue());
-                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+                statement.setDate(index, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
             }
-            else if (typeAndValue.getType().equals(TimeType.TIME)) {
-                statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
+            else if (isType(typeAndValue, TIME)) {
+                statement.setTime(index, new Time((long) typeAndValue.getValue()));
             }
-            else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
-                statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+            else if (isType(typeAndValue, TIME_WITH_TIME_ZONE)) {
+                statement.setTime(index, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
             }
-            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
-                statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
+            else if (isType(typeAndValue, TIMESTAMP)) {
+                statement.setTimestamp(index, new Timestamp((long) typeAndValue.getValue()));
             }
-            else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
-                statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+            else if (isType(typeAndValue, TIMESTAMP_WITH_TIME_ZONE)) {
+                statement.setTimestamp(index, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
             }
-            else if (typeAndValue.getType() instanceof VarcharType) {
-                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            else if (isVarcharType(typeAndValue.getType())) {
+                statement.setString(index, ((Slice) typeAndValue.getValue()).toStringUtf8());
             }
             else {
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
         }
+    }
 
-        return statement;
+    private static boolean isType(TypeAndValue typeval, Type type)
+    {
+        return type.equals(typeval.getType());
     }
 
     private static boolean isAcceptedType(Type type)
     {
-        Type validType = requireNonNull(type, "type is null");
-        return validType.equals(BigintType.BIGINT) ||
-                validType.equals(TinyintType.TINYINT) ||
-                validType.equals(SmallintType.SMALLINT) ||
-                validType.equals(IntegerType.INTEGER) ||
-                validType.equals(DoubleType.DOUBLE) ||
-                validType.equals(RealType.REAL) ||
-                validType.equals(BooleanType.BOOLEAN) ||
-                validType.equals(DateType.DATE) ||
-                validType.equals(TimeType.TIME) ||
-                validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
-                validType.equals(TimestampType.TIMESTAMP) ||
-                validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
-                validType instanceof VarcharType;
+        requireNonNull(type, "type is null");
+        return type.equals(BIGINT) ||
+                type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(DOUBLE) ||
+                type.equals(REAL) ||
+                type.equals(BOOLEAN) ||
+                type.equals(DATE) ||
+                type.equals(TIME) ||
+                type.equals(TIME_WITH_TIME_ZONE) ||
+                type.equals(TIMESTAMP) ||
+                type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
+                isVarcharType(type);
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
