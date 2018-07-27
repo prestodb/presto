@@ -116,7 +116,7 @@ public class PushAggregationThroughOuterJoin
 
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
-                || !groupsOnAllOuterTableColumns(aggregation, context.getLookup().resolve(getOuterTable(join)))
+                || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputSymbols())
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
             return Result.empty();
         }
@@ -197,9 +197,9 @@ public class PushAggregationThroughOuterJoin
         return outerNode;
     }
 
-    private static boolean groupsOnAllOuterTableColumns(AggregationNode node, PlanNode outerTable)
+    private static boolean groupsOnAllColumns(AggregationNode node, List<Symbol> columns)
     {
-        return new HashSet<>(node.getGroupingKeys()).equals(new HashSet<>(outerTable.getOutputSymbols()));
+        return new HashSet<>(node.getGroupingKeys()).equals(new HashSet<>(columns));
     }
 
     // When the aggregation is done after the join, there will be a null value that gets aggregated over
@@ -252,7 +252,7 @@ public class PushAggregationThroughOuterJoin
         ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SymbolReference> sourcesSymbolMappingBuilder = ImmutableMap.builder();
-        for (Symbol sourceSymbol : lookup.resolve(referenceAggregation.getSource()).getOutputSymbols()) {
+        for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
             nullLiterals.add(nullLiteral);
             Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
             nullSymbols.add(nullSymbol);
