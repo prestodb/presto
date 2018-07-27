@@ -14,11 +14,22 @@
 package com.facebook.presto.pulsar;
 
 import org.apache.avro.Schema;
+import org.apache.pulsar.client.admin.PulsarAdmin;
+import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.common.naming.TopicName;
 
 public class PulsarConnectorUtils {
 
     public static Schema parseSchema(String schemaJson) {
         Schema.Parser parser = new Schema.Parser();
         return parser.parse(schemaJson);
+    }
+
+    public static boolean isPartitionedTopic(TopicName topicName, PulsarAdmin pulsarAdmin) {
+        try {
+            return pulsarAdmin.topics().getPartitionedTopicMetadata(topicName.toString()).partitions > 0;
+        } catch (PulsarAdminException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

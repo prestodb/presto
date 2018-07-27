@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
@@ -32,12 +33,11 @@ import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.shade.org.apache.bookkeeper.conf.ClientConfiguration;
 
 import javax.inject.Inject;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -88,8 +88,8 @@ public class PulsarSplitManager implements ConnectorSplitManager {
 
         Collection<PulsarSplit> splits;
         try {
-            if (!Utils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
-                splits = getSplits(numSplits, topicName, tableHandle, schemaInfo);
+            if (!PulsarConnectorUtils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
+                splits = getSplitsNonPartitionedTopic(numSplits, topicName, tableHandle, schemaInfo);
             } else {
                 splits = getSplitsPartitionedTopic(numSplits, topicName, tableHandle, schemaInfo);
             }
@@ -101,7 +101,17 @@ public class PulsarSplitManager implements ConnectorSplitManager {
         return new FixedSplitSource(splits);
     }
 
-    private Collection<PulsarSplit> getSplitsPartitionedTopic(int numSplits, TopicName topicName, PulsarTableHandle
+    @VisibleForTesting
+    ManagedLedgerFactory getManagedLedgerFactory() throws Exception {
+        ClientConfiguration bkClientConfiguration = new ClientConfiguration()
+                .setZkServers(this.pulsarConnectorConfig.getZookeeperUri())
+                .setAllowShadedLedgerManagerFactoryClass(true)
+                .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
+        return new ManagedLedgerFactoryImpl(bkClientConfiguration);
+    }
+
+    @VisibleForTesting
+    Collection<PulsarSplit> getSplitsPartitionedTopic(int numSplits, TopicName topicName, PulsarTableHandle
             tableHandle, SchemaInfo schemaInfo) throws Exception {
         int numPartitions;
         try {
@@ -117,11 +127,7 @@ public class PulsarSplitManager implements ConnectorSplitManager {
 
         int splitRemainder = actualNumSplits % numPartitions;
 
-        ClientConfiguration bkClientConfiguration = new ClientConfiguration()
-                .setZkServers(this.pulsarConnectorConfig.getZookeeperUri())
-                .setAllowShadedLedgerManagerFactoryClass(true)
-                .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
-        ManagedLedgerFactory managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
+        ManagedLedgerFactory managedLedgerFactory = getManagedLedgerFactory();
 
         try {
             List<PulsarSplit> splits = new LinkedList<>();
@@ -150,7 +156,8 @@ public class PulsarSplitManager implements ConnectorSplitManager {
         }
     }
 
-    private Collection<PulsarSplit> getSplitsForTopic(String topicNamePersistenceEncoding,
+    @VisibleForTesting
+    Collection<PulsarSplit> getSplitsForTopic(String topicNamePersistenceEncoding,
                                                       ManagedLedgerFactory managedLedgerFactory,
                                                       int numSplits,
                                                       PulsarTableHandle tableHandle,
@@ -164,6 +171,9 @@ public class PulsarSplitManager implements ConnectorSplitManager {
                     PositionImpl.earliest, new ManagedLedgerConfig());
             long numEntries = readOnlyCursor.getNumberOfEntries();
             log.info("numEntries: %s", numEntries);
+            if (numEntries <= 0) {
+                return Collections.EMPTY_LIST;
+            }
             long remainder = numEntries % numSplits;
 
             long avgEntriesPerSplit = numEntries / numSplits;
@@ -201,15 +211,12 @@ public class PulsarSplitManager implements ConnectorSplitManager {
         }
     }
 
-    private Collection<PulsarSplit> getSplits(int numSplits, TopicName topicName, PulsarTableHandle
+    @VisibleForTesting
+    Collection<PulsarSplit> getSplitsNonPartitionedTopic(int numSplits, TopicName topicName, PulsarTableHandle
             tableHandle, SchemaInfo schemaInfo) throws Exception {
         ManagedLedgerFactory managedLedgerFactory = null;
         try {
-            ClientConfiguration bkClientConfiguration = new ClientConfiguration()
-                    .setZkServers(pulsarConnectorConfig.getZookeeperUri())
-                    .setAllowShadedLedgerManagerFactoryClass(true)
-                    .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
-            managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
+            managedLedgerFactory = getManagedLedgerFactory();
 
             return getSplitsForTopic(
                     topicName.getPersistenceNamingEncoding(),

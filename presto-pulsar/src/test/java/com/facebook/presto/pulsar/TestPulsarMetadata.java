@@ -22,34 +22,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.log.Logger;
 import org.apache.avro.Schema;
-import org.apache.pulsar.client.admin.Namespaces;
-import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
-import org.apache.pulsar.client.admin.Schemas;
-import org.apache.pulsar.client.admin.Tenants;
-import org.apache.pulsar.client.admin.Topics;
-import org.apache.pulsar.client.api.PulsarClientException;
-import org.apache.pulsar.client.impl.schema.AvroSchema;
-import org.apache.pulsar.client.impl.schema.JSONSchema;
-import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.shade.javax.ws.rs.ClientErrorException;
 import org.apache.pulsar.shade.javax.ws.rs.core.Response;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
@@ -59,263 +39,17 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @Test(singleThreaded = true)
-public class PulsarMetadataTest {
+public class TestPulsarMetadata extends TestPulsarConnector {
 
-    private static final Logger log = Logger.get(PulsarMetadataTest.class);
-
-    private PulsarConnectorConfig pulsarConnectorConfig;
-
-    private PulsarMetadata pulsarMetadata;
-
-    private PulsarAdmin pulsarAdmin;
-
-    private Schemas schemas;
-
-    private static List<TopicName> topicNames;
-    private static List<TopicName> partitionedTopicNames;
-    private static Map<String, Integer> partitionedTopicsToPartitions;
-    private static Map<String, SchemaInfo> topicsToSchemas;
-
-    private static final NamespaceName NAMESPACE_NAME_1 = NamespaceName.get("tenant-1", "ns-1");
-    private static final NamespaceName NAMESPACE_NAME_2 = NamespaceName.get("tenant-1", "ns-2");
-    private static final NamespaceName NAMESPACE_NAME_3 = NamespaceName.get("tenant-2", "ns-1");
-    private static final NamespaceName NAMESPACE_NAME_4 = NamespaceName.get("tenant-2", "ns-2");
-
-    private static final TopicName TOPIC_1 = TopicName.get("persistent", NAMESPACE_NAME_1, "topic-1");
-    private static final TopicName TOPIC_2 = TopicName.get("persistent", NAMESPACE_NAME_1, "topic-2");
-    private static final TopicName TOPIC_3 = TopicName.get("persistent", NAMESPACE_NAME_2, "topic-1");
-    private static final TopicName TOPIC_4 = TopicName.get("persistent", NAMESPACE_NAME_3, "topic-1");
-    private static final TopicName TOPIC_5 = TopicName.get("persistent", NAMESPACE_NAME_4, "topic-1");
-    private static final TopicName TOPIC_6 = TopicName.get("persistent", NAMESPACE_NAME_4, "topic-2");
-
-    private static final TopicName PARTITIONED_TOPIC_1 = TopicName.get("persistent", NAMESPACE_NAME_1,
-            "partitioned-topic-1");
-    private static final TopicName PARTITIONED_TOPIC_2 = TopicName.get("persistent", NAMESPACE_NAME_1,
-            "partitioned-topic-2");
-    private static final TopicName PARTITIONED_TOPIC_3 = TopicName.get("persistent", NAMESPACE_NAME_2,
-            "partitioned-topic-1");
-    private static final TopicName PARTITIONED_TOPIC_4 = TopicName.get("persistent", NAMESPACE_NAME_3,
-            "partitioned-topic-1");
-    private static final TopicName PARTITIONED_TOPIC_5 = TopicName.get("persistent", NAMESPACE_NAME_4,
-            "partitioned-topic-1");
-    private static final TopicName PARTITIONED_TOPIC_6 = TopicName.get("persistent", NAMESPACE_NAME_4,
-            "partitioned-topic-2");
-
-    public static class Foo {
-        int field1;
-        String field2;
-        float field3;
-        double field4;
-        boolean field5;
-        long field6;
-        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"long\", \"logicalType\": \"timestamp-millis\" }")
-        private long timestamp;
-        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"time-millis\" }")
-        private int time;
-        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
-        private int date;
-    }
-
-    private static Map<String, Type> fooTypes;
-
-    static {
-        topicNames = new LinkedList<>();
-        topicNames.add(TOPIC_1);
-        topicNames.add(TOPIC_2);
-        topicNames.add(TOPIC_3);
-        topicNames.add(TOPIC_4);
-        topicNames.add(TOPIC_5);
-        topicNames.add(TOPIC_6);
-
-        partitionedTopicNames = new LinkedList<>();
-        partitionedTopicNames.add(PARTITIONED_TOPIC_1);
-        partitionedTopicNames.add(PARTITIONED_TOPIC_2);
-        partitionedTopicNames.add(PARTITIONED_TOPIC_3);
-        partitionedTopicNames.add(PARTITIONED_TOPIC_4);
-        partitionedTopicNames.add(PARTITIONED_TOPIC_5);
-        partitionedTopicNames.add(PARTITIONED_TOPIC_6);
-
-        partitionedTopicsToPartitions = new HashMap<>();
-        partitionedTopicsToPartitions.put(PARTITIONED_TOPIC_1.toString(), 2);
-        partitionedTopicsToPartitions.put(PARTITIONED_TOPIC_2.toString(), 3);
-        partitionedTopicsToPartitions.put(PARTITIONED_TOPIC_3.toString(), 4);
-        partitionedTopicsToPartitions.put(PARTITIONED_TOPIC_4.toString(), 5);
-        partitionedTopicsToPartitions.put(PARTITIONED_TOPIC_5.toString(), 6);
-        partitionedTopicsToPartitions.put(PARTITIONED_TOPIC_6.toString(), 7);
-
-        topicsToSchemas = new HashMap<>();
-        topicsToSchemas.put(TOPIC_1.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(TOPIC_2.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(TOPIC_3.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(TOPIC_4.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(TOPIC_5.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(TOPIC_6.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
-
-
-        topicsToSchemas.put(PARTITIONED_TOPIC_1.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(PARTITIONED_TOPIC_2.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(PARTITIONED_TOPIC_3.getSchemaName(), AvroSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(PARTITIONED_TOPIC_4.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(PARTITIONED_TOPIC_5.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
-        topicsToSchemas.put(PARTITIONED_TOPIC_6.getSchemaName(), JSONSchema.of(Foo.class).getSchemaInfo());
-
-        fooTypes = new HashMap<>();
-        fooTypes.put("field1", IntegerType.INTEGER);
-        fooTypes.put("field2", VarcharType.VARCHAR);
-        fooTypes.put("field3", RealType.REAL);
-        fooTypes.put("field4", DoubleType.DOUBLE);
-        fooTypes.put("field5", BooleanType.BOOLEAN);
-        fooTypes.put("field6", BigintType.BIGINT);
-        fooTypes.put("timestamp", TIMESTAMP);
-        fooTypes.put("time", TIME);
-        fooTypes.put("date", DATE);
-    }
-
-    private final static PulsarConnectorId pulsarConnectorId = new PulsarConnectorId("test-connector");
-
-    private static List<String> getNamespace(String tenant) {
-        return new LinkedList<>(topicNames.stream().filter(new Predicate<TopicName>() {
-            @Override
-            public boolean test(TopicName topicName) {
-                return topicName.getTenant().equals(tenant);
-            }
-        }).map(new Function<TopicName, String>() {
-            @Override
-            public String apply(TopicName topicName) {
-                return topicName.getNamespace();
-            }
-        }).collect(Collectors.toSet()));
-    }
-
-    private static List<String> getTopics(String ns) {
-        return topicNames.stream().filter(new Predicate<TopicName>() {
-            @Override
-            public boolean test(TopicName topicName) {
-                return topicName.getNamespace().equals(ns);
-            }
-        }).map(new Function<TopicName, String>() {
-            @Override
-            public String apply(TopicName topicName) {
-                return topicName.toString();
-            }
-        }).collect(Collectors.toList());
-    }
-
-    private static List<String> getPartitionedTopics(String ns) {
-        return partitionedTopicNames.stream().filter(new Predicate<TopicName>() {
-            @Override
-            public boolean test(TopicName topicName) {
-                return topicName.getNamespace().equals(ns);
-            }
-        }).map(new Function<TopicName, String>() {
-            @Override
-            public String apply(TopicName topicName) {
-                return topicName.toString();
-            }
-        }).collect(Collectors.toList());
-    }
-
-    @BeforeMethod
-    public void setup() throws PulsarClientException, PulsarAdminException {
-        this.pulsarConnectorConfig = spy(new PulsarConnectorConfig());
-
-        Tenants tenants = mock(Tenants.class);
-        doReturn(new LinkedList<>(topicNames.stream().map(new Function<TopicName, String>() {
-            @Override
-            public String apply(TopicName topicName) {
-                return topicName.getTenant();
-            }
-        }).collect(Collectors.toSet()))).when(tenants).getTenants();
-
-        Namespaces namespaces = mock(Namespaces.class);
-
-        when(namespaces.getNamespaces(anyString())).thenAnswer(new Answer<List<String>>() {
-            @Override
-            public List<String> answer(InvocationOnMock invocation) throws Throwable {
-                Object[] args = invocation.getArguments();
-                String tenant = (String) args[0];
-                List<String> ns = getNamespace(tenant);
-                if (ns.isEmpty()) {
-                    throw new PulsarAdminException(new ClientErrorException(Response.status(404).build()));
-                }
-                return ns;
-            }
-        });
-
-        Topics topics = mock(Topics.class);
-        when(topics.getList(anyString())).thenAnswer(new Answer<List<String>>() {
-            @Override
-            public List<String> answer(InvocationOnMock invocationOnMock) throws Throwable {
-                Object[] args = invocationOnMock.getArguments();
-                String ns = (String) args[0];
-                List<String> topics = getTopics(ns);
-                if (topics.isEmpty()) {
-                    throw new PulsarAdminException(new ClientErrorException(Response.status(404).build()));
-                }
-                return topics;
-            }
-        });
-
-        when(topics.getPartitionedTopicList(anyString())).thenAnswer(new Answer<List<String>>() {
-            @Override
-            public List<String> answer(InvocationOnMock invocationOnMock) throws Throwable {
-                Object[] args = invocationOnMock.getArguments();
-                String ns = (String) args[0];
-                List<String> topics = getPartitionedTopics(ns);
-                if (topics.isEmpty()) {
-                    throw new PulsarAdminException(new ClientErrorException(Response.status(404).build()));
-                }
-                return topics;
-            }
-        });
-
-        when(topics.getPartitionedTopicMetadata(anyString())).thenAnswer(new Answer<PartitionedTopicMetadata>() {
-            @Override
-            public PartitionedTopicMetadata answer(InvocationOnMock invocationOnMock) throws Throwable {
-                Object[] args = invocationOnMock.getArguments();
-                String topic = (String) args[0];
-                int partitions = partitionedTopicsToPartitions.get(topic) == null
-                        ? 0 : partitionedTopicsToPartitions.get(topic);
-                return new PartitionedTopicMetadata(partitions);
-            }
-        });
-
-        schemas = mock(Schemas.class);
-        when(schemas.getSchemaInfo(anyString())).thenAnswer(new Answer<SchemaInfo>() {
-            @Override
-            public SchemaInfo answer(InvocationOnMock invocationOnMock) throws Throwable {
-                Object[] args = invocationOnMock.getArguments();
-                String topic = (String) args[0];
-                return topicsToSchemas.get(topic);
-            }
-        });
-
-        pulsarAdmin = mock(PulsarAdmin.class);
-        doReturn(tenants).when(pulsarAdmin).tenants();
-        doReturn(namespaces).when(pulsarAdmin).namespaces();
-        doReturn(topics).when(pulsarAdmin).topics();
-        doReturn(schemas).when(pulsarAdmin).schemas();
-        doReturn(pulsarAdmin).when(this.pulsarConnectorConfig).getPulsarAdmin();
-
-        this.pulsarMetadata = new PulsarMetadata(pulsarConnectorId, this.pulsarConnectorConfig);
-    }
+    private static final Logger log = Logger.get(TestPulsarMetadata.class);
 
     @Test
     public void testListSchemaNames() {

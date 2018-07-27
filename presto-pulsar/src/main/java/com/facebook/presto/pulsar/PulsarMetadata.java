@@ -57,7 +57,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertColumnHandle;
 import static com.facebook.presto.pulsar.PulsarHandleResolver.convertTableHandle;
@@ -246,7 +245,7 @@ public class PulsarMetadata implements ConnectorMetadata {
 
             List<String> topics;
             try {
-                if (!Utils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
+                if (!PulsarConnectorUtils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
                     topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
                 } else {
                     topics = this.pulsarAdmin.topics().getPartitionedTopicList((schemaTableName.getSchemaName()));
@@ -286,8 +285,7 @@ public class PulsarMetadata implements ConnectorMetadata {
         log.info("schema: " + schemaJson);
         Schema schema;
         try {
-            Schema.Parser parser = new Schema.Parser();
-            schema = parser.parse(schemaJson);
+            schema = PulsarConnectorUtils.parseSchema(schemaJson);
         } catch (SchemaParseException ex) {
             throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString()
                     + " does not have a valid schema");

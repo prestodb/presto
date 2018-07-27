@@ -153,4 +153,21 @@ public class PulsarSplit implements ConnectorSplit {
     public Object getInfo() {
         return this;
     }
+
+    @Override
+    public String toString() {
+        return "PulsarSplit{" +
+                "splitId=" + splitId +
+                ", connectorId='" + connectorId + '\'' +
+                ", schemaName='" + schemaName + '\'' +
+                ", tableName='" + tableName + '\'' +
+                ", splitSize=" + splitSize +
+                ", schema='" + schema + '\'' +
+                ", schemaType=" + schemaType +
+                ", startPositionEntryId=" + startPositionEntryId +
+                ", endPositionEntryId=" + endPositionEntryId +
+                ", startPositionLedgerId=" + startPositionLedgerId +
+                ", endPositionLedgerId=" + endPositionLedgerId +
+                '}';
+    }
 }
