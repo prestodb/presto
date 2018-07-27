@@ -43,6 +43,7 @@ let ClusterHUD = React.createClass({
             lastCpuTime: null,
 
             initialized: false,
+            serverUnreachable: false,
         };
     },
     resetTimer: function() {
@@ -91,12 +92,14 @@ let ClusterHUD = React.createClass({
                 lastCpuTime: clusterState.totalCpuTimeSecs,
 
                 initialized: true,
+                serverUnreachable: false,
 
                 lastRefresh: Date.now()
             });
             this.resetTimer();
         }.bind(this))
         .error(function() {
+            this.setState({ ...this.state, serverUnreachable: true });
             this.resetTimer();
         }.bind(this));
     },
@@ -127,6 +130,12 @@ let ClusterHUD = React.createClass({
         $('[data-toggle="tooltip"]').tooltip();
     },
     render: function() {
+        if (this.state.serverUnreachable) {
+            return (<div className="row error-message">
+                <h4 className="font-white">Server cannot be reached</h4>
+            </div>);
+        }
+
         return (<div className="row">
             <div className="col-xs-12">
                 <div className="row">
