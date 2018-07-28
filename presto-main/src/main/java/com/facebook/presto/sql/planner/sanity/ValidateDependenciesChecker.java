@@ -426,8 +426,7 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitTableScan(TableScanNode node, Set<Symbol> boundSymbols)
         {
-            checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
-
+            //We don't have to do a check here as TableScanNode has no dependencies.
             return null;
         }
 
