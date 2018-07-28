@@ -18,6 +18,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -62,24 +63,48 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PulsarRecordCursor implements RecordCursor {
 
-    private final List<PulsarColumnHandle> columnHandles;
-    private final PulsarSplit pulsarSplit;
-    private final PulsarConnectorConfig pulsarConnectorConfig;
+    private List<PulsarColumnHandle> columnHandles;
+    private PulsarSplit pulsarSplit;
+    private PulsarConnectorConfig pulsarConnectorConfig;
     private ManagedLedgerFactory managedLedgerFactory;
     private ReadOnlyCursor cursor;
     private Queue<Message> messageQueue = new LinkedList<>();
     private Object currentRecord;
     private Message currentMessage;
     private Map<String, PulsarInternalColumn> internalColumnMap = PulsarInternalColumn.getInternalFieldsMap();
-    private final SchemaHandler schemaHandler;
+    private SchemaHandler schemaHandler;
+    private int batchSize;
+    private long completedBytes = 0L;
 
     private static final Logger log = Logger.get(PulsarRecordCursor.class);
 
     public PulsarRecordCursor(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit, PulsarConnectorConfig
             pulsarConnectorConfig) {
+
+        ManagedLedgerFactory managedLedgerFactory;
+        try {
+            managedLedgerFactory = getManagedLedgerFactory();
+        } catch (Exception e) {
+            log.error(e, "Failed to initialize managed ledger factory");
+            close();
+            throw new RuntimeException(e);
+        }
+        initialize(columnHandles, pulsarSplit, pulsarConnectorConfig, managedLedgerFactory);
+    }
+
+    // Exposed for testing purposes
+    PulsarRecordCursor(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit, PulsarConnectorConfig
+            pulsarConnectorConfig, ManagedLedgerFactory managedLedgerFactory) {
+        initialize(columnHandles, pulsarSplit, pulsarConnectorConfig, managedLedgerFactory);
+    }
+
+    private void initialize(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit, PulsarConnectorConfig
+            pulsarConnectorConfig, ManagedLedgerFactory managedLedgerFactory) {
         this.columnHandles = columnHandles;
         this.pulsarSplit = pulsarSplit;
         this.pulsarConnectorConfig = pulsarConnectorConfig;
+        this.batchSize = pulsarConnectorConfig.getEntryReadBatchSize();
+        this.managedLedgerFactory = managedLedgerFactory;
 
         Schema schema = PulsarConnectorUtils.parseSchema(pulsarSplit.getSchema());
 
@@ -88,10 +113,10 @@ public class PulsarRecordCursor implements RecordCursor {
         log.info("Start: %s end: %s", pulsarSplit.getStartPosition(), pulsarSplit.getEndPosition());
 
         try {
-             this.cursor = getCursor(TopicName.get("persistent", NamespaceName.get(pulsarSplit.getSchemaName()),
-                     pulsarSplit.getTableName()), pulsarSplit.getStartPosition());
-        } catch (Exception e) {
-            log.error(e, "Failed to get cursor");
+            this.cursor = getCursor(TopicName.get("persistent", NamespaceName.get(pulsarSplit.getSchemaName()),
+                    pulsarSplit.getTableName()), pulsarSplit.getStartPosition(), managedLedgerFactory);
+        } catch (ManagedLedgerException | InterruptedException e) {
+            log.error(e, "Failed to get read only cursor");
             close();
             throw new RuntimeException(e);
         }
@@ -118,24 +143,28 @@ public class PulsarRecordCursor implements RecordCursor {
         return schemaHandler;
     }
 
-    private ReadOnlyCursor getCursor(TopicName topicName, Position startPosition) throws Exception {
-        ClientConfiguration bkClientConfiguration = new ClientConfiguration()
-                .setZkServers(this.pulsarConnectorConfig.getZookeeperUri())
-                .setAllowShadedLedgerManagerFactoryClass(true)
-                .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
+    private ReadOnlyCursor getCursor(TopicName topicName, Position startPosition, ManagedLedgerFactory managedLedgerFactory)
+            throws ManagedLedgerException, InterruptedException {
 
-        managedLedgerFactory = new ManagedLedgerFactoryImpl(bkClientConfiguration);
-
-        log.info("opening read onl cursor: %s - %s", topicName, startPosition);
+        log.info("opening read only cursor: %s - %s", topicName, startPosition);
         ReadOnlyCursor cursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
                 startPosition, new ManagedLedgerConfig());
 
         return cursor;
     }
 
+    private ManagedLedgerFactory getManagedLedgerFactory() throws Exception {
+        ClientConfiguration bkClientConfiguration = new ClientConfiguration()
+                .setZkServers(this.pulsarConnectorConfig.getZookeeperUri())
+                .setAllowShadedLedgerManagerFactoryClass(true)
+                .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
+        return new ManagedLedgerFactoryImpl(bkClientConfiguration);
+    }
+
+
     @Override
     public long getCompletedBytes() {
-        return 0;
+        return this.completedBytes;
     }
 
     @Override
@@ -167,7 +196,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
             List<Entry> newEntries;
             try {
-                newEntries = this.cursor.readEntries(this.pulsarConnectorConfig.getEntryReadBatchSize());
+                newEntries = this.cursor.readEntries(this.batchSize);
             } catch (InterruptedException | ManagedLedgerException e) {
                 log.error(e, "Failed to read new entries from pulsar topic %s", topicName.toString());
                 throw new RuntimeException(e);
@@ -176,6 +205,7 @@ public class PulsarRecordCursor implements RecordCursor {
             newEntries.forEach(new Consumer<Entry>() {
                 @Override
                 public void accept(Entry entry) {
+                    completedBytes += entry.getData().length;
                     // filter entries that is not part of my split
                     if (((PositionImpl) entry.getPosition()).compareTo(pulsarSplit.getEndPosition()) < 0) {
                         try {
@@ -200,7 +230,8 @@ public class PulsarRecordCursor implements RecordCursor {
         return true;
     }
 
-    private Object getRecord(int fieldIndex) {
+    @VisibleForTesting
+    Object getRecord(int fieldIndex) {
         if (this.currentRecord == null) {
             return null;
         }

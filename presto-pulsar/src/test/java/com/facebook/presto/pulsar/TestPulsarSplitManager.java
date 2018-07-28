@@ -15,12 +15,10 @@ package com.facebook.presto.pulsar;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import io.airlift.log.Logger;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.common.naming.TopicName;
-import org.mockito.ArgumentMatcher;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.testng.Assert;
@@ -33,13 +31,12 @@ import java.util.stream.Collectors;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+@Test(singleThreaded = true)
 public class TestPulsarSplitManager extends TestPulsarConnector {
 
     private static final Logger log = Logger.get(TestPulsarSplitManager.class);
@@ -61,8 +58,8 @@ public class TestPulsarSplitManager extends TestPulsarConnector {
     public void testTopic() throws Exception {
 
         for (TopicName topicName : topicNames) {
-            log.info("!----- topic: %s -----!", topicName);
             setup();
+            log.info("!----- topic: %s -----!", topicName);
             PulsarTableHandle pulsarTableHandle = new PulsarTableHandle(pulsarConnectorId.toString(),
                     topicName.getNamespace(),
                     topicName.getLocalName(),

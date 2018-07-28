@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.pulsar;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -20,9 +21,13 @@ import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.airlift.log.Logger;
+import javafx.util.Pair;
+import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
 import org.apache.bookkeeper.mledger.ReadOnlyCursor;
+import org.apache.bookkeeper.mledger.impl.EntryImpl;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.client.admin.Namespaces;
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -30,12 +35,17 @@ import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.admin.Schemas;
 import org.apache.pulsar.client.admin.Tenants;
 import org.apache.pulsar.client.admin.Topics;
+import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.client.impl.schema.JSONSchema;
+import org.apache.pulsar.common.api.Commands;
+import org.apache.pulsar.common.api.proto.PulsarApi;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
 import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.common.schema.SchemaType;
+import org.apache.pulsar.shade.io.netty.buffer.ByteBuf;
 import org.apache.pulsar.shade.javax.ws.rs.ClientErrorException;
 import org.apache.pulsar.shade.javax.ws.rs.core.Response;
 import org.mockito.invocation.InvocationOnMock;
@@ -44,6 +54,11 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -55,6 +70,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static org.apache.pulsar.common.api.Commands.serializeMetadataAndPayload;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
@@ -65,7 +81,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @Test(singleThreaded = true)
-public class TestPulsarConnector {
+public abstract class TestPulsarConnector {
 
     protected PulsarConnectorConfig pulsarConnectorConfig;
 
@@ -76,6 +92,10 @@ public class TestPulsarConnector {
     protected Schemas schemas;
 
     protected PulsarSplitManager pulsarSplitManager;
+
+    protected Map<TopicName, PulsarRecordCursor> pulsarRecordCursors = new HashMap<>();
+
+    protected final static PulsarConnectorId pulsarConnectorId = new PulsarConnectorId("test-connector");
 
     protected static List<TopicName> topicNames;
     protected static List<TopicName> partitionedTopicNames;
@@ -121,9 +141,83 @@ public class TestPulsarConnector {
         protected int time;
         @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         protected int date;
+
+        public int getField1() {
+            return field1;
+        }
+
+        public void setField1(int field1) {
+            this.field1 = field1;
+        }
+
+        public String getField2() {
+            return field2;
+        }
+
+        public void setField2(String field2) {
+            this.field2 = field2;
+        }
+
+        public float getField3() {
+            return field3;
+        }
+
+        public void setField3(float field3) {
+            this.field3 = field3;
+        }
+
+        public double getField4() {
+            return field4;
+        }
+
+        public void setField4(double field4) {
+            this.field4 = field4;
+        }
+
+        public boolean isField5() {
+            return field5;
+        }
+
+        public void setField5(boolean field5) {
+            this.field5 = field5;
+        }
+
+        public long getField6() {
+            return field6;
+        }
+
+        public void setField6(long field6) {
+            this.field6 = field6;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(long timestamp) {
+            this.timestamp = timestamp;
+        }
+
+        public int getTime() {
+            return time;
+        }
+
+        public void setTime(int time) {
+            this.time = time;
+        }
+
+        public int getDate() {
+            return date;
+        }
+
+        public void setDate(int date) {
+            this.date = date;
+        }
     }
 
     protected static Map<String, Type> fooTypes;
+    protected static List<PulsarColumnHandle> fooColumnHandles;
+    protected static Map<TopicName, PulsarSplit> splits;
 
     static {
         topicNames = new LinkedList<>();
@@ -185,14 +279,46 @@ public class TestPulsarConnector {
         topicsToEntries.put(TOPIC_5.getSchemaName(), 8000L);
         topicsToEntries.put(TOPIC_6.getSchemaName(), 1L);
         topicsToEntries.put(PARTITIONED_TOPIC_1.getSchemaName(), 1233L);
-        topicsToEntries.put(PARTITIONED_TOPIC_2.getSchemaName(), 80000L);
+        topicsToEntries.put(PARTITIONED_TOPIC_2.getSchemaName(), 8000L);
         topicsToEntries.put(PARTITIONED_TOPIC_3.getSchemaName(), 100L);
         topicsToEntries.put(PARTITIONED_TOPIC_4.getSchemaName(), 0L);
         topicsToEntries.put(PARTITIONED_TOPIC_5.getSchemaName(), 800L);
         topicsToEntries.put(PARTITIONED_TOPIC_6.getSchemaName(), 1L);
-    }
 
-    protected final static PulsarConnectorId pulsarConnectorId = new PulsarConnectorId("test-connector");
+        fooColumnHandles = new LinkedList<>();
+        for (int i = 0; i < Foo.class.getDeclaredFields().length; i++) {
+            Field field = Foo.class.getDeclaredFields()[i];
+            fooColumnHandles.add(new PulsarColumnHandle(pulsarConnectorId.toString(),
+                    field.getName(),
+                    fooTypes.get(field.getName()),
+                    false,
+                    false,
+                    i));
+        }
+        fooColumnHandles.addAll(PulsarInternalColumn.getInternalFields().stream().map(
+                new Function<PulsarInternalColumn, PulsarColumnHandle>() {
+                    @Override
+                    public PulsarColumnHandle apply(PulsarInternalColumn pulsarInternalColumn) {
+                        return pulsarInternalColumn.getColumnHandle(pulsarConnectorId.toString(), false);
+                    }
+                }).collect(Collectors.toList()));
+
+        splits = new HashMap<>();
+
+        List<TopicName> allTopics = new LinkedList<>();
+        allTopics.addAll(topicNames);
+        allTopics.addAll(partitionedTopicNames);
+
+        for (TopicName topicName : allTopics) {
+            splits.put(topicName, new PulsarSplit(0, pulsarConnectorId.toString(),
+                    topicName.getNamespace(), topicName.getLocalName(),
+                    topicsToEntries.get(topicName.getSchemaName()),
+                    new String(topicsToSchemas.get(topicName.getSchemaName()).getSchema()),
+                    topicsToSchemas.get(topicName.getSchemaName()).getType(),
+                    0, topicsToEntries.get(topicName.getSchemaName()),
+                    0, 0));
+        }
+    }
 
     private static final Logger log = Logger.get(TestPulsarConnector.class);
 
@@ -324,20 +450,21 @@ public class TestPulsarConnector {
         this.pulsarSplitManager = spy(new PulsarSplitManager(pulsarConnectorId, this.pulsarConnectorConfig));
 
         ManagedLedgerFactory managedLedgerFactory = mock(ManagedLedgerFactory.class);
-        ReadOnlyCursor readOnlyCursor = mock(ReadOnlyCursor.class);
         when(managedLedgerFactory.openReadOnlyCursor(any(), any(), any())).then(new Answer<ReadOnlyCursor>() {
 
             private Map<String, Integer> positions = new HashMap<>();
+
+            private int count = 0;
             @Override
             public ReadOnlyCursor answer(InvocationOnMock invocationOnMock) throws Throwable {
                 Object[] args = invocationOnMock.getArguments();
                 String topic = (String) args[0];
                 positions.put(topic, 0);
-                long entries = topicsToEntries.get(
+                String schemaName = TopicName.get(
                         TopicName.get(
-                                TopicName.get(
-                                        topic.replaceAll("/persistent", ""))
-                                        .getPartitionedTopicName()).getSchemaName());
+                                topic.replaceAll("/persistent", ""))
+                                .getPartitionedTopicName()).getSchemaName();
+                long entries = topicsToEntries.get(schemaName);
                 ReadOnlyCursor readOnlyCursor = mock(ReadOnlyCursor.class);
                 doReturn(entries).when(readOnlyCursor).getNumberOfEntries();
 
@@ -357,11 +484,71 @@ public class TestPulsarConnector {
                         return PositionImpl.get(0, positions.get(topic));
                     }
                 });
+
+                when(readOnlyCursor.readEntries(anyInt())).thenAnswer(new Answer<List<Entry>>() {
+                    @Override
+                    public List<Entry> answer(InvocationOnMock invocationOnMock) throws Throwable {
+                        Object[] args = invocationOnMock.getArguments();
+                        Integer readEntries = (Integer) args[0];
+
+                        List<Entry> entries = new LinkedList<>();
+                        for (int i = 0; i < readEntries; i++) {
+
+                            Foo foo = new Foo();
+                            foo.field1 = count;
+                            foo.field2 = String.valueOf(count);
+                            foo.field3 = count;
+                            foo.field4 = count;
+                            foo.field5 = count % 2 == 0;
+                            foo.field6 = count;
+                            foo.timestamp = System.currentTimeMillis();
+
+                            LocalTime now = LocalTime.now(ZoneId.systemDefault());
+                            foo.time = now.toSecondOfDay() * 1000;
+
+                            LocalDate localDate = LocalDate.now();
+                            LocalDate epoch = LocalDate.ofEpochDay(0);
+                            foo.date = Math.toIntExact(ChronoUnit.DAYS.between(epoch, localDate));
+
+                            PulsarApi.MessageMetadata messageMetadata = PulsarApi.MessageMetadata.newBuilder()
+                                    .setProducerName("test-producer").setSequenceId(positions.get(topic))
+                                    .setPublishTime(System.currentTimeMillis()).build();
+
+                            Schema schema = topicsToSchemas.get(schemaName).getType() == SchemaType.AVRO ? AvroSchema.of(Foo.class) : JSONSchema.of(Foo.class);
+
+                            org.apache.pulsar.shade.io.netty.buffer.ByteBuf payload
+                                    = org.apache.pulsar.shade.io.netty.buffer.Unpooled.copiedBuffer(schema.encode(foo));
+
+                            ByteBuf byteBuf = serializeMetadataAndPayload
+                                    (Commands.ChecksumType.Crc32c, messageMetadata, payload);
+
+                            entries.add(EntryImpl.create(0, positions.get(topic), byteBuf));
+                            positions.put(topic, positions.get(topic) + 1);
+                            count++;
+                        }
+
+                        return entries;
+                    }
+                });
+
+                when(readOnlyCursor.hasMoreEntries()).thenAnswer(new Answer<Boolean>() {
+                    @Override
+                    public Boolean answer(InvocationOnMock invocationOnMock) throws Throwable {
+                        return positions.get(topic) < entries;
+                    }
+                });
+
                 return readOnlyCursor;
             }
         });
 
         doReturn(managedLedgerFactory).when(this.pulsarSplitManager).getManagedLedgerFactory();
+
+        for (Map.Entry<TopicName, PulsarSplit> split : splits.entrySet()) {
+
+            PulsarRecordCursor pulsarRecordCursor = spy(new PulsarRecordCursor(fooColumnHandles, split.getValue(), pulsarConnectorConfig, managedLedgerFactory));
+            this.pulsarRecordCursors.put(split.getKey(), pulsarRecordCursor);
+        }
     }
 
     @AfterMethod
