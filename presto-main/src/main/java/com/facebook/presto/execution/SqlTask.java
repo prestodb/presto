@@ -105,7 +105,7 @@ public class SqlTask
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
-        this.failedTasks = requireNonNull(failedTasks, "failed tasks counter is null");
+        this.failedTasks = requireNonNull(failedTasks, "failedTasks is null");
 
         outputBuffer = new LazyOutputBuffer(
                 taskId,
@@ -125,7 +125,7 @@ public class SqlTask
                     return;
                 }
 
-                // Updating failed tasks counter
+                // Update failed tasks counter
                 if (newState == TaskState.FAILED) {
                     failedTasks.update(1);
                 }
