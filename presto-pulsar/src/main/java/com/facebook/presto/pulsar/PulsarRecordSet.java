@@ -28,7 +28,7 @@ public class PulsarRecordSet implements RecordSet {
     private final List<Type> columnTypes;
     private final PulsarSplit pulsarSplit;
     private final PulsarConnectorConfig pulsarConnectorConfig;
-    
+
     public PulsarRecordSet(PulsarSplit split, List<PulsarColumnHandle> columnHandles, PulsarConnectorConfig
             pulsarConnectorConfig) {
         requireNonNull(split, "split is null");

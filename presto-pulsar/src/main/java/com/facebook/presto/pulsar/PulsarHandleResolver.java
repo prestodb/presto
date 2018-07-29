@@ -44,37 +44,34 @@ public class PulsarHandleResolver implements ConnectorHandleResolver {
         return PulsarSplit.class;
     }
 
-    static PulsarTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
-    {
+    static PulsarTableHandle convertTableHandle(ConnectorTableHandle tableHandle) {
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof PulsarTableHandle, "tableHandle is not an instance of PulsarTableHandle");
         return (PulsarTableHandle) tableHandle;
     }
 
-    static PulsarColumnHandle convertColumnHandle(ColumnHandle columnHandle)
-    {
+    static PulsarColumnHandle convertColumnHandle(ColumnHandle columnHandle) {
         requireNonNull(columnHandle, "columnHandle is null");
-        checkArgument(columnHandle instanceof PulsarColumnHandle, "columnHandle is not an instance of PulsarColumnHandle");
+        checkArgument(columnHandle instanceof PulsarColumnHandle, "columnHandle is not an instance of " +
+                "PulsarColumnHandle");
         return (PulsarColumnHandle) columnHandle;
     }
 
-    static PulsarSplit convertSplit(ConnectorSplit split)
-    {
+    static PulsarSplit convertSplit(ConnectorSplit split) {
         requireNonNull(split, "split is null");
         checkArgument(split instanceof PulsarSplit, "split is not an instance of PulsarSplit");
         return (PulsarSplit) split;
     }
 
-    static PulsarTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
-    {
+    static PulsarTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout) {
         requireNonNull(layout, "layout is null");
-        checkArgument(layout instanceof PulsarTableLayoutHandle, "layout is not an instance of PulsarTableLayoutHandle");
+        checkArgument(layout instanceof PulsarTableLayoutHandle, "layout is not an instance of " +
+                "PulsarTableLayoutHandle");
         return (PulsarTableLayoutHandle) layout;
     }
 
     @Override
-    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
-    {
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass() {
         return PulsarTransactionHandle.class;
     }
 }

@@ -110,7 +110,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
         this.schemaHandler = getSchemaHandler(schema, pulsarSplit.getSchemaType(), columnHandles);
 
-        log.info("Start: %s end: %s", pulsarSplit.getStartPosition(), pulsarSplit.getEndPosition());
+        log.info("Initializing split with parameters: %s", pulsarSplit);
 
         try {
             this.cursor = getCursor(TopicName.get("persistent", NamespaceName.get(pulsarSplit.getSchemaName()),
@@ -122,7 +122,8 @@ public class PulsarRecordCursor implements RecordCursor {
         }
     }
 
-    private SchemaHandler getSchemaHandler(Schema schema, SchemaType schemaType, List<PulsarColumnHandle> columnHandles) {
+    private SchemaHandler getSchemaHandler(Schema schema, SchemaType schemaType,
+                                           List<PulsarColumnHandle> columnHandles) {
         SchemaHandler schemaHandler;
         switch (schemaType) {
             case JSON:
@@ -131,22 +132,16 @@ public class PulsarRecordCursor implements RecordCursor {
             case AVRO:
                 schemaHandler = new AvroSchemaHandler(schema, columnHandles);
                 break;
-            case STRING:
-                schemaHandler = null;
-                break;
-            case NONE:
-                schemaHandler = null;
-                break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Not supported schema type: " + schemaType);
         }
         return schemaHandler;
     }
 
-    private ReadOnlyCursor getCursor(TopicName topicName, Position startPosition, ManagedLedgerFactory managedLedgerFactory)
+    private ReadOnlyCursor getCursor(TopicName topicName, Position startPosition, ManagedLedgerFactory
+            managedLedgerFactory)
             throws ManagedLedgerException, InterruptedException {
 
-        log.info("opening read only cursor: %s - %s", topicName, startPosition);
         ReadOnlyCursor cursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
                 startPosition, new ManagedLedgerConfig());
 
@@ -265,29 +260,21 @@ public class PulsarRecordCursor implements RecordCursor {
 
         if (type.equals(BIGINT)) {
             return ((Number) record).longValue();
-        }
-        else if (type.equals(DATE)) {
+        } else if (type.equals(DATE)) {
             return MILLISECONDS.toDays(new Date(TimeUnit.DAYS.toMillis(((Number) record).longValue())).getTime());
-        }
-        else if (type.equals(INTEGER)) {
+        } else if (type.equals(INTEGER)) {
             return (int) record;
-        }
-        else if (type.equals(REAL)) {
+        } else if (type.equals(REAL)) {
             return Float.floatToIntBits(((Number) record).floatValue());
-        }
-        else if (type.equals(SMALLINT)) {
+        } else if (type.equals(SMALLINT)) {
             return ((Number) record).shortValue();
-        }
-        else if (type.equals(TIME)) {
+        } else if (type.equals(TIME)) {
             return new Time(((Number) record).longValue()).getTime();
-        }
-        else if (type.equals(TIMESTAMP)) {
+        } else if (type.equals(TIMESTAMP)) {
             return new Timestamp(((Number) record).longValue()).getTime();
-        }
-        else if (type.equals(TINYINT)) {
+        } else if (type.equals(TINYINT)) {
             return Byte.parseByte(record.toString());
-        }
-        else {
+        } else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
         }
     }
@@ -308,7 +295,7 @@ public class PulsarRecordCursor implements RecordCursor {
         if (type == VarcharType.VARCHAR) {
             return Slices.utf8Slice(record.toString());
         } else if (type == VarbinaryType.VARBINARY) {
-            return  Slices.wrappedBuffer((byte[]) record);
+            return Slices.wrappedBuffer((byte[]) record);
         } else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
         }
@@ -345,8 +332,7 @@ public class PulsarRecordCursor implements RecordCursor {
         }
     }
 
-    private void checkFieldType(int field, Class<?> expected)
-    {
+    private void checkFieldType(int field, Class<?> expected) {
         Class<?> actual = getType(field).getJavaType();
         checkArgument(actual == expected, "Expected field %s to be type %s but is %s", field, expected, actual);
     }

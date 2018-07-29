@@ -57,8 +57,7 @@ public class PulsarColumnHandle implements ColumnHandle {
             @JsonProperty("type") Type type,
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("internal") boolean internal,
-            @JsonProperty("positionIndex") Integer positionIndex)
-    {
+            @JsonProperty("positionIndex") Integer positionIndex) {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
@@ -68,32 +67,27 @@ public class PulsarColumnHandle implements ColumnHandle {
     }
 
     @JsonProperty
-    public String getConnectorId()
-    {
+    public String getConnectorId() {
         return connectorId;
     }
 
     @JsonProperty
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
     @JsonProperty
-    public Type getType()
-    {
+    public Type getType() {
         return type;
     }
 
     @JsonProperty
-    public boolean isHidden()
-    {
+    public boolean isHidden() {
         return hidden;
     }
 
     @JsonProperty
-    public boolean isInternal()
-    {
+    public boolean isInternal() {
         return internal;
     }
 
@@ -103,19 +97,17 @@ public class PulsarColumnHandle implements ColumnHandle {
     }
 
 
-    ColumnMetadata getColumnMetadata()
-    {
+    ColumnMetadata getColumnMetadata() {
         return new ColumnMetadata(name, type, null, hidden);
     }
+
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(connectorId, name, type, hidden, internal);
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
@@ -133,8 +125,7 @@ public class PulsarColumnHandle implements ColumnHandle {
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("name", name)

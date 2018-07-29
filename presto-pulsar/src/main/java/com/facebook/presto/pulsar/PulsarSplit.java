@@ -17,16 +17,10 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.common.collect.ImmutableList;
-import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.io.IOException;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -58,8 +52,7 @@ public class PulsarSplit implements ConnectorSplit {
             @JsonProperty("startPositionEntryId") long startPositionEntryId,
             @JsonProperty("endPositionEntryId") long endPositionEntryId,
             @JsonProperty("startPositionLedgerId") long startPositionLedgerId,
-            @JsonProperty("endPositionLedgerId") long endPositionLedgerId)
-    {
+            @JsonProperty("endPositionLedgerId") long endPositionLedgerId) {
         this.splitId = splitId;
         this.schemaName = requireNonNull(schemaName, "schema name is null");
         this.connectorId = requireNonNull(connectorId, "connector id is null");
@@ -79,14 +72,12 @@ public class PulsarSplit implements ConnectorSplit {
     }
 
     @JsonProperty
-    public String getConnectorId()
-    {
+    public String getConnectorId() {
         return connectorId;
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
+    public String getSchemaName() {
         return schemaName;
     }
 
@@ -96,8 +87,7 @@ public class PulsarSplit implements ConnectorSplit {
     }
 
     @JsonProperty
-    public String getTableName()
-    {
+    public String getTableName() {
         return tableName;
     }
 

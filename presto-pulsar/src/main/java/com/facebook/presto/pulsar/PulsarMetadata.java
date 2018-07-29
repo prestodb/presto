@@ -76,25 +76,21 @@ public class PulsarMetadata implements ConnectorMetadata {
 
     @Inject
     public PulsarMetadata(PulsarConnectorId connectorId, PulsarConnectorConfig pulsarConnectorConfig) {
-        log.info("connectorId: %s", connectorId);
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         try {
             this.pulsarAdmin = pulsarConnectorConfig.getPulsarAdmin();
         } catch (PulsarClientException e) {
             throw new RuntimeException(e);
         }
-
-        log.info("pulsarConnectorConfig: %s", pulsarConnectorConfig);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session) {
-        log.info("listSchemaNames...");
         List<String> prestoSchemas = new LinkedList<>();
         try {
             List<String> tenants = pulsarAdmin.tenants().getTenants();
             for (String tenant : tenants) {
-               prestoSchemas.addAll(pulsarAdmin.namespaces().getNamespaces(tenant));
+                prestoSchemas.addAll(pulsarAdmin.namespaces().getNamespaces(tenant));
             }
         } catch (PulsarAdminException e) {
             throw new RuntimeException("Failed to get schemas from pulsar", e);
@@ -104,8 +100,6 @@ public class PulsarMetadata implements ConnectorMetadata {
 
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName) {
-        log.info("getTableHandle: %s", tableName);
-
         return new PulsarTableHandle(
                 this.connectorId,
                 tableName.getSchemaName(),
@@ -117,8 +111,6 @@ public class PulsarMetadata implements ConnectorMetadata {
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table,
                                                             Constraint<ColumnHandle> constraint,
                                                             Optional<Set<ColumnHandle>> desiredColumns) {
-        log.info("getTableLayouts - %s - %s - %s", table, constraint, desiredColumns);
-
         PulsarTableHandle handle = convertTableHandle(table);
         ConnectorTableLayout layout = new ConnectorTableLayout(new PulsarTableLayoutHandle(handle));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
@@ -126,20 +118,16 @@ public class PulsarMetadata implements ConnectorMetadata {
 
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle) {
-        log.info("getTableLayout: %s", handle);
         return new ConnectorTableLayout(handle);
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
-        log.info("getTableMetadata: %s", table);
         return getTableMetadata(convertTableHandle(table).toSchemaTableName(), true);
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull) {
-        log.info("listTables: %s", schemaNameOrNull);
-
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
 
         if (schemaNameOrNull != null) {
@@ -163,33 +151,29 @@ public class PulsarMetadata implements ConnectorMetadata {
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
-        log.info("getColumnHandles: %s", tableHandle);
-
         PulsarTableHandle pulsarTableHandle = convertTableHandle(tableHandle);
 
         ConnectorTableMetadata tableMetaData = getTableMetadata(pulsarTableHandle.toSchemaTableName(), false);
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        
+
         tableMetaData.getColumns().forEach(new Consumer<ColumnMetadata>() {
             @Override
             public void accept(ColumnMetadata columnMetadata) {
 
                 PulsarColumnMetadata pulsarColumnMetadata = (PulsarColumnMetadata) columnMetadata;
 
-                    PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
-                            connectorId,
-                            pulsarColumnMetadata.getNameWithCase(),
-                            pulsarColumnMetadata.getType(),
-                            pulsarColumnMetadata.isHidden(),
-                            pulsarColumnMetadata.isInternal(),
-                            pulsarColumnMetadata.getPositionIndex());
-                    log.info("using connectorId: %s", connectorId);
-                    log.info("setting pulsarColumnHandle: %s", pulsarColumnHandle);
+                PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
+                        connectorId,
+                        pulsarColumnMetadata.getNameWithCase(),
+                        pulsarColumnMetadata.getType(),
+                        pulsarColumnMetadata.isHidden(),
+                        pulsarColumnMetadata.isInternal(),
+                        pulsarColumnMetadata.getPositionIndex());
 
-                    columnHandles.put(
-                            columnMetadata.getName(),
-                            pulsarColumnHandle);
+                columnHandles.put(
+                        columnMetadata.getName(),
+                        pulsarColumnHandle);
             }
         });
 
@@ -205,16 +189,16 @@ public class PulsarMetadata implements ConnectorMetadata {
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle) {
-        log.info("getColumnMetadata: %s - %s", tableHandle, columnHandle);
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle
+            columnHandle) {
 
         convertTableHandle(tableHandle);
         return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix) {
-        log.info("listTableColumns: %s", prefix);
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix
+            prefix) {
 
         requireNonNull(prefix, "prefix is null");
 
@@ -223,8 +207,7 @@ public class PulsarMetadata implements ConnectorMetadata {
         List<SchemaTableName> tableNames;
         if (prefix.getTableName() == null) {
             tableNames = listTables(session, prefix.getSchemaName());
-        }
-        else {
+        } else {
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
 
@@ -236,35 +219,32 @@ public class PulsarMetadata implements ConnectorMetadata {
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColumns) {
-        log.info("getTableMetadata - schemaTableName: %s", schemaTableName);
 
         TopicName topicName;
 
-             topicName = TopicName.get(
-                    String.format("%s/%s", schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+        topicName = TopicName.get(
+                String.format("%s/%s", schemaTableName.getSchemaName(), schemaTableName.getTableName()));
 
-            List<String> topics;
-            try {
-                if (!PulsarConnectorUtils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
-                    topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
-                } else {
-                    topics = this.pulsarAdmin.topics().getPartitionedTopicList((schemaTableName.getSchemaName()));
-                }
-            } catch (PulsarAdminException e) {
-                if (e.getStatusCode() == 404) {
-                    throw new PrestoException(NOT_FOUND, "Schema " +  schemaTableName.getSchemaName() + " does not exist");
-                }
-                throw new RuntimeException(e);
+        List<String> topics;
+        try {
+            if (!PulsarConnectorUtils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
+                topics = this.pulsarAdmin.topics().getList(schemaTableName.getSchemaName());
+            } else {
+                topics = this.pulsarAdmin.topics().getPartitionedTopicList((schemaTableName.getSchemaName()));
             }
-
-            log.info("topics: %s", topics);
-
-            if (!topics.contains(topicName.toString())) {
-                log.error("Table %s not found",
-                        String.format("%s/%s", schemaTableName.getSchemaName(),
-                                schemaTableName.getTableName()));
-                throw new TableNotFoundException(schemaTableName);
+        } catch (PulsarAdminException e) {
+            if (e.getStatusCode() == 404) {
+                throw new PrestoException(NOT_FOUND, "Schema " + schemaTableName.getSchemaName() + " does not exist");
             }
+            throw new RuntimeException(e);
+        }
+
+        if (!topics.contains(topicName.toString())) {
+            log.error("Table %s not found",
+                    String.format("%s/%s", schemaTableName.getSchemaName(),
+                            schemaTableName.getTableName()));
+            throw new TableNotFoundException(schemaTableName);
+        }
 
         SchemaInfo schemaInfo;
         try {
@@ -282,7 +262,6 @@ public class PulsarMetadata implements ConnectorMetadata {
             throw new PrestoException(NOT_SUPPORTED, "Topic " + topicName.toString()
                     + " does not have a valid schema");
         }
-        log.info("schema: " + schemaJson);
         Schema schema;
         try {
             schema = PulsarConnectorUtils.parseSchema(schemaJson);
@@ -307,17 +286,16 @@ public class PulsarMetadata implements ConnectorMetadata {
             });
         }
 
-        log.info("columns: %s", builder.build());
         return new ConnectorTableMetadata(schemaTableName, builder.build());
     }
 
     private List<PulsarColumnMetadata> getColumns(String name, Schema fieldSchema, int index) {
 
-        log.info("name: %s", name);
         List<PulsarColumnMetadata> columnMetadataList = new LinkedList<>();
 
         if (isPrimitiveType(fieldSchema.getType())) {
-            columnMetadataList.add(new PulsarColumnMetadata(name, convertType(fieldSchema.getType(), fieldSchema.getLogicalType()),
+            columnMetadataList.add(new PulsarColumnMetadata(name,
+                    convertType(fieldSchema.getType(), fieldSchema.getLogicalType()),
                     null, null, false, false, index));
         } else if (fieldSchema.getType() == Schema.Type.UNION) {
             boolean canBeNull = false;
@@ -326,11 +304,12 @@ public class PulsarMetadata implements ConnectorMetadata {
                     PulsarColumnMetadata columnMetadata;
                     if (type.getType() != Schema.Type.NULL) {
                         if (!canBeNull) {
-                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType(),type.getLogicalType()),
+                            columnMetadata = new PulsarColumnMetadata(name,
+                                    convertType(type.getType(), type.getLogicalType()),
                                     null, null, false, false, index);
                         } else {
-                            columnMetadata = new PulsarColumnMetadata(name, convertType(type.getType(), type
-                                    .getLogicalType()),
+                            columnMetadata = new PulsarColumnMetadata(name,
+                                    convertType(type.getType(), type.getLogicalType()),
                                     "field can be null", null, false, false, index);
                         }
                         columnMetadataList.add(columnMetadata);
@@ -339,7 +318,7 @@ public class PulsarMetadata implements ConnectorMetadata {
                     }
                 }
             }
-        } else if (fieldSchema.getType() == Schema.Type.RECORD){
+        } else if (fieldSchema.getType() == Schema.Type.RECORD) {
 
         } else if (fieldSchema.getType() == Schema.Type.ARRAY) {
 
@@ -350,16 +329,13 @@ public class PulsarMetadata implements ConnectorMetadata {
         } else if (fieldSchema.getType() == Schema.Type.FIXED) {
 
         } else {
-            log.error("unknown type: {}", fieldSchema);
+            log.error("Unknown column type: {}", fieldSchema);
         }
-        log.info("columnMetadataList: %s", columnMetadataList);
         return columnMetadataList;
     }
 
     @VisibleForTesting
     static Type convertType(Schema.Type avroType, LogicalType logicalType) {
-        log.info("avroType: %s logicalType: %s", avroType, logicalType);
-
         switch (avroType) {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
@@ -384,7 +360,7 @@ public class PulsarMetadata implements ConnectorMetadata {
             case STRING:
                 return VarcharType.VARCHAR;
             default:
-                log.error("cannot convert type: %s", avroType);
+                log.error("Cannot convert type: %s", avroType);
                 return null;
         }
     }

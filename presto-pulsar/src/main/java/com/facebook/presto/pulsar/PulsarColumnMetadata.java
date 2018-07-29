@@ -16,7 +16,7 @@ package com.facebook.presto.pulsar;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 
-public class PulsarColumnMetadata extends ColumnMetadata{
+public class PulsarColumnMetadata extends ColumnMetadata {
 
     private boolean isInternal;
     private Integer positionIndex;
@@ -45,8 +45,7 @@ public class PulsarColumnMetadata extends ColumnMetadata{
 
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         StringBuilder sb = new StringBuilder("PulsarColumnMetadata{");
         sb.append("name='").append(getName()).append('\'');
         sb.append(", type=").append(getType());

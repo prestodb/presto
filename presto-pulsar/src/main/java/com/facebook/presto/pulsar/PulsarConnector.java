@@ -40,7 +40,7 @@ public class PulsarConnector implements Connector {
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
     @Inject
-    public PulsarConnector (
+    public PulsarConnector(
             LifeCycleManager lifeCycleManager,
             PulsarMetadata metadata,
             PulsarSplitManager splitManager,
@@ -61,36 +61,30 @@ public class PulsarConnector implements Connector {
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
-    {
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle) {
         return metadata;
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager()
-    {
+    public ConnectorSplitManager getSplitManager() {
         return splitManager;
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
-    {
+    public ConnectorRecordSetProvider getRecordSetProvider() {
         return recordSetProvider;
     }
 
     @Override
-    public final void shutdown()
-    {
-//        log.info("Shutting down Pulsar Connector");
-//        try {
-//            this.pulsarConnectorConfig.close();
-//        } catch (Exception e) {
-//            log.error(e, "Failed to close pulsar connector");
-//        }
+    public final void shutdown() {
+        try {
+            this.pulsarConnectorConfig.close();
+        } catch (Exception e) {
+            log.error(e, "Failed to close pulsar connector");
+        }
         try {
             lifeCycleManager.stop();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
     }

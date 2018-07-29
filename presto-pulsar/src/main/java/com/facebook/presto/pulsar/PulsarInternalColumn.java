@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.pulsar;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
@@ -125,19 +124,26 @@ public abstract class PulsarInternalColumn {
         }
     }
 
-    public static final PulsarInternalColumn EVENT_TIME = new EventTimeColumn("__event_time__", TimestampType.TIMESTAMP, "Application defined timestamp in milliseconds of when the event occurred");
+    public static final PulsarInternalColumn EVENT_TIME = new EventTimeColumn("__event_time__", TimestampType
+            .TIMESTAMP, "Application defined timestamp in milliseconds of when the event occurred");
 
-    public static final PulsarInternalColumn PUBLISH_TIME = new PublishTimeColumn("__publish_time__", TimestampType.TIMESTAMP, "The timestamp in milliseconds of when event as published");
+    public static final PulsarInternalColumn PUBLISH_TIME = new PublishTimeColumn("__publish_time__", TimestampType
+            .TIMESTAMP, "The timestamp in milliseconds of when event as published");
 
-    public static final PulsarInternalColumn MESSAGE_ID = new MessageIdColumn("__message_id__", VarcharType.VARCHAR, "The message ID of the message used to generate this row");
+    public static final PulsarInternalColumn MESSAGE_ID = new MessageIdColumn("__message_id__", VarcharType.VARCHAR,
+            "The message ID of the message used to generate this row");
 
-    public static final PulsarInternalColumn SEQUENCE_ID = new SequenceIdColumn("__sequence_id__", BigintType.BIGINT, "The sequence ID of the message used to generate this row");
+    public static final PulsarInternalColumn SEQUENCE_ID = new SequenceIdColumn("__sequence_id__", BigintType.BIGINT,
+            "The sequence ID of the message used to generate this row");
 
-    public static final PulsarInternalColumn PRODUCER_NAME = new ProducerNameColumn("__producer_name__", VarcharType.VARCHAR, "The name of the producer that publish the message used to generate this row");
+    public static final PulsarInternalColumn PRODUCER_NAME = new ProducerNameColumn("__producer_name__", VarcharType
+            .VARCHAR, "The name of the producer that publish the message used to generate this row");
 
-    public static final PulsarInternalColumn KEY = new KeyColumn("__key__", VarcharType.VARCHAR, "The partition key for the topic");
+    public static final PulsarInternalColumn KEY = new KeyColumn("__key__", VarcharType.VARCHAR, "The partition key " +
+            "for the topic");
 
-    public static final PulsarInternalColumn PROPERTIES = new PropertiesColumn("__properties__", VarcharType.VARCHAR,"User defined properties");
+    public static final PulsarInternalColumn PROPERTIES = new PropertiesColumn("__properties__", VarcharType.VARCHAR,
+            "User defined properties");
 
     private final String name;
     private final Type type;
@@ -146,26 +152,22 @@ public abstract class PulsarInternalColumn {
     PulsarInternalColumn(
             String name,
             Type type,
-            String comment)
-    {
+            String comment) {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         this.name = name;
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
-    public Type getType()
-    {
+    public Type getType() {
         return type;
     }
 
-    PulsarColumnHandle getColumnHandle(String connectorId, boolean hidden)
-    {
+    PulsarColumnHandle getColumnHandle(String connectorId, boolean hidden) {
         return new PulsarColumnHandle(connectorId,
                 getName(),
                 getType(),
@@ -173,13 +175,11 @@ public abstract class PulsarInternalColumn {
                 true, null);
     }
 
-    PulsarColumnMetadata getColumnMetadata(boolean hidden)
-    {
+    PulsarColumnMetadata getColumnMetadata(boolean hidden) {
         return new PulsarColumnMetadata(name, type, comment, null, hidden, true, null);
     }
 
-    public static Set<PulsarInternalColumn> getInternalFields()
-    {
+    public static Set<PulsarInternalColumn> getInternalFields() {
         return ImmutableSet.of(EVENT_TIME, PUBLISH_TIME, MESSAGE_ID, SEQUENCE_ID, PRODUCER_NAME, KEY, PROPERTIES);
     }
 
@@ -188,7 +188,7 @@ public abstract class PulsarInternalColumn {
         getInternalFields().forEach(new Consumer<PulsarInternalColumn>() {
             @Override
             public void accept(PulsarInternalColumn pulsarInternalColumn) {
-                 builder.put(pulsarInternalColumn.getName(), pulsarInternalColumn);
+                builder.put(pulsarInternalColumn.getName(), pulsarInternalColumn);
             }
         });
         return builder.build();

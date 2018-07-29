@@ -23,20 +23,17 @@ public class PulsarTableLayoutHandle implements ConnectorTableLayoutHandle {
     private final PulsarTableHandle table;
 
     @JsonCreator
-    public PulsarTableLayoutHandle(@JsonProperty("table") PulsarTableHandle table)
-    {
+    public PulsarTableLayoutHandle(@JsonProperty("table") PulsarTableHandle table) {
         this.table = requireNonNull(table, "table is null");
     }
 
     @JsonProperty
-    public PulsarTableHandle getTable()
-    {
+    public PulsarTableHandle getTable() {
         return table;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return table.toString();
     }
 }

@@ -38,26 +38,22 @@ public class PulsarTopicDescription {
     }
 
     @JsonProperty
-    public String getTableName()
-    {
+    public String getTableName() {
         return tableName;
     }
 
     @JsonProperty
-    public String getTopicName()
-    {
+    public String getTopicName() {
         return topicName;
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
+    public String getSchemaName() {
         return schemaName;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toStringHelper(this)
                 .add("tableName", tableName)
                 .add("topicName", topicName)

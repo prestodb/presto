@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.pulsar;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public class PulsarConnectorId {
     private final String id;
 
-    public PulsarConnectorId(String id)
-    {
+    public PulsarConnectorId(String id) {
         this.id = requireNonNull(id, "id is null");
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return id;
     }
 

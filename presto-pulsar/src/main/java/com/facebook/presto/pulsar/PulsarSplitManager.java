@@ -67,7 +67,8 @@ public class PulsarSplitManager implements ConnectorSplitManager {
 
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
-                                          ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy) {
+                                          ConnectorTableLayoutHandle layout,
+                                          SplitSchedulingStrategy splitSchedulingStrategy) {
 
         int numSplits = this.pulsarConnectorConfig.getTargetNumSplits();
 
@@ -75,7 +76,7 @@ public class PulsarSplitManager implements ConnectorSplitManager {
         PulsarTableHandle tableHandle = layoutHandle.getTable();
 
         TopicName topicName = TopicName.get("persistent", NamespaceName.get(tableHandle.getSchemaName()),
- tableHandle.getTableName());
+                tableHandle.getTableName());
 
         SchemaInfo schemaInfo;
         try {
@@ -90,14 +91,15 @@ public class PulsarSplitManager implements ConnectorSplitManager {
         try {
             if (!PulsarConnectorUtils.isPartitionedTopic(topicName, this.pulsarAdmin)) {
                 splits = getSplitsNonPartitionedTopic(numSplits, topicName, tableHandle, schemaInfo);
+                log.debug("Splits for non-partitioned topic %s: %s", topicName, splits);
             } else {
                 splits = getSplitsPartitionedTopic(numSplits, topicName, tableHandle, schemaInfo);
+                log.debug("Splits for partitioned topic %s: %s", topicName, splits);
             }
         } catch (Exception e) {
             log.error(e, "Failed to get splits");
-           throw new RuntimeException(e);
+            throw new RuntimeException(e);
         }
-
         return new FixedSplitSource(splits);
     }
 
@@ -158,10 +160,10 @@ public class PulsarSplitManager implements ConnectorSplitManager {
 
     @VisibleForTesting
     Collection<PulsarSplit> getSplitsForTopic(String topicNamePersistenceEncoding,
-                                                      ManagedLedgerFactory managedLedgerFactory,
-                                                      int numSplits,
-                                                      PulsarTableHandle tableHandle,
-                                                      SchemaInfo schemaInfo, String tableName)
+                                              ManagedLedgerFactory managedLedgerFactory,
+                                              int numSplits,
+                                              PulsarTableHandle tableHandle,
+                                              SchemaInfo schemaInfo, String tableName)
             throws ManagedLedgerException, InterruptedException {
 
         ReadOnlyCursor readOnlyCursor = null;
@@ -170,7 +172,6 @@ public class PulsarSplitManager implements ConnectorSplitManager {
                     topicNamePersistenceEncoding,
                     PositionImpl.earliest, new ManagedLedgerConfig());
             long numEntries = readOnlyCursor.getNumberOfEntries();
-            log.info("numEntries: %s", numEntries);
             if (numEntries <= 0) {
                 return Collections.EMPTY_LIST;
             }
@@ -181,12 +182,9 @@ public class PulsarSplitManager implements ConnectorSplitManager {
             List<PulsarSplit> splits = new LinkedList<>();
             for (int i = 0; i < numSplits; i++) {
                 long entriesForSplit = (remainder > i) ? avgEntriesPerSplit + 1 : avgEntriesPerSplit;
-                log.info("i: %s entriesPerSplit: %s", i, entriesForSplit);
                 PositionImpl startPosition = (PositionImpl) readOnlyCursor.getReadPosition();
-                log.info("startPosition: %s", startPosition);
                 readOnlyCursor.skipEntries(Math.toIntExact(entriesForSplit));
                 PositionImpl endPosition = (PositionImpl) readOnlyCursor.getReadPosition();
-                log.info("endPosition: %s", endPosition);
 
                 splits.add(new PulsarSplit(i, this.connectorId,
                         tableHandle.getSchemaName(),

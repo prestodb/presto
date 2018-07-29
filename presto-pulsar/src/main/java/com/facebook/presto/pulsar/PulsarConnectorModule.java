@@ -29,10 +29,10 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarConnectorModule implements Module {
-    
+
     private final String connectorId;
     private final TypeManager typeManager;
-    
+
     public PulsarConnectorModule(String connectorId, TypeManager typeManager) {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -48,7 +48,6 @@ public class PulsarConnectorModule implements Module {
         binder.bind(PulsarMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PulsarSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PulsarRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(PulsarClusterInfo.class).toInstance(new PulsarClusterInfo());
         configBinder(binder).bindConfig(PulsarConnectorConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
@@ -56,22 +55,19 @@ public class PulsarConnectorModule implements Module {
     }
 
     public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
+            extends FromStringDeserializer<Type> {
         private static final long serialVersionUID = 1L;
 
         private final TypeManager typeManager;
 
         @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
+        public TypeDeserializer(TypeManager typeManager) {
             super(Type.class);
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
+        protected Type _deserialize(String value, DeserializationContext context) {
             return typeManager.getType(parseTypeSignature(value));
         }
     }

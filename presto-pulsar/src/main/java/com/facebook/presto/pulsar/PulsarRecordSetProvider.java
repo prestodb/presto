@@ -25,7 +25,6 @@ import io.airlift.log.Logger;
 import javax.inject.Inject;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarRecordSetProvider implements ConnectorRecordSetProvider {
@@ -33,18 +32,15 @@ public class PulsarRecordSetProvider implements ConnectorRecordSetProvider {
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
     @Inject
-    public PulsarRecordSetProvider(PulsarConnectorConfig pulsarConnectorConfig)
-    {
+    public PulsarRecordSetProvider(PulsarConnectorConfig pulsarConnectorConfig) {
         this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
     }
 
-    private static final Logger log = Logger.get(PulsarRecordSetProvider.class);
-
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns) {
-        log.info("getRecordSet: %s - %s", split, columns);
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
+                                  ConnectorSplit split, List<? extends ColumnHandle> columns) {
 
-        requireNonNull(split, "partitionChunk is null");
+        requireNonNull(split, "Connector split is null");
         PulsarSplit pulsarSplit = (PulsarSplit) split;
 
         ImmutableList.Builder<PulsarColumnHandle> handles = ImmutableList.builder();

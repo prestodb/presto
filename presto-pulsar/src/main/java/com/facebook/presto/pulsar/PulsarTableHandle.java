@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.log.Logger;
 
 import java.util.Objects;
 
@@ -47,7 +46,7 @@ public class PulsarTableHandle implements ConnectorTableHandle {
     private final String topicName;
 
     @JsonCreator
-    public PulsarTableHandle (
+    public PulsarTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
@@ -60,43 +59,36 @@ public class PulsarTableHandle implements ConnectorTableHandle {
     }
 
     @JsonProperty
-    public String getConnectorId()
-    {
+    public String getConnectorId() {
         return connectorId;
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
+    public String getSchemaName() {
         return schemaName;
     }
 
     @JsonProperty
-    public String getTableName()
-    {
+    public String getTableName() {
         return tableName;
     }
 
     @JsonProperty
-    public String getTopicName()
-    {
+    public String getTopicName() {
         return topicName;
     }
 
-    public SchemaTableName toSchemaTableName()
-    {
+    public SchemaTableName toSchemaTableName() {
         return new SchemaTableName(schemaName, tableName);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(connectorId, schemaName, tableName, topicName);
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
@@ -112,8 +104,7 @@ public class PulsarTableHandle implements ConnectorTableHandle {
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
