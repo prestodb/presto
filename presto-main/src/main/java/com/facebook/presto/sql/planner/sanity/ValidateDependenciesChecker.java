@@ -63,14 +63,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 /**
@@ -346,19 +347,19 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
-            checkDependencies(allInputs, node.getOutputSymbols(), "Symbol from join output (%s) not in sources (%s)", node.getOutputSymbols(), allInputs);
-
-            List<Integer> rightSymbolIndexes = node.getRight().getOutputSymbols().stream()
-                    .filter(symbol -> node.getOutputSymbols().contains(symbol))
-                    .map(symbol -> node.getOutputSymbols().indexOf(symbol))
-                    .collect(toImmutableList());
-
-            boolean allLeftBeforeRight = node.getLeft().getOutputSymbols().stream()
-                    .filter(symbol -> node.getOutputSymbols().contains(symbol))
-                    .map(symbol -> node.getOutputSymbols().indexOf(symbol))
-                    .allMatch(leftIndex -> rightSymbolIndexes.stream()
-                            .allMatch(rightIndex -> rightIndex > leftIndex));
-            checkState(allLeftBeforeRight, "Not all left output symbols are before right output symbols");
+            int leftMaxPosition = -1;
+            Optional<Integer> rightMinPosition = Optional.empty();
+            Set<Symbol> leftSymbols = new HashSet<Symbol>(node.getLeft().getOutputSymbols());
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                if (leftSymbols.contains(symbol)) {
+                    leftMaxPosition = i;
+                }
+                else if (!rightMinPosition.isPresent()) {
+                    rightMinPosition = Optional.of(i);
+                }
+            }
+            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
 
             if (node.isCrossJoin()) {
                 List<Symbol> allInputsOrdered = ImmutableList.<Symbol>builder()
