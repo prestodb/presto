@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.pulsar;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -21,9 +20,7 @@ import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.airlift.log.Logger;
-import javafx.util.Pair;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
 import org.apache.bookkeeper.mledger.ReadOnlyCursor;
@@ -320,6 +317,8 @@ public abstract class TestPulsarConnector {
         }
     }
 
+    public long completedBytes = 0L;
+
     private static final Logger log = Logger.get(TestPulsarConnector.class);
 
     protected static List<String> getNamespace(String tenant) {
@@ -522,6 +521,8 @@ public abstract class TestPulsarConnector {
                             ByteBuf byteBuf = serializeMetadataAndPayload
                                     (Commands.ChecksumType.Crc32c, messageMetadata, payload);
 
+                            completedBytes += byteBuf.readableBytes();
+
                             entries.add(EntryImpl.create(0, positions.get(topic), byteBuf));
                             positions.put(topic, positions.get(topic) + 1);
                             count++;
@@ -553,6 +554,6 @@ public abstract class TestPulsarConnector {
 
     @AfterMethod
     public void cleanup() {
-
+        completedBytes = 0L;
     }
 }

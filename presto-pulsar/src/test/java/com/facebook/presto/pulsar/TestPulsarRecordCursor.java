@@ -67,6 +67,7 @@ public class TestPulsarRecordCursor extends TestPulsarConnector {
                 count++;
             }
             Assert.assertEquals(count, topicsToEntries.get(topicName.getSchemaName()).longValue());
+            Assert.assertEquals(pulsarRecordCursor.getCompletedBytes(), completedBytes);
             cleanup();
         }
     }
