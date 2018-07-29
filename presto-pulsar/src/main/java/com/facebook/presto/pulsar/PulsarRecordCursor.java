@@ -78,12 +78,12 @@ public class PulsarRecordCursor implements RecordCursor {
 
     private static final Logger log = Logger.get(PulsarRecordCursor.class);
 
-    public PulsarRecordCursor(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit, PulsarConnectorConfig
-            pulsarConnectorConfig) {
+    public PulsarRecordCursor(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit,
+                              PulsarConnectorConfig pulsarConnectorConfig) {
 
         ManagedLedgerFactory managedLedgerFactory;
         try {
-            managedLedgerFactory = getManagedLedgerFactory();
+            managedLedgerFactory = getManagedLedgerFactory(pulsarConnectorConfig);
         } catch (Exception e) {
             log.error(e, "Failed to initialize managed ledger factory");
             close();
@@ -148,9 +148,9 @@ public class PulsarRecordCursor implements RecordCursor {
         return cursor;
     }
 
-    private ManagedLedgerFactory getManagedLedgerFactory() throws Exception {
+    private ManagedLedgerFactory getManagedLedgerFactory(PulsarConnectorConfig pulsarConnectorConfig) throws Exception {
         ClientConfiguration bkClientConfiguration = new ClientConfiguration()
-                .setZkServers(this.pulsarConnectorConfig.getZookeeperUri())
+                .setZkServers(pulsarConnectorConfig.getZookeeperUri())
                 .setAllowShadedLedgerManagerFactoryClass(true)
                 .setShadedLedgerManagerFactoryClassPrefix("org.apache.pulsar.shade.");
         return new ManagedLedgerFactoryImpl(bkClientConfiguration);
