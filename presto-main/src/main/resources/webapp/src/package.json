@@ -4,6 +4,7 @@
   "license": "Apache-2.0",
   "private": true,
   "dependencies": {
+    "reactable": "^1.0.2",
     "webpack": "^4.16.0",
     "webpack-command": "^0.4.1",
     "babel-core": "^6.26.3",

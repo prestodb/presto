@@ -2977,6 +2977,10 @@ react@^16.4.1:
     object-assign "^4.1.1"
     prop-types "^15.6.0"
 
+reactable@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/reactable/-/reactable-1.0.2.tgz#67a579fee3af68b991b5f04df921a4a40ece0b72"
+
 read-pkg-up@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/read-pkg-up/-/read-pkg-up-3.0.0.tgz#3ed496685dba0f8fe118d0691dc51f4a1ff96f07"

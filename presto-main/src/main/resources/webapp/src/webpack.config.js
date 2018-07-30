@@ -1,6 +1,7 @@
 module.exports = {
     entry: {
         'index': __dirname +'/index.js',
+        'query': __dirname +'/query.js',
     },
     mode: "development",
     module: {

@@ -12,14 +12,17 @@
  * limitations under the License.
  */
 
+import React from "react";
+import Reactable from "reactable";
+
 const Table = Reactable.Table,
     Thead = Reactable.Thead,
     Th = Reactable.Th,
     Tr = Reactable.Tr,
     Td = Reactable.Td;
 
-let TaskList = React.createClass({
-    compareTaskId: function(taskA, taskB) {
+class TaskList extends React.Component {
+    compareTaskId(taskA, taskB) {
         const taskIdArrA = removeQueryId(taskA).split(".");
         const taskIdArrB = removeQueryId(taskB).split(".");
 
@@ -33,8 +36,9 @@ let TaskList = React.createClass({
         }
 
         return 0;
-    },
-    showPortNumbers: function(tasks) {
+    }
+
+    showPortNumbers(tasks) {
         // check if any host has multiple port numbers
         const hostToPortNumber = {};
         for (let i = 0; i < tasks.length; i++) {
@@ -48,8 +52,9 @@ let TaskList = React.createClass({
         }
 
         return false;
-    },
-    render: function() {
+    }
+
+    render() {
         const tasks = this.props.tasks;
 
         if (tasks === undefined || tasks.length === 0) {
@@ -161,7 +166,7 @@ let TaskList = React.createClass({
             </Table>
         );
     }
-});
+}
 
 const BAR_CHART_WIDTH = 800;
 
@@ -190,25 +195,30 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-let StageDetail = React.createClass({
-    getInitialState: function() {
-        return {
+class StageDetail extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             expanded: false,
             lastRender: null
-        }
-    },
-    getExpandedIcon: function() {
+        };
+    }
+
+    getExpandedIcon() {
         return this.state.expanded ? "glyphicon-chevron-up" : "glyphicon-chevron-down";
-    },
-    getExpandedStyle: function() {
+    }
+
+    getExpandedStyle() {
         return this.state.expanded ? {} : {display: "none"};
-    },
-    toggleExpanded: function() {
+    }
+
+    toggleExpanded() {
         this.setState({
             expanded: !this.state.expanded,
         })
-    },
-    renderHistogram: function(histogramId, inputData, numberFormatter) {
+    }
+
+    renderHistogram(histogramId, inputData, numberFormatter) {
         const numBuckets = Math.min(HISTOGRAM_WIDTH, Math.sqrt(inputData.length));
         const dataMin = Math.min.apply(null, inputData);
         const dataMax = Math.max.apply(null, inputData);
@@ -237,8 +247,9 @@ let StageDetail = React.createClass({
 
         const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES,  {barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups});
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
-    },
-    componentDidUpdate: function() {
+    }
+
+    componentDidUpdate() {
         const stage = this.props.stage;
         const numTasks = stage.tasks.length;
 
@@ -273,8 +284,9 @@ let StageDetail = React.createClass({
                 lastRender: renderTimestamp
             });
         }
-    },
-    render: function() {
+    }
+
+    render() {
         const stage = this.props.stage;
         if (stage === undefined || !stage.hasOwnProperty('plan')) {
             return (
@@ -507,17 +519,18 @@ let StageDetail = React.createClass({
                 </td>
             </tr>);
     }
-});
+}
 
-let StageList = React.createClass({
-    getStages: function (stage) {
+class StageList extends React.Component {
+    getStages(stage) {
         if (stage === undefined || !stage.hasOwnProperty('subStages')) {
             return []
         }
 
-        return [].concat.apply(stage, stage.subStages.map(this.getStages));
-    },
-    render: function() {
+        return [].concat.apply(stage, stage.subStages.map(this.getStages, this));
+    }
+
+    render() {
         const stages = this.getStages(this.props.outputStage);
 
         if (stages === undefined || stages.length === 0) {
@@ -544,7 +557,7 @@ let StageList = React.createClass({
             </div>
         );
     }
-});
+}
 
 const SMALL_SPARKLINE_PROPERTIES = {
     width:'100%',
@@ -564,9 +577,11 @@ const TASK_FILTER = {
     FAILED: function(state) { return state === 'FAILED' || state === 'ABORTED' || state === 'CANCELED' },
 };
 
-let QueryDetail = React.createClass({
-    getInitialState: function() {
-        return {
+export class QueryDetail extends React.Component {
+
+    constructor(props) {
+        super(props);
+        this.state = {
             query: null,
             lastSnapshotStages: null,
             lastSnapshotTasks: null,
@@ -594,16 +609,20 @@ let QueryDetail = React.createClass({
 
             taskFilter: TASK_FILTER.ALL,
         };
-    },
-    resetTimer: function() {
+
+        this.refreshLoop = this.refreshLoop.bind(this);
+    }
+
+    resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
             // task.info-update-interval is set to 3 seconds by default
             this.timeoutId = setTimeout(this.refreshLoop, 3000);
         }
-    },
-    refreshLoop: function() {
+    }
+
+    refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryId = getFirstParameter(window.location.search);
         $.get('/v1/query/' + queryId, function (query) {
@@ -672,8 +691,9 @@ let QueryDetail = React.createClass({
             });
             this.resetTimer();
         });
-    },
-    handleTaskRefreshClick: function() {
+    }
+
+    handleTaskRefreshClick() {
         if (this.state.taskRefresh) {
             this.setState({
                 taskRefresh: false,
@@ -685,16 +705,18 @@ let QueryDetail = React.createClass({
                 taskRefresh: true,
             });
         }
-    },
-    renderTaskRefreshButton: function() {
+    }
+
+    renderTaskRefreshButton() {
         if (this.state.taskRefresh) {
-            return <button className="btn btn-info live-button" onClick={ this.handleTaskRefreshClick }>Auto-Refresh: On</button>
+            return <button className="btn btn-info live-button" onClick={ this.handleTaskRefreshClick.bind(this) }>Auto-Refresh: On</button>
         }
         else {
-            return <button className="btn btn-info live-button" onClick={ this.handleTaskRefreshClick }>Auto-Refresh: Off</button>
+            return <button className="btn btn-info live-button" onClick={ this.handleTaskRefreshClick.bind(this) }>Auto-Refresh: Off</button>
         }
-    },
-    handleStageRefreshClick: function() {
+    }
+
+    handleStageRefreshClick() {
         if (this.state.stageRefresh) {
             this.setState({
                 stageRefresh: false,
@@ -706,37 +728,43 @@ let QueryDetail = React.createClass({
                 stageRefresh: true,
             });
         }
-    },
-    renderStageRefreshButton: function() {
+    }
+
+    renderStageRefreshButton() {
         if (this.state.stageRefresh) {
-            return <button className="btn btn-info live-button" onClick={ this.handleStageRefreshClick }>Auto-Refresh: On</button>
+            return <button className="btn btn-info live-button" onClick={ this.handleStageRefreshClick.bind(this) }>Auto-Refresh: On</button>
         }
         else {
-            return <button className="btn btn-info live-button" onClick={ this.handleStageRefreshClick }>Auto-Refresh: Off</button>
+            return <button className="btn btn-info live-button" onClick={ this.handleStageRefreshClick.bind(this) }>Auto-Refresh: Off</button>
         }
-    },
-    renderTaskFilterListItem: function(taskFilter, taskFilterText) {
+    }
+
+    renderTaskFilterListItem(taskFilter, taskFilterText) {
         return (
             <li><a href="#" className={ this.state.taskFilter === taskFilter ? "selected" : ""} onClick={ this.handleTaskFilterClick.bind(this, taskFilter) }>{ taskFilterText }</a></li>
         );
-    },
-    handleTaskFilterClick: function(filter, event) {
+    }
+
+    handleTaskFilterClick(filter, event) {
         this.setState({
             taskFilter: filter
         });
         event.preventDefault();
-    },
-    getTasksFromStage: function (stage) {
+    }
+
+    getTasksFromStage(stage) {
         if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
             return []
         }
 
-        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasksFromStage));
-    },
-    componentDidMount: function() {
+        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasksFromStage, this));
+    }
+
+    componentDidMount() {
         this.refreshLoop();
-    },
-    componentDidUpdate: function() {
+    }
+
+    componentDidUpdate() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
@@ -759,8 +787,9 @@ let QueryDetail = React.createClass({
 
         $('[data-toggle="tooltip"]').tooltip();
         new Clipboard('.copy-button');
-    },
-    renderTasks: function() {
+    }
+
+    renderTasks() {
         if (this.state.lastSnapshotTasks === null) {
             return;
         }
@@ -775,23 +804,25 @@ let QueryDetail = React.createClass({
                     </div>
                     <div className="col-xs-3">
                         <table className="header-inline-links">
-                            <tr>
-                                <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            Show <span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu">
-                                            { this.renderTaskFilterListItem(TASK_FILTER.ALL, "All") }
-                                            { this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned") }
-                                            { this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running") }
-                                            { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished") }
-                                            { this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed") }
-                                        </ul>
-                                    </div>
-                                </td>
-                                <td>&nbsp;&nbsp;{ this.renderTaskRefreshButton() }</td>
-                            </tr>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <div className="input-group-btn text-right">
+                                            <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                Show <span className="caret"/>
+                                            </button>
+                                            <ul className="dropdown-menu">
+                                                { this.renderTaskFilterListItem(TASK_FILTER.ALL, "All") }
+                                                { this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned") }
+                                                { this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running") }
+                                                { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished") }
+                                                { this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed") }
+                                            </ul>
+                                        </div>
+                                    </td>
+                                    <td>&nbsp;&nbsp;{ this.renderTaskRefreshButton() }</td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -802,8 +833,9 @@ let QueryDetail = React.createClass({
                 </div>
             </div>
         );
-    },
-    renderStages: function() {
+    }
+
+    renderStages() {
         if (this.state.lastSnapshotStage === null) {
             return;
         }
@@ -816,11 +848,13 @@ let QueryDetail = React.createClass({
                     </div>
                     <div className="col-xs-3">
                         <table className="header-inline-links">
-                            <tr>
-                                <td>
-                                    { this.renderStageRefreshButton() }
-                                </td>
-                            </tr>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        { this.renderStageRefreshButton() }
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -831,8 +865,9 @@ let QueryDetail = React.createClass({
                 </div>
             </div>
         );
-    },
-    renderSessionProperties: function() {
+    }
+
+    renderSessionProperties() {
         const query = this.state.query;
 
         const properties = [];
@@ -857,8 +892,9 @@ let QueryDetail = React.createClass({
         }
 
         return properties;
-    },
-    renderResourceEstimates: function() {
+    }
+
+    renderResourceEstimates() {
         const query = this.state.query;
         const estimates = query.session.resourceEstimates;
         const renderedEstimates = [];
@@ -878,8 +914,9 @@ let QueryDetail = React.createClass({
         }
 
         return renderedEstimates;
-    },
-    renderProgressBar: function() {
+    }
+
+    renderProgressBar() {
         const query = this.state.query;
         const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
 
@@ -913,8 +950,9 @@ let QueryDetail = React.createClass({
                 </tbody>
             </table>
         );
-    },
-    renderFailureInfo: function() {
+    }
+
+    renderFailureInfo() {
         const query = this.state.query;
         if (query.failureInfo) {
             return (
@@ -962,8 +1000,9 @@ let QueryDetail = React.createClass({
         else {
             return "";
         }
-    },
-    render: function() {
+    }
+
+    render() {
         const query = this.state.query;
 
         if (query === null || this.state.initialized === false) {
@@ -1403,9 +1442,4 @@ let QueryDetail = React.createClass({
             </div>
         );
     }
-});
-
-ReactDOM.render(
-        <QueryDetail />,
-        document.getElementById('query-detail')
-);
+}
