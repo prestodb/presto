@@ -78,8 +78,6 @@ public class TestMemoryRevokingScheduler
 
     private Set<OperatorContext> allOperatorContexts;
 
-    private final CounterStat failedTasks = new CounterStat();
-
     @BeforeMethod
     public void setUp()
     {
@@ -307,6 +305,6 @@ public class TestMemoryRevokingScheduler
                 executor,
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
-                failedTasks);
+                new CounterStat());
     }
 }

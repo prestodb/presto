@@ -484,12 +484,4 @@ public class SqlTaskManager
     {
         return queryContexts.getUnchecked(queryId);
     }
-
-    @VisibleForTesting
-    void failTask(TaskId taskId)
-    {
-        requireNonNull(taskId, "taskId is null");
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
-        sqlTask.failed(new Throwable("test"));
-    }
 }

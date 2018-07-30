@@ -75,7 +75,7 @@ public class TestSqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
-    private final CounterStat failedTasks = new CounterStat();
+
     public TestSqlTask()
     {
         taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
