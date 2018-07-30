@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 
+import React from "react";
+
 function flatten(queryInfo)
 {
     const stages = new Map();
@@ -64,8 +66,8 @@ function flattenNode(stages, nodeInfo, result)
     });
 }
 
-let StageStatistics = React.createClass({
-    render: function() {
+class StageStatistics extends React.Component {
+    render() {
         const stage = this.props.stage;
         const stats = this.props.stage.stageStats;
         return (
@@ -91,11 +93,12 @@ let StageStatistics = React.createClass({
             </div>
         );
     }
-});
+}
 
-let LivePlan = React.createClass({
-    getInitialState: function() {
-        return {
+export class LivePlan extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             initialized: false,
             ended: false,
 
@@ -103,15 +106,19 @@ let LivePlan = React.createClass({
             svg: initializeSvg("#plan-canvas"),
             render: new dagreD3.render(),
         };
-    },
-    resetTimer: function() {
+
+        this.refreshLoop = this.refreshLoop.bind(this);
+    }
+
+    resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
-    },
-    renderProgressBar: function() {
+    }
+
+    renderProgressBar() {
         const query = this.state.query;
         const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
 
@@ -145,8 +152,9 @@ let LivePlan = React.createClass({
                 </tbody>
             </table>
         );
-    },
-    refreshLoop: function() {
+    }
+
+    refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryId = getFirstParameter(window.location.search);
         $.get('/v1/query/' + queryId, function (query) {
@@ -164,14 +172,17 @@ let LivePlan = React.createClass({
                 });
                 this.resetTimer();
             }.bind(this));
-    },
-    handleStageClick: function(stageCssId) {
+    }
+
+    handleStageClick(stageCssId) {
         window.open("stage.html?" + stageCssId,'_blank');
-    },
-    componentDidMount: function() {
+    }
+
+    componentDidMount() {
         this.refreshLoop();
-    },
-    updateD3Stage: function(stage, graph) {
+    }
+
+    updateD3Stage(stage, graph) {
         const clusterId = stage.stageId;
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
@@ -203,8 +214,9 @@ let LivePlan = React.createClass({
                 });
             }
         });
-    },
-    updateD3Graph: function() {
+    }
+
+    updateD3Graph() {
         if (!this.state.query) {
             return;
         }
@@ -221,8 +233,9 @@ let LivePlan = React.createClass({
         svg.selectAll("g.cluster").on("click", this.handleStageClick);
         svg.attr("height", graph.graph().height);
         svg.attr("width", graph.graph().width);
-    },
-    findStage: function (stageId, currentStage) {
+    }
+
+    findStage(stageId, currentStage) {
         if (stageId === -1) {
             return null;
         }
@@ -239,8 +252,9 @@ let LivePlan = React.createClass({
         }
 
         return null;
-    },
-    render: function() {
+    }
+
+    render() {
         const query = this.state.query;
 
         if (query === null || this.state.initialized === false) {
@@ -322,9 +336,4 @@ let LivePlan = React.createClass({
             </div>
         );
     }
-});
-
-ReactDOM.render(
-    <LivePlan />,
-    document.getElementById('live-plan-header')
-);
+}
