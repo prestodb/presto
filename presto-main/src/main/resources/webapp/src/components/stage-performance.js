@@ -12,12 +12,15 @@
  * limitations under the License.
  */
 
+import React from "react";
+import ReactDOM from "react-dom";
+
 function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall)
 }
 
-let OperatorSummary = React.createClass({
-    render: function() {
+class OperatorSummary extends React.Component {
+    render() {
         const operator = this.props.operator;
 
         const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
@@ -82,7 +85,7 @@ let OperatorSummary = React.createClass({
             </div>
         );
     }
-});
+}
 
 const BAR_CHART_PROPERTIES = {
     type: 'bar',
@@ -95,8 +98,8 @@ const BAR_CHART_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-let OperatorStatistic = React.createClass({
-    componentDidMount: function() {
+class OperatorStatistic extends React.Component {
+    componentDidMount() {
         const operators = this.props.operators;
         const statistic = operators.map(this.props.supplier);
         const numTasks = operators.length;
@@ -108,8 +111,9 @@ let OperatorStatistic = React.createClass({
 
         const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups});
         $('#' + this.props.id).sparkline(statistic, $.extend({}, stageBarChartProperties, {numberFormatter: this.props.renderer}));
-    },
-    render: function() {
+    }
+    
+    render() {
         return (
             <div className="row operator-statistic">
                 <div className="col-xs-2 italic-uppercase operator-statistic-title">
@@ -121,15 +125,17 @@ let OperatorStatistic = React.createClass({
             </div>
         );
     }
-});
+}
 
-let OperatorDetail = React.createClass({
-    getInitialState: function() {
-        return {
+class OperatorDetail extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             selectedStatistics: this.getInitialStatistics()
-        }
-    },
-    getInitialStatistics: function () {
+        };
+    }
+    
+    getInitialStatistics() {
         return [
             {
                 name: "Total Wall Time",
@@ -162,8 +168,9 @@ let OperatorDetail = React.createClass({
                 renderer: formatDataSize
             },
         ];
-    },
-    getOperatorTasks: function() {
+    }
+    
+    getOperatorTasks() {
         // sort the x-axis
         const tasks = this.props.tasks.sort(function (taskA, taskB) {
             return getTaskIdInStage(taskA.taskStatus.taskId) - getTaskIdInStage(taskB.taskStatus.taskId);
@@ -185,8 +192,9 @@ let OperatorDetail = React.createClass({
         });
 
         return operatorTasks;
-    },
-    render: function() {
+    }
+    
+    render() {
         const operator = this.props.operator;
         const operatorTasks = this.getOperatorTasks();
         const totalWallTime = getTotalWallTime(operator);
@@ -317,16 +325,18 @@ let OperatorDetail = React.createClass({
             </div>
         );
     }
-});
+}
 
-let StageOperatorGraph = React.createClass({
-    componentDidMount: function() {
+class StageOperatorGraph extends React.Component {
+    componentDidMount() {
         this.updateD3Graph();
-    },
-    componentDidUpdate: function() {
+    }
+
+    componentDidUpdate() {
         this.updateD3Graph();
-    },
-    handleOperatorClick: function(operatorCssId) {
+    }
+
+    handleOperatorClick(operatorCssId) {
         $('#operator-detail-modal').modal();
 
         const pipelineId = parseInt(operatorCssId.split('-')[1]);
@@ -343,8 +353,9 @@ let StageOperatorGraph = React.createClass({
 
         ReactDOM.render(<OperatorDetail key = { operatorCssId } operator = { operatorStageSummary } tasks = {stage.tasks} />,
             document.getElementById('operator-detail'));
-    },
-    computeOperatorGraphs: function(planNode, operatorMap) {
+    }
+
+    computeOperatorGraphs(planNode, operatorMap) {
         const sources = computeSources(planNode)[0];
 
         const sourceResults = new Map();
@@ -403,8 +414,9 @@ let StageOperatorGraph = React.createClass({
         });
 
         return result;
-    },
-    computeOperatorMap: function() {
+    }
+
+    computeOperatorMap() {
         const operatorMap = new Map();
         this.props.stage.stageStats.operatorSummaries.forEach(operator => {
             if (!operatorMap.has(operator.planNodeId)) {
@@ -415,8 +427,9 @@ let StageOperatorGraph = React.createClass({
         });
 
         return operatorMap;
-    },
-    computeD3StageOperatorGraph: function(graph, operator, sink, pipelineNode) {
+    }
+
+    computeD3StageOperatorGraph(graph, operator, sink, pipelineNode) {
         const operatorNodeId = "operator-" + operator.pipelineId + "-" + operator.operatorId;
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
@@ -432,8 +445,9 @@ let StageOperatorGraph = React.createClass({
         }
 
         graph.setParent(operatorNodeId, pipelineNode);
-    },
-    updateD3Graph: function() {
+    }
+
+    updateD3Graph() {
         if (!this.props.stage) {
             return;
         }
@@ -457,15 +471,16 @@ let StageOperatorGraph = React.createClass({
             const render = new dagreD3.render();
             render(d3.select("#operator-canvas g"), graph);
 
-            svg.selectAll("g.operator-stats").on("click", this.handleOperatorClick);
+            svg.selectAll("g.operator-stats").on("click", this.handleOperatorClick.bind(this));
             svg.attr("height", graph.graph().height);
             svg.attr("width", graph.graph().width);
         }
         else {
             $(".graph-container").css("display", "none");
         }
-    },
-    render: function() {
+    }
+
+    render() {
         const stage = this.props.stage;
 
         if (!stage.hasOwnProperty('plan')) {
@@ -488,11 +503,12 @@ let StageOperatorGraph = React.createClass({
 
         return null;
     }
-});
+}
 
-let StagePerformance = React.createClass({
-    getInitialState: function() {
-        return {
+export class StagePerformance extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             initialized: false,
             ended: false,
 
@@ -502,15 +518,19 @@ let StagePerformance = React.createClass({
             lastRefresh: null,
             lastRender: null
         };
-    },
-    resetTimer: function() {
+
+        this.refreshLoop = this.refreshLoop.bind(this);
+    }
+
+    resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
-    },
-    renderProgressBar: function() {
+    }
+
+    renderProgressBar() {
         const query = this.state.query;
         const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
 
@@ -544,8 +564,9 @@ let StagePerformance = React.createClass({
                 </tbody>
             </table>
         );
-    },
-    refreshLoop: function() {
+    }
+
+    refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryString = getFirstParameter(window.location.search).split('.');
         const queryId = queryString[0];
@@ -573,11 +594,13 @@ let StagePerformance = React.createClass({
             });
             this.resetTimer();
         });
-    },
-    componentDidMount: function() {
+    }
+
+    componentDidMount() {
         this.refreshLoop();
-    },
-    findStage: function (stageId, currentStage) {
+    }
+
+    findStage(stageId, currentStage) {
         if (stageId === null) {
             return null;
         }
@@ -594,14 +617,16 @@ let StagePerformance = React.createClass({
         }
 
         return null;
-    },
-    getAllStageIds: function (result, currentStage) {
+    }
+
+    getAllStageIds(result, currentStage) {
         result.push(currentStage.plan.id);
         currentStage.subStages.forEach(stage => {
             this.getAllStageIds(result, stage);
         });
-    },
-    render: function() {
+    }
+
+    render() {
         if (!this.state.query) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
@@ -715,11 +740,5 @@ let StagePerformance = React.createClass({
                 </div>
             </div>
         );
-
     }
-});
-
-ReactDOM.render(
-    <StagePerformance />,
-    document.getElementById('stage-performance-header')
-);
+}
