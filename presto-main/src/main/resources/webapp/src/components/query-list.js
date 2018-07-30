@@ -12,9 +12,10 @@
  * limitations under the License.
  */
 
- let QueryListItem = React.createClass({
-    formatQueryText: function(queryText)
-    {
+import React from "react";
+
+export class QueryListItem extends React.Component {
+    formatQueryText(queryText) {
         const lines = queryText.split("\n");
         let minLeadingWhitespace = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -29,7 +30,7 @@
             const leadingWhitespace = lines[i].search(/\S/);
 
             if (leadingWhitespace > -1 && ((leadingWhitespace < minLeadingWhitespace) || minLeadingWhitespace === -1)) {
-            	minLeadingWhitespace = leadingWhitespace;
+                minLeadingWhitespace = leadingWhitespace;
             }
         }
 
@@ -39,73 +40,73 @@
             const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '');
 
             if (trimmedLine.length > 0) {
-            	formattedQueryText += trimmedLine;
+                formattedQueryText += trimmedLine;
 
-                if (i < (lines.length -1)) {
+                if (i < (lines.length - 1)) {
                     formattedQueryText += "\n";
                 }
             }
         }
 
         return truncateString(formattedQueryText, 300);
-    },
-    render: function()
-    {
+    }
+
+    render() {
         const query = this.props.query;
         const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
         const splitDetails = (
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Completed splits">
-                    <span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.completedDrivers }
+                    <span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.completedDrivers}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Running splits">
-                    <span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { (query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.runningDrivers }
+                    <span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.runningDrivers}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Queued splits">
-                    <span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { (query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedDrivers }
+                    <span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedDrivers}
                     </span>
-            </div> );
+            </div>);
 
         const timingDetails = (
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Wall time spent executing the query (not including queued time)">
-                    <span className="glyphicon glyphicon-hourglass" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.executionTime }
+                    <span className="glyphicon glyphicon-hourglass" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.executionTime}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Total query wall time">
-                    <span className="glyphicon glyphicon-time" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.elapsedTime }
+                    <span className="glyphicon glyphicon-time" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.elapsedTime}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="CPU time spent by this query">
-                    <span className="glyphicon glyphicon-dashboard" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.totalCpuTime }
+                    <span className="glyphicon glyphicon-dashboard" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.totalCpuTime}
                 </span>
-            </div> );
+            </div>);
 
         const memoryDetails = (
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
-                    <span className="glyphicon glyphicon-scale" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.userMemoryReservation }
+                    <span className="glyphicon glyphicon-scale" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.userMemoryReservation}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
-                    <span className="glyphicon glyphicon-fire" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.peakUserMemoryReservation }
+                    <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.peakUserMemoryReservation}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative memory">
-                    <span className="glyphicon glyphicon-equalizer" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { formatDataSizeBytes(query.queryStats.cumulativeUserMemory) }
+                    <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {formatDataSizeBytes(query.queryStats.cumulativeUserMemory)}
                 </span>
-            </div> );
+            </div>);
 
-        let user = (<span>{ query.session.user }</span>);
+        let user = (<span>{query.session.user}</span>);
         if (query.session.principal) {
             user = (
-                <span>{ query.session.user }<span className="glyphicon glyphicon-lock-inverse" style={ GLYPHICON_DEFAULT }/></span>
+                <span>{query.session.user}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
             );
         }
 
@@ -115,51 +116,52 @@
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
                             <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" title="Query ID">
-                                <a href={ "query.html?" + query.queryId } target="_blank">{ query.queryId }</a>
+                                <a href={"query.html?" + query.queryId} target="_blank">{query.queryId}</a>
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
-                                <span>{ formatShortTime(new Date(Date.parse(query.queryStats.createTime))) }</span>
+                                <span>{formatShortTime(new Date(Date.parse(query.queryStats.createTime)))}</span>
                             </div>
                         </div>
                         <div className="row stat-row">
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="User">
-                                    <span className="glyphicon glyphicon-user" style={ GLYPHICON_DEFAULT }/>&nbsp;&nbsp;
-                                    <span>{ truncateString(user, 35) }</span>
+                                    <span className="glyphicon glyphicon-user" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                    <span>{truncateString(user, 35)}</span>
                                 </span>
                             </div>
                         </div>
                         <div className="row stat-row">
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Source">
-                                    <span className="glyphicon glyphicon-log-in" style={ GLYPHICON_DEFAULT }/>&nbsp;&nbsp;
-                                    <span>{ truncateString(query.session.source, 35) }</span>
+                                    <span className="glyphicon glyphicon-log-in" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                    <span>{truncateString(query.session.source, 35)}</span>
                                 </span>
                             </div>
                         </div>
                         <div className="row stat-row">
-                            { splitDetails }
+                            {splitDetails}
                         </div>
                         <div className="row stat-row">
-                            { timingDetails }
+                            {timingDetails}
                         </div>
                         <div className="row stat-row">
-                            { memoryDetails }
+                            {memoryDetails}
                         </div>
                     </div>
                     <div className="col-xs-8">
                         <div className="row query-header">
                             <div className="col-xs-12 query-progress-container">
                                 <div className="progress">
-                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                                        { getProgressBarTitle(query) }
+                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0"
+                                         aria-valuemax="100" style={progressBarStyle}>
+                                        {getProgressBarTitle(query)}
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{ this.formatQueryText(query.query) }</code></pre>
+                                <pre className="query-snippet"><code className="sql">{this.formatQueryText(query.query)}</code></pre>
                             </div>
                         </div>
                     </div>
@@ -167,23 +169,22 @@
             </div>
         );
     }
-});
+}
 
-let DisplayedQueriesList = React.createClass({
-    render: function()
-    {
+class DisplayedQueriesList extends React.Component {
+    render() {
         const queryNodes = this.props.queries.map(function (query) {
             return (
-                <QueryListItem key={ query.queryId } query={query}/>
+                <QueryListItem key={query.queryId} query={query}/>
             );
         }.bind(this));
         return (
-                <div>
-                    { queryNodes }
-                </div>
+            <div>
+                {queryNodes}
+            </div>
         );
     }
-});
+}
 
 const FILTER_TYPE = {
     RUNNING_BLOCKED: function (query) {
@@ -209,9 +210,11 @@ const SORT_ORDER = {
     DESCENDING: function (value) {return -value}
 };
 
-let QueryList = React.createClass({
-    getInitialState: function () {
-        return {
+export class QueryList extends React.Component {
+
+    constructor(props) {
+        super(props);
+        this.state = {
             allQueries: [],
             displayedQueries: [],
             reorderInterval: 5000,
@@ -224,8 +227,14 @@ let QueryList = React.createClass({
             lastReorder: Date.now(),
             initialized: false
         };
-    },
-    sortAndLimitQueries: function (queries, sortType, sortOrder, maxQueries) {
+
+        this.refreshLoop = this.refreshLoop.bind(this);
+        this.handleSearchStringChange = this.handleSearchStringChange.bind(this);
+        this.executeSearch = this.executeSearch.bind(this);
+        this.handleSortClick = this.handleSortClick.bind(this);
+    }
+
+    sortAndLimitQueries(queries, sortType, sortOrder, maxQueries) {
         queries.sort(function (queryA, queryB) {
             return sortOrder(sortType(queryA) - sortType(queryB));
         }, this);
@@ -233,8 +242,9 @@ let QueryList = React.createClass({
         if (maxQueries !== 0 && queries.length > maxQueries) {
             queries.splice(maxQueries, (queries.length - maxQueries));
         }
-    },
-    filterQueries: function (queries, filters, searchString) {
+    }
+
+    filterQueries(queries, filters, searchString) {
         const stateFilteredQueries = queries.filter(function (query) {
             for (let i = 0; i < filters.length; i++) {
                 if (filters[i](query)) {
@@ -266,15 +276,17 @@ let QueryList = React.createClass({
 
             }, this);
         }
-    },
-    resetTimer: function () {
+    }
+
+    resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
-    },
-    refreshLoop: function () {
+    }
+
+    refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(this.searchTimeoutId);
 
@@ -333,11 +345,13 @@ let QueryList = React.createClass({
                 });
                 this.resetTimer();
             }.bind(this));
-    },
-    componentDidMount: function () {
+    }
+
+    componentDidMount() {
         this.refreshLoop();
-    },
-    handleSearchStringChange: function (event) {
+    }
+
+    handleSearchStringChange(event) {
         const newSearchString = event.target.value;
         clearTimeout(this.searchTimeoutId);
 
@@ -346,8 +360,9 @@ let QueryList = React.createClass({
         });
 
         this.searchTimeoutId = setTimeout(this.executeSearch, 200);
-    },
-    executeSearch: function () {
+    }
+
+    executeSearch() {
         clearTimeout(this.searchTimeoutId);
 
         const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.filters, this.state.searchString);
@@ -356,14 +371,16 @@ let QueryList = React.createClass({
         this.setState({
             displayedQueries: newDisplayedQueries
         });
-    },
-    renderMaxQueriesListItem: function (maxQueries, maxQueriesText) {
+    }
+
+    renderMaxQueriesListItem(maxQueries, maxQueriesText) {
         return (
-            <li><a href="#" className={ this.state.maxQueries === maxQueries ? "selected" : ""} onClick={this.handleMaxQueriesClick.bind(this, maxQueries) }>{ maxQueriesText }</a>
+            <li><a href="#" className={this.state.maxQueries === maxQueries ? "selected" : ""} onClick={this.handleMaxQueriesClick.bind(this, maxQueries)}>{maxQueriesText}</a>
             </li>
         );
-    },
-    handleMaxQueriesClick: function (newMaxQueries) {
+    }
+
+    handleMaxQueriesClick(newMaxQueries) {
         const filteredQueries = this.filterQueries(this.state.allQueries, this.state.filters, this.state.searchString);
         this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder, newMaxQueries);
 
@@ -371,40 +388,44 @@ let QueryList = React.createClass({
             maxQueries: newMaxQueries,
             displayedQueries: filteredQueries
         });
-    },
-    renderReorderListItem: function (interval, intervalText) {
+    }
+
+    renderReorderListItem(interval, intervalText) {
         return (
-            <li><a href="#" className={ this.state.reorderInterval === interval ? "selected" : ""} onClick={this.handleReorderClick.bind(this, interval) }>{ intervalText }</a></li>
+            <li><a href="#" className={this.state.reorderInterval === interval ? "selected" : ""} onClick={this.handleReorderClick.bind(this, interval)}>{intervalText}</a></li>
         );
-    },
-    handleReorderClick: function (interval) {
+    }
+
+    handleReorderClick(interval) {
         if (this.state.reorderInterval !== interval) {
             this.setState({
                 reorderInterval: interval,
             });
         }
-    },
-    renderSortListItem: function (sortType, sortText) {
+    }
+
+    renderSortListItem(sortType, sortText) {
         if (this.state.currentSortType === sortType) {
             const directionArrow = this.state.currentSortOrder === SORT_ORDER.ASCENDING ? <span className="glyphicon glyphicon-triangle-top"/> :
                 <span className="glyphicon glyphicon-triangle-bottom"/>;
             return (
                 <li>
                     <a href="#" className="selected" onClick={this.handleSortClick.bind(this, sortType)}>
-                        { sortText } { directionArrow }
+                        {sortText} {directionArrow}
                     </a>
                 </li>);
         }
         else {
             return (
                 <li>
-                    <a href="#" onClick={ this.handleSortClick.bind(this, sortType) }>
-                        { sortText }
+                    <a href="#" onClick={this.handleSortClick.bind(this, sortType)}>
+                        {sortText}
                     </a>
                 </li>);
         }
-    },
-    handleSortClick: function (sortType) {
+    }
+
+    handleSortClick(sortType) {
         const newSortType = sortType;
         let newSortOrder = SORT_ORDER.DESCENDING;
 
@@ -420,18 +441,20 @@ let QueryList = React.createClass({
             currentSortType: newSortType,
             currentSortOrder: newSortOrder
         });
-    },
-    renderFilterButton: function (filterType, filterText) {
+    }
+
+    renderFilterButton(filterType, filterText) {
         let classNames = "btn btn-sm btn-info style-check";
         if (this.state.filters.indexOf(filterType) > -1) {
             classNames += " active";
         }
 
         return (
-            <button type="button" className={ classNames } onClick={ this.handleFilterClick.bind(this, filterType) }>{ filterText }</button>
+            <button type="button" className={classNames} onClick={this.handleFilterClick.bind(this, filterType)}>{filterText}</button>
         );
-    },
-    handleFilterClick: function (filter) {
+    }
+
+    handleFilterClick(filter) {
         const newFilters = this.state.filters.slice();
         if (this.state.filters.indexOf(filter) > -1) {
             newFilters.splice(newFilters.indexOf(filter), 1);
@@ -447,9 +470,10 @@ let QueryList = React.createClass({
             filters: newFilters,
             displayedQueries: filteredQueries
         });
-    },
-    render: function () {
-        let queryList = <DisplayedQueriesList queries={ this.state.displayedQueries }/>;
+    }
+
+    render() {
+        let queryList = <DisplayedQueriesList queries={this.state.displayedQueries}/>;
         if (this.state.displayedQueries === null || this.state.displayedQueries.length === 0) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
@@ -462,7 +486,7 @@ let QueryList = React.createClass({
             }
             queryList = (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{ label }</h4></div>
+                    <div className="col-xs-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -476,11 +500,11 @@ let QueryList = React.createClass({
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">Filter:</span>
                             <div className="input-group-btn">
-                                { this.renderFilterButton(FILTER_TYPE.RUNNING_BLOCKED, "Running/blocked") }
-                                { this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued") }
-                                { this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished") }
-                                { this.renderFilterButton(FILTER_TYPE.FAILED, "Failed") }
-                                { this.renderFilterButton(FILTER_TYPE.USER_ERROR, "User error") }
+                                {this.renderFilterButton(FILTER_TYPE.RUNNING_BLOCKED, "Running/blocked")}
+                                {this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued")}
+                                {this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished")}
+                                {this.renderFilterButton(FILTER_TYPE.FAILED, "Failed")}
+                                {this.renderFilterButton(FILTER_TYPE.USER_ERROR, "User error")}
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
@@ -488,12 +512,12 @@ let QueryList = React.createClass({
                                     Sort <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu">
-                                    { this.renderSortListItem(SORT_TYPE.CREATED, "Creation Time") }
-                                    { this.renderSortListItem(SORT_TYPE.ELAPSED, "Elapsed Time") }
-                                    { this.renderSortListItem(SORT_TYPE.CPU, "CPU Time") }
-                                    { this.renderSortListItem(SORT_TYPE.EXECUTION, "Execution Time") }
-                                    { this.renderSortListItem(SORT_TYPE.CURRENT_MEMORY, "Current Memory") }
-                                    { this.renderSortListItem(SORT_TYPE.CUMULATIVE_MEMORY, "Cumulative Memory") }
+                                    {this.renderSortListItem(SORT_TYPE.CREATED, "Creation Time")}
+                                    {this.renderSortListItem(SORT_TYPE.ELAPSED, "Elapsed Time")}
+                                    {this.renderSortListItem(SORT_TYPE.CPU, "CPU Time")}
+                                    {this.renderSortListItem(SORT_TYPE.EXECUTION, "Execution Time")}
+                                    {this.renderSortListItem(SORT_TYPE.CURRENT_MEMORY, "Current Memory")}
+                                    {this.renderSortListItem(SORT_TYPE.CUMULATIVE_MEMORY, "Cumulative Memory")}
                                 </ul>
                             </div>
                             &nbsp;
@@ -502,12 +526,12 @@ let QueryList = React.createClass({
                                     Reorder Interval <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu">
-                                    { this.renderReorderListItem(1000, "1s") }
-                                    { this.renderReorderListItem(5000, "5s") }
-                                    { this.renderReorderListItem(10000, "10s") }
-                                    { this.renderReorderListItem(30000, "30s") }
+                                    {this.renderReorderListItem(1000, "1s")}
+                                    {this.renderReorderListItem(5000, "5s")}
+                                    {this.renderReorderListItem(10000, "10s")}
+                                    {this.renderReorderListItem(30000, "30s")}
                                     <li role="separator" className="divider"/>
-                                    { this.renderReorderListItem(0, "Off") }
+                                    {this.renderReorderListItem(0, "Off")}
                                 </ul>
                             </div>
                             &nbsp;
@@ -516,23 +540,19 @@ let QueryList = React.createClass({
                                     Show <span className="caret"/>
                                 </button>
                                 <ul className="dropdown-menu">
-                                    { this.renderMaxQueriesListItem(20, "20 queries") }
-                                    { this.renderMaxQueriesListItem(50, "50 queries") }
-                                    { this.renderMaxQueriesListItem(100, "100 queries") }
+                                    {this.renderMaxQueriesListItem(20, "20 queries")}
+                                    {this.renderMaxQueriesListItem(50, "50 queries")}
+                                    {this.renderMaxQueriesListItem(100, "100 queries")}
                                     <li role="separator" className="divider"/>
-                                    { this.renderMaxQueriesListItem(0, "All queries") }
+                                    {this.renderMaxQueriesListItem(0, "All queries")}
                                 </ul>
                             </div>
                         </div>
                     </div>
                 </div>
-                { queryList }
+                {queryList}
             </div>
         );
     }
-});
+}
 
-ReactDOM.render(
-        <QueryList />,
-        document.getElementById('query-list')
-);

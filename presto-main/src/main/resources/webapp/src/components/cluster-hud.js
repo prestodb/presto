@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 
+import React from "react";
+
 const SPARKLINE_PROPERTIES = {
     width:'100%',
     height: '75px',
@@ -22,9 +24,10 @@ const SPARKLINE_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-let ClusterHUD = React.createClass({
-    getInitialState: function() {
-        return {
+export class ClusterHUD extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             runningQueries: [],
             queuedQueries: [],
             blockedQueries: [],
@@ -44,15 +47,19 @@ let ClusterHUD = React.createClass({
 
             initialized: false,
         };
-    },
-    resetTimer: function() {
+
+        this.refreshLoop = this.refreshLoop.bind(this);
+    }
+
+    resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
-    },
-    refreshLoop: function() {
+    }
+
+    refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         $.get('/v1/cluster', function (clusterState) {
 
@@ -99,11 +106,13 @@ let ClusterHUD = React.createClass({
         .error(function() {
             this.resetTimer();
         }.bind(this));
-    },
-    componentDidMount: function() {
+    }
+
+    componentDidMount() {
         this.refreshLoop();
-    },
-    componentDidUpdate: function() {
+    }
+
+    componentDidUpdate() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
@@ -125,8 +134,9 @@ let ClusterHUD = React.createClass({
         }
 
         $('[data-toggle="tooltip"]').tooltip();
-    },
-    render: function() {
+    }
+
+    render() {
         return (<div className="row">
             <div className="col-xs-12">
                 <div className="row">
@@ -279,9 +289,5 @@ let ClusterHUD = React.createClass({
             </div>
         </div>);
     }
-});
+}
 
-ReactDOM.render(
-        <ClusterHUD />,
-        document.getElementById('cluster-hud')
-);
