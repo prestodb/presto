@@ -82,9 +82,9 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionManager functionManager, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionManager functionManager, Session session, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionManager);
+        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionManager, session);
 
         List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
 

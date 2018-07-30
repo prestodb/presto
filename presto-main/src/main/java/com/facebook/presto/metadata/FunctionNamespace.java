@@ -46,4 +46,6 @@ public interface FunctionNamespace
     Signature getCoercion(Type fromType, Type toType);
 
     Signature getCoercion(TypeSignature fromType, TypeSignature toType);
+
+    boolean isAggregationFunction(QualifiedName name);
 }

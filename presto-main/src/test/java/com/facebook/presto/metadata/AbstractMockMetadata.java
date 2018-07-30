@@ -30,7 +30,6 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.tree.QualifiedName;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -56,12 +55,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Type getType(TypeSignature signature)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
     {
         throw new UnsupportedOperationException();
     }

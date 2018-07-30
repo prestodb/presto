@@ -351,7 +351,7 @@ public class IndexJoinOptimizer
         {
             if (!node.getWindowFunctions().values().stream()
                     .map(function -> function.getFunctionCall().getName())
-                    .allMatch(metadata.getFunctionManager()::isAggregationFunction)) {
+                    .allMatch(name -> metadata.getFunctionManager().isAggregationFunction(name, session))) {
                 return node;
             }
 

@@ -979,7 +979,7 @@ class StatementAnalyzer
                 // and when aggregation is present, ORDER BY expressions should only be resolvable against
                 // output scope, group by expressions and aggregation expressions.
                 List<GroupingOperation> orderByGroupingOperations = extractExpressions(orderByExpressions, GroupingOperation.class);
-                List<FunctionCall> orderByAggregations = extractAggregateFunctions(orderByExpressions, metadata.getFunctionManager());
+                List<FunctionCall> orderByAggregations = extractAggregateFunctions(orderByExpressions, metadata.getFunctionManager(), session);
                 computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), sourceScope, outputScope, orderByAggregations, groupByExpressions, orderByGroupingOperations);
             }
 
@@ -1115,7 +1115,7 @@ class StatementAnalyzer
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
 
-                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionManager(), expression, "JOIN clause");
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionManager(), session, expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
@@ -1550,7 +1550,7 @@ class StatementAnalyzer
                     groupByExpression = groupingColumn;
                 }
 
-                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionManager(), groupByExpression, "GROUP BY clause");
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionManager(), session, groupByExpression, "GROUP BY clause");
                 Type type = analysis.getType(groupByExpression);
                 if (!type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
@@ -1728,7 +1728,7 @@ class StatementAnalyzer
 
         public void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
-            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionManager(), predicate, "WHERE clause");
+            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionManager(), session, predicate, "WHERE clause");
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
@@ -1779,7 +1779,7 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata.getFunctionManager());
+            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata.getFunctionManager(), session);
             analysis.setAggregates(node, aggregates);
 
             // is this an aggregation query?
@@ -1795,11 +1795,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, session);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, session);
                 }
             }
 
@@ -1818,7 +1818,7 @@ class StatementAnalyzer
 
             node.getHaving().ifPresent(toExtractBuilder::add);
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(toExtractBuilder.build(), metadata.getFunctionManager());
+            List<FunctionCall> aggregates = extractAggregateFunctions(toExtractBuilder.build(), metadata.getFunctionManager(), session);
 
             return !aggregates.isEmpty();
         }

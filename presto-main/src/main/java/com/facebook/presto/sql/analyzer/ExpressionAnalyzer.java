@@ -1127,7 +1127,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
         {
-            verifyNoAggregateWindowOrGroupingFunctions(functionManager, node.getBody(), "Lambda expression");
+            verifyNoAggregateWindowOrGroupingFunctions(functionManager, session, node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw new SemanticException(STANDALONE_LAMBDA, node, "Lambda expression should always be used inside a function");
             }

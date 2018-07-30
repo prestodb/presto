@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -102,6 +104,7 @@ class AggregationAnalyzer
 
     private final Metadata metadata;
     private final Analysis analysis;
+    private final Session session;
 
     private final Scope sourceScope;
     private final Optional<Scope> orderByScope;
@@ -111,9 +114,10 @@ class AggregationAnalyzer
             Scope sourceScope,
             Expression expression,
             Metadata metadata,
-            Analysis analysis)
+            Analysis analysis,
+            Session session)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis, session);
         analyzer.analyze(expression);
     }
 
@@ -123,24 +127,27 @@ class AggregationAnalyzer
             Scope orderByScope,
             Expression expression,
             Metadata metadata,
-            Analysis analysis)
+            Analysis analysis,
+            Session session)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis, session);
         analyzer.analyze(expression);
     }
 
-    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis)
+    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis, Session session)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(sourceScope, "sourceScope is null");
         requireNonNull(orderByScope, "orderByScope is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(analysis, "analysis is null");
+        requireNonNull(session, "session is null");
 
         this.sourceScope = sourceScope;
         this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
+        this.session = session;
         this.expressions = groupByExpressions.stream()
                 .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters()), e))
                 .collect(toImmutableList());
@@ -313,9 +320,9 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (metadata.isAggregationFunction(node.getName())) {
+            if (analysis.getFunctionSignature(node).getKind() == FunctionKind.AGGREGATE) {
                 if (!node.getWindow().isPresent()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata.getFunctionManager());
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata.getFunctionManager(), session);
                     List<FunctionCall> windowFunctions = extractWindowFunctions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {

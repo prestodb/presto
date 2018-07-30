@@ -47,7 +47,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
@@ -233,13 +232,6 @@ public class MetadataManager
     public Type getType(TypeSignature signature)
     {
         return typeManager.getType(signature);
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        // TODO: transactional when FunctionRegistry is made transactional
-        return functions.isAggregationFunction(name);
     }
 
     public List<SqlFunction> listFunctions(Session session)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
@@ -31,9 +32,9 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, FunctionManager functionManager)
+    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, FunctionManager functionManager, Session session)
     {
-        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionManager));
+        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionManager, session));
     }
 
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
@@ -48,9 +49,9 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(FunctionManager functionManager)
+    private static Predicate<FunctionCall> isAggregationPredicate(FunctionManager functionManager, Session session)
     {
-        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName())
+        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName(), session)
                 || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent()
                 || functionCall.getOrderBy().isPresent());
     }

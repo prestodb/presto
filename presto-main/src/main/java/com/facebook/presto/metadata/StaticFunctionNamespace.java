@@ -89,4 +89,9 @@ public class StaticFunctionNamespace
     {
         return functionRegistry.getCoercion(fromType, toType);
     }
+
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        return functionRegistry.isAggregationFunction(name);
+    }
 }

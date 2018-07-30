@@ -475,6 +475,27 @@ public class FunctionManager
         throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
     }
 
+    public boolean isAggregationFunction(QualifiedName name, Session session)
+    {
+        boolean atLeastOneFunctionFound = false;
+        for (SqlPathElement element : session.getPath().getParsedPath()) {
+            FunctionNamespace namespace = functionNamespaces.get(getCatalog(element, session));
+            try {
+                if (namespace.isAggregationFunction(name)) {
+                    return true;
+                }
+                atLeastOneFunctionFound = true;
+            }
+            catch (PrestoException e) {
+                //keep traversing the path
+            }
+        }
+        if (atLeastOneFunctionFound) {
+            return false;
+        }
+        throw new PrestoException(NOT_FOUND, format("Function name %s not found in path %s", name, session.getPath()));
+    }
+
     private String getCatalog(SqlPathElement pathElement, Session session)
     {
         if (pathElement.getCatalog().isPresent()) {
