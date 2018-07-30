@@ -64,8 +64,10 @@ final class Primitives
         WRAPPER_TO_PRIMITIVE_TYPE = Collections.unmodifiableMap(wrapToPrim);
     }
 
-    private static void add(Map<Class<?>, Class<?>> forward,
-            Map<Class<?>, Class<?>> backward, Class<?> key, Class<?> value)
+    private static void add(
+            Map<Class<?>, Class<?>> forward,
+            Map<Class<?>, Class<?>> backward,
+            Class<?> key, Class<?> value)
     {
         forward.put(key, value);
         backward.put(value, key);
@@ -84,8 +86,7 @@ final class Primitives
     }
 
     /**
-     * Returns an immutable set of all nine primitive-wrapper types (including
-     * {@link Void}).
+     * Returns an immutable set of all nine primitive-wrapper types (including {@link Void}).
      *
      * @since 3.0
      */

@@ -85,7 +85,8 @@ public class MemoryPagesStore
         }
         TableData tableData = tables.get(tableId);
         if (tableData.getRows() < expectedRows) {
-            throw new PrestoException(MISSING_DATA,
+            throw new PrestoException(
+                    MISSING_DATA,
                     format("Expected to find [%s] rows on a worker, but found [%s].", expectedRows, tableData.getRows()));
         }
 

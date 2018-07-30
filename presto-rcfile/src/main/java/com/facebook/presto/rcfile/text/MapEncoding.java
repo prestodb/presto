@@ -28,7 +28,9 @@ public class MapEncoding
     private final TextColumnEncoding keyEncoding;
     private final TextColumnEncoding valueEncoding;
 
-    public MapEncoding(Type type, Slice nullSequence,
+    public MapEncoding(
+            Type type,
+            Slice nullSequence,
             byte[] separators,
             Byte escapeByte,
             TextColumnEncoding keyEncoding,

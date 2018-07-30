@@ -198,7 +198,8 @@ public class TestRawDecoder
         DecoderTestColumnHandle row33 = new DecoderTestColumnHandle(14, "row33", BigintType.BIGINT, "36", "BYTE", null, false, false, false);
         DecoderTestColumnHandle row34 = new DecoderTestColumnHandle(15, "row34", BooleanType.BOOLEAN, "37", "BYTE", null, false, false, false);
 
-        Set<DecoderColumnHandle> columns = ImmutableSet.of(row01,
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(
+                row01,
                 row02,
                 row03,
                 row04,

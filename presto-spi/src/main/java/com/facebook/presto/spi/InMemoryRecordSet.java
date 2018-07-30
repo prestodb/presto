@@ -217,22 +217,26 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Integer, "Expected value %d to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                    checkArgument(value instanceof Integer || value instanceof Long,
+                    checkArgument(
+                            value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (DOUBLE.equals(type)) {
                     checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (VARCHAR.equals(type)) {
-                    checkArgument(value instanceof String || value instanceof byte[],
+                    checkArgument(
+                            value instanceof String || value instanceof byte[],
                             "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (VARBINARY.equals(type)) {
-                    checkArgument(value instanceof Slice,
+                    checkArgument(
+                            value instanceof Slice,
                             "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (type.getTypeSignature().getBase().equals("array")) {
-                    checkArgument(value instanceof Block,
+                    checkArgument(
+                            value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else {

@@ -50,20 +50,18 @@ public class SpecificationProvider
     {
         Optional<OrderingScheme> orderingScheme = Optional.empty();
         if (!orderBy.isEmpty()) {
-            orderingScheme = Optional.of(new OrderingScheme(
-                    orderBy
-                            .stream()
-                            .map(alias -> alias.toSymbol(aliases))
-                            .collect(toImmutableList()),
-                    orderings
-                            .entrySet()
-                            .stream()
-                            .collect(toImmutableMap(entry -> entry.getKey().toSymbol(aliases), Map.Entry::getValue))));
+            orderingScheme = Optional.of(
+                    new OrderingScheme(
+                            orderBy.stream()
+                                    .map(alias -> alias.toSymbol(aliases))
+                                    .collect(toImmutableList()),
+                            orderings.entrySet()
+                                    .stream()
+                                    .collect(toImmutableMap(entry -> entry.getKey().toSymbol(aliases), Map.Entry::getValue))));
         }
 
         return new WindowNode.Specification(
-                partitionBy
-                        .stream()
+                partitionBy.stream()
                         .map(alias -> alias.toSymbol(aliases))
                         .collect(toImmutableList()),
                 orderingScheme);

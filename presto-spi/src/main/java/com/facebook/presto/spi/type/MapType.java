@@ -55,7 +55,8 @@ public class MapType
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode)
     {
-        super(new TypeSignature(StandardTypes.MAP,
+        super(new TypeSignature(
+                        StandardTypes.MAP,
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
                         TypeSignatureParameter.of(valueType.getTypeSignature())),
                 Block.class);

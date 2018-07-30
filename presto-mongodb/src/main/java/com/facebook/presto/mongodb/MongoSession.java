@@ -479,8 +479,7 @@ public class MongoSession
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
                 metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
-                metadata.append(FIELDS_HIDDEN_KEY,
-                        key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
+                metadata.append(FIELDS_HIDDEN_KEY, key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
 
                 builder.add(metadata);
             }
@@ -534,7 +533,8 @@ public class MongoSession
             }
             else {
                 // TODO: presto cli doesn't handle empty field name row type yet
-                typeSignature = new TypeSignature(StandardTypes.ROW,
+                typeSignature = new TypeSignature(
+                        StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
                                 .mapToObj(idx -> TypeSignatureParameter.of(
                                         new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))

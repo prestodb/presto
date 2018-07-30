@@ -129,8 +129,8 @@ public class StatementResource
             @Context UriInfo uriInfo)
     {
         if (isNullOrEmpty(statement)) {
-            throw new WebApplicationException(Response
-                    .status(Status.BAD_REQUEST)
+            throw new WebApplicationException(
+                    Response.status(Status.BAD_REQUEST)
                     .type(MediaType.TEXT_PLAIN)
                     .entity("SQL statement is empty")
                     .build());

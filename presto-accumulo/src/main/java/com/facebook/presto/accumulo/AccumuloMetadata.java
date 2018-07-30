@@ -130,7 +130,9 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle,
+    public void renameTable(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
             SchemaTableName newTableName)
     {
         if (client.getTable(newTableName) != null) {

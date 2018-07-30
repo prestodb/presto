@@ -161,8 +161,7 @@ public class PreparedStatements
             QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
-                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                            "a290IGJpbmFybnk=".getBytes()));
+                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, "a290IGJpbmFybnk=".getBytes()));
         }
         else {
             LOGGER.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
@@ -287,56 +286,59 @@ public class PreparedStatements
 
             Statement statement = connection().createStatement();
             statement.execute(insertSqlWithTable);
-            statement.execute(executeSql +
-                    "cast(127 as tinyint), " +
-                    "cast(32767 as smallint), " +
-                    "2147483647, " +
-                    "9223372036854775807, " +
-                    "cast(123.345 as real), " +
-                    "cast(234.567 as double), " +
-                    "cast(345 as decimal(10)), " +
-                    "cast(345.678 as decimal(10,5)), " +
-                    "timestamp '2015-05-10 12:15:35', " +
-                    "date '2015-05-10', " +
-                    "'ala ma kota', " +
-                    "'ala ma kot', " +
-                    "cast('ala ma' as char(10)), " +
-                    "true, " +
-                    "varbinary 'a290IGJpbmFybnk='");
+            statement.execute(
+                    executeSql +
+                            "cast(127 as tinyint), " +
+                            "cast(32767 as smallint), " +
+                            "2147483647, " +
+                            "9223372036854775807, " +
+                            "cast(123.345 as real), " +
+                            "cast(234.567 as double), " +
+                            "cast(345 as decimal(10)), " +
+                            "cast(345.678 as decimal(10,5)), " +
+                            "timestamp '2015-05-10 12:15:35', " +
+                            "date '2015-05-10', " +
+                            "'ala ma kota', " +
+                            "'ala ma kot', " +
+                            "cast('ala ma' as char(10)), " +
+                            "true, " +
+                            "varbinary 'a290IGJpbmFybnk='");
 
-            statement.execute(executeSql +
-                    "cast(1 as tinyint), " +
-                    "cast(2 as smallint), " +
-                    "3, " +
-                    "4, " +
-                    "cast(5.6 as real), " +
-                    "cast(7.8 as double), " +
-                    "cast(9 as decimal(10)), " +
-                    "cast(2.3 as decimal(10,5)), " +
-                    "timestamp '2012-05-10 1:35:15', " +
-                    "date '2014-03-10', " +
-                    "'abc', " +
-                    "'def', " +
-                    "cast('ghi' as char(10)), " +
-                    "false, " +
-                    "varbinary 'jkl'");
+            statement.execute(
+                    executeSql +
+                            "cast(1 as tinyint), " +
+                            "cast(2 as smallint), " +
+                            "3, " +
+                            "4, " +
+                            "cast(5.6 as real), " +
+                            "cast(7.8 as double), " +
+                            "cast(9 as decimal(10)), " +
+                            "cast(2.3 as decimal(10,5)), " +
+                            "timestamp '2012-05-10 1:35:15', " +
+                            "date '2014-03-10', " +
+                            "'abc', " +
+                            "'def', " +
+                            "cast('ghi' as char(10)), " +
+                            "false, " +
+                            "varbinary 'jkl'");
 
-            statement.execute(executeSql +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null");
+            statement.execute(
+                    executeSql +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null");
 
             QueryResult result = query(selectSqlWithTable);
             assertColumnTypes(result);
@@ -393,28 +395,28 @@ public class PreparedStatements
 
             Statement statement = connection().createStatement();
             statement.execute(insertSqlWithTable);
-            statement.execute(executeSql +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "varbinary 'a290IGJpbmFybnk='");
+            statement.execute(
+                    executeSql +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "null, " +
+                            "varbinary 'a290IGJpbmFybnk='");
 
             QueryResult result = query(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
-                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                            "a290IGJpbmFybnk=".getBytes()));
+                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, "a290IGJpbmFybnk=".getBytes()));
         }
         else {
             LOGGER.warn("preparedInsertVarbinarySql() only applies to TeradataJdbcDriver");

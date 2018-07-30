@@ -56,8 +56,7 @@ public class SystemConnectorTests
                 "  'end' " +
                 "FROM system.runtime.queries";
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, ARRAY,
-                        BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, ARRAY, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                 .hasAnyRows();
     }
 
@@ -91,7 +90,8 @@ public class SystemConnectorTests
                 "  'end' " +
                 "FROM SYSTEM.runtime.tasks";
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
+                .hasColumns(
+                        VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                 .hasAnyRows();

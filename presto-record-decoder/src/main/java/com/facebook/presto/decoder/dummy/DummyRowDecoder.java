@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The row decoder for the 'dummy' format. For an unstructured row format (bag
- * of bytes), a specific decoder for a topic must exist. To start developing
+ * The row decoder for the 'dummy' format. For an unstructured row format (bag * of bytes),
+ * a specific decoder for a topic must exist. To start developing
  * such a decoder, it is beneficial to be able to configure an arbitrary topic
  * to be available through presto without any decoding at all (not even line
  * parsing) and examine the internal rows that are exposed by Presto. By adding
@@ -39,8 +39,7 @@ public class DummyRowDecoder
     private static final Optional<Map<DecoderColumnHandle, FieldValueProvider>> ALL_NULLS = Optional.of(ImmutableMap.of());
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
-            Map<String, String> dataMap)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
         return ALL_NULLS;
     }

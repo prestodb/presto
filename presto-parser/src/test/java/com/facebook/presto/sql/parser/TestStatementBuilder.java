@@ -298,7 +298,8 @@ public class TestStatementBuilder
         printTpchQuery(19, "part brand 1", "part brand 2", "part brand 3", 11, 22, 33);
         printTpchQuery(20, "part name like", "2013-03-05", "nation name");
         printTpchQuery(21, "nation name");
-        printTpchQuery(22,
+        printTpchQuery(
+                22,
                 "phone 1",
                 "phone 2",
                 "phone 3",

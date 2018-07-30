@@ -91,17 +91,22 @@ public final class TreeAssertions
             throw new AssertionError(format("Lists not equal in size%n%s", formatLists(actual, expected)));
         }
         if (!actual.equals(expected)) {
-            throw new AssertionError(format("Lists not equal at index %s%n%s",
-                    differingIndex(actual, expected), formatLists(actual, expected)));
+            throw new AssertionError(format(
+                    "Lists not equal at index %s%n%s",
+                    differingIndex(actual, expected),
+                    formatLists(actual, expected)));
         }
     }
 
     private static <T> String formatLists(List<T> actual, List<T> expected)
     {
         Joiner joiner = Joiner.on("\n    ");
-        return format("Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n",
-                actual.size(), joiner.join(actual),
-                expected.size(), joiner.join(expected));
+        return format(
+                "Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n",
+                actual.size(),
+                joiner.join(actual),
+                expected.size(),
+                joiner.join(expected));
     }
 
     private static <T> int differingIndex(List<T> actual, List<T> expected)

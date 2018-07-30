@@ -126,8 +126,7 @@ public class LocalExchangeSource
         checkNotHoldsLock();
 
         // NOTE: there is no need to acquire a lock here. The buffer is concurrent
-        // and buffered bytes is not expected to be consistent with the buffer (only
-        // best effort).
+        // and buffered bytes is not expected to be consistent with the buffer (only best effort).
         PageReference pageReference = buffer.poll();
         if (pageReference == null) {
             return null;

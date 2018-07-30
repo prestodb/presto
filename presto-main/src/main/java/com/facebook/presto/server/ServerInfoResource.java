@@ -82,8 +82,8 @@ public class ServerInfoResource
                 return Response.ok().build();
             case ACTIVE:
             case INACTIVE:
-                throw new WebApplicationException(Response
-                        .status(BAD_REQUEST)
+                throw new WebApplicationException(
+                        Response.status(BAD_REQUEST)
                         .type(MediaType.TEXT_PLAIN)
                         .entity(format("Invalid state transition to %s", state))
                         .build());

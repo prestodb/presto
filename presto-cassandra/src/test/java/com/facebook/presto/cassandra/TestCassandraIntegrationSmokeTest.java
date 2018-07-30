@@ -451,7 +451,8 @@ public class TestCassandraIntegrationSmokeTest
         MaterializedResult result = execute(sql);
         int rowCount = result.getRowCount();
         assertEquals(rowCount, 1);
-        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(
+                DEFAULT_PRECISION,
                 "key1",
                 null,
                 1,
@@ -484,8 +485,8 @@ public class TestCassandraIntegrationSmokeTest
         result = execute(sql);
         rowCount = result.getRowCount();
         assertEquals(rowCount, 1);
-        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
-                "key2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(
+                DEFAULT_PRECISION, "key2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         // insert into only a subset of columns
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
@@ -497,8 +498,8 @@ public class TestCassandraIntegrationSmokeTest
         result = execute(sql);
         rowCount = result.getRowCount();
         assertEquals(rowCount, 1);
-        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
-                "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(
+                DEFAULT_PRECISION, "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
     }
 
     private void assertSelect(String tableName, boolean createdByPresto)
@@ -556,7 +557,8 @@ public class TestCassandraIntegrationSmokeTest
                 .collect(toList());
 
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
-            assertEquals(sortedRows.get(rowNumber - 1), new MaterializedRow(DEFAULT_PRECISION,
+            assertEquals(sortedRows.get(rowNumber - 1), new MaterializedRow(
+                    DEFAULT_PRECISION,
                     "key " + rowNumber,
                     String.format("00000000-0000-0000-0000-%012d", rowNumber),
                     rowNumber,

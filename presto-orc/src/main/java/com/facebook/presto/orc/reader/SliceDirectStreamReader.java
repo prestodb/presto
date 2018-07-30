@@ -164,7 +164,8 @@ public class SliceDirectStreamReader
             return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, Optional.ofNullable(isNullVector));
         }
         if (totalLength > ONE_GIGABYTE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR,
+            throw new PrestoException(
+                    GENERIC_INTERNAL_ERROR,
                     format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), nextBatchSize, streamDescriptor.getOrcDataSourceId()));
         }
         if (dataStream == null) {

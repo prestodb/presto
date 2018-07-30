@@ -363,7 +363,8 @@ public class TestSpatialJoinOperator
                 10_000,
                 new TestingFactory(false));
 
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 buildOperatorFactory.createOperator(driverContext));
 

@@ -341,9 +341,9 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(decimalValue
-                                    .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
-                                    .round(new MathContext(decimalType.getPrecision())));
+                            row.add(
+                                    decimalValue.setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                                            .round(new MathContext(decimalType.getPrecision())));
                         }
                     }
                     else if (type instanceof ArrayType) {

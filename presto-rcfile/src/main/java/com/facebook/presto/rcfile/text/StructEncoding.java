@@ -28,7 +28,9 @@ public class StructEncoding
     private final boolean lastColumnTakesRest;
     private final List<TextColumnEncoding> structFields;
 
-    public StructEncoding(Type type, Slice nullSequence,
+    public StructEncoding(
+            Type type,
+            Slice nullSequence,
             byte[] separators,
             Byte escapeByte,
             boolean lastColumnTakesRest,

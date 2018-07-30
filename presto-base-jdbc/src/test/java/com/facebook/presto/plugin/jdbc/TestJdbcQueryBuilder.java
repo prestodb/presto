@@ -150,7 +150,8 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
-                .put(columns.get(0), Domain.create(SortedRangeSet.copyOf(BIGINT,
+                .put(columns.get(0), Domain.create(SortedRangeSet.copyOf(
+                        BIGINT,
                         ImmutableList.of(
                                 Range.equal(BIGINT, 128L),
                                 Range.equal(BIGINT, 180L),
@@ -159,7 +160,8 @@ public class TestJdbcQueryBuilder
                                 Range.range(BIGINT, 66L, true, 96L, true),
                                 Range.greaterThan(BIGINT, 192L))),
                         false))
-                .put(columns.get(1), Domain.create(SortedRangeSet.copyOf(DOUBLE,
+                .put(columns.get(1), Domain.create(SortedRangeSet.copyOf(
+                        DOUBLE,
                         ImmutableList.of(
                                 Range.equal(DOUBLE, 200011.0),
                                 Range.equal(DOUBLE, 200014.0),
@@ -168,23 +170,27 @@ public class TestJdbcQueryBuilder
                                 Range.range(DOUBLE, 200030.0, true, 200036.0, true),
                                 Range.range(DOUBLE, 200048.0, true, 200099.0, true))),
                         false))
-                .put(columns.get(7), Domain.create(SortedRangeSet.copyOf(TINYINT,
+                .put(columns.get(7), Domain.create(SortedRangeSet.copyOf(
+                        TINYINT,
                         ImmutableList.of(
                                 Range.range(TINYINT, 60L, true, 70L, false),
                                 Range.range(TINYINT, 52L, true, 55L, false))),
                         false))
-                .put(columns.get(8), Domain.create(SortedRangeSet.copyOf(SMALLINT,
+                .put(columns.get(8), Domain.create(SortedRangeSet.copyOf(
+                        SMALLINT,
                         ImmutableList.of(
                                 Range.range(SMALLINT, -75L, true, -68L, true),
                                 Range.range(SMALLINT, -200L, true, -100L, false))),
                         false))
-                .put(columns.get(9), Domain.create(SortedRangeSet.copyOf(INTEGER,
+                .put(columns.get(9), Domain.create(SortedRangeSet.copyOf(
+                        INTEGER,
                         ImmutableList.of(
                                 Range.equal(INTEGER, 80L),
                                 Range.equal(INTEGER, 96L),
                                 Range.lessThan(INTEGER, 0L))),
                         false))
-                .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(BOOLEAN,
+                .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(
+                        BOOLEAN,
                         ImmutableList.of(Range.equal(BOOLEAN, true))),
                         false))
                 .build());
@@ -205,7 +211,8 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
+                columns.get(10), Domain.create(SortedRangeSet.copyOf(
+                        REAL,
                         ImmutableList.of(
                                 Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
                                 Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
@@ -231,7 +238,8 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(3), Domain.create(SortedRangeSet.copyOf(VARCHAR,
+                columns.get(3), Domain.create(SortedRangeSet.copyOf(
+                        VARCHAR,
                         ImmutableList.of(
                                 Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
                                 Range.equal(VARCHAR, utf8Slice("test_str_180")),
@@ -258,13 +266,15 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(4), Domain.create(SortedRangeSet.copyOf(DATE,
+                columns.get(4), Domain.create(SortedRangeSet.copyOf(
+                        DATE,
                         ImmutableList.of(
                                 Range.range(DATE, toDays(2016, 6, 7), true, toDays(2016, 6, 17), false),
                                 Range.equal(DATE, toDays(2016, 6, 3)),
                                 Range.equal(DATE, toDays(2016, 10, 21)))),
                         false),
-                columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
+                columns.get(5), Domain.create(SortedRangeSet.copyOf(
+                        TIME,
                         ImmutableList.of(
                                 Range.range(TIME, toTime(2016, 6, 7, 6, 12, 23).getTime(), false, toTime(2016, 6, 7, 8, 23, 37).getTime(), true),
                                 Range.equal(TIME, toTime(2016, 6, 1, 2, 3, 4).getTime()),
@@ -297,7 +307,8 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP,
+                columns.get(6), Domain.create(SortedRangeSet.copyOf(
+                        TIMESTAMP,
                         ImmutableList.of(
                                 Range.equal(TIMESTAMP, toTimestamp(2016, 6, 3, 0, 23, 37).getTime()),
                                 Range.equal(TIMESTAMP, toTimestamp(2016, 10, 19, 16, 23, 37).getTime()),

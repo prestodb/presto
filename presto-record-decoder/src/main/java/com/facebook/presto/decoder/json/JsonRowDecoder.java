@@ -47,7 +47,8 @@ public class JsonRowDecoder
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(
+            byte[] data,
             Map<String, String> dataMap)
     {
         JsonNode tree;

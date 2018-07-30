@@ -170,12 +170,14 @@ public class TestSqlParser
     @Test
     public void testPosition()
     {
-        assertExpression("position('a' in 'b')",
+        assertExpression(
+                "position('a' in 'b')",
                 new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
                         new StringLiteral("b"),
                         new StringLiteral("a"))));
 
-        assertExpression("position('a' in ('b'))",
+        assertExpression(
+                "position('a' in ('b'))",
                 new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
                         new StringLiteral("b"),
                         new StringLiteral("a"))));
@@ -530,45 +532,58 @@ public class TestSqlParser
     @Test
     public void testPrecedenceAndAssociativity()
     {
-        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
-                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
+        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(
+                LogicalBinaryExpression.Operator.OR,
+                new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.AND,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(
+                LogicalBinaryExpression.Operator.OR,
                 new LongLiteral("1"),
-                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
+                new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.AND,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
 
-        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
+        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(
+                LogicalBinaryExpression.Operator.AND,
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(
+                LogicalBinaryExpression.Operator.OR,
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
+        assertExpression("-1 + 2", new ArithmeticBinaryExpression(
+                ArithmeticBinaryExpression.Operator.ADD,
                 negative(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
+        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(
+                ArithmeticBinaryExpression.Operator.SUBTRACT,
+                new ArithmeticBinaryExpression(
+                        ArithmeticBinaryExpression.Operator.SUBTRACT,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(
+                ArithmeticBinaryExpression.Operator.DIVIDE,
+                new ArithmeticBinaryExpression(
+                        ArithmeticBinaryExpression.Operator.DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
+        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(
+                ArithmeticBinaryExpression.Operator.ADD,
                 new LongLiteral("1"),
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
+                new ArithmeticBinaryExpression(
+                        ArithmeticBinaryExpression.Operator.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
     }
@@ -705,28 +720,32 @@ public class TestSqlParser
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
                         ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
                         Optional.of("10")));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
                         Optional.of("ALL")));
     }
@@ -1348,7 +1367,8 @@ public class TestSqlParser
         assertStatement("DELETE FROM \"awesome table\"", new Delete(table(QualifiedName.of("awesome table")), Optional.empty()));
 
         assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
-                new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
+                new ComparisonExpression(
+                        ComparisonExpression.Operator.EQUAL,
                         new Identifier("a"),
                         new Identifier("b")))));
     }
@@ -1489,7 +1509,8 @@ public class TestSqlParser
     {
         assertStatement("SELECT * FROM a, b",
                 simpleQuery(selectList(new AllColumns()),
-                        new Join(Join.Type.IMPLICIT,
+                        new Join(
+                                Join.Type.IMPLICIT,
                                 new Table(QualifiedName.of("a")),
                                 new Table(QualifiedName.of("b")),
                                 Optional.empty())));
@@ -1891,24 +1912,33 @@ public class TestSqlParser
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
-            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
+            assertStatement(
+                    format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
                     createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
-            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
-                    createShowStats(qualifiedName,
+            assertStatement(
+                    format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
+                    createShowStats(
+                            qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new ComparisonExpression(GREATER_THAN,
+                                    new ComparisonExpression(
+                                            GREATER_THAN,
                                             new Identifier("field"),
                                             new LongLiteral("0")))));
-            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
-                    createShowStats(qualifiedName,
+            assertStatement(
+                    format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
+                    createShowStats(
+                            qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
-                                            new ComparisonExpression(GREATER_THAN,
+                                    new LogicalBinaryExpression(
+                                            LogicalBinaryExpression.Operator.OR,
+                                            new ComparisonExpression(
+                                                    GREATER_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0")),
-                                            new ComparisonExpression(LESS_THAN,
+                                            new ComparisonExpression(
+                                                    LESS_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0"))))));
         }
@@ -1917,7 +1947,8 @@ public class TestSqlParser
     private ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
     {
         return new ShowStats(
-                new TableSubquery(simpleQuery(new Select(false, selects),
+                new TableSubquery(
+                        simpleQuery(new Select(false, selects),
                         new Table(name),
                         where,
                         Optional.empty())));

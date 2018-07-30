@@ -174,7 +174,8 @@ public class TestSelect
                 CONNECTOR_NAME, KEY_SPACE, CASSANDRA_ALL_TYPES.getName()));
 
         assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
+                .hasColumns(
+                        VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
@@ -255,7 +256,8 @@ public class TestSelect
                 CONNECTOR_NAME, KEY_SPACE, materializedViewName));
 
         assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
+                .hasColumns(
+                        VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(

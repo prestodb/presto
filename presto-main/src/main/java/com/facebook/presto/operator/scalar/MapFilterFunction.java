@@ -212,9 +212,9 @@ public final class MapFilterFunction
                                         .append(keySqlType.invoke("appendTo", void.class, block, position, singleMapBlockWriter))
                                         .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), singleMapBlockWriter))))));
 
-        body.append(mapBlockBuilder
-                .invoke("closeEntry", BlockBuilder.class)
-                .pop());
+        body.append(
+                mapBlockBuilder.invoke("closeEntry", BlockBuilder.class)
+                        .pop());
         body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, mapType)
                 .invoke(

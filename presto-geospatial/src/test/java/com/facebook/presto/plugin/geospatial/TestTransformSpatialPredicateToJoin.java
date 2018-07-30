@@ -42,8 +42,10 @@ public class TestTransformSpatialPredicateToJoin
         // scalar expression
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)"),
+                                p.join(
+                                        INNER,
                                         p.values(),
                                         p.values(p.symbol("b")))))
                 .doesNotFire();
@@ -51,8 +53,10 @@ public class TestTransformSpatialPredicateToJoin
         // OR operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                         p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
                 .doesNotFire();
@@ -60,8 +64,10 @@ public class TestTransformSpatialPredicateToJoin
         // NOT operator
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                         p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
                 .doesNotFire();
@@ -69,8 +75,10 @@ public class TestTransformSpatialPredicateToJoin
         // ST_Distance(...) > r
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(a, b) > 5"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Distance(a, b) > 5"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("a", GEOMETRY)),
                                         p.values(p.symbol("b", GEOMETRY)))))
                 .doesNotFire();
@@ -149,12 +157,15 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression(filter),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("a"), p.symbol("name_a")),
                                         p.values(p.symbol("b"), p.symbol("name_b"), p.symbol("r")))))
                 .matches(
-                        spatialJoin(newFilter,
+                        spatialJoin(
+                                newFilter,
                                 values(ImmutableMap.of("a", 0, "name_a", 1)),
                                 values(ImmutableMap.of("b", 0, "name_b", 1, "r", 2))));
     }
@@ -163,12 +174,15 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression(filter),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("a"), p.symbol("name_a")),
                                         p.values(p.symbol("b"), p.symbol("name_b"), p.symbol("r")))))
                 .matches(
-                        spatialJoin(newFilter,
+                        spatialJoin(
+                                newFilter,
                                 values(ImmutableMap.of("a", 0, "name_a", 1)),
                                 project(ImmutableMap.of("radius", expression(radiusExpression)),
                                         values(ImmutableMap.of("b", 0, "name_b", 1, "r", 2)))));
@@ -178,12 +192,15 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression(filter),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
                                         p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
                 .matches(
-                        spatialJoin(newFilter,
+                        spatialJoin(
+                                newFilter,
                                 project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
                                         values(ImmutableMap.of("lat_a", 0, "lng_a", 1, "name_a", 2))),
                                 project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
@@ -194,12 +211,15 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression(filter),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
                                         p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
                 .matches(
-                        spatialJoin(newFilter,
+                        spatialJoin(
+                                newFilter,
                                 project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
                                         values(ImmutableMap.of("lat_a", 0, "lng_a", 1, "name_a", 2))),
                                 project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
@@ -213,8 +233,10 @@ public class TestTransformSpatialPredicateToJoin
         // symbols
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(a, b)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(a, b)"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("a")),
                                         p.values(p.symbol("b")))))
                 .matches(
@@ -225,8 +247,10 @@ public class TestTransformSpatialPredicateToJoin
         // AND
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(a, b)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("name_1 != name_2 AND ST_Contains(a, b)"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("a"), p.symbol("name_1")),
                                         p.values(p.symbol("b"), p.symbol("name_2")))))
                 .matches(
@@ -237,8 +261,10 @@ public class TestTransformSpatialPredicateToJoin
         // AND
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("a1"), p.symbol("a2")),
                                         p.values(p.symbol("b1"), p.symbol("b2")))))
                 .matches(
@@ -252,8 +278,10 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point)"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt", VARCHAR)),
                                         p.values(p.symbol("point", GEOMETRY)))))
                 .matches(
@@ -263,8 +291,10 @@ public class TestTransformSpatialPredicateToJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt", VARCHAR)),
                                         p.values())))
                 .doesNotFire();
@@ -275,8 +305,10 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(polygon, ST_Point(lng, lat))"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(polygon, ST_Point(lng, lat))"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("polygon", GEOMETRY)),
                                         p.values(p.symbol("lat"), p.symbol("lng")))))
                 .matches(
@@ -286,8 +318,10 @@ public class TestTransformSpatialPredicateToJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
+                                p.join(
+                                        INNER,
                                         p.values(),
                                         p.values(p.symbol("lat"), p.symbol("lng")))))
                 .doesNotFire();
@@ -298,8 +332,10 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt", VARCHAR)),
                                         p.values(p.symbol("lat"), p.symbol("lng")))))
                 .matches(
@@ -313,8 +349,10 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("lat"), p.symbol("lng")),
                                         p.values(p.symbol("wkt", VARCHAR)))))
                 .matches(
@@ -328,8 +366,10 @@ public class TestTransformSpatialPredicateToJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                         p.values(p.symbol("lat"), p.symbol("lng"), p.symbol("name_2")))))
                 .matches(
@@ -340,8 +380,10 @@ public class TestTransformSpatialPredicateToJoin
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)"),
-                                p.join(INNER,
+                        p.filter(
+                                PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)"),
+                                p.join(
+                                        INNER,
                                         p.values(p.symbol("wkt1", VARCHAR), p.symbol("wkt2", VARCHAR)),
                                         p.values(p.symbol("geometry1"), p.symbol("geometry2")))))
                 .matches(

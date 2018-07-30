@@ -124,9 +124,7 @@ public class FilterStatsCalculator
         {
             PlanNodeStatsEstimate.Builder falseStatsBuilder = PlanNodeStatsEstimate.builder();
             input.getSymbolsWithKnownStatistics().forEach(symbol -> falseStatsBuilder.addSymbolStatistics(symbol, ZERO_STATS));
-            return Optional.of(falseStatsBuilder
-                    .setOutputRowCount(0.0)
-                    .build());
+            return Optional.of(falseStatsBuilder.setOutputRowCount(0.0).build());
         }
 
         @Override

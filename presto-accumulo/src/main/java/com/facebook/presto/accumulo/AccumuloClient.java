@@ -726,7 +726,9 @@ public class AccumuloClient
      * @throws AccumuloException If a generic Accumulo error occurs
      * @throws AccumuloSecurityException If a security exception occurs
      */
-    private Authorizations getScanAuthorizations(ConnectorSession session, String schema,
+    private Authorizations getScanAuthorizations(
+            ConnectorSession session,
+            String schema,
             String table)
             throws AccumuloException, AccumuloSecurityException
     {

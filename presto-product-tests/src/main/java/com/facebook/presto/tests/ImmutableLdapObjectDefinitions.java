@@ -72,13 +72,17 @@ public final class ImmutableLdapObjectDefinitions
             return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME, childGroupNames, Optional.of(AMERICA_DISTINGUISHED_NAME));
         }
         else {
-            return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME,
-                    Optional.empty(), Optional.empty());
+            return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME, Optional.empty(), Optional.empty());
         }
     }
 
-    private static LdapObjectDefinition buildLdapGroupObject(String groupName, String groupOrganizationName,
-            String userName, String userOrganizationName, Optional<List<String>> childGroupNames, Optional<String> childGroupOrganizationName)
+    private static LdapObjectDefinition buildLdapGroupObject(
+            String groupName,
+            String groupOrganizationName,
+            String userName,
+            String userOrganizationName,
+            Optional<List<String>> childGroupNames,
+            Optional<String> childGroupOrganizationName)
     {
         if (childGroupNames.isPresent() && childGroupOrganizationName.isPresent()) {
             return LdapObjectDefinition.builder(groupName)
@@ -104,17 +108,19 @@ public final class ImmutableLdapObjectDefinitions
     private static LdapObjectDefinition buildLdapUserObject(String userName, Optional<List<String>> groupNames, String password)
     {
         if (groupNames.isPresent()) {
-            return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
-                    groupNames, Optional.of(AMERICA_DISTINGUISHED_NAME), password);
+            return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME, groupNames, Optional.of(AMERICA_DISTINGUISHED_NAME), password);
         }
         else {
-            return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
-                    Optional.empty(), Optional.empty(), password);
+            return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME, Optional.empty(), Optional.empty(), password);
         }
     }
 
-    private static LdapObjectDefinition buildLdapUserObject(String userName, String userOrganizationName,
-            Optional<List<String>> groupNames, Optional<String> groupOrganizationName, String password)
+    private static LdapObjectDefinition buildLdapUserObject(
+            String userName,
+            String userOrganizationName,
+            Optional<List<String>> groupNames,
+            Optional<String> groupOrganizationName,
+            String password)
     {
         if (groupNames.isPresent() && groupOrganizationName.isPresent()) {
             return LdapObjectDefinition.builder(userName)

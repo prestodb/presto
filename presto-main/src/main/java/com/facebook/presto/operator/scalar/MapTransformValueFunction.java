@@ -240,9 +240,9 @@ public final class MapTransformValueFunction
                         .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
                         .append(writeTransformedValueElement)));
 
-        body.append(mapBlockBuilder
-                .invoke("closeEntry", BlockBuilder.class)
-                .pop());
+        body.append(
+                mapBlockBuilder.invoke("closeEntry", BlockBuilder.class)
+                        .pop());
         body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, resultMapType)
                 .invoke(

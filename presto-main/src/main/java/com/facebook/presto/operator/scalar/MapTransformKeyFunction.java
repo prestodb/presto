@@ -279,9 +279,9 @@ public final class MapTransformKeyFunction
                                 .ifTrue(throwDuplicatedKeyException)
                                 .ifFalse(typedSet.invoke("add", void.class, blockBuilder.cast(Block.class), position)))));
 
-        body.append(mapBlockBuilder
-                .invoke("closeEntry", BlockBuilder.class)
-                .pop());
+        body.append(
+                mapBlockBuilder.invoke("closeEntry", BlockBuilder.class)
+                        .pop());
         body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, resultMapType)
                 .invoke(

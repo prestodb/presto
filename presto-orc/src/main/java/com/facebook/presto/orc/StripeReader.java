@@ -80,7 +80,8 @@ public class StripeReader
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public StripeReader(OrcDataSource orcDataSource,
+    public StripeReader(
+            OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor,
             List<OrcType> types,
             Set<Integer> includedColumns,

@@ -102,7 +102,8 @@ public class LazyBlock
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
         assureLoaded();
-        return block.bytesCompare(position,
+        return block.bytesCompare(
+                position,
                 offset,
                 length,
                 otherSlice,
@@ -128,7 +129,8 @@ public class LazyBlock
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         assureLoaded();
-        return block.equals(position,
+        return block.equals(
+                position,
                 offset,
                 otherBlock,
                 otherPosition,
@@ -147,7 +149,8 @@ public class LazyBlock
     public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
     {
         assureLoaded();
-        return block.compareTo(leftPosition,
+        return block.compareTo(
+                leftPosition,
                 leftOffset,
                 leftLength,
                 rightBlock,

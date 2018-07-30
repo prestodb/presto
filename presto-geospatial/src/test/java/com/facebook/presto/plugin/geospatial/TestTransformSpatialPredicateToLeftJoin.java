@@ -42,7 +42,8 @@ public class TestTransformSpatialPredicateToLeftJoin
         // scalar expression
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(),
                                 p.values(p.symbol("b")),
                                 expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)")))
@@ -51,7 +52,8 @@ public class TestTransformSpatialPredicateToLeftJoin
         // symbols
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("a")),
                                 p.values(p.symbol("b")),
                                 expression("ST_Contains(a, b)")))
@@ -60,7 +62,8 @@ public class TestTransformSpatialPredicateToLeftJoin
         // OR operand
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                 p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2")))
@@ -69,7 +72,8 @@ public class TestTransformSpatialPredicateToLeftJoin
         // NOT operator
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                 p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")),
                                 expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)")))
@@ -78,7 +82,8 @@ public class TestTransformSpatialPredicateToLeftJoin
         // ST_Distance(...) > r
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("a", GEOMETRY)),
                                 p.values(p.symbol("b", GEOMETRY)),
                                 expression("ST_Distance(a, b) > 5")))
@@ -90,7 +95,8 @@ public class TestTransformSpatialPredicateToLeftJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt", VARCHAR)),
                                 p.values(p.symbol("point", GEOMETRY)),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), point)")))
@@ -101,7 +107,8 @@ public class TestTransformSpatialPredicateToLeftJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt", VARCHAR)),
                                 p.values(),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))")))
@@ -113,7 +120,8 @@ public class TestTransformSpatialPredicateToLeftJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("polygon", GEOMETRY)),
                                 p.values(p.symbol("lat"), p.symbol("lng")),
                                 expression("ST_Contains(polygon, ST_Point(lng, lat))")))
@@ -124,7 +132,8 @@ public class TestTransformSpatialPredicateToLeftJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(),
                                 p.values(p.symbol("lat"), p.symbol("lng")),
                                 expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))")))
@@ -136,7 +145,8 @@ public class TestTransformSpatialPredicateToLeftJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt", VARCHAR)),
                                 p.values(p.symbol("lat"), p.symbol("lng")),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))")))
@@ -151,7 +161,8 @@ public class TestTransformSpatialPredicateToLeftJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("lat"), p.symbol("lng")),
                                 p.values(p.symbol("wkt", VARCHAR)),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))")))
@@ -166,7 +177,8 @@ public class TestTransformSpatialPredicateToLeftJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                 p.values(p.symbol("lat"), p.symbol("lng"), p.symbol("name_2")),
                                 expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))")))
@@ -178,7 +190,8 @@ public class TestTransformSpatialPredicateToLeftJoin
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
                 .on(p ->
-                        p.join(LEFT,
+                        p.join(
+                                LEFT,
                                 p.values(p.symbol("wkt1", VARCHAR), p.symbol("wkt2", VARCHAR)),
                                 p.values(p.symbol("geometry1"), p.symbol("geometry2")),
                                 expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)")))

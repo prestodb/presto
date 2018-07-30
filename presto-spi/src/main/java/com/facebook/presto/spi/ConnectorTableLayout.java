@@ -35,7 +35,8 @@ public class ConnectorTableLayout
 
     public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
     {
-        this(handle,
+        this(
+                handle,
                 Optional.empty(),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -109,8 +110,7 @@ public class ConnectorTableLayout
      * Otherwise, table steams are partitioned on the given set of columns (or unpartitioned, if the set is empty)
      * <p>
      * If the table is partitioned, the connector guarantees that each combination of values for
-     * the partition columns will be contained within a single split (i.e., partitions cannot
-     * straddle multiple splits)
+     * the partition columns will be contained within a single split (i.e., partitions cannot straddle multiple splits)
      */
     public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
     {

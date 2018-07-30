@@ -296,7 +296,8 @@ Peak Memory: 1.97GB
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
             if (stats.isScheduled()) {
-                String progressBar = formatProgressBar(progressWidth,
+                String progressBar = formatProgressBar(
+                        progressWidth,
                         stats.getCompletedSplits(),
                         max(0, stats.getRunningSplits()),
                         stats.getTotalSplits());

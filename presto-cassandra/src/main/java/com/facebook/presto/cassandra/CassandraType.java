@@ -165,7 +165,10 @@ public enum CassandraType
         return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
     }
 
-    public static NullableValue getColumnValue(Row row, int i, CassandraType cassandraType,
+    public static NullableValue getColumnValue(
+            Row row,
+            int i,
+            CassandraType cassandraType,
             List<CassandraType> typeArguments)
     {
         Type nativeType = cassandraType.getNativeType();
@@ -279,12 +282,13 @@ public enum CassandraType
         return sb.toString();
     }
 
-    private static void checkTypeArguments(CassandraType type, int expectedSize,
+    private static void checkTypeArguments(
+            CassandraType type,
+            int expectedSize,
             List<CassandraType> typeArguments)
     {
         if (typeArguments == null || typeArguments.size() != expectedSize) {
-            throw new IllegalArgumentException("Wrong number of type arguments " + typeArguments
-                    + " for " + type);
+            throw new IllegalArgumentException("Wrong number of type arguments " + typeArguments + " for " + type);
         }
     }
 

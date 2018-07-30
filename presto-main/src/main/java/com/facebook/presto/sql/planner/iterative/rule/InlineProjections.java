@@ -41,8 +41,8 @@ import static java.util.stream.Collectors.toSet;
 
 /**
  * Inlines expressions from a child project node into a parent project node
- * as long as they are simple constants, or they are referenced only once (to
- * avoid introducing duplicate computation) and the references don't appear
+ * as long as they are simple constants, or they are referenced only once
+ * (to avoid introducing duplicate computation) and the references don't appear
  * within a TRY block (to avoid changing semantics).
  */
 public class InlineProjections

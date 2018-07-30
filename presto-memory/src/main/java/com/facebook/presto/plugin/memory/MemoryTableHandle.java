@@ -40,7 +40,8 @@ public final class MemoryTableHandle
             Long tableId,
             ConnectorTableMetadata tableMetadata)
     {
-        this(connectorId,
+        this(
+                connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 tableId,

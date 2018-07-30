@@ -49,18 +49,19 @@ public class SqlServerDataTypesTableDefinition
     static {
         RelationalDataSource dataSource = () -> {
             return ImmutableList.<List<Object>>of(
-                    ImmutableList.of(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE,
+                    ImmutableList.of(
+                            Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE,
                             Double.MIN_VALUE, Float.valueOf("-3.40E+38"), "\0", "\0", "\0", "\0", "\0", "\0",
                             Date.valueOf("0001-01-02"), Timestamp.valueOf("1753-01-01 00:00:00.000"),
                             Timestamp.valueOf("0001-01-01 00:00:00.000"), Timestamp.valueOf("1900-01-01 00:00:00"),
                             Double.MIN_VALUE, Float.valueOf("-3.40E+38")),
-                    ImmutableList.of(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Byte.MAX_VALUE,
+                    ImmutableList.of(
+                            Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Byte.MAX_VALUE,
                             Double.MAX_VALUE, Float.MAX_VALUE, "abcd", "abcdef", "abcd", "abcde", "abcdefg", "abcd",
                             Date.valueOf("9999-12-31"), Timestamp.valueOf("9999-12-31 23:59:59.997"),
                             Timestamp.valueOf("9999-12-31 23:59:59.999"), Timestamp.valueOf("2079-06-05 23:59:59"),
                             Double.valueOf("12345678912.3456756"), Float.valueOf("12345678.6557")),
-                    Arrays.asList(null, null, null, null, null, null, null, null, null, null, null, null,
-                            null, null, null, null, null, null))
+                    Arrays.asList(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null))
                     .iterator();
         };
 

@@ -33,7 +33,8 @@ public class BenchmarkDriver
     private final BenchmarkResultsStore resultsStore;
     private final BenchmarkQueryRunner queryRunner;
 
-    public BenchmarkDriver(BenchmarkResultsStore resultsStore,
+    public BenchmarkDriver(
+            BenchmarkResultsStore resultsStore,
             ClientSession clientSession,
             Iterable<BenchmarkQuery> queries,
             int warm,

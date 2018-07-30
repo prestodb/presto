@@ -711,16 +711,13 @@ public final class PlanMatchPattern
             Map<String, SortOrder> orderings)
     {
         return new SpecificationProvider(
-                partitionBy
-                        .stream()
+                partitionBy.stream()
                         .map(SymbolAlias::new)
                         .collect(toImmutableList()),
-                orderBy
-                        .stream()
+                orderBy.stream()
                         .map(SymbolAlias::new)
                         .collect(toImmutableList()),
-                orderings
-                        .entrySet()
+                orderings.entrySet()
                         .stream()
                         .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), Map.Entry::getValue)));
     }

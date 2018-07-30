@@ -69,7 +69,8 @@ public class TextRcFileEncoding
 
     public TextRcFileEncoding(DateTimeZone hiveStorageTimeZone)
     {
-        this(hiveStorageTimeZone,
+        this(
+                hiveStorageTimeZone,
                 DEFAULT_NULL_SEQUENCE,
                 DEFAULT_SEPARATORS,
                 null,
