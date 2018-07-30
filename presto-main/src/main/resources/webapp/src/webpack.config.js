@@ -4,6 +4,7 @@ module.exports = {
         'query': __dirname +'/query.js',
         'plan': __dirname +'/plan.js',
         'stage': __dirname +'/stage.js',
+        'worker': __dirname +'/worker.js',
     },
     mode: "development",
     module: {
