@@ -55,7 +55,7 @@ public class SingleRowBlock
     {
         long sizeInBytes = 0;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            sizeInBytes += getRawFieldBlock(i).getSizeInBytes();
+            sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(rowIndex, 1);
         }
         return sizeInBytes;
     }
