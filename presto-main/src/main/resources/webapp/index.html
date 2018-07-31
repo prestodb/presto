@@ -37,44 +37,7 @@
 <body>
 
 <div class="container">
-    <nav class="navbar">
-        <div class="container-fluid">
-            <div class="navbar-header">
-                <table>
-                    <tr>
-                        <td>
-                            <a href="/"><img src="assets/logo.png"/></a>
-                        </td>
-                        <td>
-                            <span class="navbar-brand">Cluster Overview</span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            <div id="navbar" class="navbar-collapse collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <span class="navbar-cluster-info">
-                            <span class="uppercase">Version</span><br/>
-                            <span class="text uppercase" id="version-number"></span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="navbar-cluster-info">
-                            <span class="uppercase">Environment</span><br/>
-                            <span class="text uppercase" id="environment"></span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="navbar-cluster-info">
-                            <span class="uppercase">Uptime</span><br/>
-                            <span class="status-light" id="status-indicator"></span> <span class="text" id="uptime"></span>
-                        </span>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <div id="title"></div>
 
     <div class="hud-container">
         <div id="cluster-hud">
@@ -90,11 +53,6 @@
     </div>
 
 </div> <!-- /container -->
-
-
-<script type="text/javascript">
-    window.setInterval(updateClusterInfo, 1000)
-</script>
 
 <script type="text/javascript" src="dist/index.js"></script>
 
