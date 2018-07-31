@@ -15,9 +15,9 @@
 import React from "react";
 
 const SPARKLINE_PROPERTIES = {
-    width:'100%',
+    width: '100%',
     height: '75px',
-    fillColor:'#3F4552',
+    fillColor: '#3F4552',
     lineColor: '#747F96',
     spotColor: '#1EDCFF',
     tooltipClassname: 'sparkline-tooltip',
@@ -103,9 +103,9 @@ export class ClusterHUD extends React.Component {
             });
             this.resetTimer();
         }.bind(this))
-        .error(function() {
-            this.resetTimer();
-        }.bind(this));
+            .error(function () {
+                this.resetTimer();
+            }.bind(this));
     }
 
     componentDidMount() {
@@ -166,7 +166,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { this.state.runningQueries[this.state.runningQueries.length - 1] }
+                                {this.state.runningQueries[this.state.runningQueries.length - 1]}
                             </span>
                             <span className="sparkline" id="running-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -174,7 +174,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { this.state.activeWorkers[this.state.activeWorkers.length - 1] }
+                                {this.state.activeWorkers[this.state.activeWorkers.length - 1]}
                             </span>
                             <span className="sparkline" id="active-workers-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -182,7 +182,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1]) }
+                                {formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1])}
                             </span>
                             <span className="sparkline" id="row-input-rate-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -215,7 +215,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { this.state.queuedQueries[this.state.queuedQueries.length - 1] }
+                                {this.state.queuedQueries[this.state.queuedQueries.length - 1]}
                             </span>
                             <span className="sparkline" id="queued-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -223,7 +223,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatCount(this.state.runningDrivers[this.state.runningDrivers.length - 1]) }
+                                {formatCount(this.state.runningDrivers[this.state.runningDrivers.length - 1])}
                             </span>
                             <span className="sparkline" id="running-drivers-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -231,7 +231,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatDataSizeBytes(this.state.byteInputRate[this.state.byteInputRate.length - 1]) }
+                                {formatDataSizeBytes(this.state.byteInputRate[this.state.byteInputRate.length - 1])}
                             </span>
                             <span className="sparkline" id="byte-input-rate-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -264,7 +264,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { this.state.blockedQueries[this.state.blockedQueries.length - 1] }
+                                {this.state.blockedQueries[this.state.blockedQueries.length - 1]}
                             </span>
                             <span className="sparkline" id="blocked-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -272,7 +272,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatDataSizeBytes(this.state.reservedMemory[this.state.reservedMemory.length - 1]) }
+                                {formatDataSizeBytes(this.state.reservedMemory[this.state.reservedMemory.length - 1])}
                             </span>
                             <span className="sparkline" id="reserved-memory-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
@@ -280,7 +280,7 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1]) }
+                                {formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1])}
                             </span>
                             <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
                         </div>

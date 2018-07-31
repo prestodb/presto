@@ -14,8 +14,7 @@
 
 import React from "react";
 
-function flatten(queryInfo)
-{
+function flatten(queryInfo) {
     const stages = new Map();
     flattenStage(queryInfo.outputStage, stages);
 
@@ -27,9 +26,8 @@ function flatten(queryInfo)
     }
 }
 
-function flattenStage(stageInfo, result)
-{
-    stageInfo.subStages.forEach(function(stage) {
+function flattenStage(stageInfo, result) {
+    stageInfo.subStages.forEach(function (stage) {
         flattenStage(stage, result);
     });
 
@@ -47,8 +45,7 @@ function flattenStage(stageInfo, result)
     });
 }
 
-function flattenNode(stages, nodeInfo, result)
-{
+function flattenNode(stages, nodeInfo, result) {
     const allSources = computeSources(nodeInfo);
     const sources = allSources[0];
     const remoteSources = allSources[1];
@@ -56,12 +53,12 @@ function flattenNode(stages, nodeInfo, result)
     result.set(nodeInfo.id, {
         id: nodeInfo.id,
         type: nodeInfo['@type'],
-        sources: sources.map(function(node) { return node.id }),
+        sources: sources.map(function (node) { return node.id }),
         remoteSources: remoteSources,
         stats: {}
     });
 
-    sources.forEach(function(child) {
+    sources.forEach(function (child) {
         flattenNode(stages, child, result);
     });
 }
@@ -73,22 +70,22 @@ class StageStatistics extends React.Component {
         return (
             <div>
                 <div>
-                    Output: { stats.outputDataSize  + " / " +  formatCount(stats.outputPositions) + " rows" }
-                    <br />
-                    Buffered: { stats.bufferedDataSize }
-                    <hr />
-                    { stage.state }
-                    <hr />
-                    CPU: { stats.totalCpuTime }
-                    { stats.fullyBlocked ?
-                        <div style= {{ color: '#ff0000' }}>Blocked: { stats.totalBlockedTime } </div> :
-                        <div>Blocked: { stats.totalBlockedTime } </div>
+                    Output: {stats.outputDataSize + " / " + formatCount(stats.outputPositions) + " rows"}
+                    <br/>
+                    Buffered: {stats.bufferedDataSize}
+                    <hr/>
+                    {stage.state}
+                    <hr/>
+                    CPU: {stats.totalCpuTime}
+                    {stats.fullyBlocked ?
+                        <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
+                        <div>Blocked: {stats.totalBlockedTime} </div>
                     }
-                    Memory: { stats.userMemoryReservation }
-                    <br />
-                    Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers }
-                    <hr />
-                    Input:  {stats.rawInputDataSize + " / " + formatCount(stats.rawInputPositions) } rows
+                    Memory: {stats.userMemoryReservation}
+                    <br/>
+                    Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
+                    <hr/>
+                    Input: {stats.rawInputDataSize + " / " + formatCount(stats.rawInputPositions)} rows
                 </div>
             </div>
         );
@@ -120,13 +117,14 @@ export class LivePlan extends React.Component {
 
     renderProgressBar() {
         const query = this.state.query;
-        const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
+        const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
         if (isQueryComplete(query)) {
             return (
                 <div className="progress-large">
-                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                        { getProgressBarTitle(query) }
+                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
+                         style={progressBarStyle}>
+                        {getProgressBarTitle(query)}
                     </div>
                 </div>
             );
@@ -138,13 +136,14 @@ export class LivePlan extends React.Component {
                 <tr>
                     <td width="100%">
                         <div className="progress-large">
-                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                                { getProgressBarTitle(query) }
+                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
+                                 style={progressBarStyle}>
+                                {getProgressBarTitle(query)}
                             </div>
                         </div>
                     </td>
                     <td>
-                        <a onClick={ () => $.ajax({url: '/v1/query/' + query.queryId, type: 'DELETE'}) } className="btn btn-warning" target="_blank">
+                        <a onClick={() => $.ajax({url: '/v1/query/' + query.queryId, type: 'DELETE'})} className="btn btn-warning" target="_blank">
                             Kill
                         </a>
                     </td>
@@ -166,7 +165,7 @@ export class LivePlan extends React.Component {
             });
             this.resetTimer();
         }.bind(this))
-            .error(function() {
+            .error(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -174,8 +173,8 @@ export class LivePlan extends React.Component {
             }.bind(this));
     }
 
-    handleStageClick(stageCssId) {
-        window.open("stage.html?" + stageCssId,'_blank');
+    static handleStageClick(stageCssId) {
+        window.open("stage.html?" + stageCssId, '_blank');
     }
 
     componentDidMount() {
@@ -190,7 +189,7 @@ export class LivePlan extends React.Component {
         graph.setNode(clusterId, {label: "Stage " + stage.id + " ", clusterLabelPos: 'top-right', style: 'fill: ' + color, labelStyle: 'fill: #fff'});
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<StageStatistics key = { stage.id } stage = { stage } />);
+        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage}/>);
 
         graph.setNode(stageRootNodeId, {class: "stage-stats", label: html, labelType: "html"});
         graph.setParent(stageRootNodeId, clusterId);
@@ -230,7 +229,7 @@ export class LivePlan extends React.Component {
         this.state.render(d3.select("#plan-canvas g"), graph);
 
         const svg = this.state.svg;
-        svg.selectAll("g.cluster").on("click", this.handleStageClick);
+        svg.selectAll("g.cluster").on("click", LivePlan.handleStageClick);
         svg.attr("height", graph.graph().height);
         svg.attr("width", graph.graph().width);
     }
@@ -264,7 +263,7 @@ export class LivePlan extends React.Component {
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{ label }</h4></div>
+                    <div className="col-xs-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -285,7 +284,7 @@ export class LivePlan extends React.Component {
             const selectedStage = this.findStage(this.state.selectedStageId, this.state.query.outputStage);
             if (selectedStage) {
                 ReactDOM.render(
-                    <StagePerformance key= { 0 } stage={ selectedStage }/>,
+                    <StagePerformance key={0} stage={selectedStage}/>,
                     document.getElementById('stage-performance')
                 );
             }
@@ -296,28 +295,28 @@ export class LivePlan extends React.Component {
                 <div className="row">
                     <div className="col-xs-6">
                         <h3 className="query-id">
-                            <span id="query-id">{ query.queryId }</span>
+                            <span id="query-id">{query.queryId}</span>
                             <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
                             </a>
                         </h3>
                     </div>
                     <div className="col-xs-6">
                         <table className="header-inline-links">
                             <tbody>
-                                <tr>
-                                    <td>
-                                        <a href={ "query.html?" + query.queryId } className="btn btn-info navbar-btn">Overview</a>
-                                        &nbsp;
-                                        <a href={ "plan.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Live Plan</a>
-                                        &nbsp;
-                                        <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn">Stage Performance</a>
-                                        &nbsp;
-                                        <a href={ "timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
-                                        &nbsp;
-                                        <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
-                                    </td>
-                                </tr>
+                            <tr>
+                                <td>
+                                    <a href={"query.html?" + query.queryId} className="btn btn-info navbar-btn">Overview</a>
+                                    &nbsp;
+                                    <a href={"plan.html?" + query.queryId} className="btn btn-info navbar-btn nav-disabled">Live Plan</a>
+                                    &nbsp;
+                                    <a href={"stage.html?" + query.queryId} className="btn btn-info navbar-btn">Stage Performance</a>
+                                    &nbsp;
+                                    <a href={"timeline.html?" + query.queryId} className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                    &nbsp;
+                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
+                                </td>
+                            </tr>
                             </tbody>
                         </table>
                     </div>
@@ -325,12 +324,12 @@ export class LivePlan extends React.Component {
                 <hr className="h2-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        { this.renderProgressBar() }
+                        {this.renderProgressBar()}
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        { livePlanGraph }
+                        {livePlanGraph}
                     </div>
                 </div>
             </div>

@@ -15,9 +15,9 @@
 import React from "react";
 
 const SMALL_SPARKLINE_PROPERTIES = {
-    width:'100%',
+    width: '100%',
     height: '57px',
-    fillColor:'#3F4552',
+    fillColor: '#3F4552',
     lineColor: '#747F96',
     spotColor: '#1EDCFF',
     tooltipClassname: 'sparkline-tooltip',
@@ -59,13 +59,13 @@ export class WorkerStatus extends React.Component {
 
                 processCpuLoad: addToHistory(serverInfo.processCpuLoad * 100.0, this.state.processCpuLoad),
                 systemCpuLoad: addToHistory(serverInfo.systemCpuLoad * 100.0, this.state.systemCpuLoad),
-                heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0/ serverInfo.heapAvailable, this.state.heapPercentUsed),
+                heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0 / serverInfo.heapAvailable, this.state.heapPercentUsed),
                 nonHeapUsed: addToHistory(serverInfo.nonHeapUsed * 100.0, this.state.nonHeapUsed),
             });
 
             this.resetTimer();
         }.bind(this))
-            .error(function() {
+            .error(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -96,8 +96,8 @@ export class WorkerStatus extends React.Component {
         const reserved = pool.reservedBytes;
         const revocable = pool.reservedRevocableBytes;
 
-        const percentageReservedNonRevocable = (reserved - revocable) === 0 ? 0 : Math.max(Math.round((reserved - revocable) * 100.0/size), 15);
-        const percentageRevocable = revocable === 0 ? 0 : Math.max(Math.round(revocable * 100.0/size), 15);
+        const percentageReservedNonRevocable = (reserved - revocable) === 0 ? 0 : Math.max(Math.round((reserved - revocable) * 100.0 / size), 15);
+        const percentageRevocable = revocable === 0 ? 0 : Math.max(Math.round(revocable * 100.0 / size), 15);
         const percentageFree = 100 - (percentageRevocable + percentageReservedNonRevocable);
 
         return (
@@ -108,9 +108,9 @@ export class WorkerStatus extends React.Component {
                             <h4>{name} Pool</h4>
                         </div>
                         <div className="col-xs-4">
-                            <div className="progress" style={{ marginTop: "6px" }}>
+                            <div className="progress" style={{marginTop: "6px"}}>
                                 <div className="progress-bar memory-progress-bar memory-progress-bar-info" role="progressbar" style={{width: "100%"}}>
-                                    { formatDataSize(size) } total
+                                    {formatDataSize(size)} total
                                 </div>
                             </div>
                         </div>
@@ -121,14 +121,14 @@ export class WorkerStatus extends React.Component {
                             <div className="progress">
                                 <div className="progress-bar memory-progress-bar progress-bar-warning progress-bar-striped active" role="progressbar"
                                      style={{width: percentageReservedNonRevocable + "%"}}>
-                                    { formatDataSize(reserved - revocable) }
+                                    {formatDataSize(reserved - revocable)}
                                 </div>
                                 <div className="progress-bar memory-progress-bar progress-bar-danger progress-bar-striped active" role="progressbar"
                                      style={{width: percentageRevocable + "%"}}>
-                                    { formatDataSize(revocable) }
+                                    {formatDataSize(revocable)}
                                 </div>
                                 <div className="progress-bar memory-progress-bar progress-bar-success" role="progressbar" style={{width: percentageFree + "%"}}>
-                                    { formatDataSize(size - reserved) }
+                                    {formatDataSize(size - reserved)}
                                 </div>
                             </div>
                         </div>
@@ -146,20 +146,20 @@ export class WorkerStatus extends React.Component {
                     <div className="row query-memory-list-header">
                         <div className="col-xs-7">
                             <a href={"query.html?" + query} target="_blank">
-                                { query }
+                                {query}
                             </a>
                         </div>
                         <div className="col-xs-5">
                             <div className="row text-right">
                                 <div className="col-xs-6">
                                     <span data-toggle="tooltip" data-placement="top" title="% of pool memory reserved">
-                                        { Math.round(reserved * 100.0 / total) }%
+                                        {Math.round(reserved * 100.0 / total)}%
                                     </span>
                                 </div>
                                 <div className="col-xs-6">
                                     <span data-toggle="tooltip" data-placement="top"
-                                          title={ "Reserved: " + formatDataSize(reserved) + ". Revocable: " + formatDataSize(revocable) }>
-                                    { formatDataSize(reserved) }
+                                          title={"Reserved: " + formatDataSize(reserved) + ". Revocable: " + formatDataSize(revocable)}>
+                                    {formatDataSize(reserved)}
                                     </span>
                                 </div>
                             </div>
@@ -214,7 +214,7 @@ export class WorkerStatus extends React.Component {
             <div>
                 <table className="table">
                     <tbody>
-                    { Object.keys(queries).map(key => this.renderPoolQuery(key, queries[key][0], queries[key][1], size)) }
+                    {Object.keys(queries).map(key => this.renderPoolQuery(key, queries[key][0], queries[key][1], size))}
                     </tbody>
                 </table>
             </div>
@@ -343,7 +343,7 @@ export class WorkerStatus extends React.Component {
                                             </tr>
                                             <tr className="tr-noborder">
                                                 <td className="info-sparkline-text">
-                                                    { formatCount(this.state.processCpuLoad[this.state.processCpuLoad.length - 1]) }%
+                                                    {formatCount(this.state.processCpuLoad[this.state.processCpuLoad.length - 1])}%
                                                 </td>
                                             </tr>
                                             <tr>
@@ -358,7 +358,7 @@ export class WorkerStatus extends React.Component {
                                             </tr>
                                             <tr className="tr-noborder">
                                                 <td className="info-sparkline-text">
-                                                    { formatCount(this.state.systemCpuLoad[this.state.systemCpuLoad.length - 1]) }%
+                                                    {formatCount(this.state.systemCpuLoad[this.state.systemCpuLoad.length - 1])}%
                                                 </td>
                                             </tr>
                                             </tbody>
@@ -379,7 +379,7 @@ export class WorkerStatus extends React.Component {
                                             </tr>
                                             <tr className="tr-noborder">
                                                 <td className="info-sparkline-text">
-                                                    { formatCount(this.state.heapPercentUsed[this.state.heapPercentUsed.length - 1]) }%
+                                                    {formatCount(this.state.heapPercentUsed[this.state.heapPercentUsed.length - 1])}%
                                                 </td>
                                             </tr>
                                             <tr>
@@ -394,7 +394,7 @@ export class WorkerStatus extends React.Component {
                                             </tr>
                                             <tr className="tr-noborder">
                                                 <td className="info-sparkline-text">
-                                                    { formatDataSize(this.state.nonHeapUsed[this.state.nonHeapUsed.length - 1]) }
+                                                    {formatDataSize(this.state.nonHeapUsed[this.state.nonHeapUsed.length - 1])}
                                                 </td>
                                             </tr>
                                             </tbody>
@@ -411,12 +411,12 @@ export class WorkerStatus extends React.Component {
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-xs-6">
-                                { this.renderPoolBar("General", serverInfo.memoryInfo.pools.general) }
-                                { this.renderPoolQueries(serverInfo.memoryInfo.pools.general) }
+                                {this.renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
+                                {this.renderPoolQueries(serverInfo.memoryInfo.pools.general)}
                             </div>
                             <div className="col-xs-6">
-                                { this.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved) }
-                                { this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved) }
+                                {this.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved)}
+                                {this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved)}
                             </div>
                         </div>
                     </div>

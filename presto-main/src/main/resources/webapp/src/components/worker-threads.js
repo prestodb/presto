@@ -46,7 +46,7 @@ export class WorkerThreads extends React.Component {
                 initialized: true,
             });
         }.bind(this))
-            .error(function() {
+            .error(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -120,8 +120,8 @@ export class WorkerThreads extends React.Component {
     renderGroupListItem(group) {
         return (
             <li key={group}>
-                <a href="#" className={ this.state.selectedGroup === group ? "selected" : ""} onClick={ this.handleGroupClick.bind(this, group) }>
-                    { group } ({ this.filterThreads(group, this.state.selectedThreadState).length })
+                <a href="#" className={this.state.selectedGroup === group ? "selected" : ""} onClick={this.handleGroupClick.bind(this, group)}>
+                    {group} ({this.filterThreads(group, this.state.selectedThreadState).length})
                 </a>
             </li>
         );
@@ -130,8 +130,8 @@ export class WorkerThreads extends React.Component {
     renderThreadStateListItem(threadState) {
         return (
             <li key={threadState}>
-                <a href="#" className={ this.state.selectedThreadState === threadState ? "selected" : ""} onClick={ this.handleThreadStateClick.bind(this, threadState) }>
-                    { threadState } ({ this.filterThreads(this.state.selectedGroup, threadState).length })
+                <a href="#" className={this.state.selectedThreadState === threadState ? "selected" : ""} onClick={this.handleThreadStateClick.bind(this, threadState)}>
+                    {threadState} ({this.filterThreads(this.state.selectedGroup, threadState).length})
                 </a>
             </li>
         );
@@ -142,8 +142,8 @@ export class WorkerThreads extends React.Component {
             return (
                 <div key={threadId + index}>
                     &nbsp;&nbsp;at {stackLine.className}.{stackLine.method}
-                    (<span className="font-light">{ stackLine.file }:{stackLine.line}</span>)
-                </div> );
+                    (<span className="font-light">{stackLine.file}:{stackLine.line}</span>)
+                </div>);
         };
     }
 
@@ -155,7 +155,7 @@ export class WorkerThreads extends React.Component {
                    title="Copy to clipboard">
                     <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
                 </a>
-                <br />
+                <br/>
                 <span className="stack-traces" id={"stack-trace-" + threadInfo.id}>
                     {threadInfo.stackTrace.map(this.renderStackLine(threadInfo.id))}
                 </span>
@@ -189,26 +189,26 @@ export class WorkerThreads extends React.Component {
         if (filteredThreads.length === 0 && this.state.selectedThreadState === ALL_THREAD_STATE) {
             renderedThreads = (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads in group '{ this.state.selectedGroup }'</h4></div>
-                </div> );
+                    <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
+                </div>);
         }
         else if (filteredThreads.length === 0 && this.state.selectedGroup === ALL_THREADS) {
             renderedThreads = (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads with state { this.state.selectedThreadState }</h4></div>
-                </div> );
+                    <div className="col-xs-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
+                </div>);
         }
         else if (filteredThreads.length === 0) {
             renderedThreads = (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads in group '{ this.state.selectedGroup }' with state {this.state.selectedThreadState}</h4></div>
-                </div> );
+                    <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
+                </div>);
         }
         else {
             renderedThreads = (
                 <pre>
-                    { filteredThreads.map(t => this.renderThread(t)) }
-                </pre> );
+                    {filteredThreads.map(t => this.renderThread(t))}
+                </pre>);
         }
 
         return (
@@ -228,30 +228,33 @@ export class WorkerThreads extends React.Component {
                             <tbody>
                             <tr>
                                 <td>
-                                    <small>Snapshot at { this.state.snapshotTime.toTimeString() }</small>
+                                    <small>Snapshot at {this.state.snapshotTime.toTimeString()}</small>
                                     &nbsp;&nbsp;
                                 </td>
                                 <td>
-                                    <button className="btn btn-info live-button" onClick={ this.handleNewSnapshotClick.bind(this) }>New Snapshot</button>                                &nbsp;&nbsp;
+                                    <button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>New Snapshot</button>
+                                    &nbsp;&nbsp;
                                     &nbsp;&nbsp;
                                 </td>
                                 <td>
                                     <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            <strong>Group:</strong> { this.state.selectedGroup } <span className="caret"/>
+                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">
+                                            <strong>Group:</strong> {this.state.selectedGroup} <span className="caret"/>
                                         </button>
                                         <ul className="dropdown-menu">
-                                            { Object.keys(threads).map(group => this.renderGroupListItem(group)) }
+                                            {Object.keys(threads).map(group => this.renderGroupListItem(group))}
                                         </ul>
                                     </div>
                                 </td>
                                 <td>
                                     <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            <strong>State:</strong> { this.state.selectedThreadState } <span className="caret"/>
+                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">
+                                            <strong>State:</strong> {this.state.selectedThreadState} <span className="caret"/>
                                         </button>
                                         <ul className="dropdown-menu">
-                                            { THREAD_STATES.map(state => this.renderThreadStateListItem(state)) }
+                                            {THREAD_STATES.map(state => this.renderThreadStateListItem(state))}
                                         </ul>
                                     </div>
                                 </td>

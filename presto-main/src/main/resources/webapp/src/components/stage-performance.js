@@ -32,54 +32,54 @@ class OperatorSummary extends React.Component {
             <div>
                 <div className="highlight-row">
                     <div className="header-row">
-                        { operator.operatorType }
-                     </div>
+                        {operator.operatorType}
+                    </div>
                     <div>
-                        { formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)" }
+                        {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
                     </div>
                 </div>
                 <table className="table">
                     <tbody>
-                        <tr>
-                            <td>
-                                Output
-                            </td>
-                            <td>
-                                { formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")" }
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Drivers
-                            </td>
-                            <td>
-                                { operator.totalDrivers }
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Wall Time
-                            </td>
-                            <td>
-                                { formatDuration(totalWallTime) }
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Blocked
-                            </td>
-                            <td>
-                                { formatDuration(parseDuration(operator.blockedWall)) }
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Input
-                            </td>
-                            <td>
-                                { formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")" }
-                            </td>
-                        </tr>
+                    <tr>
+                        <td>
+                            Output
+                        </td>
+                        <td>
+                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Drivers
+                        </td>
+                        <td>
+                            {operator.totalDrivers}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Wall Time
+                        </td>
+                        <td>
+                            {formatDuration(totalWallTime)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Blocked
+                        </td>
+                        <td>
+                            {formatDuration(parseDuration(operator.blockedWall))}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Input
+                        </td>
+                        <td>
+                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
@@ -104,7 +104,7 @@ class OperatorStatistic extends React.Component {
         const statistic = operators.map(this.props.supplier);
         const numTasks = operators.length;
 
-        const tooltipValueLookups = {'offset' : {}};
+        const tooltipValueLookups = {'offset': {}};
         for (let i = 0; i < numTasks; i++) {
             tooltipValueLookups['offset'][i] = "" + i;
         }
@@ -112,15 +112,15 @@ class OperatorStatistic extends React.Component {
         const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups});
         $('#' + this.props.id).sparkline(statistic, $.extend({}, stageBarChartProperties, {numberFormatter: this.props.renderer}));
     }
-    
+
     render() {
         return (
             <div className="row operator-statistic">
                 <div className="col-xs-2 italic-uppercase operator-statistic-title">
-                    { this.props.name }
+                    {this.props.name}
                 </div>
                 <div className="col-xs-10">
-                    <span className="bar-chart" id={ this.props.id } />
+                    <span className="bar-chart" id={this.props.id}/>
                 </div>
             </div>
         );
@@ -134,7 +134,7 @@ class OperatorDetail extends React.Component {
             selectedStatistics: this.getInitialStatistics()
         };
     }
-    
+
     getInitialStatistics() {
         return [
             {
@@ -169,7 +169,7 @@ class OperatorDetail extends React.Component {
             },
         ];
     }
-    
+
     getOperatorTasks() {
         // sort the x-axis
         const tasks = this.props.tasks.sort(function (taskA, taskB) {
@@ -193,7 +193,7 @@ class OperatorDetail extends React.Component {
 
         return operatorTasks;
     }
-    
+
     render() {
         const operator = this.props.operator;
         const operatorTasks = this.getOperatorTasks();
@@ -211,9 +211,9 @@ class OperatorDetail extends React.Component {
                     <div className="modal-header">
                         <button type="button" className="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         <h3>
-                            <small>Pipeline { operator.pipelineId }</small>
+                            <small>Pipeline {operator.pipelineId}</small>
                             <br/>
-                            { operator.operatorType }
+                            {operator.operatorType}
                         </h3>
                     </div>
                     <div className="row">
@@ -225,7 +225,7 @@ class OperatorDetail extends React.Component {
                                         Input
                                     </td>
                                     <td>
-                                        { formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")" }
+                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -233,7 +233,7 @@ class OperatorDetail extends React.Component {
                                         Input Rate
                                     </td>
                                     <td>
-                                        { formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)" }
+                                        {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -241,7 +241,7 @@ class OperatorDetail extends React.Component {
                                         Output
                                     </td>
                                     <td>
-                                        { formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")" }
+                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -249,7 +249,7 @@ class OperatorDetail extends React.Component {
                                         Output Rate
                                     </td>
                                     <td>
-                                        { formatCount(rowOutputRate) + " rows/s (" + formatDataSize(byteOutputRate) + "/s)" }
+                                        {formatCount(rowOutputRate) + " rows/s (" + formatDataSize(byteOutputRate) + "/s)"}
                                     </td>
                                 </tr>
                                 </tbody>
@@ -263,7 +263,7 @@ class OperatorDetail extends React.Component {
                                         Wall Time
                                     </td>
                                     <td>
-                                        { formatDuration(totalWallTime) }
+                                        {formatDuration(totalWallTime)}
                                     </td>
                                 </tr>
                                 <tr>
@@ -271,7 +271,7 @@ class OperatorDetail extends React.Component {
                                         Blocked
                                     </td>
                                     <td>
-                                        { formatDuration(parseDuration(operator.blockedWall)) }
+                                        {formatDuration(parseDuration(operator.blockedWall))}
                                     </td>
                                 </tr>
                                 <tr>
@@ -279,7 +279,7 @@ class OperatorDetail extends React.Component {
                                         Drivers
                                     </td>
                                     <td>
-                                        { operator.totalDrivers }
+                                        {operator.totalDrivers}
                                     </td>
                                 </tr>
                                 <tr>
@@ -287,7 +287,7 @@ class OperatorDetail extends React.Component {
                                         Tasks
                                     </td>
                                     <td>
-                                        { operatorTasks.length }
+                                        {operatorTasks.length}
                                     </td>
                                 </tr>
                                 </tbody>
@@ -310,17 +310,17 @@ class OperatorDetail extends React.Component {
                         this.state.selectedStatistics.map(function (statistic) {
                             return (
                                 <OperatorStatistic
-                                    key = { statistic.id }
-                                    id = { statistic.id }
-                                    name = { statistic.name }
-                                    supplier = { statistic.supplier }
-                                    renderer = { statistic.renderer }
-                                    operators = { operatorTasks } />
+                                    key={statistic.id}
+                                    id={statistic.id}
+                                    name={statistic.name}
+                                    supplier={statistic.supplier}
+                                    renderer={statistic.renderer}
+                                    operators={operatorTasks}/>
                             );
                         }.bind(this))
                     }
-                    <p />
-                    <p />
+                    <p/>
+                    <p/>
                 </div>
             </div>
         );
@@ -351,7 +351,7 @@ class StageOperatorGraph extends React.Component {
             }
         }
 
-        ReactDOM.render(<OperatorDetail key = { operatorCssId } operator = { operatorStageSummary } tasks = {stage.tasks} />,
+        ReactDOM.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.tasks}/>,
             document.getElementById('operator-detail'));
     }
 
@@ -433,7 +433,7 @@ class StageOperatorGraph extends React.Component {
         const operatorNodeId = "operator-" + operator.pipelineId + "-" + operator.operatorId;
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<OperatorSummary key = { operator.pipelineId + "-" + operator.operatorId } operator = { operator }/>);
+        const html = ReactDOMServer.renderToString(<OperatorSummary key={operator.pipelineId + "-" + operator.operatorId} operator={operator}/>);
         graph.setNode(operatorNodeId, {class: "operator-stats", label: html, labelType: "html"});
 
         if (operator.hasOwnProperty("child")) {
@@ -495,7 +495,7 @@ class StageOperatorGraph extends React.Component {
             return (
                 <div className="row error-message">
                     <div className="col-xs-12">
-                        <h4>Operator data not available for { stage.stageId }</h4>
+                        <h4>Operator data not available for {stage.stageId}</h4>
                     </div>
                 </div>
             );
@@ -532,13 +532,14 @@ export class StagePerformance extends React.Component {
 
     renderProgressBar() {
         const query = this.state.query;
-        const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
+        const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
         if (isQueryComplete(query)) {
             return (
                 <div className="progress-large">
-                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                        { getProgressBarTitle(query) }
+                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
+                         style={progressBarStyle}>
+                        {getProgressBarTitle(query)}
                     </div>
                 </div>
             );
@@ -550,13 +551,14 @@ export class StagePerformance extends React.Component {
                 <tr>
                     <td width="100%">
                         <div className="progress-large">
-                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                                { getProgressBarTitle(query) }
+                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
+                                 style={progressBarStyle}>
+                                {getProgressBarTitle(query)}
                             </div>
                         </div>
                     </td>
                     <td>
-                        <a onClick={ () => $.ajax({url: '/v1/query/' + query.queryId, type: 'DELETE'}) } className="btn btn-warning" target="_blank">
+                        <a onClick={() => $.ajax({url: '/v1/query/' + query.queryId, type: 'DELETE'})} className="btn btn-warning" target="_blank">
                             Kill
                         </a>
                     </td>
@@ -634,7 +636,7 @@ export class StagePerformance extends React.Component {
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{ label }</h4></div>
+                    <div className="col-xs-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -651,7 +653,7 @@ export class StagePerformance extends React.Component {
         const allStages = [];
         this.getAllStageIds(allStages, query.outputStage);
 
-        const stage = this.findStage(query.queryId  + "." + this.state.selectedStageId, query.outputStage);
+        const stage = this.findStage(query.queryId + "." + this.state.selectedStageId, query.outputStage);
         if (stage === null) {
             return (
                 <div className="row error-message">
@@ -672,7 +674,7 @@ export class StagePerformance extends React.Component {
             )
         }
         else {
-            stageOperatorGraph = <StageOperatorGraph id={ stage.stageId } stage={ stage }/>;
+            stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage}/>;
         }
 
         return (
@@ -680,9 +682,9 @@ export class StagePerformance extends React.Component {
                 <div className="row">
                     <div className="col-xs-6">
                         <h3 className="query-id">
-                            <span id="query-id">{ query.queryId }</span>
+                            <span id="query-id">{query.queryId}</span>
                             <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
                             </a>
                         </h3>
                     </div>
@@ -691,15 +693,15 @@ export class StagePerformance extends React.Component {
                             <tbody>
                             <tr>
                                 <td>
-                                    <a href={ "query.html?" + query.queryId } className="btn btn-info navbar-btn">Overview</a>
+                                    <a href={"query.html?" + query.queryId} className="btn btn-info navbar-btn">Overview</a>
                                     &nbsp;
-                                    <a href={ "plan.html?" + query.queryId } className="btn btn-info navbar-btn">Live Plan</a>
+                                    <a href={"plan.html?" + query.queryId} className="btn btn-info navbar-btn">Live Plan</a>
                                     &nbsp;
-                                    <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Stage Performance</a>
+                                    <a href={"stage.html?" + query.queryId} className="btn btn-info navbar-btn nav-disabled">Stage Performance</a>
                                     &nbsp;
-                                    <a href={ "timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                    <a href={"timeline.html?" + query.queryId} className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                     &nbsp;
-                                    <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
+                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
                                 </td>
                             </tr>
                             </tbody>
@@ -709,23 +711,23 @@ export class StagePerformance extends React.Component {
                 <hr className="h2-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        { this.renderProgressBar() }
+                        {this.renderProgressBar()}
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
                         <div className="row">
                             <div className="col-xs-2">
-                                <h3>Stage { stage.plan.id }</h3>
+                                <h3>Stage {stage.plan.id}</h3>
                             </div>
                             <div className="col-xs-8"/>
                             <div className="col-xs-2 stage-dropdown">
                                 <div className="input-group-btn">
                                     <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        Select Stage <span className="caret" />
+                                        Select Stage <span className="caret"/>
                                     </button>
                                     <ul className="dropdown-menu">
-                                        { allStages.map(stageId => (<li key={ stageId }><a onClick={() => this.setState({ selectedStageId: stageId })}>{ stageId }</a></li>)) }
+                                        {allStages.map(stageId => (<li key={stageId}><a onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a></li>))}
                                     </ul>
                                 </div>
                             </div>
@@ -735,7 +737,7 @@ export class StagePerformance extends React.Component {
                 <hr className="h3-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        { stageOperatorGraph }
+                        {stageOperatorGraph}
                     </div>
                 </div>
             </div>
