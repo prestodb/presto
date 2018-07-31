@@ -30,5 +30,7 @@ public @interface AggregationFunction
 
     boolean isOrderSensitive() default false;
 
+    boolean hidden() default false;
+
     String[] alias() default {};
 }
