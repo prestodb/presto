@@ -67,6 +67,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.DECIMAL;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -386,7 +387,10 @@ public class TpchMetadata
         if (columnType instanceof VarcharType) {
             return Slices.utf8Slice((String) tpchValue);
         }
-        if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
+        if (columnType.equals(BIGINT)
+                || columnType.equals(INTEGER)
+                || columnType.equals(DATE)
+                || columnType.equals(DECIMAL)) {
             return ((Number) tpchValue).longValue();
         }
         if (columnType.equals(DOUBLE)) {
@@ -487,8 +491,8 @@ public class TpchMetadata
                 return INTEGER;
             case DATE:
                 return DATE;
-            case DOUBLE:
-                return DOUBLE;
+            case DECIMAL:
+                return DECIMAL;
             case VARCHAR:
                 return createVarcharType((int) (long) tpchType.getPrecision().get());
         }

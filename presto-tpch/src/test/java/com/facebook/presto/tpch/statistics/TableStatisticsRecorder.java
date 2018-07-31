@@ -72,8 +72,8 @@ class TableStatisticsRecorder
                 return column.getInteger(row);
             case DATE:
                 return column.getDate(row);
-            case DOUBLE:
-                return column.getDouble(row);
+            case DECIMAL:
+                return column.getIdentifier(row);
             case VARCHAR:
                 return column.getString(row);
         }

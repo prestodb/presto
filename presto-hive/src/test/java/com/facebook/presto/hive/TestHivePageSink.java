@@ -70,6 +70,7 @@ import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET
 import static com.facebook.presto.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.DECIMAL;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -159,8 +160,8 @@ public class TestHivePageSink
                     case DATE:
                         DATE.writeLong(blockBuilder, column.getDate(lineItem));
                         break;
-                    case DOUBLE:
-                        DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
+                    case DECIMAL:
+                        DECIMAL.writeLong(blockBuilder, column.getIdentifier(lineItem));
                         break;
                     case VARCHAR:
                         createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
@@ -302,8 +303,8 @@ public class TestHivePageSink
                 return HIVE_INT;
             case DATE:
                 return HIVE_DATE;
-            case DOUBLE:
-                return HIVE_DOUBLE;
+            case DECIMAL:
+                return HIVE_LONG;
             case VARCHAR:
                 return HIVE_STRING;
             default:

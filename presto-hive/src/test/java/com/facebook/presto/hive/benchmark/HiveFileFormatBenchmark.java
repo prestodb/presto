@@ -66,6 +66,7 @@ import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.DECIMAL;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -497,8 +498,8 @@ public class HiveFileFormatBenchmark
                             createUnboundedVarcharType().writeString(blockBuilder, column.getString(row));
                         }
                         break;
-                    case DOUBLE:
-                        DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
+                    case DECIMAL:
+                        DECIMAL.writeLong(blockBuilder, column.getIdentifier(row));
                         break;
                     case VARCHAR:
                         createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
@@ -568,8 +569,8 @@ public class HiveFileFormatBenchmark
                 return INTEGER;
             case DATE:
                 return DATE;
-            case DOUBLE:
-                return DOUBLE;
+            case DECIMAL:
+                return DECIMAL;
             case VARCHAR:
                 return createUnboundedVarcharType();
         }

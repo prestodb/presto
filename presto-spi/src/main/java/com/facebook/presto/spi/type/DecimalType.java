@@ -29,6 +29,7 @@ public abstract class DecimalType
 {
     public static final int DEFAULT_SCALE = 0;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
+    public static final DecimalType DECIMAL = createDecimalType(12, 2);
 
     public static DecimalType createDecimalType(int precision, int scale)
     {
