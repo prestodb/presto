@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {QueryDetail} from "./components/query-detail";
+import {QueryDetail} from "./components/QueryDetail";
 
 ReactDOM.render(
     <QueryDetail />,

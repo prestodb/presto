@@ -27,18 +27,16 @@ import {
     getHostAndPort,
     getHostname,
     getPort,
-    getProgressBarPercentage,
-    getProgressBarTitle,
-    getQueryStateColor,
     getStageNumber,
     getStageStateColor,
     getTaskIdSuffix,
     getTaskNumber,
     GLYPHICON_HIGHLIGHT,
-    isQueryEnded,
     parseDataSize,
-    parseDuration, precisionRound
+    parseDuration,
+    precisionRound
 } from "../utils";
+import {QueryHeader} from "./QueryHeader";
 
 const Table = Reactable.Table,
     Thead = Reactable.Thead,
@@ -1015,45 +1013,6 @@ export class QueryDetail extends React.Component {
         return renderedEstimates;
     }
 
-    renderProgressBar() {
-        const query = this.state.query;
-        const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
-
-        if (isQueryEnded(query)) {
-            return (
-                <div className="progress-large">
-                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
-                         style={progressBarStyle}>
-                        {getProgressBarTitle(query)}
-                    </div>
-                </div>
-            );
-        }
-
-        return (
-            <table>
-                <tbody>
-                <tr>
-                    <td width="100%">
-                        <div className="progress-large">
-                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
-                                 style={progressBarStyle}>
-                                {getProgressBarTitle(query)}
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <a onClick={() => $.ajax({url: '/v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI"})} className="btn btn-warning"
-                           target="_blank">
-                            Kill
-                        </a>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        );
-    }
-
     renderFailureInfo() {
         const query = this.state.query;
         if (query.failureInfo) {
@@ -1121,41 +1080,7 @@ export class QueryDetail extends React.Component {
 
         return (
             <div>
-                <div className="row">
-                    <div className="col-xs-6">
-                        <h3 className="query-id">
-                            <span id="query-id">{query.queryId}</span>
-                            <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                            </a>
-                        </h3>
-                    </div>
-                    <div className="col-xs-6">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <a href={"query.html?" + query.queryId} className="btn btn-info navbar-btn nav-disabled">Overview</a>
-                                    &nbsp;
-                                    <a href={"plan.html?" + query.queryId} className="btn btn-info navbar-btn">Live Plan</a>
-                                    &nbsp;
-                                    <a href={"stage.html?" + query.queryId} className="btn btn-info navbar-btn">Stage Performance</a>
-                                    &nbsp;
-                                    <a href={"timeline.html?" + query.queryId} className="btn btn-info navbar-btn" target="_blank">Splits</a>
-                                    &nbsp;
-                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <hr className="h2-hr"/>
-                <div className="row">
-                    <div className="col-xs-12">
-                        {this.renderProgressBar()}
-                    </div>
-                </div>
+                <QueryHeader query={query}/>
                 <div className="row">
                     <div className="col-xs-6">
                         <h3>Session</h3>

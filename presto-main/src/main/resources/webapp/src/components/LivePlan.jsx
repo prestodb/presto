@@ -20,14 +20,12 @@ import {
     computeSources,
     formatCount,
     getFirstParameter,
-    getProgressBarPercentage,
-    getProgressBarTitle, getQueryStateColor,
     getStageStateColor,
     initializeGraph,
-    initializeSvg,
-    isQueryEnded
+    initializeSvg
 } from "../utils";
-import {StagePerformance} from "./stage-performance";
+import {StageDetail} from "./StageDetail";
+import {QueryHeader} from "./QueryHeader";
 
 class StageStatistics extends React.Component {
     static flatten(queryInfo) {
@@ -128,44 +126,6 @@ export class LivePlan extends React.Component {
         if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
-    }
-
-    renderProgressBar() {
-        const query = this.state.query;
-        const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
-
-        if (isQueryEnded(query)) {
-            return (
-                <div className="progress-large">
-                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
-                         style={progressBarStyle}>
-                        {getProgressBarTitle(query)}
-                    </div>
-                </div>
-            );
-        }
-
-        return (
-            <table>
-                <tbody>
-                <tr>
-                    <td width="100%">
-                        <div className="progress-large">
-                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
-                                 style={progressBarStyle}>
-                                {getProgressBarTitle(query)}
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <a onClick={() => $.ajax({url: '/v1/query/' + query.queryId, type: 'DELETE'})} className="btn btn-warning" target="_blank">
-                            Kill
-                        </a>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        );
     }
 
     refreshLoop() {
@@ -299,7 +259,7 @@ export class LivePlan extends React.Component {
             const selectedStage = this.findStage(this.state.selectedStageId, this.state.query.outputStage);
             if (selectedStage) {
                 ReactDOM.render(
-                    <StagePerformance key={0} stage={selectedStage}/>,
+                    <StageDetail key={0} stage={selectedStage}/>,
                     document.getElementById('stage-performance')
                 );
             }
@@ -307,41 +267,7 @@ export class LivePlan extends React.Component {
 
         return (
             <div>
-                <div className="row">
-                    <div className="col-xs-6">
-                        <h3 className="query-id">
-                            <span id="query-id">{query.queryId}</span>
-                            <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                            </a>
-                        </h3>
-                    </div>
-                    <div className="col-xs-6">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <a href={"query.html?" + query.queryId} className="btn btn-info navbar-btn">Overview</a>
-                                    &nbsp;
-                                    <a href={"plan.html?" + query.queryId} className="btn btn-info navbar-btn nav-disabled">Live Plan</a>
-                                    &nbsp;
-                                    <a href={"stage.html?" + query.queryId} className="btn btn-info navbar-btn">Stage Performance</a>
-                                    &nbsp;
-                                    <a href={"timeline.html?" + query.queryId} className="btn btn-info navbar-btn" target="_blank">Splits</a>
-                                    &nbsp;
-                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <hr className="h2-hr"/>
-                <div className="row">
-                    <div className="col-xs-12">
-                        {this.renderProgressBar()}
-                    </div>
-                </div>
+                <QueryHeader query={query}/>
                 <div className="row">
                     <div className="col-xs-12">
                         {livePlanGraph}

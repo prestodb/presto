@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {WorkerStatus} from "./components/worker-status";
-import {WorkerThreads} from "./components/worker-threads";
+import {WorkerStatus} from "./components/WorkerStatus";
+import {WorkerThreadList} from "./components/WorkerThreadList";
 
 ReactDOM.render(
     <WorkerStatus />,
@@ -9,6 +9,6 @@ ReactDOM.render(
 );
 
 ReactDOM.render(
-    <WorkerThreads />,
+    <WorkerThreadList />,
     document.getElementById('worker-threads')
 );

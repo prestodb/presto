@@ -225,7 +225,6 @@ const SORT_ORDER = {
 };
 
 export class QueryList extends React.Component {
-
     constructor(props) {
         super(props);
         this.state = {

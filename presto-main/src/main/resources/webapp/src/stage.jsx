@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {StagePerformance} from "./components/stage-performance";
+import {StageDetail} from "./components/StageDetail";
 
 ReactDOM.render(
-    <StagePerformance />,
+    <StageDetail />,
     document.getElementById('stage-performance-header')
 );

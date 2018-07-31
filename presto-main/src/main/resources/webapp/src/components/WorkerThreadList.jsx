@@ -24,7 +24,7 @@ const QUERY_THREADS = "Running Queries";
 const ALL_THREAD_STATE = "ALL";
 const THREAD_STATES = [ALL_THREAD_STATE, "RUNNABLE", "BLOCKED", "WAITING", "TIMED_WAITING", "NEW", "TERMINATED"];
 
-export class WorkerThreads extends React.Component {
+export class WorkerThreadList extends React.Component {
     constructor(props) {
         super(props);
         this.state = {

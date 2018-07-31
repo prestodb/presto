@@ -1,10 +1,10 @@
 module.exports = {
     entry: {
-        'index': __dirname +'/index.js',
-        'query': __dirname +'/query.js',
-        'plan': __dirname +'/plan.js',
-        'stage': __dirname +'/stage.js',
-        'worker': __dirname +'/worker.js',
+        'index': __dirname +'/index.jsx',
+        'query': __dirname +'/query.jsx',
+        'plan': __dirname +'/plan.jsx',
+        'stage': __dirname +'/stage.jsx',
+        'worker': __dirname +'/worker.jsx',
     },
     mode: "development",
     module: {

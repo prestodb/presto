@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {ClusterHUD} from "./components/cluster-hud";
-import {QueryList} from "./components/query-list";
+import {ClusterHUD} from "./components/ClusterHUD";
+import {QueryList} from "./components/QueryList";
 
 ReactDOM.render(
     <ClusterHUD />,
