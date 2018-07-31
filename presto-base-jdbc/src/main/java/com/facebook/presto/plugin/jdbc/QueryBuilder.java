@@ -17,12 +17,18 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -34,8 +40,10 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -49,6 +57,7 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.nCopies;
@@ -183,6 +192,28 @@ public class QueryBuilder
             else if (isVarcharType(typeAndValue.getType())) {
                 statement.setString(index, ((Slice) typeAndValue.getValue()).toStringUtf8());
             }
+            else if (isCharType(typeAndValue.getType())) {
+                String base = ((Slice) typeAndValue.getValue()).toStringUtf8();
+                int size = ((CharType) typeAndValue.getType()).getLength();
+                statement.setString(index, padEnd(base, size, ' '));
+            }
+            else if (typeAndValue.getType() instanceof DecimalType) {
+                DecimalType type = (DecimalType) typeAndValue.getType();
+
+                BigInteger unscaledValue = type.isShort()
+                        ? BigInteger.valueOf((Long) typeAndValue.getValue())
+                        : decodeUnscaledValue((Slice) typeAndValue.getValue());
+
+                // TODO: Is the MathContext necessary?
+                // The rounding mode doesn't seem to do anything, because Presto
+                // converts everything to the right scale/precision before it gets here.
+                // If Presto didn't do that, I think we'd want to go without precision,
+                // so numbers could be compared to numbers with different precision.
+                BigDecimal value = new BigDecimal(unscaledValue, type.getScale(),
+                        new MathContext(type.getPrecision(), RoundingMode.UNNECESSARY));
+
+                statement.setBigDecimal(index, value);
+            }
             else {
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
@@ -209,7 +240,9 @@ public class QueryBuilder
                 type.equals(TIME_WITH_TIME_ZONE) ||
                 type.equals(TIMESTAMP) ||
                 type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
-                isVarcharType(type);
+                isVarcharType(type) ||
+                isCharType(type) ||
+                type instanceof DecimalType;
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
