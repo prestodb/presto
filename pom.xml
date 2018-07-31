@@ -5,8 +5,16 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>80</version>
+        <version>82</version>
     </parent>
+
+    <repositories>
+        <repository>
+            <id>atri-local</id>
+            <name>Local AirLift Repo</name>
+            <url>/Users/atrisharma/tpch/target</url>
+        </repository>
+    </repositories>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
@@ -122,6 +130,11 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.airlift.tpch</groupId>
+                <artifactId>tpch</artifactId>
+                <version>0.10-SNAPSHOT</version>
+            </dependency>
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
@@ -596,12 +609,6 @@
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift.tpch</groupId>
-                <artifactId>tpch</artifactId>
-                <version>0.9</version>
             </dependency>
 
             <dependency>
