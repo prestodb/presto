@@ -66,6 +66,14 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.joining;
 import static org.joda.time.DateTimeZone.UTC;
 
+// TODO: Put the setter methods in another class to keep the API clean
+// - It could be a new class or inner class; this is easiest.
+// - It could be a class that shares code with JdbcPageSink; this is best.
+//
+// Consider the relaton between this and JdbcPageSink. They don't get their data
+// directly from the same source, they both use PreparedStatement setters, and
+// similar considerations must be taken between them.
+// They also should support identical types, but this class supports more by default.
 public class QueryBuilder
 {
     // not all databases support booleans, so use 1=1 and 1=0 instead
@@ -74,7 +82,7 @@ public class QueryBuilder
 
     private final String quote;
 
-    private static class TypeAndValue
+    protected static class TypeAndValue
     {
         private final Type type;
         private final Object value;
@@ -153,69 +161,52 @@ public class QueryBuilder
             TypeAndValue typeAndValue = accumulator.get(i);
             int index = i + 1;
             if (isType(typeAndValue, BIGINT)) {
-                statement.setLong(index, (long) typeAndValue.getValue());
+                setBigint(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, INTEGER)) {
-                statement.setInt(index, ((Number) typeAndValue.getValue()).intValue());
+                setInteger(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, SMALLINT)) {
-                statement.setShort(index, ((Number) typeAndValue.getValue()).shortValue());
+                setSmallint(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, TINYINT)) {
-                statement.setByte(index, ((Number) typeAndValue.getValue()).byteValue());
+                setTinyint(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, DOUBLE)) {
-                statement.setDouble(index, (double) typeAndValue.getValue());
+                setDouble(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, REAL)) {
-                statement.setFloat(index, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
+                setReal(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, BOOLEAN)) {
-                statement.setBoolean(index, (boolean) typeAndValue.getValue());
+                setBoolean(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, DATE)) {
-                long millis = DAYS.toMillis((long) typeAndValue.getValue());
-                statement.setDate(index, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+                setDate(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, TIME)) {
-                statement.setTime(index, new Time((long) typeAndValue.getValue()));
+                setTime(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, TIME_WITH_TIME_ZONE)) {
-                statement.setTime(index, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+                setTimeWithTimeZone(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, TIMESTAMP)) {
-                statement.setTimestamp(index, new Timestamp((long) typeAndValue.getValue()));
+                setTimestamp(statement, index, typeAndValue);
             }
             else if (isType(typeAndValue, TIMESTAMP_WITH_TIME_ZONE)) {
-                statement.setTimestamp(index, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+                setTimestampWithTimeZone(statement, index, typeAndValue);
             }
             else if (isVarcharType(typeAndValue.getType())) {
-                statement.setString(index, ((Slice) typeAndValue.getValue()).toStringUtf8());
+                setVarchar(statement, index, typeAndValue);
             }
             else if (isCharType(typeAndValue.getType())) {
-                String base = ((Slice) typeAndValue.getValue()).toStringUtf8();
-                int size = ((CharType) typeAndValue.getType()).getLength();
-                statement.setString(index, padEnd(base, size, ' '));
+                setChar(statement, index, typeAndValue);
             }
             else if (typeAndValue.getType() instanceof DecimalType) {
-                DecimalType type = (DecimalType) typeAndValue.getType();
-
-                BigInteger unscaledValue = type.isShort()
-                        ? BigInteger.valueOf((Long) typeAndValue.getValue())
-                        : decodeUnscaledValue((Slice) typeAndValue.getValue());
-
-                // TODO: Is the MathContext necessary?
-                // The rounding mode doesn't seem to do anything, because Presto
-                // converts everything to the right scale/precision before it gets here.
-                // If Presto didn't do that, I think we'd want to go without precision,
-                // so numbers could be compared to numbers with different precision.
-                BigDecimal value = new BigDecimal(unscaledValue, type.getScale(),
-                        new MathContext(type.getPrecision(), RoundingMode.UNNECESSARY));
-
-                statement.setBigDecimal(index, value);
+                setDecimal(statement, index, typeAndValue);
             }
             else {
-                throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
+                throw unsupportedType(typeAndValue.getType());
             }
         }
     }
@@ -225,7 +216,7 @@ public class QueryBuilder
         return type.equals(typeval.getType());
     }
 
-    private static boolean isAcceptedType(Type type)
+    protected boolean isAcceptedType(Type type)
     {
         requireNonNull(type, "type is null");
         return type.equals(BIGINT) ||
@@ -342,15 +333,127 @@ public class QueryBuilder
         return quote(columnName) + " " + operator + " ?";
     }
 
-    private String quote(String name)
+    protected String quote(String name)
     {
         name = name.replace(quote, quote + quote);
         return quote + name + quote;
     }
 
-    private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
+    private void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
     {
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
         accumulator.add(new TypeAndValue(type, value));
+    }
+
+    protected RuntimeException unsupportedType(Type type)
+    {
+        return new UnsupportedOperationException("Can't handle type: " + type);
+    }
+
+    protected void setBigint(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setLong(index, (long) typeAndValue.getValue());
+    }
+
+    protected void setInteger(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setInt(index, ((Number) typeAndValue.getValue()).intValue());
+    }
+
+    protected void setSmallint(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setShort(index, ((Number) typeAndValue.getValue()).shortValue());
+    }
+
+    protected void setTinyint(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setByte(index, ((Number) typeAndValue.getValue()).byteValue());
+    }
+
+    protected void setDouble(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setDouble(index, (double) typeAndValue.getValue());
+    }
+
+    protected void setReal(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setFloat(index, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
+    }
+
+    protected void setBoolean(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setBoolean(index, (boolean) typeAndValue.getValue());
+    }
+
+    protected void setDate(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        long millis = DAYS.toMillis((long) typeAndValue.getValue());
+        statement.setDate(index, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+    }
+
+    protected void setTime(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTime(index, new Time((long) typeAndValue.getValue()));
+    }
+
+    protected void setTimeWithTimeZone(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTime(index, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+    }
+
+    protected void setTimestamp(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTimestamp(index, new Timestamp((long) typeAndValue.getValue()));
+    }
+
+    protected void setTimestampWithTimeZone(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTimestamp(index, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+    }
+
+    protected void setVarchar(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setString(index, ((Slice) typeAndValue.getValue()).toStringUtf8());
+    }
+
+    protected void setChar(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        String base = ((Slice) typeAndValue.getValue()).toStringUtf8();
+        int size = ((CharType) typeAndValue.getType()).getLength();
+        statement.setString(index, padEnd(base, size, ' '));
+    }
+
+    protected void setDecimal(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        DecimalType type = (DecimalType) typeAndValue.getType();
+
+        BigInteger unscaledValue = type.isShort()
+                ? BigInteger.valueOf((Long) typeAndValue.getValue())
+                : decodeUnscaledValue((Slice) typeAndValue.getValue());
+
+        // TODO: Is the MathContext necessary?
+        // The rounding mode doesn't seem to do anything, because Presto
+        // converts everything to the right scale/precision before it gets here.
+        // If Presto didn't do that, I think we'd want to go without precision,
+        // so numbers could be compared to numbers with different precision.
+        BigDecimal value = new BigDecimal(unscaledValue, type.getScale(),
+                new MathContext(type.getPrecision(), RoundingMode.UNNECESSARY));
+
+        statement.setBigDecimal(index, value);
     }
 }
