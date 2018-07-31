@@ -13,57 +13,72 @@
  */
 
 import React from "react";
+import ReactDOM from "react-dom";
+import ReactDOMServer from "react-dom/server";
 
-function flatten(queryInfo) {
-    const stages = new Map();
-    flattenStage(queryInfo.outputStage, stages);
-
-    return {
-        id: queryInfo.queryId,
-        root: queryInfo.outputStage.plan.id,
-        stageStats: {},
-        stages: stages
-    }
-}
-
-function flattenStage(stageInfo, result) {
-    stageInfo.subStages.forEach(function (stage) {
-        flattenStage(stage, result);
-    });
-
-    const nodes = new Map();
-    flattenNode(result, stageInfo.plan.root, nodes);
-
-    result.set(stageInfo.plan.id, {
-        stageId: stageInfo.stageId,
-        id: stageInfo.plan.id,
-        root: stageInfo.plan.root.id,
-        distribution: stageInfo.plan.distribution,
-        stageStats: stageInfo.stageStats,
-        state: stageInfo.state,
-        nodes: nodes
-    });
-}
-
-function flattenNode(stages, nodeInfo, result) {
-    const allSources = computeSources(nodeInfo);
-    const sources = allSources[0];
-    const remoteSources = allSources[1];
-
-    result.set(nodeInfo.id, {
-        id: nodeInfo.id,
-        type: nodeInfo['@type'],
-        sources: sources.map(function (node) { return node.id }),
-        remoteSources: remoteSources,
-        stats: {}
-    });
-
-    sources.forEach(function (child) {
-        flattenNode(stages, child, result);
-    });
-}
+import {
+    computeSources,
+    formatCount,
+    getFirstParameter,
+    getProgressBarPercentage,
+    getProgressBarTitle, getQueryStateColor,
+    getStageStateColor,
+    initializeGraph,
+    initializeSvg,
+    isQueryEnded
+} from "../utils";
+import {StagePerformance} from "./stage-performance";
 
 class StageStatistics extends React.Component {
+    static flatten(queryInfo) {
+        const stages = new Map();
+        StageStatistics.flattenStage(queryInfo.outputStage, stages);
+
+        return {
+            id: queryInfo.queryId,
+            root: queryInfo.outputStage.plan.id,
+            stageStats: {},
+            stages: stages
+        }
+    }
+
+    static flattenStage(stageInfo, result) {
+        stageInfo.subStages.forEach(function (stage) {
+            StageStatistics.flattenStage(stage, result);
+        });
+
+        const nodes = new Map();
+        StageStatistics.flattenNode(result, stageInfo.plan.root, nodes);
+
+        result.set(stageInfo.plan.id, {
+            stageId: stageInfo.stageId,
+            id: stageInfo.plan.id,
+            root: stageInfo.plan.root.id,
+            distribution: stageInfo.plan.distribution,
+            stageStats: stageInfo.stageStats,
+            state: stageInfo.state,
+            nodes: nodes
+        });
+    }
+
+    static flattenNode(stages, nodeInfo, result) {
+        const allSources = computeSources(nodeInfo);
+        const sources = allSources[0];
+        const remoteSources = allSources[1];
+
+        result.set(nodeInfo.id, {
+            id: nodeInfo.id,
+            type: nodeInfo['@type'],
+            sources: sources.map(function (node) { return node.id }),
+            remoteSources: remoteSources,
+            stats: {}
+        });
+
+        sources.forEach(function (child) {
+            StageStatistics.flattenNode(stages, child, result);
+        });
+    }
+
     render() {
         const stage = this.props.stage;
         const stats = this.props.stage.stageStats;
@@ -119,7 +134,7 @@ export class LivePlan extends React.Component {
         const query = this.state.query;
         const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
-        if (isQueryComplete(query)) {
+        if (isQueryEnded(query)) {
             return (
                 <div className="progress-large">
                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
@@ -221,7 +236,7 @@ export class LivePlan extends React.Component {
         }
 
         const graph = this.state.graph;
-        const stages = flatten(this.state.query).stages;
+        const stages = StageStatistics.flatten(this.state.query).stages;
         stages.forEach(stage => {
             this.updateD3Stage(stage, graph);
         });

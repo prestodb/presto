@@ -15,10 +15,10 @@
 // Query display
 // =============
 
-var GLYPHICON_DEFAULT = {color: '#1edcff'};
-var GLYPHICON_HIGHLIGHT = {color: '#999999'};
+export const GLYPHICON_DEFAULT = {color: '#1edcff'};
+export const GLYPHICON_HIGHLIGHT = {color: '#999999'};
 
-var STATE_COLOR_MAP = {
+const STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
     PLANNING: '#674f98',
@@ -31,7 +31,7 @@ var STATE_COLOR_MAP = {
     UNKNOWN_ERROR: '#943524'
 };
 
-function getQueryStateColor(query)
+export function getQueryStateColor(query)
 {
     switch (query.state) {
         case "QUEUED":
@@ -66,7 +66,7 @@ function getQueryStateColor(query)
     }
 }
 
-function getStageStateColor(stage)
+export function getStageStateColor(stage)
 {
     switch (stage.state) {
         case "PLANNED":
@@ -93,10 +93,10 @@ function getStageStateColor(stage)
 
 // This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
 // necessary to compute this string, and that these fields are consistently named.
-function getHumanReadableState(query)
+export function getHumanReadableState(query)
 {
     if (query.state === "RUNNING") {
-        var title = "RUNNING";
+        let title = "RUNNING";
 
         if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
             if (query.queryStats.fullyBlocked) {
@@ -134,9 +134,9 @@ function getHumanReadableState(query)
     return query.state;
 }
 
-function getProgressBarPercentage(query)
+export function getProgressBarPercentage(query)
 {
-    var progress = query.queryStats.progressPercentage;
+    const progress = query.queryStats.progressPercentage;
 
     // progress bars should appear 'full' when query progress is not meaningful
     if (!progress || query.state !== "RUNNING") {
@@ -146,7 +146,7 @@ function getProgressBarPercentage(query)
     return Math.round(progress);
 }
 
-function getProgressBarTitle(query)
+export function getProgressBarTitle(query)
 {
     if (query.queryStats.progressPercentage && query.state === "RUNNING") {
         return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
@@ -155,7 +155,7 @@ function getProgressBarTitle(query)
     return getHumanReadableState(query)
 }
 
-function isQueryComplete(query)
+export function isQueryEnded(query)
 {
     return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
 }
@@ -164,23 +164,23 @@ function isQueryComplete(query)
 // ===========================
 
 // display at most 5 minutes worth of data on the sparklines
-var MAX_HISTORY = 60 * 5;
- // alpha param of exponentially weighted moving average. picked arbitrarily - lower values means more smoothness
-var MOVING_AVERAGE_ALPHA = 0.2;
+const MAX_HISTORY = 60 * 5;
+// alpha param of exponentially weighted moving average. picked arbitrarily - lower values means more smoothness
+const MOVING_AVERAGE_ALPHA = 0.2;
 
-function addToHistory (value, valuesArray) {
+export function addToHistory (value, valuesArray) {
     if (valuesArray.length === 0) {
         return valuesArray.concat([value]);
     }
     return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
-function addExponentiallyWeightedToHistory (value, valuesArray) {
+export function addExponentiallyWeightedToHistory (value, valuesArray) {
     if (valuesArray.length === 0) {
         return valuesArray.concat([value]);
     }
 
-    var movingAverage = (value * MOVING_AVERAGE_ALPHA) + (valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA));
+    let movingAverage = (value * MOVING_AVERAGE_ALPHA) + (valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA));
     if (value < 1) {
         movingAverage = 0;
     }
@@ -191,14 +191,14 @@ function addExponentiallyWeightedToHistory (value, valuesArray) {
 // DagreD3 Graph-related functions
 // ===============================
 
-function initializeGraph()
+export function initializeGraph()
 {
     return new dagreD3.graphlib.Graph({compound: true})
         .setGraph({rankdir: 'BT'})
         .setDefaultEdgeLabel(function () { return {}; });
 }
 
-function initializeSvg(selector)
+export function initializeSvg(selector)
 {
     const svg = d3.select(selector);
     svg.append("g");
@@ -206,10 +206,10 @@ function initializeSvg(selector)
     return svg;
 }
 
-function computeSources(nodeInfo)
+export function computeSources(nodeInfo)
 {
-    var sources = [];
-    var remoteSources = []; // TODO: put remoteSources in node-specific section
+    let sources = [];
+    let remoteSources = []; // TODO: put remoteSources in node-specific section
     switch (nodeInfo['@type']) {
         case 'output':
         case 'explainAnalyze':
@@ -278,7 +278,7 @@ function updateClusterInfo() {
     });
 }
 
-function truncateString(inputString, length) {
+export function truncateString(inputString, length) {
     if (inputString && inputString.length > length) {
         return inputString.substring(0, length) + "...";
     }
@@ -286,29 +286,20 @@ function truncateString(inputString, length) {
     return inputString;
 }
 
-function getStageId(stageId) {
-    return stageId.slice(stageId.indexOf('.') + 1, stageId.length)
+export function getStageNumber(stageId) {
+    return Number.parseInt(stageId.slice(stageId.indexOf('.') + 1, stageId.length))
 }
 
-function getTaskIdSuffix(taskId) {
+export function getTaskIdSuffix(taskId) {
     return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
 }
 
-function getTaskIdInStage(taskId) {
+export function getTaskNumber(taskId) {
     return Number.parseInt(getTaskIdSuffix(getTaskIdSuffix(taskId)));
 }
 
-function formatState(state, fullyBlocked) {
-    if (fullyBlocked && state === "RUNNING") {
-        return "BLOCKED";
-    }
-    else {
-        return state;
-    }
-}
-
-function getFirstParameter(searchString) {
-    var searchText = searchString.substring(1);
+export function getFirstParameter(searchString) {
+    const searchText = searchString.substring(1);
 
     if (searchText.indexOf('&') !== -1) {
         return searchText.substring(0, searchText.indexOf('&'));
@@ -317,31 +308,31 @@ function getFirstParameter(searchString) {
     return searchText;
 }
 
-function getHostname(url) {
-    var hostname = new URL(url).hostname;
+export function getHostname(url) {
+    let hostname = new URL(url).hostname;
     if ((hostname.charAt(0) === '[') && (hostname.charAt(hostname.length - 1) === ']')) {
         hostname = hostname.substr(1, hostname.length - 2);
     }
     return hostname;
 }
 
-function getPort(url) {
+export function getPort(url) {
     return new URL(url).port;
 }
 
-function getHostAndPort(url) {
-    var url = new URL(url);
+export function getHostAndPort(urlStr) {
+    const url = new URL(urlStr);
     return url.hostname + ":" + url.port;
 }
 
-function computeRate(count, ms) {
-    if (ms == 0) {
+export function computeRate(count, ms) {
+    if (ms === 0) {
         return 0;
     }
     return (count / ms) * 1000.0;
 }
 
-function precisionRound(n) {
+export function precisionRound(n) {
     if (n < 10) {
         return n.toFixed(2);
     }
@@ -351,8 +342,8 @@ function precisionRound(n) {
     return Math.round(n);
 }
 
-function formatDuration(duration) {
-    var unit = "ms";
+export function formatDuration(duration) {
+    let unit = "ms";
     if (duration > 1000) {
         duration /= 1000;
         unit = "s";
@@ -376,8 +367,8 @@ function formatDuration(duration) {
     return precisionRound(duration) + unit;
 }
 
-function formatCount(count) {
-    var unit = "";
+export function formatCount(count) {
+    let unit = "";
     if (count > 1000) {
         count /= 1000;
         unit = "K";
@@ -401,16 +392,16 @@ function formatCount(count) {
     return precisionRound(count) + unit;
 }
 
-function formatDataSizeBytes(size) {
+export function formatDataSizeBytes(size) {
     return formatDataSizeMinUnit(size, "");
 }
 
-function formatDataSize(size) {
+export function formatDataSize(size) {
     return formatDataSizeMinUnit(size, "B");
 }
 
 function formatDataSizeMinUnit(size, minUnit) {
-    var unit = minUnit;
+    let unit = minUnit;
     if (size === 0) {
         return "0" + unit;
     }
@@ -437,13 +428,13 @@ function formatDataSizeMinUnit(size, minUnit) {
     return precisionRound(size) + unit;
 }
 
-function parseDataSize(value) {
-    var DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
-    var match = DATA_SIZE_PATTERN.exec(value);
+export function parseDataSize(value) {
+    const DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
+    const match = DATA_SIZE_PATTERN.exec(value);
     if (match === null) {
         return null;
     }
-    var number = parseFloat(match[1]);
+    const number = parseFloat(match[1]);
     switch (match[2]) {
         case "B":
             return number;
@@ -462,14 +453,14 @@ function parseDataSize(value) {
     }
 }
 
-function parseDuration(value) {
-    var DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
+export function parseDuration(value) {
+    const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
 
-    var match = DURATION_PATTERN.exec(value);
+    const match = DURATION_PATTERN.exec(value);
     if (match === null) {
         return null;
     }
-    var number = parseFloat(match[1]);
+    const number = parseFloat(match[1]);
     switch (match[2]) {
         case "ns":
             return number / 1000000.0;
@@ -490,70 +481,15 @@ function parseDuration(value) {
     }
 }
 
-function formatStackTrace(info) {
-    return doFormatStackTrace(info, [], "", "");
-}
-
-function doFormatStackTrace(info, parentStack, prefix, linePrefix) {
-    var s = linePrefix + prefix + failureInfoToString(info) + "\n";
-
-    if (info.stack) {
-        var sharedStackFrames = 0;
-        if (parentStack !== null) {
-            sharedStackFrames = countSharedStackFrames(info.stack, parentStack);
-        }
-
-        for (var i = 0; i < info.stack.length - sharedStackFrames; i++) {
-            s += linePrefix + "\tat " + info.stack[i] + "\n";
-        }
-        if (sharedStackFrames !== 0) {
-            s += linePrefix + "\t... " + sharedStackFrames + " more" + "\n";
-        }
-    }
-
-    if (info.suppressed) {
-        for (var i = 0; i < info.suppressed.length; i++) {
-            s += doFormatStackTrace(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
-        }
-    }
-
-    if (info.cause) {
-        s += doFormatStackTrace(info.cause, info.stack, "Caused by: ", linePrefix);
-    }
-
-    return s;
-}
-
-function countSharedStackFrames(stack, parentStack) {
-    var n = 0;
-    var minStackLength = Math.min(stack.length, parentStack.length);
-    while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
-        n++;
-    }
-    return n;
-}
-
-function failureInfoToString(t) {
-    return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
-}
-
-function formatShortTime(date) {
-    var hours = (date.getHours() % 12) || 12;
-    var minutes = (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
+export function formatShortTime(date) {
+    const hours = (date.getHours() % 12) || 12;
+    const minutes = (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
     return hours + ":" + minutes + (date.getHours() >= 12 ? "pm" : "am");
 }
 
-function formatShortDateTime(date) {
-    var year = date.getFullYear();
-    var month = "" + (date.getMonth() + 1);
-    var dayOfMonth  = "" + date.getDate();
+export function formatShortDateTime(date) {
+    const year = date.getFullYear();
+    const month = "" + (date.getMonth() + 1);
+    const dayOfMonth = "" + date.getDate();
     return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
-}
-
-function removeQueryId(id) {
-    var pos = id.indexOf('.');
-    if (pos !== -1) {
-        return id.substring(pos + 1);
-    }
-    return id;
 }

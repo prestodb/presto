@@ -14,6 +14,14 @@
 
 import React from "react";
 
+import {
+    addToHistory,
+    formatCount,
+    formatDataSize,
+    getFirstParameter,
+    precisionRound
+} from "../utils";
+
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
     height: '57px',
@@ -87,7 +95,7 @@ export class WorkerStatus extends React.Component {
         new Clipboard('.copy-button');
     }
 
-    renderPoolBar(name, pool) {
+    static renderPoolBar(name, pool) {
         if (!pool) {
             return;
         }
@@ -135,11 +143,10 @@ export class WorkerStatus extends React.Component {
                     </div>
                 </div>
             </div>
-
         )
     }
 
-    renderPoolQuery(query, reserved, revocable, total) {
+    static renderPoolQuery(query, reserved, revocable, total) {
         return (
             <tr>
                 <td>
@@ -214,7 +221,7 @@ export class WorkerStatus extends React.Component {
             <div>
                 <table className="table">
                     <tbody>
-                    {Object.keys(queries).map(key => this.renderPoolQuery(key, queries[key][0], queries[key][1], size))}
+                    {Object.keys(queries).map(key => WorkerStatus.renderPoolQuery(key, queries[key][0], queries[key][1], size))}
                     </tbody>
                 </table>
             </div>
@@ -411,11 +418,11 @@ export class WorkerStatus extends React.Component {
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-xs-6">
-                                {this.renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
+                                {WorkerStatus.renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
                                 {this.renderPoolQueries(serverInfo.memoryInfo.pools.general)}
                             </div>
                             <div className="col-xs-6">
-                                {this.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved)}
+                                {WorkerStatus.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved)}
                                 {this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved)}
                             </div>
                         </div>

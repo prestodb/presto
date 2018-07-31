@@ -14,6 +14,24 @@
 
 import React from "react";
 import ReactDOM from "react-dom";
+import ReactDOMServer from "react-dom/server";
+
+import {
+    computeSources,
+    formatCount,
+    formatDataSize,
+    formatDuration,
+    getFirstParameter,
+    getProgressBarPercentage,
+    getProgressBarTitle,
+    getQueryStateColor,
+    getTaskNumber,
+    initializeGraph,
+    initializeSvg,
+    isQueryEnded,
+    parseDataSize,
+    parseDuration
+} from "../utils";
 
 function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall)
@@ -173,7 +191,7 @@ class OperatorDetail extends React.Component {
     getOperatorTasks() {
         // sort the x-axis
         const tasks = this.props.tasks.sort(function (taskA, taskB) {
-            return getTaskIdInStage(taskA.taskStatus.taskId) - getTaskIdInStage(taskB.taskStatus.taskId);
+            return getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId);
         });
 
         const operatorSummary = this.props.operator;
@@ -534,7 +552,7 @@ export class StagePerformance extends React.Component {
         const query = this.state.query;
         const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
-        if (isQueryComplete(query)) {
+        if (isQueryEnded(query)) {
             return (
                 <div className="progress-large">
                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
@@ -663,7 +681,7 @@ export class StagePerformance extends React.Component {
         }
 
         let stageOperatorGraph = null;
-        if (!isQueryComplete(query)) {
+        if (!isQueryEnded(query)) {
             stageOperatorGraph = (
                 <div className="row error-message">
                     <div className="col-xs-12">

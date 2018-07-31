@@ -15,6 +15,31 @@
 import React from "react";
 import Reactable from "reactable";
 
+import {
+    addToHistory,
+    computeRate,
+    formatCount,
+    formatDataSize,
+    formatDataSizeBytes,
+    formatDuration,
+    formatShortDateTime,
+    getFirstParameter,
+    getHostAndPort,
+    getHostname,
+    getPort,
+    getProgressBarPercentage,
+    getProgressBarTitle,
+    getQueryStateColor,
+    getStageNumber,
+    getStageStateColor,
+    getTaskIdSuffix,
+    getTaskNumber,
+    GLYPHICON_HIGHLIGHT,
+    isQueryEnded,
+    parseDataSize,
+    parseDuration, precisionRound
+} from "../utils";
+
 const Table = Reactable.Table,
     Thead = Reactable.Thead,
     Th = Reactable.Th,
@@ -22,9 +47,17 @@ const Table = Reactable.Table,
     Td = Reactable.Td;
 
 class TaskList extends React.Component {
+    static removeQueryId(id) {
+        const pos = id.indexOf('.');
+        if (pos !== -1) {
+            return id.substring(pos + 1);
+        }
+        return id;
+    }
+
     static compareTaskId(taskA, taskB) {
-        const taskIdArrA = removeQueryId(taskA).split(".");
-        const taskIdArrB = removeQueryId(taskB).split(".");
+        const taskIdArrA = TaskList.removeQueryId(taskA).split(".");
+        const taskIdArrB = TaskList.removeQueryId(taskB).split(".");
 
         if (taskIdArrA.length > taskIdArrB.length) {
             return 1;
@@ -54,6 +87,15 @@ class TaskList extends React.Component {
         }
 
         return false;
+    }
+
+    static formatState(state, fullyBlocked) {
+        if (fullyBlocked && state === "RUNNING") {
+            return "BLOCKED";
+        }
+        else {
+            return state;
+        }
     }
 
     render() {
@@ -86,8 +128,8 @@ class TaskList extends React.Component {
                             {showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
                         </a>
                     </Td>
-                    <Td column="state" value={formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
-                        {formatState(task.taskStatus.state, task.stats.fullyBlocked)}
+                    <Td column="state" value={TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
+                        {TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}
                     </Td>
                     <Td column="rows" value={task.stats.rawInputPositions}>
                         {formatCount(task.stats.rawInputPositions)}
@@ -260,7 +302,7 @@ class StageDetail extends React.Component {
         const numTasks = stage.tasks.length;
 
         // sort the x-axis
-        stage.tasks.sort((taskA, taskB) => getTaskIdInStage(taskA.taskStatus.taskId) - getTaskIdInStage(taskB.taskStatus.taskId));
+        stage.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId));
 
         const scheduledTimes = stage.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
         const cpuTimes = stage.tasks.map(task => parseDuration(task.stats.totalCpuTime));
@@ -268,7 +310,7 @@ class StageDetail extends React.Component {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
-            const stageId = getStageId(stage.stageId);
+            const stageId = getStageNumber(stage.stageId);
 
             StageDetail.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
             StageDetail.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
@@ -277,7 +319,7 @@ class StageDetail extends React.Component {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
                 const tooltipValueLookups = {'offset': {}};
                 for (let i = 0; i < numTasks; i++) {
-                    tooltipValueLookups['offset'][i] = getStageId(stage.stageId) + "." + i;
+                    tooltipValueLookups['offset'][i] = getStageNumber(stage.stageId) + "." + i;
                 }
 
                 const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups});
@@ -305,7 +347,7 @@ class StageDetail extends React.Component {
             .map(task => task.outputBuffers.totalBufferedBytes)
             .reduce((a, b) => a + b, 0);
 
-        const stageId = getStageId(stage.stageId);
+        const stageId = getStageNumber(stage.stageId);
 
         return (
             <tr>
@@ -619,6 +661,53 @@ export class QueryDetail extends React.Component {
         this.refreshLoop = this.refreshLoop.bind(this);
     }
 
+    static formatStackTrace(info) {
+        return QueryDetail.formatStackTraceHelper(info, [], "", "");
+    }
+
+    static formatStackTraceHelper(info, parentStack, prefix, linePrefix) {
+        let s = linePrefix + prefix + QueryDetail.failureInfoToString(info) + "\n";
+
+        if (info.stack) {
+            let sharedStackFrames = 0;
+            if (parentStack !== null) {
+                sharedStackFrames = QueryDetail.countSharedStackFrames(info.stack, parentStack);
+            }
+
+            for (let i = 0; i < info.stack.length - sharedStackFrames; i++) {
+                s += linePrefix + "\tat " + info.stack[i] + "\n";
+            }
+            if (sharedStackFrames !== 0) {
+                s += linePrefix + "\t... " + sharedStackFrames + " more" + "\n";
+            }
+        }
+
+        if (info.suppressed) {
+            for (let i = 0; i < info.suppressed.length; i++) {
+                s += QueryDetail.formatStackTraceHelper(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
+            }
+        }
+
+        if (info.cause) {
+            s += QueryDetail.formatStackTraceHelper(info.cause, info.stack, "Caused by: ", linePrefix);
+        }
+
+        return s;
+    }
+
+    static countSharedStackFrames(stack, parentStack) {
+        let n = 0;
+        const minStackLength = Math.min(stack.length, parentStack.length);
+        while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
+            n++;
+        }
+        return n;
+    }
+
+    static failureInfoToString(t) {
+        return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
+    }
+
     resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
@@ -930,7 +1019,7 @@ export class QueryDetail extends React.Component {
         const query = this.state.query;
         const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
-        if (isQueryComplete(query)) {
+        if (isQueryEnded(query)) {
             return (
                 <div className="progress-large">
                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
@@ -1000,7 +1089,7 @@ export class QueryDetail extends React.Component {
                                 </td>
                                 <td className="info-text">
                                         <pre id="stack-trace">
-                                            {formatStackTrace(query.failureInfo)}
+                                            {QueryDetail.formatStackTrace(query.failureInfo)}
                                         </pre>
                                 </td>
                             </tr>

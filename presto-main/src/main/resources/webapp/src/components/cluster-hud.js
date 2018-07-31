@@ -14,6 +14,14 @@
 
 import React from "react";
 
+import {
+    addExponentiallyWeightedToHistory,
+    addToHistory,
+    formatCount,
+    formatDataSizeBytes,
+    precisionRound
+} from "../utils";
+
 const SPARKLINE_PROPERTIES = {
     width: '100%',
     height: '75px',

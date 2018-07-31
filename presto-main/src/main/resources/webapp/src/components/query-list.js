@@ -14,8 +14,22 @@
 
 import React from "react";
 
+import {
+    formatDataSizeBytes,
+    formatShortTime,
+    getHumanReadableState,
+    getProgressBarPercentage,
+    getProgressBarTitle,
+    getQueryStateColor,
+    GLYPHICON_DEFAULT,
+    GLYPHICON_HIGHLIGHT,
+    parseDataSize,
+    parseDuration,
+    truncateString
+} from "../utils";
+
 export class QueryListItem extends React.Component {
-    formatQueryText(queryText) {
+    static stripQueryTextWhitespace(queryText) {
         const lines = queryText.split("\n");
         let minLeadingWhitespace = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -161,7 +175,7 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{this.formatQueryText(query.query)}</code></pre>
+                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query)}</code></pre>
                             </div>
                         </div>
                     </div>
