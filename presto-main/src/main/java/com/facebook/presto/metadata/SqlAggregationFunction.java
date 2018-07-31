@@ -30,6 +30,7 @@ public abstract class SqlAggregationFunction
         implements SqlFunction
 {
     private final Signature signature;
+    private final boolean hidden;
 
     public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
@@ -42,12 +43,6 @@ public abstract class SqlAggregationFunction
                 .stream()
                 .map(x -> (SqlAggregationFunction) x)
                 .collect(toImmutableList());
-    }
-
-    protected SqlAggregationFunction(Signature signature)
-    {
-        requireNonNull(signature, "signature is null");
-        this.signature = signature;
     }
 
     protected SqlAggregationFunction(
@@ -68,13 +63,30 @@ public abstract class SqlAggregationFunction
             List<TypeSignature> argumentTypes,
             FunctionKind kind)
     {
+        this(createSignature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, kind), false);
+    }
+
+    protected SqlAggregationFunction(Signature signature, boolean hidden)
+    {
+        this.signature = requireNonNull(signature, "signature is null");
+        this.hidden = hidden;
+    }
+
+    private static Signature createSignature(
+            String name,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
+            TypeSignature returnType,
+            List<TypeSignature> argumentTypes,
+            FunctionKind kind)
+    {
         requireNonNull(name, "name is null");
         requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
         requireNonNull(longVariableConstraints, "longVariableConstraints is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         checkArgument(kind == AGGREGATE, "kind must be an aggregate");
-        this.signature = new Signature(
+        return new Signature(
                 name,
                 kind,
                 ImmutableList.copyOf(typeVariableConstraints),
@@ -93,7 +105,7 @@ public abstract class SqlAggregationFunction
     @Override
     public boolean isHidden()
     {
-        return false;
+        return hidden;
     }
 
     @Override
