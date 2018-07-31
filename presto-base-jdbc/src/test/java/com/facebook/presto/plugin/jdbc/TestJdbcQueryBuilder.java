@@ -18,13 +18,17 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -48,9 +52,14 @@ import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIME;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIMESTAMP;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TINYINT;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.jdbcChar;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.jdbcDecimal;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -69,6 +78,11 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestJdbcQueryBuilder
 {
+    private static final CharType CHAR = createCharType(16);
+    private static final DecimalType SHORT_DECIMAL = createDecimalType(9, 3);
+    private static final DecimalType LONG_DECIMAL = createDecimalType(30, 6);
+    private static final int LONG_DECIMAL_SCALE = LONG_DECIMAL.getScale();
+
     private TestingDatabase database;
     private JdbcClient jdbcClient;
 
@@ -92,7 +106,10 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT),
                 new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT),
                 new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER),
-                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL));
+                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL),
+                new JdbcColumnHandle("test_id", "col_11", jdbcChar(CHAR.getLength()), CHAR),
+                new JdbcColumnHandle("test_id", "col_12", jdbcDecimal(SHORT_DECIMAL.getPrecision(), SHORT_DECIMAL.getScale()), SHORT_DECIMAL),
+                new JdbcColumnHandle("test_id", "col_13", jdbcDecimal(LONG_DECIMAL.getPrecision(), LONG_DECIMAL_SCALE), LONG_DECIMAL));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
@@ -106,7 +123,10 @@ public class TestJdbcQueryBuilder
                 "\"col_7\" TINYINT, " +
                 "\"col_8\" SMALLINT, " +
                 "\"col_9\" INTEGER, " +
-                "\"col_10\" REAL " +
+                "\"col_10\" REAL, " +
+                "\"col_11\" " + CHAR.getDisplayName() + "," +
+                "\"col_12\" " + SHORT_DECIMAL.getDisplayName() + "," +
+                "\"col_13\" " + LONG_DECIMAL.getDisplayName() +
                 ")")) {
             preparedStatement.execute();
             StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
@@ -115,18 +135,21 @@ public class TestJdbcQueryBuilder
             for (int i = 0; i < len; i++) {
                 stringBuilder.append(format(
                         Locale.ENGLISH,
-                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f)",
-                        i,
-                        200000.0 + i / 2.0,
-                        i % 2 == 0,
-                        i,
-                        Date.valueOf(dateTime.toLocalDate()),
-                        Time.valueOf(dateTime.toLocalTime()),
-                        Timestamp.valueOf(dateTime),
-                        i % 128,
-                        -i,
-                        i - 100,
-                        100.0f + i));
+                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f, 'test_str_%03d', %s, %s)",
+                        i, // bigint
+                        200000.0 + i / 2.0, // double
+                        i % 2 == 0, // boolean
+                        i, // varchar
+                        Date.valueOf(dateTime.toLocalDate()), // date
+                        Time.valueOf(dateTime.toLocalTime()), // time
+                        Timestamp.valueOf(dateTime), // timestamp
+                        i % 128, // tinyint
+                        -i, // smallint
+                        i - 100, // integer
+                        100.0f + i,  // real
+                        i, // char
+                        format("%1$d000.%1$d", i), // decimal (short)
+                        format("%1$d000000000000000000000.000%1$d", i))); // decimal (long)
                 dateTime = dateTime.plusHours(26);
                 if (i != len - 1) {
                     stringBuilder.append(",");
@@ -201,6 +224,37 @@ public class TestJdbcQueryBuilder
     }
 
     @Test
+    public void testBuildSqlWithDecimal()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(12), Domain.create(SortedRangeSet.copyOf(SHORT_DECIMAL,
+                        ImmutableList.of(
+                                Range.equal(SHORT_DECIMAL, 123000_123L),
+                                Range.range(SHORT_DECIMAL, 484000_463L, false, 484000_500L, false),
+                                Range.lessThan(SHORT_DECIMAL, 1000_000L))),
+                        false),
+                columns.get(13), Domain.create(SortedRangeSet.copyOf(LONG_DECIMAL,
+                        ImmutableList.of(
+                                Range.range(LONG_DECIMAL,
+                                        encodeLongDecimal(BigDecimal.ZERO), true,
+                                        encodeLongDecimal("200000000000000000000000"), false),
+                                Range.equal(LONG_DECIMAL, encodeLongDecimal("484000000000000000000000.000484")))),
+                        false)));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "",
+                "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                builder.add((Long) resultSet.getObject("col_0"));
+            }
+            assertEquals(builder.build(), ImmutableSet.of(0L, 123L, 484L));
+        }
+    }
+
+    @Test
     public void testBuildSqlWithFloat()
             throws SQLException
     {
@@ -227,7 +281,7 @@ public class TestJdbcQueryBuilder
     }
 
     @Test
-    public void testBuildSqlWithString()
+    public void testBuildSqlWithStringAsVarchar()
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -250,6 +304,33 @@ public class TestJdbcQueryBuilder
             assertContains(preparedStatement.toString(), "\"col_3\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_3\" < ?");
             assertContains(preparedStatement.toString(), "\"col_3\" IN (?,?)");
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithStringAsChar()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(11), Domain.create(SortedRangeSet.copyOf(CHAR,
+                        ImmutableList.of(
+                                Range.range(CHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
+                                Range.equal(CHAR, utf8Slice("test_str_080")),
+                                Range.equal(CHAR, utf8Slice("test_str_196")))),
+                        false)));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                builder.add((String) resultSet.getObject("col_11"));
+            }
+            assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_080", "test_str_196"));
+
+            assertContains(preparedStatement.toString(), "\"col_11\" >= ?");
+            assertContains(preparedStatement.toString(), "\"col_11\" < ?");
+            assertContains(preparedStatement.toString(), "\"col_11\" IN (?,?)");
         }
     }
 
@@ -356,5 +437,15 @@ public class TestJdbcQueryBuilder
     private static Time toTime(int year, int month, int day, int hour, int minute, int second)
     {
         return Time.valueOf(LocalDateTime.of(year, month, day, hour, minute, second).toLocalTime());
+    }
+
+    private static Slice encodeLongDecimal(BigDecimal value)
+    {
+        return encodeScaledValue(value, LONG_DECIMAL_SCALE);
+    }
+
+    private static Slice encodeLongDecimal(String value)
+    {
+        return encodeLongDecimal(new BigDecimal(value));
     }
 }

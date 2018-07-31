@@ -34,4 +34,14 @@ public final class TestingJdbcTypeHandle
     public static final JdbcTypeHandle JDBC_DATE = new JdbcTypeHandle(Types.DATE, 8, 0);
     public static final JdbcTypeHandle JDBC_TIME = new JdbcTypeHandle(Types.TIME, 4, 0);
     public static final JdbcTypeHandle JDBC_TIMESTAMP = new JdbcTypeHandle(Types.TIMESTAMP, 8, 0);
+
+    public static final JdbcTypeHandle jdbcChar(int size)
+    {
+        return new JdbcTypeHandle(Types.CHAR, size, 0);
+    }
+
+    public static final JdbcTypeHandle jdbcDecimal(int precision, int scale)
+    {
+        return new JdbcTypeHandle(Types.DECIMAL, precision, scale);
+    }
 }
