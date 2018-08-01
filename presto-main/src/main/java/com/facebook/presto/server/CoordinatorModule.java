@@ -62,6 +62,7 @@ import com.facebook.presto.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
 import com.facebook.presto.memory.NoneLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
@@ -94,8 +95,13 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Use;
+import com.facebook.presto.transaction.ForTransactionManager;
+import com.facebook.presto.transaction.InMemoryTransactionManager;
+import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
@@ -104,6 +110,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -115,6 +122,7 @@ import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionF
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -255,6 +263,33 @@ public class CoordinatorModule
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }
 
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
+    {
+        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ExecutorService createTransactionFinishingExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
+    }
+
+    @Provides
+    @Singleton
+    public static TransactionManager createTransactionManager(
+            TransactionManagerConfig config,
+            CatalogManager catalogManager,
+            @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
+            @ForTransactionManager ExecutorService finishingExecutor)
+    {
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+    }
+
     private static <T extends Statement> void bindDataDefinitionTask(
             Binder binder,
             MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder,
@@ -284,11 +319,15 @@ public class CoordinatorModule
         @Inject
         public ExecutorCleanup(
                 @ForQueryExecution ExecutorService queryExecutionExecutor,
-                @ForScheduler ScheduledExecutorService schedulerExecutor)
+                @ForScheduler ScheduledExecutorService schedulerExecutor,
+                @ForTransactionManager ExecutorService transactionFinishingExecutor,
+                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
         {
             executors = ImmutableList.<ExecutorService>builder()
                     .add(queryExecutionExecutor)
                     .add(schedulerExecutor)
+                    .add(transactionFinishingExecutor)
+                    .add(transactionIdleExecutor)
                     .build();
         }
 
