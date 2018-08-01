@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
+import com.facebook.presto.plugin.geospatial.aggregation.GeometryUnionAgg;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ public class GeoPlugin
                 .add(BingTileOperators.class)
                 .add(BingTileFunctions.class)
                 .add(BingTileCoordinatesFunction.class)
+                .add(GeometryUnionAgg.class)
                 .build();
     }
 }
