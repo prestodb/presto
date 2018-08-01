@@ -65,7 +65,7 @@ public class BenchmarkReorderChainedJoins
     @State(Thread)
     public static class BenchmarkInfo
     {
-        @Param({"ELIMINATE_CROSS_JOINS", "COST_BASED"})
+        @Param({"ELIMINATE_CROSS_JOINS", "AUTOMATIC"})
         private String joinReorderingStrategy;
 
         private LocalQueryRunner queryRunner;

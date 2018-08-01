@@ -39,7 +39,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -510,7 +510,7 @@ public final class SystemSessionProperties
             if (!distributedJoin) {
                 return BROADCAST;
             }
-            return REPARTITIONED;
+            return PARTITIONED;
         }
 
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);

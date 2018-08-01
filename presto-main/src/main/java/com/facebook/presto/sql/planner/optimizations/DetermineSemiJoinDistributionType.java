@@ -85,7 +85,7 @@ public class DetermineSemiJoinDistributionType
 
         private SemiJoinNode.DistributionType getTargetSemiJoinDistributionType(boolean isDeleteQuery)
         {
-            if (getJoinDistributionType(session).canRepartition() && !isDeleteQuery) {
+            if (getJoinDistributionType(session).canPartition() && !isDeleteQuery) {
                 return SemiJoinNode.DistributionType.PARTITIONED;
             }
 
