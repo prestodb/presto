@@ -148,6 +148,40 @@ public class TestPostgreSqlIntegrationSmokeTest
         }
     }
 
+    @Test
+    public void testDecimalPredicatePushdown()
+            throws Exception
+    {
+        try (AutoCloseable ignoreTable = withTable("tpch.test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            execute("INSERT INTO tpch.test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
+
+            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 123.321",
+                    "VALUES (123.321, 123456789.987654321)");
+            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456789.987654321",
+                    "VALUES (123.321, 123456789.987654321)");
+        }
+    }
+
+    @Test
+    public void testCharPredicatePushdown()
+            throws Exception
+    {
+        try (AutoCloseable ignoreTable = withTable("tpch.test_char_pushdown",
+                "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
+            execute("INSERT INTO tpch.test_char_pushdown VALUES" +
+                    "('0', '0'    , '0'         )," +
+                    "('1', '12345', '1234567890')");
+
+            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_1 = '0' AND char_5 = '0    '",
+                    "VALUES ('0', '0    ', '0         ')");
+            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'",
+                    "VALUES ('1', '12345', '1234567890')");
+            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_10 = CHAR'0         '",
+                    "VALUES ('0', '0    ', '0         ')");
+        }
+    }
+
     private AutoCloseable withTable(String tableName, String tableDefinition)
             throws Exception
     {
