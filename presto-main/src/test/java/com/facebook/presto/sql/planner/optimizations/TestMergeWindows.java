@@ -201,7 +201,10 @@ public class TestMergeWindows
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
                                                 .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                        project(ImmutableMap.of(
+                                                "quantity_3", expression("CAST(\"quantity\" AS double)"),
+                                                "ONE", expression("CAST(1 AS bigint)"),
+                                                "ZERO", expression("0.0E0")),
                                                 LINEITEM_TABLESCAN_DOQSS)))));
     }
 
@@ -254,7 +257,10 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
                                         .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                project(ImmutableMap.of(
+                                        "quantity_3", expression("CAST(\"quantity\" AS double)"),
+                                        "ONE", expression("CAST(1 AS bigint)"),
+                                        "ZERO", expression("0.0E0")),
                                         LINEITEM_TABLESCAN_DOQS))));
     }
 
@@ -434,7 +440,7 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        filter("SUM = AVG",
+                        filter("SUM = CAST(\"avg\" AS decimal(38,2))",
                                 join(JoinNode.Type.INNER, ImmutableList.of(),
                                         any(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
