@@ -150,6 +150,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.transaction.ForTransactionManager;
+import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
@@ -611,7 +612,7 @@ public class ServerMainModule
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return TransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
     }
 
     private static void bindFailureDetector(Binder binder, boolean coordinator)

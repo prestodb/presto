@@ -31,8 +31,8 @@ import java.util.Set;
 
 import static com.facebook.presto.security.FileBasedSystemAccessControl.Factory.CONFIG_FILE_NAME;
 import static com.facebook.presto.spi.security.Privilege.SELECT;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
