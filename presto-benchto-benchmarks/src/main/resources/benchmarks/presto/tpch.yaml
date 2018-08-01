@@ -15,17 +15,17 @@ variables:
   1:
     query: q05, q07, q08, q09, q17, q18, q21
     schema: ${tpch_300}
-    join_reordering_strategy: ELIMINATE_CROSS_JOINS, COST_BASED
-    join_distribution_type: REPARTITIONED, AUTOMATIC
+    join_reordering_strategy: ELIMINATE_CROSS_JOINS, AUTOMATIC
+    join_distribution_type: PARTITIONED, AUTOMATIC
 
   2:
     query: q01, q02, q03, q04, q10, q12, q13, q15, q20
     schema: ${tpch_1000}
-    join_reordering_strategy: ELIMINATE_CROSS_JOINS, COST_BASED
-    join_distribution_type: REPARTITIONED, AUTOMATIC
+    join_reordering_strategy: ELIMINATE_CROSS_JOINS, AUTOMATIC
+    join_distribution_type: PARTITIONED, AUTOMATIC
 
   3:
     query: q06, q11, q14, q16, q19, q22
     schema: ${tpch_3000}
-    join_reordering_strategy: ELIMINATE_CROSS_JOINS, COST_BASED
-    join_distribution_type: REPARTITIONED, AUTOMATIC
+    join_reordering_strategy: ELIMINATE_CROSS_JOINS, AUTOMATIC
+    join_distribution_type: PARTITIONED, AUTOMATIC

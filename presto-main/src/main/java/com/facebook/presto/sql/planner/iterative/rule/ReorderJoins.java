@@ -60,7 +60,7 @@ import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.EqualityInference.nonInferrableConjuncts;
@@ -113,7 +113,7 @@ public class ReorderJoins
     @Override
     public boolean isEnabled(Session session)
     {
-        return getJoinReorderingStrategy(session) == COST_BASED;
+        return getJoinReorderingStrategy(session) == AUTOMATIC;
     }
 
     @Override
@@ -372,7 +372,7 @@ public class ReorderJoins
 
             List<JoinEnumerationResult> possibleJoinNodes = new ArrayList<>();
             JoinDistributionType joinDistributionType = getJoinDistributionType(session);
-            if (joinDistributionType.canRepartition() && !joinNode.isCrossJoin()) {
+            if (joinDistributionType.canPartition() && !joinNode.isCrossJoin()) {
                 possibleJoinNodes.add(createJoinEnumerationResult(joinNode.withDistributionType(PARTITIONED)));
                 possibleJoinNodes.add(createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(PARTITIONED)));
             }

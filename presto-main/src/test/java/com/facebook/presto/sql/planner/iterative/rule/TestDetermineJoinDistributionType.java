@@ -44,7 +44,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testDetermineDistributionType()
     {
-        testDetermineDistributionType(JoinDistributionType.REPARTITIONED, INNER, DistributionType.PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.PARTITIONED, INNER, DistributionType.PARTITIONED);
         testDetermineDistributionType(JoinDistributionType.BROADCAST, INNER, DistributionType.REPLICATED);
         testDetermineDistributionType(JoinDistributionType.AUTOMATIC, INNER, DistributionType.PARTITIONED);
     }
@@ -52,7 +52,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testDetermineDistributionTypeForLeftOuter()
     {
-        testDetermineDistributionType(JoinDistributionType.REPARTITIONED, LEFT, DistributionType.PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.PARTITIONED, LEFT, DistributionType.PARTITIONED);
         testDetermineDistributionType(JoinDistributionType.BROADCAST, LEFT, DistributionType.REPLICATED);
         testDetermineDistributionType(JoinDistributionType.AUTOMATIC, LEFT, DistributionType.PARTITIONED);
     }
@@ -81,8 +81,8 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testRepartitionRightOuter()
     {
-        testRepartitionRightOuter(JoinDistributionType.REPARTITIONED, FULL);
-        testRepartitionRightOuter(JoinDistributionType.REPARTITIONED, RIGHT);
+        testRepartitionRightOuter(JoinDistributionType.PARTITIONED, FULL);
+        testRepartitionRightOuter(JoinDistributionType.PARTITIONED, RIGHT);
         testRepartitionRightOuter(JoinDistributionType.BROADCAST, FULL);
         testRepartitionRightOuter(JoinDistributionType.BROADCAST, RIGHT);
         testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, FULL);
@@ -123,7 +123,7 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.REPARTITIONED.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
@@ -151,7 +151,7 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.of(expression("A1 * B1 > 100"))))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.REPARTITIONED.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         joinType,
                         ImmutableList.of(),

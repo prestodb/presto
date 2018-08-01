@@ -17,13 +17,13 @@ General Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
-    * **Allowed values:** ``AUTOMATIC``, ``REPARTITIONED``, ``BROADCAST``
-    * **Default value:** ``REPARTITIONED``
+    * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
+    * **Default value:** ``PARTITIONED``
 
-    The type of distributed join to use.  When set to ``REPARTITIONED``, presto will
+    The type of distributed join to use.  When set to ``PARTITIONED``, presto will
     use hash distributed joins.  When set to ``BROADCAST``, it will broadcast the
     right table to all nodes in the cluster that have data from the left table.
-    Repartitioned joins require redistributing both tables using a hash of the join key.
+    Partitioned joins require redistributing both tables using a hash of the join key.
     This can be slower (sometimes substantially) than broadcast joins, but allows much
     larger joins. In particular broadcast joins will be faster if the right table is
     much smaller than the left.  However, broadcast joins require that the tables on the right
@@ -481,13 +481,13 @@ Optimizer Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
-    * **Allowed values:** ``COST_BASED``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
+    * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
     * **Default value:** ``ELIMINATE_CROSS_JOINS``
 
     The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
     query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where possible and
     otherwise maintains the original query order. When reordering joins it also strives to maintain the
-    original table order as much as possible. ``COST_BASED`` enumerates possible orders and uses
+    original table order as much as possible. ``AUTOMATIC`` enumerates possible orders and uses
     statistics-based cost estimation to determine the least cost order. If stats are not available or if
     for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used. This can
     also be specified on a per-query basis using the ``join_reordering_strategy`` session property.

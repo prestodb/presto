@@ -35,7 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,7 +63,7 @@ public class FeaturesConfig
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
-    private JoinDistributionType joinDistributionType = REPARTITIONED;
+    private JoinDistributionType joinDistributionType = PARTITIONED;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private int concurrentLifespansPerTask;
@@ -125,18 +125,18 @@ public class FeaturesConfig
     {
         NONE,
         ELIMINATE_CROSS_JOINS,
-        COST_BASED,
+        AUTOMATIC,
     }
 
     public enum JoinDistributionType
     {
         BROADCAST,
-        REPARTITIONED,
+        PARTITIONED,
         AUTOMATIC;
 
-        public boolean canRepartition()
+        public boolean canPartition()
         {
-            return this == REPARTITIONED || this == AUTOMATIC;
+            return this == PARTITIONED || this == AUTOMATIC;
         }
 
         public boolean canReplicate()

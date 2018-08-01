@@ -65,7 +65,7 @@ public class DetermineJoinDistributionType
             return REPLICATED;
         }
 
-        if (getJoinDistributionType(context.getSession()).canRepartition()) {
+        if (getJoinDistributionType(context.getSession()).canPartition()) {
             return PARTITIONED;
         }
 

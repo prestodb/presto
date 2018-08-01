@@ -64,7 +64,7 @@ public class BenchmarkReorderInterconnectedJoins
     @State(Thread)
     public static class BenchmarkInfo
     {
-        @Param({"ELIMINATE_CROSS_JOINS", "COST_BASED"})
+        @Param({"ELIMINATE_CROSS_JOINS", "AUTOMATIC"})
         private String joinReorderingStrategy;
 
         @Param({"2", "4", "6", "8", "10"})
