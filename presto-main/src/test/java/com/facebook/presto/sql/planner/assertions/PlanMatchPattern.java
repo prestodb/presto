@@ -129,14 +129,6 @@ public final class PlanMatchPattern
         return TableScanMatcher.create(expectedTableName);
     }
 
-    public static PlanMatchPattern tableScan(String expectedTableName, String originalConstraint)
-    {
-        Expression expectedOriginalConstraint = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(originalConstraint));
-        return TableScanMatcher.builder(expectedTableName)
-                .expectedOriginalConstraint(expectedOriginalConstraint)
-                .build();
-    }
-
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, String> columnReferences)
     {
         PlanMatchPattern result = tableScan(expectedTableName);

@@ -34,7 +34,6 @@ public class DesugarLambdaExpression
                 projectExpressionRewrite(),
                 aggregationExpressionRewrite(),
                 filterExpressionRewrite(),
-                tableScanExpressionRewrite(),
                 joinExpressionRewrite(),
                 valuesExpressionRewrite());
     }
