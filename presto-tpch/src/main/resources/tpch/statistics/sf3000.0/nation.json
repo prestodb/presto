@@ -1,21 +1,23 @@
-{
-  "rowCount" : 25,
-  "columns" : {
-    "n_nationkey" : {
-     "distinctValuesCount" : 19,
-      "min" : 0,
-      "max" : 24
-    },
-    "n_name" : {
-      "distinctValuesCount" : 24
-    },
-    "n_regionkey" : {
-      "distinctValuesCount" : 5,
-      "min" : 0,
-      "max" : 4
-    },
-    "n_comment" : {
-      "distinctValuesCount" : 31
+ {
+    "rowCount" : 25.0,
+     "columns" : {
+        "n_regionkey" : {
+             "distinctValuesCount" : 5.0,
+             "min" : 0,
+             "max" : 4
+        },
+        "n_nationkey" : {
+             "distinctValuesCount" : 19.0,
+             "min" : 0,
+             "max" : 24
+        },
+        "n_name" : {
+             "dataSize" : 177.0,
+             "distinctValuesCount" : 24.0
+        },
+        "n_comment" : {
+             "dataSize" : 1857.0,
+             "distinctValuesCount" : 31.0
+        }
     }
-  }
 }

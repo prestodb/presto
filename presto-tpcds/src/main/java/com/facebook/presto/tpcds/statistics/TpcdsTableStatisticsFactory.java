@@ -79,6 +79,7 @@ public class TpcdsTableStatisticsFactory
                         columnStatisticsData.getMax()
                                 .map(value -> toPrestoValue(value, type)))
                 .setDistinctValuesCount(new Estimate(columnStatisticsData.getDistinctValuesCount()))
+                .setDataSize(columnStatisticsData.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()))
                 .setFraction(new Estimate(((double) rowCount - nullCount) / rowCount))
                 .build());
 
