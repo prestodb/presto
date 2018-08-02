@@ -21,6 +21,8 @@
     ]
   },
   "scripts": {
-    "package": "webpack --config webpack.config.js"
+    "install": "webpack --config webpack.config.js",
+    "package": "webpack --config webpack.config.js",
+    "watch": "webpack --config webpack.config.js --watch"
   }
 }
