@@ -36,16 +36,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class AggregationMatcher
         implements Matcher
 {
+    private final PlanMatchPattern.GroupingSetDescriptor groupingSets;
     private final Map<Symbol, Symbol> masks;
-    private final List<List<String>> groupingSets;
     private final List<String> preGroupedSymbols;
     private final Optional<Symbol> groupId;
     private final Step step;
 
-    public AggregationMatcher(List<List<String>> groupingSets, List<String> preGroupedSymbols, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
+    public AggregationMatcher(PlanMatchPattern.GroupingSetDescriptor groupingSets, List<String> preGroupedSymbols, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
-        this.masks = masks;
         this.groupingSets = groupingSets;
+        this.masks = masks;
         this.preGroupedSymbols = preGroupedSymbols;
         this.groupId = groupId;
         this.step = step;
@@ -67,7 +67,15 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        if (groupingSets.size() != aggregationNode.getGroupingSets().size()) {
+        if (!matches(groupingSets.getGroupingKeys(), aggregationNode.getGroupingKeys(), symbolAliases)) {
+            return NO_MATCH;
+        }
+
+        if (groupingSets.getGroupingSetCount() != aggregationNode.getGroupingSetCount()) {
+            return NO_MATCH;
+        }
+
+        if (!groupingSets.getGlobalGroupingSets().equals(aggregationNode.getGlobalGroupingSets())) {
             return NO_MATCH;
         }
 
@@ -84,12 +92,6 @@ public class AggregationMatcher
 
         for (Symbol symbol : aggregationsWithMask) {
             if (!masks.keySet().contains(symbol)) {
-                return NO_MATCH;
-            }
-        }
-
-        for (int i = 0; i < groupingSets.size(); i++) {
-            if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i), symbolAliases)) {
                 return NO_MATCH;
             }
         }

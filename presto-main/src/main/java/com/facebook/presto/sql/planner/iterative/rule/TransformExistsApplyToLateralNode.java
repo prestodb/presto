@@ -44,6 +44,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
@@ -162,7 +163,7 @@ public class TransformExistsApplyToLateralNode
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
-                                ImmutableList.of(ImmutableList.of()),
+                                globalAggregation(),
                                 ImmutableList.of(),
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),

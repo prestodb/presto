@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
@@ -92,15 +91,13 @@ public class SymbolMapper
                     aggregation.getMask().map(this::map)));
         }
 
-        List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
-                .map(this::mapAndDistinct)
-                .collect(toImmutableList());
-
         return new AggregationNode(
                 newNodeId,
                 source,
                 aggregations.build(),
-                groupingSets,
+                mapAndDistinct(node.getGroupingKeys()),
+                node.getGroupingSetCount(),
+                node.getGlobalGroupingSets(),
                 ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),

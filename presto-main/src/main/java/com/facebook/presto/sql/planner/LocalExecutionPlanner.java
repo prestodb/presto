@@ -2445,13 +2445,6 @@ public class LocalExecutionPlanner
                 aggregationOutputSymbols.add(symbol);
             }
 
-            ImmutableList.Builder<Integer> globalAggregationGroupIds = ImmutableList.builder();
-            for (int i = 0; i < node.getGroupingSets().size(); i++) {
-                if (node.getGroupingSets().get(i).isEmpty()) {
-                    globalAggregationGroupIds.add(i);
-                }
-            }
-
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             // add group-by key fields each in a separate channel
             int channel = 0;
@@ -2498,7 +2491,7 @@ public class LocalExecutionPlanner
                         node.getId(),
                         groupByTypes,
                         groupByChannels,
-                        globalAggregationGroupIds.build(),
+                        ImmutableList.copyOf(node.getGlobalGroupingSets()),
                         node.getStep(),
                         node.hasDefaultOutput(),
                         accumulatorFactories,
