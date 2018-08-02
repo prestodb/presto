@@ -24,6 +24,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
 
 import java.util.Base64;
@@ -273,6 +274,26 @@ public final class VarbinaryFunctions
     {
         Slice hash = Slices.allocate(Long.BYTES);
         hash.setLong(0, Long.reverseBytes(XxHash64.hash(slice)));
+        return hash;
+    }
+
+    @Description("compute SpookyHashV2 32-bit hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice spookyHashV2_32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        Slice hash = Slices.allocate(Integer.BYTES);
+        hash.setInt(0, Integer.reverseBytes(SpookyHashV2.hash32(slice, 0, slice.length(), 0)));
+        return hash;
+    }
+
+    @Description("compute SpookyHashV2 64-bit hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice spookyHashV2_64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        Slice hash = Slices.allocate(Long.BYTES);
+        hash.setLong(0, Long.reverseBytes(SpookyHashV2.hash64(slice, 0, slice.length(), 0)));
         return hash;
     }
 
