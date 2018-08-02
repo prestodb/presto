@@ -370,8 +370,7 @@ public class TestCostCalculator
                 symbolsList,
                 assignments.build(),
                 Optional.empty(),
-                TupleDomain.all(),
-                null);
+                TupleDomain.all());
     }
 
     private PlanNode project(String id, PlanNode source, String symbol, Expression expression)

@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -106,15 +105,6 @@ public class ExpressionExtractor
         {
             context.addAll(node.getAssignments().getExpressions());
             return super.visitProject(node, context);
-        }
-
-        @Override
-        public Void visitTableScan(TableScanNode node, ImmutableList.Builder<Expression> context)
-        {
-            if (node.getOriginalConstraint() != null) {
-                context.add(node.getOriginalConstraint());
-            }
-            return super.visitTableScan(node, context);
         }
 
         @Override
