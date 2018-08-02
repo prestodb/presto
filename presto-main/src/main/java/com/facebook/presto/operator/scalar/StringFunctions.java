@@ -34,8 +34,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 
+import java.nio.ByteBuffer;
 import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
@@ -553,6 +558,61 @@ public final class StringFunctions
             codePoints++;
         }
         return codePoints;
+    }
+
+    // see: https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF
+    @Description("the input string by replacing the characters present in the from string with the corresponding characters in the to string")
+    @ScalarFunction("translate")
+    @LiteralParameters({"x", "y", "z"})
+    @SqlType("varchar(x)")
+    public static Slice translate(@SqlNullable @SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+    {
+        if (string == null) {
+            return null;
+        }
+
+        Map<Integer, Integer> replacementMap = new HashMap<Integer, Integer>();
+        Set<Integer> deletionSet = new HashSet<Integer>();
+        replacementMap.clear();
+        deletionSet.clear();
+
+        String fromAscii = from.toStringAscii();
+        String toAscii = to.toStringAscii();
+        ByteBuffer fromBytes = ByteBuffer.wrap(fromAscii.getBytes());
+        ByteBuffer toBytes = ByteBuffer.wrap(toAscii.getBytes());
+
+        while (fromBytes.hasRemaining()) {
+            int fromCodePoint = fromBytes.get();
+            if (toBytes.hasRemaining()) {
+                int toCodePoint = toBytes.get();
+                if (replacementMap.containsKey(fromCodePoint) || deletionSet.contains(fromCodePoint)) {
+                    continue;
+                }
+                replacementMap.put(fromCodePoint, toCodePoint);
+            }
+            else {
+                if (replacementMap.containsKey(fromCodePoint) || deletionSet.contains(fromCodePoint)) {
+                    continue;
+                }
+                deletionSet.add(fromCodePoint);
+            }
+        }
+        String input = string.toStringAscii();
+        StringBuffer stringBuffer = new StringBuffer();
+        ByteBuffer inputBytes = ByteBuffer.wrap(input.getBytes(), 0, input.length());
+
+        while (inputBytes.hasRemaining()) {
+            int inputCodePoint = inputBytes.get();
+            if (deletionSet.contains(inputCodePoint)) {
+                continue;
+            }
+            Integer replacementCodePoint = replacementMap.get(inputCodePoint);
+            char[] charArray = Character.toChars((replacementCodePoint != null) ? replacementCodePoint : inputCodePoint);
+            stringBuffer.append(charArray);
+        }
+        String answer = stringBuffer.toString();
+
+        return Slices.utf8Slice(answer);
     }
 
     @Description("converts the string to lower case")
