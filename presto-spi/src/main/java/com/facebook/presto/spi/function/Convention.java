@@ -11,21 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.annotations;
+package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.InvocationConvention;
-import com.facebook.presto.spi.type.TypeSignature;
 
-import java.util.List;
-import java.util.Optional;
-
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
-
-public final class FunctionImplementationDependency
-        extends ScalarImplementationDependency
+public @interface Convention
 {
-    public FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
-    {
-        super(internalScalarFunction(name, returnType, argumentTypes), invocationConvention);
-    }
+    InvocationConvention.InvocationArgumentConvention[] arguments();
+    InvocationConvention.InvocationReturnConvention result();
+    boolean session() default false;
+
+    boolean $notSpecified() default false;
 }
