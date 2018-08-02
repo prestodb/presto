@@ -65,7 +65,7 @@ public class ClusterMemoryLeakDetector
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         if (!leakedQueryReservations.isEmpty()) {
-            log.warn("Memory leak detected. The following queries are already finished, " +
+            log.debug("Memory leak detected. The following queries are already finished, " +
                     "but they have memory reservations on some worker node(s): %s", leakedQueryReservations);
         }
 
