@@ -180,6 +180,12 @@ public interface Block
     long getRetainedSizeInBytes();
 
     /**
+     * Returns the estimated in memory data size for stats of position.
+     * Do not use it for other purpose.
+     */
+    long getEstimatedDataSizeForStats(int position);
+
+    /**
      * {@code consumer} visits each of the internal data container and accepts the size for it.
      * This method can be helpful in cases such as memory counting for internal data structure.
      * Also, the method should be non-recursive, only visit the elements at the top level,

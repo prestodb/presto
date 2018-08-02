@@ -140,6 +140,13 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        checkReadablePosition(position);
+        return getBlock().getEstimatedDataSizeForStats(position + start);
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);

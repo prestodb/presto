@@ -93,6 +93,17 @@ public class TestRunLengthEncodedBlock
         assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        int positionCount = 10;
+        Slice expectedValue = createExpectedValue(5);
+        Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);
+        for (int postition = 0; postition < positionCount; postition++) {
+            assertEquals(block.getEstimatedDataSizeForStats(postition), expectedValue.length());
+        }
+    }
+
     private void populateNullValues(BlockBuilder blockBuilder, int positionCount)
     {
         for (int i = 0; i < positionCount; i++) {

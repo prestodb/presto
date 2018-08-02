@@ -244,6 +244,28 @@ public abstract class AbstractMapBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        checkReadablePosition(position);
+
+        if (isNull(position)) {
+            return 0;
+        }
+
+        int startValueOffset = getOffset(position);
+        int endValueOffset = getOffset(position + 1);
+
+        long size = 0;
+        Block rawKeyBlock = getRawKeyBlock();
+        Block rawValueBlock = getRawValueBlock();
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            size += rawKeyBlock.getEstimatedDataSizeForStats(i);
+            size += rawValueBlock.getEstimatedDataSizeForStats(i);
+        }
+        return size;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);

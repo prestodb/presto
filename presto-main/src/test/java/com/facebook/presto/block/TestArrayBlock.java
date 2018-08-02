@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -83,18 +84,7 @@ public class TestArrayBlock
     @Test
     public void testWithArrayBlock()
     {
-        long[][][] expectedValues = new long[ARRAY_SIZES.length][][];
-        for (int i = 0; i < ARRAY_SIZES.length; i++) {
-            expectedValues[i] = new long[ARRAY_SIZES[i]][];
-            for (int j = 1; j < ARRAY_SIZES[i]; j++) {
-                if ((i + j) % 5 == 0) {
-                    expectedValues[i][j] = null;
-                }
-                else {
-                    expectedValues[i][j] = new long[] {i, j, i + j};
-                }
-            }
-        }
+        long[][][] expectedValues = createExpectedValues();
 
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
 
@@ -109,6 +99,23 @@ public class TestArrayBlock
         assertBlock(blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
+    }
+
+    private static long[][][] createExpectedValues()
+    {
+        long[][][] expectedValues = new long[ARRAY_SIZES.length][][];
+        for (int i = 0; i < ARRAY_SIZES.length; i++) {
+            expectedValues[i] = new long[ARRAY_SIZES[i]][];
+            for (int j = 1; j < ARRAY_SIZES[i]; j++) {
+                if ((i + j) % 5 == 0) {
+                    expectedValues[i][j] = null;
+                }
+                else {
+                    expectedValues[i][j] = new long[] {i, j, i + j};
+                }
+            }
+        }
+        return expectedValues;
     }
 
     @Test
@@ -132,6 +139,34 @@ public class TestArrayBlock
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        long[][][] expectedValues = (long[][][]) alternatingNullValues(createExpectedValues());
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
+        Block block = blockBuilder.build();
+        assertEquals(block.getPositionCount(), expectedValues.length);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
+            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
+            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+        }
+    }
+
+    private static int getExpectedEstimatedDataSize(long[][] values)
+    {
+        if (values == null) {
+            return 0;
+        }
+        int size = 0;
+        for (long[] value : values) {
+            if (value != null) {
+                size += Long.BYTES * value.length;
+            }
+        }
+        return size;
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)

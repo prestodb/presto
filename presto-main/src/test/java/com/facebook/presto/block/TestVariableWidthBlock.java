@@ -104,6 +104,13 @@ public class TestVariableWidthBlock
         assertEquals(quarter1size + quarter2size + quarter3size + quarter4size, sizeInBytes);
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        Slice[] expectedValues = createExpectedValues(100);
+        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+    }
+
     private void assertVariableWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);

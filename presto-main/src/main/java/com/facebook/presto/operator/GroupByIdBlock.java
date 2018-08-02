@@ -182,6 +182,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return block.getEstimatedDataSizeForStats(position);
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
