@@ -609,8 +609,7 @@ public class AddExchanges
                                 node.getOutputSymbols(),
                                 node.getAssignments(),
                                 Optional.of(layout.getLayout().getHandle()),
-                                newDomain.intersect(layout.getLayout().getPredicate()),
-                                Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
+                                newDomain.intersect(layout.getLayout().getPredicate()));
 
                         PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
 

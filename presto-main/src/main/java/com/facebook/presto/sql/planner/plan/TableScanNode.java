@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -49,27 +48,15 @@ public class TableScanNode
     // TODO: think about how to get rid of this in new planner
     private final TupleDomain<ColumnHandle> currentConstraint;
 
-    // HACK!
-    //
-    // This field exists for the sole purpose of being able to print the original predicates (from the query) in
-    // a human readable way. Predicates that get converted to and from TupleDomains might get more bulky and thus
-    // more difficult to read when printed.
-    // For example:
-    // (ds > '2013-01-01') in the original query could easily become (ds IN ('2013-01-02', '2013-01-03', ...)) after the partitions are generated.
-    // To make this work, the originalConstraint should be set exactly once after the first predicate push down and never adjusted after that.
-    // In this way, we are always guaranteed to have a readable predicate that provides some kind of upper bound on the constraints.
-    private final Expression originalConstraint;
-
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout,
-            @JsonProperty("originalConstraint") @Nullable Expression originalConstraint)
+            @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout)
     {
-        this(id, table, outputs, assignments, tableLayout, null, originalConstraint);
+        this(id, table, outputs, assignments, tableLayout, null);
     }
 
     public TableScanNode(
@@ -78,8 +65,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
-            @Nullable TupleDomain<ColumnHandle> currentConstraint,
-            @Nullable Expression originalConstraint)
+            @Nullable TupleDomain<ColumnHandle> currentConstraint)
     {
         super(id);
         requireNonNull(table, "table is null");
@@ -96,7 +82,6 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(assignments);
         this.tableLayout = tableLayout;
         this.currentConstraint = currentConstraint;
-        this.originalConstraint = originalConstraint;
     }
 
     @JsonProperty("table")
@@ -122,13 +107,6 @@ public class TableScanNode
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return assignments;
-    }
-
-    @Nullable
-    @JsonProperty("originalConstraint")
-    public Expression getOriginalConstraint()
-    {
-        return originalConstraint;
     }
 
     public TupleDomain<ColumnHandle> getCurrentConstraint()
@@ -159,7 +137,6 @@ public class TableScanNode
                 .add("outputSymbols", outputSymbols)
                 .add("assignments", assignments)
                 .add("currentConstraint", currentConstraint)
-                .add("originalConstraint", originalConstraint)
                 .toString();
     }
 

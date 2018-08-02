@@ -66,7 +66,6 @@ public class SimplifyExpressions
         return ImmutableSet.of(
                 projectExpressionRewrite(),
                 filterExpressionRewrite(),
-                tableScanExpressionRewrite(),
                 joinExpressionRewrite(),
                 valuesExpressionRewrite()); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
     }
