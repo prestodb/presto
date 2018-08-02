@@ -49,6 +49,32 @@ public class TestRowBlock
         testWith(fieldTypes, (List<Object>[]) alternatingNullValues(testRows));
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        List<Object>[] expectedValues = (List<Object>[]) alternatingNullValues(generateTestRows(fieldTypes, 100));
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
+        Block block = blockBuilder.build();
+        assertEquals(block.getPositionCount(), expectedValues.length);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
+            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
+            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+        }
+    }
+
+    private int getExpectedEstimatedDataSize(List<Object> row)
+    {
+        if (row == null) {
+            return 0;
+        }
+        int size = 0;
+        size += row.get(0) == null ? 0 : ((String) row.get(0)).length();
+        size += row.get(1) == null ? 0 : Long.BYTES;
+        return size;
+    }
+
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);

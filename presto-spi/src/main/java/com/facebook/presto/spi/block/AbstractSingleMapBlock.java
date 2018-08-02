@@ -229,6 +229,18 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            return getRawKeyBlock().getEstimatedDataSizeForStats(position / 2);
+        }
+        else {
+            return getRawValueBlock().getEstimatedDataSizeForStats(position / 2);
+        }
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         throw new UnsupportedOperationException();

@@ -185,6 +185,13 @@ public class LazyBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        assureLoaded();
+        return block.getEstimatedDataSizeForStats(position);
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         assureLoaded();

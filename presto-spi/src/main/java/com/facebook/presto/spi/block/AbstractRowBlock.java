@@ -167,6 +167,23 @@ public abstract class AbstractRowBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        checkReadablePosition(position);
+
+        if (isNull(position)) {
+            return 0;
+        }
+
+        Block[] rawFieldBlocks = getRawFieldBlocks();
+        long size = 0;
+        for (int i = 0; i < numFields; i++) {
+            size += rawFieldBlocks[i].getEstimatedDataSizeForStats(getFieldBlockOffset(position));
+        }
+        return size;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
