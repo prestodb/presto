@@ -612,7 +612,7 @@ class QueryPlanner
         }
 
         for (List<FieldId> rollup : groupingSetAnalysis.getRollups()) {
-            List<Set<FieldId>> sets = IntStream.range(0, rollup.size() + 1)
+            List<Set<FieldId>> sets = IntStream.rangeClosed(0, rollup.size())
                     .mapToObj(i -> ImmutableSet.copyOf(rollup.subList(0, i)))
                     .collect(toImmutableList());
 
