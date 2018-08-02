@@ -25,26 +25,29 @@ public class ColumnStatisticsData
     private final Optional<Long> distinctValuesCount;
     private final Optional<Object> min;
     private final Optional<Object> max;
+    private final Optional<Long> dataSize;
 
     @JsonCreator
     public ColumnStatisticsData(
             @JsonProperty("distinctValuesCount") Optional<Long> distinctValuesCount,
             @JsonProperty("min") Optional<Object> min,
-            @JsonProperty("max") Optional<Object> max)
+            @JsonProperty("max") Optional<Object> max,
+            @JsonProperty("dataSize") Optional<Long> dataSize)
     {
         this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
         this.min = requireNonNull(min);
         this.max = requireNonNull(max);
+        this.dataSize = requireNonNull(dataSize, "dataSize is null");
     }
 
     public static ColumnStatisticsData empty()
     {
-        return new ColumnStatisticsData(Optional.empty(), Optional.empty(), Optional.empty());
+        return new ColumnStatisticsData(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public static ColumnStatisticsData zero()
     {
-        return new ColumnStatisticsData(Optional.of(0L), Optional.empty(), Optional.empty());
+        return new ColumnStatisticsData(Optional.of(0L), Optional.empty(), Optional.empty(), Optional.of(0L));
     }
 
     public Optional<Long> getDistinctValuesCount()
@@ -60,5 +63,10 @@ public class ColumnStatisticsData
     public Optional<Object> getMax()
     {
         return max;
+    }
+
+    public Optional<Long> getDataSize()
+    {
+        return dataSize;
     }
 }

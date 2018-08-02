@@ -16,6 +16,7 @@ package com.facebook.presto.tests.hive;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static java.lang.String.format;
 
 public class HiveTableDefinitions
 {
@@ -25,7 +26,7 @@ public class HiveTableDefinitions
 
     public static final int NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT = 5;
 
-    public static final HiveTableDefinition NATION_PARTITIONED_BY_REGIONKEY =
+    public static final HiveTableDefinition NATION_PARTITIONED_BY_BIGINT_REGIONKEY =
             HiveTableDefinition.builder(NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME)
                     .setCreateTableDDLTemplate(
                             "CREATE %EXTERNAL% TABLE %NAME%(" +
@@ -39,24 +40,53 @@ public class HiveTableDefinitions
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
                                     DATA_REVISION,
-                                    partitionDataFileResource(1)))
+                                    partitionDataFileResource("bigint", "1")))
                     .addPartition(
                             "p_regionkey=2",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
                                     DATA_REVISION,
-                                    partitionDataFileResource(2)))
+                                    partitionDataFileResource("bigint", "2")))
                     .addPartition(
                             "p_regionkey=3",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
                                     DATA_REVISION,
-                                    partitionDataFileResource(3)))
+                                    partitionDataFileResource("bigint", "3")))
                     .build();
 
-    private static String partitionDataFileResource(int region)
+    public static final HiveTableDefinition NATION_PARTITIONED_BY_VARCHAR_REGIONKEY =
+            HiveTableDefinition.builder(NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME)
+                    .setCreateTableDDLTemplate(
+                            "CREATE %EXTERNAL% TABLE %NAME%(" +
+                                    "   p_nationkey     BIGINT," +
+                                    "   p_name          VARCHAR(25)," +
+                                    "   p_comment       VARCHAR(152)) " +
+                                    "PARTITIONED BY (p_regionkey VARCHAR(20))" +
+                                    "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' ")
+                    .addPartition(
+                            "p_regionkey='AMERICA'",
+                            createResourceDataSource(
+                                    NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
+                                    DATA_REVISION,
+                                    partitionDataFileResource("varchar", "america")))
+                    .addPartition(
+                            "p_regionkey='ASIA'",
+                            createResourceDataSource(
+                                    NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
+                                    DATA_REVISION,
+                                    partitionDataFileResource("varchar", "asia")))
+                    .addPartition(
+                            "p_regionkey='EUROPE'",
+                            createResourceDataSource(
+                                    NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
+                                    DATA_REVISION,
+                                    partitionDataFileResource("varchar", "europe")))
+                    .build();
+
+    private static String partitionDataFileResource(String key, String partition)
     {
-        return "com/facebook/presto/tests/hive/data/partitioned_nation/nation_region_" + region + ".textfile";
+        return format("com/facebook/presto/tests/hive/data/partitioned_nation_%s/nation_region_%s.textfile", key, partition);
     }
 
     private HiveTableDefinitions()
