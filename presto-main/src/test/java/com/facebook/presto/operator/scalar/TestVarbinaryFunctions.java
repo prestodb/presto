@@ -333,6 +333,15 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testSpookyHash()
+    {
+        assertFunction("spooky_hash_v2_32(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("6BF50919"));
+        assertFunction("spooky_hash_v2_32(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D382E6CA"));
+        assertFunction("spooky_hash_v2_64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("232706FC6BF50919"));
+        assertFunction("spooky_hash_v2_64(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("3768826AD382E6CA"));
+    }
+
+    @Test
     public void testHashCode()
     {
         Slice data = Slices.wrappedBuffer(ALL_BYTES);
