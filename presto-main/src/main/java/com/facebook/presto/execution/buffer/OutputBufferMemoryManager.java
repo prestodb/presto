@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -69,9 +70,7 @@ class OutputBufferMemoryManager
 
     public synchronized void updateMemoryUsage(long bytesAdded)
     {
-        if (closed) {
-            return;
-        }
+        checkState(!closed, "OutputBufferMemoryManager is already closed");
 
         long currentBufferedBytes = bufferedBytes.addAndGet(bytesAdded);
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
