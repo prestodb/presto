@@ -28,6 +28,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -36,6 +37,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.IntPredicate;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -48,6 +50,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -64,6 +67,7 @@ public class TestGenericPartitioningSpiller
     private Path tempDirectory;
     private SingleStreamSpillerFactory singleStreamSpillerFactory;
     private GenericPartitioningSpillerFactory factory;
+    private ScheduledExecutorService scheduledExecutor;
 
     @BeforeClass
     public void setUp()
@@ -76,13 +80,17 @@ public class TestGenericPartitioningSpiller
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, new SpillerStats(), featuresConfig);
         factory = new GenericPartitioningSpillerFactory(singleStreamSpillerFactory);
+        scheduledExecutor = newSingleThreadScheduledExecutor();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(tempDirectory, ALLOW_INSECURE);
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> scheduledExecutor.shutdownNow());
+            closer.register(() -> deleteRecursively(tempDirectory, ALLOW_INSECURE));
+        }
     }
 
     @Test
@@ -93,7 +101,7 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new FourFixedPartitionsPartitionFunction(0),
                 mockSpillContext(),
-                mockMemoryContext())) {
+                mockMemoryContext(scheduledExecutor))) {
             RowPagesBuilder builder = RowPagesBuilder.rowPagesBuilder(TYPES);
             builder.addSequencePage(10, SECOND_PARTITION_START, 5, 10, 15);
             builder.addSequencePage(10, FIRST_PARTITION_START, -5, 0, 5);
@@ -149,7 +157,7 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new ModuloPartitionFunction(0, 4),
                 mockSpillContext(),
-                mockMemoryContext())) {
+                mockMemoryContext(scheduledExecutor))) {
             Page page = SequencePageBuilder.createSequencePage(TYPES, 10, FIRST_PARTITION_START, 5, 10, 15);
             PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
             assertEquals(spillResult.getRetained().getPositionCount(), 0);
@@ -174,7 +182,7 @@ public class TestGenericPartitioningSpiller
     {
         List<Type> types = ImmutableList.of(BIGINT);
         int partitionCount = 4;
-        AggregatedMemoryContext memoryContext = mockMemoryContext();
+        AggregatedMemoryContext memoryContext = mockMemoryContext(scheduledExecutor);
 
         try (GenericPartitioningSpiller spiller = (GenericPartitioningSpiller) factory.create(
                 types,
@@ -208,10 +216,10 @@ public class TestGenericPartitioningSpiller
         }
     }
 
-    private static AggregatedMemoryContext mockMemoryContext()
+    private static AggregatedMemoryContext mockMemoryContext(ScheduledExecutorService scheduledExecutor)
     {
         // It's important to use OperatorContext's system memory context, because it does additional bookkeeping.
-        return TestingOperatorContext.create().newAggregateSystemMemoryContext();
+        return TestingOperatorContext.create(scheduledExecutor).newAggregateSystemMemoryContext();
     }
 
     private static SpillContext mockSpillContext()
