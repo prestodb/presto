@@ -306,6 +306,7 @@ public class ArbitraryOutputBuffer
             safeGetBuffersSnapshot().forEach(ClientBuffer::destroy);
 
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
         }
     }
 
@@ -325,8 +326,8 @@ public class ArbitraryOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
-    @Override
-    public void forceFreeMemory()
+    @VisibleForTesting
+    void forceFreeMemory()
     {
         memoryManager.close();
     }

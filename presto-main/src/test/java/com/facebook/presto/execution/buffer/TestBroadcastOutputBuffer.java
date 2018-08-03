@@ -1136,10 +1136,13 @@ public class TestBroadcastOutputBuffer
         assertTrue(memoryManager.getBufferedBytes() > 0);
         buffer.forceFreeMemory();
         assertEquals(memoryManager.getBufferedBytes(), 0);
-        // adding another page after buffer.forceFreeMemory()
-        // should have no effect in terms of memory usage
-        addPage(buffer, createPage(1));
-        assertEquals(memoryManager.getBufferedBytes(), 0);
+        try {
+            addPage(buffer, createPage(1));
+            fail("Adding a page to a closed memoryManager should have failed");
+        }
+        catch (IllegalStateException e) {
+            // expected
+        }
     }
 
     private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize)
