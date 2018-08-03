@@ -190,7 +190,6 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
-    private final OutputBuffer outputBuffer;
     private final LocalMemoryContext systemMemoryContext;
     private final long partitionsInitialRetainedSize;
     private boolean finished;
@@ -210,7 +209,6 @@ public class PartitionedOutputOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.partitionFunction = new PagePartitioner(
                 partitionFunction,
                 partitionChannels,
@@ -244,7 +242,6 @@ public class PartitionedOutputOperator
     {
         finished = true;
         partitionFunction.flush(true);
-        outputBuffer.forceFreeMemory();
     }
 
     @Override

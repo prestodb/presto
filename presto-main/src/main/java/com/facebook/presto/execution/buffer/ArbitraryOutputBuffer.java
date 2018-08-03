@@ -19,7 +19,6 @@ import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -325,12 +324,6 @@ public class ArbitraryOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
-    @Override
-    public void forceFreeMemory()
-    {
-        memoryManager.close();
-    }
-
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
     {
         ClientBuffer buffer = buffers.get(id);
@@ -471,11 +464,5 @@ public class ArbitraryOutputBuffer
                     .add("bufferedPages", bufferedPages.get())
                     .toString();
         }
-    }
-
-    @VisibleForTesting
-    OutputBufferMemoryManager getMemoryManager()
-    {
-        return memoryManager;
     }
 }

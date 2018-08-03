@@ -18,7 +18,6 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -265,12 +264,6 @@ public class PartitionedOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
-    @Override
-    public void forceFreeMemory()
-    {
-        memoryManager.close();
-    }
-
     private void checkFlushComplete()
     {
         if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
@@ -280,11 +273,5 @@ public class PartitionedOutputBuffer
         if (partitions.stream().allMatch(ClientBuffer::isDestroyed)) {
             destroy();
         }
-    }
-
-    @VisibleForTesting
-    OutputBufferMemoryManager getMemoryManager()
-    {
-        return memoryManager;
     }
 }

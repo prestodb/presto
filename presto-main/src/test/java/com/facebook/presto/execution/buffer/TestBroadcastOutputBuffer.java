@@ -1120,28 +1120,6 @@ public class TestBroadcastOutputBuffer
         assertTrue(buffer.isFinished());
     }
 
-    @Test
-    public void testForceFreeMemory()
-            throws Throwable
-    {
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
-                        .withBuffer(FIRST, BROADCAST_PARTITION_ID)
-                        .withNoMoreBufferIds(),
-                sizeOfPages(5));
-        for (int i = 0; i < 3; i++) {
-            addPage(buffer, createPage(1), 0);
-        }
-        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
-        assertTrue(memoryManager.getBufferedBytes() > 0);
-        buffer.forceFreeMemory();
-        assertEquals(memoryManager.getBufferedBytes(), 0);
-        // adding another page after buffer.forceFreeMemory()
-        // should have no effect in terms of memory usage
-        addPage(buffer, createPage(1));
-        assertEquals(memoryManager.getBufferedBytes(), 0);
-    }
-
     private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize)
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(

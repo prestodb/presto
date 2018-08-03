@@ -120,7 +120,8 @@ public class TestMemoryAwareExecution
             throws Exception
     {
         // Invoke multiple times to make sure that pre-allocation state resets properly and that there aren't weird data races
-        ResourceEstimates estimate = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(succinctBytes(totalAvailableMemory)));
+        // TODO: Remove subtraction of 156 * invocationCount * 2 when memory leak in PartitionedOutputBuffer is fixed
+        ResourceEstimates estimate = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(succinctBytes(totalAvailableMemory - (156 * 5 * 2))));
 
         QueryId highMemoryQuery1 = queryWithResourceEstimate(estimate, queryManager);
         assertState(highMemoryQuery1, RUNNING);

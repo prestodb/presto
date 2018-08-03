@@ -925,24 +925,6 @@ public class TestArbitraryOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
 
-    @Test
-    public void testForceFreeMemory()
-            throws Throwable
-    {
-        ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
-        for (int i = 0; i < 3; i++) {
-            addPage(buffer, createPage(i));
-        }
-        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
-        assertTrue(memoryManager.getBufferedBytes() > 0);
-        buffer.forceFreeMemory();
-        assertEquals(memoryManager.getBufferedBytes(), 0);
-        // adding another page after buffer.forceFreeMemory()
-        // should have no effect in terms of memory usage
-        addPage(buffer, createPage(1));
-        assertEquals(memoryManager.getBufferedBytes(), 0);
-    }
-
     private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
         ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);

@@ -817,28 +817,6 @@ public class TestPartitionedOutputBuffer
         }
     }
 
-    @Test
-    public void testForceFreeMemory()
-            throws Throwable
-    {
-        PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(FIRST, 0)
-                        .withNoMoreBufferIds(),
-                sizeOfPages(10));
-        for (int i = 0; i < 5; i++) {
-            addPage(buffer, createPage(1), 0);
-        }
-        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
-        assertTrue(memoryManager.getBufferedBytes() > 0);
-        buffer.forceFreeMemory();
-        assertEquals(memoryManager.getBufferedBytes(), 0);
-        // adding another page after buffer.forceFreeMemory()
-        // should have no effect in terms of memory usage
-        addPage(buffer, createPage(1));
-        assertEquals(memoryManager.getBufferedBytes(), 0);
-    }
-
     private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
     {
         return new PartitionedOutputBuffer(
