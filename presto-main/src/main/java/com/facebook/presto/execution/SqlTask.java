@@ -53,6 +53,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.TaskState.ABORTED;
+import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -126,7 +128,7 @@ public class SqlTask
                 }
 
                 // Update failed tasks counter
-                if (newState == TaskState.FAILED) {
+                if (newState == FAILED) {
                     failedTasks.update(1);
                 }
 
@@ -144,7 +146,7 @@ public class SqlTask
                 }
 
                 // make sure buffers are cleaned up
-                if (newState == TaskState.FAILED || newState == TaskState.ABORTED) {
+                if (newState == FAILED || newState == ABORTED) {
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     outputBuffer.fail();
@@ -210,7 +212,7 @@ public class SqlTask
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
-        if (state == TaskState.FAILED) {
+        if (state == FAILED) {
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
