@@ -69,7 +69,7 @@ Ranking Functions
     For example, with ``6`` rows and ``4`` buckets, the bucket values would
     be as follows: ``1`` ``1`` ``2`` ``2`` ``3`` ``4``
 
-.. function:: percent_rank() -> bigint
+.. function:: percent_rank() -> double
 
     Returns the percentage ranking of a value in group of values. The result
     is ``(r - 1) / (n - 1)`` where ``r`` is the :func:`rank` of the row and
