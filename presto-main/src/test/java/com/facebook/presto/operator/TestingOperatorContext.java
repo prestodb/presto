@@ -24,15 +24,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class TestingOperatorContext
 {
-    public static OperatorContext create()
+    public static OperatorContext create(ScheduledExecutorService scheduledExecutor)
     {
         Executor executor = MoreExecutors.directExecutor();
-        ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         TaskContext taskContext = TestingTaskContext.createTaskContext(
                 executor,

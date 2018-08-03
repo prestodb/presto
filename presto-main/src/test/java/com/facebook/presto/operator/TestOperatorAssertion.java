@@ -24,12 +24,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class TestOperatorAssertion
 {
@@ -38,7 +38,7 @@ public class TestOperatorAssertion
     @BeforeClass
     public void setUp()
     {
-        executor = Executors.newScheduledThreadPool(1);
+        executor = newSingleThreadScheduledExecutor();
     }
 
     @AfterClass(alwaysRun = true)
@@ -66,7 +66,7 @@ public class TestOperatorAssertion
         public BlockedOperator(Duration unblockAfter)
         {
             this.unblockAfter = requireNonNull(unblockAfter, "unblockAfter is null");
-            this.operatorContext = TestingOperatorContext.create();
+            this.operatorContext = TestingOperatorContext.create(executor);
         }
 
         @Override
