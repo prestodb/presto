@@ -244,7 +244,7 @@ public class MemoryPool
     // Because, we remove the tagged allocations from this MemoryPool for queryId, and then we reserve
     // N bytes with MOVE_QUERY_TAG in the targetMemoryPool, and then immediately overwrite it
     // with a put() call.
-    public synchronized ListenableFuture<?> moveQuery(QueryId queryId, MemoryPool targetMemoryPool)
+    synchronized ListenableFuture<?> moveQuery(QueryId queryId, MemoryPool targetMemoryPool)
     {
         long originalReserved = getQueryMemoryReservation(queryId);
         long originalRevocableReserved = getQueryRevocableMemoryReservation(queryId);
