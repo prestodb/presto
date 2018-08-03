@@ -250,6 +250,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return dictionary.getEstimatedDataSizeForStats(getId(position));
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
@@ -336,6 +342,17 @@ public class DictionaryBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedDictionary = dictionary.getLoadedBlock();
+
+        if (loadedDictionary == dictionary) {
+            return this;
+        }
+        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
     }
 
     public Block getDictionary()

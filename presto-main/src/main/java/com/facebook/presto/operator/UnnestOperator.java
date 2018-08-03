@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -63,7 +65,7 @@ public class UnnestOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, UnnestOperator.class.getSimpleName());
-            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality);
+            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, SystemSessionProperties.isLegacyUnnest(driverContext.getSession()));
         }
 
         @Override
@@ -92,7 +94,7 @@ public class UnnestOperator
     private int currentPosition;
     private int ordinalityCount;
 
-    public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
+    public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean isLegacyUnnest)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
@@ -104,7 +106,7 @@ public class UnnestOperator
         checkArgument(unnestChannels.size() == unnestTypes.size(), "unnest channels or types has wrong size");
         ImmutableList.Builder<Type> outputTypesBuilder = ImmutableList.<Type>builder()
                 .addAll(replicateTypes)
-                .addAll(getUnnestedTypes(unnestTypes));
+                .addAll(getUnnestedTypes(unnestTypes, isLegacyUnnest));
         if (withOrdinality) {
             outputTypesBuilder.add(BIGINT);
         }
@@ -112,7 +114,13 @@ public class UnnestOperator
         this.unnesters = new ArrayList<>(unnestTypes.size());
         for (Type type : unnestTypes) {
             if (type instanceof ArrayType) {
-                unnesters.add(new ArrayUnnester(((ArrayType) type).getElementType()));
+                Type elementType = ((ArrayType) type).getElementType();
+                if (!isLegacyUnnest && elementType instanceof RowType) {
+                    unnesters.add(new ArrayOfRowsUnnester(elementType));
+                }
+                else {
+                    unnesters.add(new ArrayUnnester(elementType));
+                }
             }
             else if (type instanceof MapType) {
                 MapType mapType = (MapType) type;
@@ -124,12 +132,17 @@ public class UnnestOperator
         }
     }
 
-    private static List<Type> getUnnestedTypes(List<Type> types)
+    private static List<Type> getUnnestedTypes(List<Type> types, boolean isLegacyUnnest)
     {
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
         for (Type type : types) {
             checkArgument(type instanceof ArrayType || type instanceof MapType, "Can only unnest map and array types");
-            builder.addAll(type.getTypeParameters());
+            if (type instanceof ArrayType && !isLegacyUnnest && ((ArrayType) type).getElementType() instanceof RowType) {
+                builder.addAll(((ArrayType) type).getElementType().getTypeParameters());
+            }
+            else {
+                builder.addAll(type.getTypeParameters());
+            }
         }
         return builder.build();
     }

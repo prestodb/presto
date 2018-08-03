@@ -18,6 +18,8 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -258,9 +260,9 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public boolean supportsColumnStatistics()
+    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        return delegate.supportsColumnStatistics();
+        return delegate.getSupportedColumnStatistics(type);
     }
 
     private Optional<Table> loadTable(HiveTableName hiveTableName)

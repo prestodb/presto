@@ -48,6 +48,6 @@ public class LazyBlockEncoding
     @Override
     public Optional<Block> replacementBlockForWrite(Block block)
     {
-        return Optional.of(((LazyBlock) block).getBlock());
+        return Optional.of(block.getLoadedBlock());
     }
 }

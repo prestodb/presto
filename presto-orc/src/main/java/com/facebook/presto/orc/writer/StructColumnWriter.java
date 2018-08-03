@@ -230,10 +230,12 @@ public class StructColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
         long retainedBytes = INSTANCE_SIZE + presentStream.getRetainedBytes();
         for (ColumnWriter structField : structFields) {
             retainedBytes += structField.getRetainedBytes();
+        }
+        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
+            retainedBytes += statistics.getRetainedSizeInBytes();
         }
         return retainedBytes;
     }

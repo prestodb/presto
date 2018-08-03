@@ -26,7 +26,6 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnStatistics
 {
     private static final List<RangeColumnStatistics> SINGLE_UNKNOWN_RANGE_STATISTICS = singletonList(RangeColumnStatistics.builder().build());
-    public static final ColumnStatistics UNKNOWN_COLUMN_STATISTICS = ColumnStatistics.builder().build();
 
     private final Estimate nullsFraction;
     private final List<RangeColumnStatistics> rangeColumnStatistics;
@@ -62,6 +61,35 @@ public final class ColumnStatistics
         return rangeColumnStatistics.get(0);
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ColumnStatistics that = (ColumnStatistics) o;
+        return Objects.equals(nullsFraction, that.nullsFraction) &&
+                Objects.equals(rangeColumnStatistics, that.rangeColumnStatistics);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(nullsFraction, rangeColumnStatistics);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "ColumnStatistics{" +
+                "nullsFraction=" + nullsFraction +
+                ", rangeColumnStatistics=" + rangeColumnStatistics +
+                '}';
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -89,12 +117,6 @@ public final class ColumnStatistics
         public Builder addRange(RangeColumnStatistics rangeColumnStatistics)
         {
             this.rangeColumnStatistics.add(rangeColumnStatistics);
-            return this;
-        }
-
-        public Builder clearRanges()
-        {
-            rangeColumnStatistics.clear();
             return this;
         }
 

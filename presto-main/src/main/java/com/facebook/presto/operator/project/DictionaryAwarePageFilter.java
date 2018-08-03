@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 
 import java.util.Optional;
@@ -57,10 +56,7 @@ public class DictionaryAwarePageFilter
     @Override
     public SelectedPositions filter(ConnectorSession session, Page page)
     {
-        Block block = page.getBlock(0);
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
-        }
+        Block block = page.getBlock(0).getLoadedBlock();
 
         if (block instanceof RunLengthEncodedBlock) {
             Block value = ((RunLengthEncodedBlock) block).getValue();

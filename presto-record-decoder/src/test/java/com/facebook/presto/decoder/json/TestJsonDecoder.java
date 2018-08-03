@@ -15,42 +15,48 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.ObjectMapperProvider;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestJsonDecoder
 {
-    private static final JsonFieldDecoder DEFAULT_FIELD_DECODER = new JsonFieldDecoder();
-    private static final ObjectMapperProvider PROVIDER = new ObjectMapperProvider();
-
-    private static Map<DecoderColumnHandle, FieldDecoder<?>> buildMap(List<DecoderColumnHandle> columns)
-    {
-        ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> map = ImmutableMap.builder();
-        for (DecoderColumnHandle column : columns) {
-            map.put(column, DEFAULT_FIELD_DECODER);
-        }
-        return map.build();
-    }
+    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
 
     @Test
     public void testSimple()
@@ -58,26 +64,25 @@ public class TestJsonDecoder
     {
         byte[] json = ByteStreams.toByteArray(TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json"));
 
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "source", null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "id", null, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "user/statuses_count", null, null, false, false, false);
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", BooleanType.BOOLEAN, "user/geo_enabled", null, null, false, false, false);
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "source", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BIGINT, "id", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "user/statuses_count", null, null, false, false, false);
+        DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", BOOLEAN, "user/geo_enabled", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5);
-        Set<FieldValueProvider> providers = new HashSet<>();
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkValue(providers, row1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
-        checkValue(providers, row2, "EKentuckyN");
-        checkValue(providers, row3, 493857959588286460L);
-        checkValue(providers, row4, 7630);
-        checkValue(providers, row5, true);
+        checkValue(decodedRow, column1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
+        checkValue(decodedRow, column2, "EKentuckyN");
+        checkValue(decodedRow, column3, 493857959588286460L);
+        checkValue(decodedRow, column4, 7630);
+        checkValue(decodedRow, column5, true);
     }
 
     @Test
@@ -85,24 +90,23 @@ public class TestJsonDecoder
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "very/deep/varchar", null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "no_bigint", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", DoubleType.DOUBLE, "double/is_missing", null, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "hello", null, null, false, false, false);
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "very/deep/varchar", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BIGINT, "no_bigint", null, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", DOUBLE, "double/is_missing", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BOOLEAN, "hello", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
-        Set<FieldValueProvider> providers = new HashSet<>();
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkIsNull(providers, row1);
-        checkIsNull(providers, row2);
-        checkIsNull(providers, row3);
-        checkIsNull(providers, row4);
+        checkIsNull(decodedRow, column1);
+        checkIsNull(decodedRow, column2);
+        checkIsNull(decodedRow, column3);
+        checkIsNull(decodedRow, column4);
     }
 
     @Test
@@ -110,23 +114,108 @@ public class TestJsonDecoder
     {
         byte[] json = "{\"a_number\":481516,\"a_string\":\"2342\"}".getBytes(StandardCharsets.UTF_8);
 
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "a_number", null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "a_number", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(100), "a_string", null, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", null, null, false, false, false);
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "a_number", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BIGINT, "a_number", null, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", createVarcharType(100), "a_string", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "a_string", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
-        Set<FieldValueProvider> providers = new HashSet<>();
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
+        assertTrue(decodedRow.isPresent());
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.get().size(), columns.size());
 
-        checkValue(providers, row1, "481516");
-        checkValue(providers, row2, 481516);
-        checkValue(providers, row3, "2342");
-        checkValue(providers, row4, 2342);
+        checkValue(decodedRow.get(), column1, "481516");
+        checkValue(decodedRow.get(), column2, 481516);
+        checkValue(decodedRow.get(), column3, "2342");
+        checkValue(decodedRow.get(), column4, 2342);
+    }
+
+    @Test
+    public void testSupportedDataTypeValidation()
+    {
+        // supported types
+        singleColumnDecoder(BIGINT, null);
+        singleColumnDecoder(INTEGER, null);
+        singleColumnDecoder(SMALLINT, null);
+        singleColumnDecoder(TINYINT, null);
+        singleColumnDecoder(BOOLEAN, null);
+        singleColumnDecoder(DOUBLE, null);
+        singleColumnDecoder(createUnboundedVarcharType(), null);
+        singleColumnDecoder(createVarcharType(100), null);
+
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "rfc2822")) {
+            singleColumnDecoder(DATE, dataFormat);
+            singleColumnDecoder(TIME, dataFormat);
+            singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIMESTAMP, dataFormat);
+            singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
+        }
+
+        for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
+            singleColumnDecoder(TIME, dataFormat);
+            singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIMESTAMP, dataFormat);
+            singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
+        }
+
+        // some unsupported types
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createDecimalType(10, 4), null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(VARBINARY, null));
+
+        // temporal types are not supported for default field decoder
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DATE, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_WITH_TIME_ZONE, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, null));
+
+        // non temporal types are not supported by temporal field decoders
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "seconds-since-epoch", "milliseconds-since-epoch", "rfc2822")) {
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(BIGINT, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(INTEGER, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(SMALLINT, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TINYINT, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(BOOLEAN, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DOUBLE, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createUnboundedVarcharType(), dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createVarcharType(100), dataFormat));
+        }
+
+        // date are not supported by seconds-since-epoch and milliseconds-since-epoch field decoders
+        for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DATE, dataFormat));
+        }
+    }
+
+    private void assertUnsupportedColumnTypeException(ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unsupported column type .* for column .*");
+    }
+
+    @Test
+    public void testDataFormatValidation()
+    {
+        for (Type type : asList(TIMESTAMP, DOUBLE)) {
+            assertThatThrownBy(() -> singleColumnDecoder(type, "wrong_format"))
+                    .isInstanceOf(PrestoException.class)
+                    .hasMessage("unknown data format 'wrong_format' used for column 'some_column'");
+        }
+    }
+
+    private void singleColumnDecoder(Type columnType, String dataFormat)
+    {
+        singleColumnDecoder(columnType, "mappedField", dataFormat);
+    }
+
+    private void singleColumnDecoder(Type columnType, String mapping, String dataFormat)
+    {
+        String formatHint = "custom-date-time".equals(dataFormat) ? "MM/yyyy/dd H:m:s" : null;
+        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "some_column", columnType, mapping, dataFormat, formatHint, false, false, false)));
     }
 }

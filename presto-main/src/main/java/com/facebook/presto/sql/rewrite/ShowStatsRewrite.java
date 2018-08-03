@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
@@ -242,10 +241,10 @@ public class ShowStatsRewrite
                     .findSingle();
 
             if (!scanNode.isPresent()) {
-                return new Constraint<>(TupleDomain.none(), bindings -> true);
+                return Constraint.alwaysFalse();
             }
 
-            return new Constraint<>(scanNode.get().getCurrentConstraint(), bindings -> true);
+            return new Constraint<>(scanNode.get().getCurrentConstraint());
         }
 
         private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, TableHandle tableHandle)

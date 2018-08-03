@@ -84,7 +84,7 @@ script:
   - |
     if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql
+        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
@@ -138,6 +138,20 @@ script:
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-cassandra -g cassandra
+    fi
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode-tls-kerberos -g cli,group-by,join,tls
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-impersonation-with-wire-encryption -g storage_formats,cli,hdfs_impersonation,authorization
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kafka -g kafka 
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then

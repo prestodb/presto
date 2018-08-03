@@ -19,7 +19,6 @@ import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -27,11 +26,10 @@ import io.airlift.units.DataSize;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,19 +53,20 @@ public class TempFileWriter
             orcWriter.write(page);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to write data", e);
+            throw new UncheckedIOException(e);
         }
     }
 
     @Override
     public void close()
+            throws IOException
     {
-        try {
-            orcWriter.close();
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Failed to close writer", e);
-        }
+        orcWriter.close();
+    }
+
+    public long getWrittenBytes()
+    {
+        return orcWriter.getWrittenBytes();
     }
 
     private static OrcWriter createOrcFileWriter(OutputStream output, List<Type> types)

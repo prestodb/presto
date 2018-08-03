@@ -127,7 +127,7 @@ public class InMemoryHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         // wrapper each function with an aggregator

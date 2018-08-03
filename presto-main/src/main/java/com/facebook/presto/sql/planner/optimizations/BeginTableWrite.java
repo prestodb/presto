@@ -95,7 +95,9 @@ public class BeginTableWrite
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    node.getPartitioningScheme());
+                    node.getPartitioningScheme(),
+                    node.getStatisticsAggregation(),
+                    node.getStatisticsAggregationDescriptor());
         }
 
         @Override
@@ -121,7 +123,13 @@ public class BeginTableWrite
             context.get().addMaterializedHandle(originalTarget, newTarget);
             child = child.accept(this, context);
 
-            return new TableFinishNode(node.getId(), child, newTarget, node.getOutputSymbols());
+            return new TableFinishNode(
+                    node.getId(),
+                    child,
+                    newTarget,
+                    node.getOutputSymbols(),
+                    node.getStatisticsAggregation(),
+                    node.getStatisticsAggregationDescriptor());
         }
 
         public TableWriterNode.WriterTarget getTarget(PlanNode node)
@@ -168,7 +176,7 @@ public class BeginTableWrite
                 List<TableLayoutResult> layouts = metadata.getLayouts(
                         session,
                         handle,
-                        new Constraint<>(scan.getCurrentConstraint(), bindings -> true),
+                        new Constraint<>(scan.getCurrentConstraint()),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
                 verify(layouts.size() == 1, "Expected exactly one layout for delete");
                 TableLayoutHandle layout = Iterables.getOnlyElement(layouts).getLayout().getHandle();

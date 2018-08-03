@@ -30,13 +30,6 @@ public final class ColumnarRow
         if (block instanceof RunLengthEncodedBlock) {
             return toColumnarRow((RunLengthEncodedBlock) block);
         }
-        if (block instanceof LazyBlock) {
-            LazyBlock lazyBlock = (LazyBlock) block;
-            if (!lazyBlock.isLoaded()) {
-                throw new IllegalArgumentException("LazyBlock is expected to be loaded");
-            }
-            return toColumnarRow(lazyBlock.getBlock());
-        }
 
         if (!(block instanceof AbstractRowBlock)) {
             throw new IllegalArgumentException("Invalid row block: " + block.getClass().getName());

@@ -14,13 +14,23 @@
 
 package com.facebook.presto.tpcds.statistics;
 
+import com.teradata.tpcds.column.ColumnType;
+
 import java.util.Optional;
 import java.util.TreeSet;
+
+import static java.util.Objects.requireNonNull;
 
 class ColumnStatisticsRecorder
 {
     private final TreeSet<Object> nonNullValues = new TreeSet<>();
+    private final ColumnType type;
     private long nullsCount;
+
+    public ColumnStatisticsRecorder(ColumnType type)
+    {
+        this.type = requireNonNull(type, "type is null");
+    }
 
     public void record(Comparable<?> value)
     {
@@ -38,7 +48,8 @@ class ColumnStatisticsRecorder
                 getDistinctValuesCount(),
                 getNullsCount(),
                 getLowestValue(),
-                getHighestValue());
+                getHighestValue(),
+                getDataSize());
     }
 
     private long getDistinctValuesCount()
@@ -59,5 +70,22 @@ class ColumnStatisticsRecorder
     private Optional<Object> getHighestValue()
     {
         return nonNullValues.size() > 0 ? Optional.of(nonNullValues.last()) : Optional.empty();
+    }
+
+    public Optional<Long> getDataSize()
+    {
+        if (type.getBase() == ColumnType.Base.VARCHAR || type.getBase() == ColumnType.Base.CHAR) {
+            return Optional.of(nonNullValues.stream()
+                    .map(String.class::cast)
+                    .map(value -> {
+                        if (type.getBase() == ColumnType.Base.CHAR) {
+                            return value.replaceFirst(" +$", "");
+                        }
+                        return value;
+                    })
+                    .mapToLong(String::length)
+                    .sum());
+        }
+        return Optional.empty();
     }
 }

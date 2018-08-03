@@ -16,8 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
+import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -26,7 +30,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
@@ -38,14 +44,18 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -59,6 +69,8 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
+    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
@@ -119,10 +131,10 @@ public class TestTableWriterOperator
         // complete previously blocked future
         blockingPageSink.complete();
         // and getOutput which actually finishes the operator
-        assertPageEquals(
-                TableWriterOperator.TYPES,
+        List<Type> expectedTypes = ImmutableList.of(BIGINT, VARBINARY);
+        assertPageEquals(expectedTypes,
                 operator.getOutput(),
-                rowPagesBuilder(TableWriterOperator.TYPES).row(2, null).build().get(0));
+                rowPagesBuilder(expectedTypes).row(2, null).build().get(0));
 
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.isFinished());
@@ -147,7 +159,10 @@ public class TestTableWriterOperator
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
         pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
-        TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(pageSinkManager);
+        TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
+                pageSinkManager,
+                new DevNullOperatorFactory(1, new PlanNodeId("test")),
+                ImmutableList.of(BIGINT, VARBINARY));
 
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
         for (int i = 0; i < 100; i++) {
@@ -165,14 +180,51 @@ public class TestTableWriterOperator
         }
     }
 
+    @Test
+    public void testStatisticsAggregation()
+    {
+        PageSinkManager pageSinkManager = new PageSinkManager();
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
+        TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
+                pageSinkManager,
+                new AggregationOperatorFactory(
+                        1,
+                        new PlanNodeId("test"),
+                        AggregationNode.Step.SINGLE,
+                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty()))),
+                outputTypes);
+
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+        operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
+
+        assertTrue(operator.isBlocked().isDone());
+        assertTrue(operator.needsInput());
+
+        operator.finish();
+        assertFalse(operator.isFinished());
+
+        assertPageEquals(outputTypes, operator.getOutput(),
+                rowPagesBuilder(outputTypes)
+                        .row(null, null, 43).build().get(0));
+
+        assertPageEquals(outputTypes, operator.getOutput(),
+                rowPagesBuilder(outputTypes)
+                        .row(2, null, null).build().get(0));
+
+        assertTrue(operator.isBlocked().isDone());
+        assertFalse(operator.needsInput());
+        assertTrue(operator.isFinished());
+    }
+
     private Operator createTableWriterOperator(BlockingPageSink blockingPageSink)
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
         pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink));
-        return createTableWriterOperator(pageSinkManager);
+        return createTableWriterOperator(pageSinkManager, new DevNullOperatorFactory(1, new PlanNodeId("test")), ImmutableList.of(BIGINT, VARBINARY));
     }
 
-    private Operator createTableWriterOperator(PageSinkManager pageSinkManager)
+    private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes)
     {
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
@@ -184,7 +236,9 @@ public class TestTableWriterOperator
                         new ConnectorOutputTableHandle() {}),
                         new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
-                TEST_SESSION);
+                TEST_SESSION,
+                statisticsAggregation,
+                outputTypes);
 
         return factory.createOperator(createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)

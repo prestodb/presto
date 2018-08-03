@@ -74,7 +74,6 @@ class SubqueryPlanner
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
     private final Session session;
-    private final List<Expression> parameters;
 
     SubqueryPlanner(
             Analysis analysis,
@@ -82,8 +81,7 @@ class SubqueryPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
-            Session session,
-            List<Expression> parameters)
+            Session session)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -91,7 +89,6 @@ class SubqueryPlanner
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
-        requireNonNull(parameters, "parameters is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -99,7 +96,6 @@ class SubqueryPlanner
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.metadata = metadata;
         this.session = session;
-        this.parameters = parameters;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)

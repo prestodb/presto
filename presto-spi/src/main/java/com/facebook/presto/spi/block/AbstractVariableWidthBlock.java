@@ -143,6 +143,12 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : getSliceLength(position);
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);

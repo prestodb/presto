@@ -234,8 +234,7 @@ public class TestShardCompactor
                     if (outputPage == null) {
                         break;
                     }
-                    outputPage.assureLoaded();
-                    pages.add(outputPage);
+                    pages.add(outputPage.getLoadedPage());
                 }
             }
         }

@@ -88,6 +88,7 @@ import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForNodeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -166,7 +167,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
-import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -244,11 +244,7 @@ public class ServerMainModule
         // TODO: move to CoordinatorModule
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
-        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
-        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
-            config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
-            config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
-        });
+        install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
@@ -278,6 +274,9 @@ public class ServerMainModule
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
+
+        // column properties
+        binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
         discoveryBinder(binder).bindSelector("presto");

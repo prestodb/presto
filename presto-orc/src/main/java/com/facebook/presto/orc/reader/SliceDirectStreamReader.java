@@ -129,7 +129,7 @@ public class SliceDirectStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector);
+            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
         }
         else {
             isNullVector = new boolean[nextBatchSize];
@@ -141,10 +141,10 @@ public class SliceDirectStreamReader
 
                 if (nullValues == 0) {
                     isNullVector = null;
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector);
+                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
                 }
                 else {
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector, isNullVector);
+                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, isNullVector);
                 }
             }
         }

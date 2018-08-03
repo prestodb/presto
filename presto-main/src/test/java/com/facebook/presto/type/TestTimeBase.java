@@ -54,9 +54,9 @@ public abstract class TestTimeBase
     @Test
     public void testLiteral()
     {
-        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, session));
+        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, session));
     }
 
     @Test
@@ -145,7 +145,7 @@ public abstract class TestTimeBase
     {
         TimeZoneKey timeZoneThatChangedSince1970 = getTimeZoneKey("Asia/Kathmandu");
         DateTimeZone dateTimeZoneThatChangedSince1970 = getDateTimeZone(timeZoneThatChangedSince1970);
-        Session session = testSessionBuilder()
+        Session session = Session.builder(this.session)
                 .setTimeZoneKey(timeZoneThatChangedSince1970)
                 .build();
         try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
@@ -161,7 +161,7 @@ public abstract class TestTimeBase
     {
         // Australia/Sydney will switch DST a second after session start
         // For simplicity we have to use time zone that is going forward when entering DST zone with 1970-01-01
-        Session session = testSessionBuilder()
+        Session session = Session.builder(this.session)
                 .setTimeZoneKey(getTimeZoneKey("Australia/Sydney"))
                 .setStartTime(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis())
                 .build();

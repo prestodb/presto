@@ -239,8 +239,11 @@ public class MapColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
-        return INSTANCE_SIZE + lengthStream.getRetainedBytes() + presentStream.getRetainedBytes() + keyWriter.getRetainedBytes() + valueWriter.getRetainedBytes();
+        long retainedBytes = INSTANCE_SIZE + lengthStream.getRetainedBytes() + presentStream.getRetainedBytes() + keyWriter.getRetainedBytes() + valueWriter.getRetainedBytes();
+        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
+            retainedBytes += statistics.getRetainedSizeInBytes();
+        }
+        return retainedBytes;
     }
 
     @Override

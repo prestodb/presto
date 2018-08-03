@@ -45,7 +45,7 @@ public class FilterAndProjectOperator
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(FilterAndProjectOperator.class.getSimpleName());
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
     }
 

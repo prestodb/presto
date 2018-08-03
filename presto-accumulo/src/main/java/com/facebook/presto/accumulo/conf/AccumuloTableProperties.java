@@ -35,8 +35,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -64,31 +64,31 @@ public final class AccumuloTableProperties
 
     public AccumuloTableProperties()
     {
-        PropertyMetadata<String> s1 = stringSessionProperty(
+        PropertyMetadata<String> s1 = stringProperty(
                 COLUMN_MAPPING,
                 "Comma-delimited list of column metadata: col_name:col_family:col_qualifier,[...]. Required for external tables. Not setting this property results in auto-generated column names.",
                 null,
                 false);
 
-        PropertyMetadata<String> s2 = stringSessionProperty(
+        PropertyMetadata<String> s2 = stringProperty(
                 INDEX_COLUMNS,
                 "A comma-delimited list of Presto columns that are indexed in this table's corresponding index table. Default is no indexed columns.",
                 "",
                 false);
 
-        PropertyMetadata<Boolean> s3 = booleanSessionProperty(
+        PropertyMetadata<Boolean> s3 = booleanProperty(
                 EXTERNAL,
                 "If true, Presto will only do metadata operations for the table. Else, Presto will create and drop Accumulo tables where appropriate. Default false.",
                 false,
                 false);
 
-        PropertyMetadata<String> s4 = stringSessionProperty(
+        PropertyMetadata<String> s4 = stringProperty(
                 LOCALITY_GROUPS,
                 "List of locality groups to set on the Accumulo table. Only valid on internal tables. String format is locality group name, colon, comma delimited list of Presto column names in the group. Groups are delimited by pipes. Example: group1:colA,colB,colC|group2:colD,colE,colF|etc.... Default is no locality groups.",
                 null,
                 false);
 
-        PropertyMetadata<String> s5 = stringSessionProperty(
+        PropertyMetadata<String> s5 = stringProperty(
                 ROW_ID,
                 "Presto column name that maps to the Accumulo row ID. Default is the first column.",
                 null,
@@ -108,7 +108,7 @@ public final class AccumuloTableProperties
                         : (String) x)),
                 object -> object);
 
-        PropertyMetadata<String> s7 = stringSessionProperty(
+        PropertyMetadata<String> s7 = stringProperty(
                 SCAN_AUTHS,
                 "Scan-time authorizations set on the batch scanner. Default is all scan authorizations for the user",
                 null,

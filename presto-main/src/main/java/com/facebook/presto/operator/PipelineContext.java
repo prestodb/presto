@@ -106,6 +106,8 @@ public class PipelineContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
+        // Initialize the local memory contexts with the ExchangeOperator tag as ExchangeOperator will do the local memory allocations
+        pipelineMemoryContext.initializeLocalMemoryContexts(ExchangeOperator.class.getSimpleName());
     }
 
     public TaskContext getTaskContext()
@@ -326,7 +328,7 @@ public class PipelineContext
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
         PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator());
 
-        int totalDriers = completedDrivers.get() + driverContexts.size();
+        int totalDrivers = completedDrivers.get() + driverContexts.size();
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -412,7 +414,7 @@ public class PipelineContext
                 inputPipeline,
                 outputPipeline,
 
-                totalDriers,
+                totalDrivers,
                 pipelineStatus.getQueuedDrivers(),
                 pipelineStatus.getQueuedPartitionedDrivers(),
                 pipelineStatus.getRunningDrivers(),

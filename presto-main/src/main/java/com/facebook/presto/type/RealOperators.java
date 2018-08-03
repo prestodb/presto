@@ -25,6 +25,7 @@ import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
@@ -45,7 +46,9 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -162,7 +165,14 @@ public final class RealOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.REAL) long value)
     {
-        return AbstractIntType.hash((int) value);
+        return AbstractIntType.hash(floatToIntBits(intBitsToFloat((int) value)));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.REAL) long value)
+    {
+        return XxHash64.hash(floatToIntBits(intBitsToFloat((int) value)));
     }
 
     @ScalarOperator(CAST)

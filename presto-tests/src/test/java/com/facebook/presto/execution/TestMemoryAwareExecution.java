@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.airlift.units.DataSize;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -40,6 +42,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 @Test(singleThreaded = true)
 public class TestMemoryAwareExecution
 {
+    private TestingPrestoServer server;
     private QueryManager queryManager;
     private long totalAvailableMemory;
     private long queryMaxMemoryBytes;
@@ -48,7 +51,7 @@ public class TestMemoryAwareExecution
     public void setUp()
             throws Exception
     {
-        TestingPrestoServer server = new TestingPrestoServer(
+        server = new TestingPrestoServer(
                 true,
                 ImmutableMap.of("experimental.preallocate-memory-threshold", "1B"),
                 null,
@@ -66,6 +69,27 @@ public class TestMemoryAwareExecution
             Thread.sleep(1000);
         }
         totalAvailableMemory = localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL).getMaxBytes();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    private void afterMethod()
+            throws Exception
+    {
+        for (QueryInfo info : queryManager.getAllQueryInfo()) {
+            if (!info.getState().isDone()) {
+                queryManager.cancelQuery(info.getQueryId());
+                waitForState(info.getQueryId(), FAILED);
+            }
+        }
+    }
+
+    @AfterClass(alwaysRun = true)
+    private void tearDown()
+            throws Exception
+    {
+        server.close();
+        server = null;
+        queryManager = null;
     }
 
     @Test
@@ -96,8 +120,7 @@ public class TestMemoryAwareExecution
             throws Exception
     {
         // Invoke multiple times to make sure that pre-allocation state resets properly and that there aren't weird data races
-        // TODO: Remove subtraction of 156 * invocationCount * 2 when memory leak in PartitionedOutputBuffer is fixed
-        ResourceEstimates estimate = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(succinctBytes(totalAvailableMemory - (156 * 5 * 2))));
+        ResourceEstimates estimate = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(succinctBytes(totalAvailableMemory)));
 
         QueryId highMemoryQuery1 = queryWithResourceEstimate(estimate, queryManager);
         assertState(highMemoryQuery1, RUNNING);

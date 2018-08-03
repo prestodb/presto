@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryExplainer
 {
     private final List<PlanOptimizer> planOptimizers;
+    private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final AccessControl accessControl;
@@ -56,6 +57,7 @@ public class QueryExplainer
     @Inject
     public QueryExplainer(
             PlanOptimizers planOptimizers,
+            PlanFragmenter planFragmenter,
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
             AccessControl accessControl,
@@ -64,7 +66,9 @@ public class QueryExplainer
             CostCalculator costCalculator,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
-        this(planOptimizers.get(),
+        this(
+                planOptimizers.get(),
+                planFragmenter,
                 metadata,
                 nodePartitioningManager,
                 accessControl,
@@ -76,6 +80,7 @@ public class QueryExplainer
 
     public QueryExplainer(
             List<PlanOptimizer> planOptimizers,
+            PlanFragmenter planFragmenter,
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
             AccessControl accessControl,
@@ -85,6 +90,7 @@ public class QueryExplainer
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -157,6 +163,6 @@ public class QueryExplainer
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
     {
         Plan plan = getLogicalPlan(session, statement, parameters);
-        return PlanFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, false);
+        return planFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, false);
     }
 }

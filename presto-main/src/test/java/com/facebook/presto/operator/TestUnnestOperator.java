@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -36,6 +37,7 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
@@ -184,6 +186,36 @@ public class TestUnnestOperator
                 .row(1L, NEGATIVE_INFINITY, 1L, NEGATIVE_INFINITY)
                 .row(1L, POSITIVE_INFINITY, 2L, POSITIVE_INFINITY)
                 .row(1L, NaN, 3L, NaN)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testUnnestWithArrayOfRows()
+    {
+        MetadataManager metadata = createTestMetadataManager();
+        Type arrayOfRowType = metadata.getType(parseTypeSignature("array(row(bigint, double, varchar))"));
+        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+
+        List<Page> input = rowPagesBuilder(BIGINT, arrayOfRowType)
+                .row(1, arrayBlockOf(elementType, ImmutableList.of(2, 4.2, "abc"), ImmutableList.of(3, 6.6, "def")))
+                .row(2, arrayBlockOf(elementType, ImmutableList.of(99, 3.14, "pi"), null))
+                .row(3, null)
+                .pageBreak()
+                .row(6, arrayBlockOf(elementType, null, ImmutableList.of(8, 1.111, "tt")))
+                .build();
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1), ImmutableList.of(arrayOfRowType), false);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR)
+                .row(1L, 2L, 4.2, "abc")
+                .row(1L, 3L, 6.6, "def")
+                .row(2L, 99L, 3.14, "pi")
+                .row(2L, null, null, null)
+                .row(6L, null, null, null)
+                .row(6L, 8L, 1.111, "tt")
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);

@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!--
+  ~ Copyright 2015 Teradata
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  ~
+  -->
+<configuration>
+
+    <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/var/lib/hadoop-hdfs/cache/name/</value>
+    </property>
+
+    <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/var/lib/hadoop-hdfs/cache/data/</value>
+    </property>
+
+    <!-- General HDFS security config -->
+    <property>
+        <name>dfs.block.access.token.enable</name>
+        <value>true</value>
+    </property>
+
+    <!-- NameNode security config -->
+    <property>
+        <name>dfs.namenode.keytab.file</name>
+        <value>/etc/hadoop/conf/hdfs.keytab</value> <!-- path to the HDFS keytab -->
+    </property>
+    <property>
+        <name>dfs.namenode.kerberos.principal</name>
+        <value>hdfs/hadoop-master@LABS.TERADATA.COM</value>
+    </property>
+    <property>
+        <name>dfs.namenode.kerberos.internal.spnego.principal</name>
+        <value>HTTP/hadoop-master@LABS.TERADATA.COM</value>
+    </property>
+
+    <!-- Secondary NameNode security config -->
+    <property>
+        <name>dfs.secondary.namenode.keytab.file</name>
+        <value>/etc/hadoop/conf/hdfs.keytab</value> <!-- path to the HDFS keytab -->
+    </property>
+    <property>
+        <name>dfs.secondary.namenode.kerberos.principal</name>
+        <value>hdfs/hadoop-master@LABS.TERADATA.COM</value>
+    </property>
+    <property>
+        <name>dfs.secondary.namenode.kerberos.internal.spnego.principal</name>
+        <value>HTTP/hadoop-master@LABS.TERADATA.COM</value>
+    </property>
+
+    <!-- DataNode security config -->
+    <property>
+        <name>dfs.datanode.keytab.file</name>
+        <value>/etc/hadoop/conf/hdfs.keytab</value> <!-- path to the HDFS keytab -->
+    </property>
+    <property>
+        <name>dfs.datanode.kerberos.principal</name>
+        <value>hdfs/hadoop-master@LABS.TERADATA.COM</value>
+    </property>
+
+    <!-- WebHDFS security config -->
+    <property>
+        <name>dfs.webhdfs.enabled</name>
+        <value>true</value>
+    </property>
+
+    <!-- Web Authentication config -->
+    <property>
+        <name>dfs.web.authentication.kerberos.principal</name>
+        <value>HTTP/hadoop-master@LABS.TERADATA.COM</value>
+    </property>
+
+    <property>
+        <name>dfs.web.authentication.kerberos.keytab</name>
+        <value>/etc/hadoop/conf/HTTP.keytab</value> <!-- path to the HTTP keytab -->
+    </property>
+
+    <property>
+        <name>ignore.secure.ports.for.testing</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>dfs.http.policy</name>
+        <value>HTTP_ONLY</value>
+    </property>
+
+    <property>
+        <name>dfs.encrypt.data.transfer</name>
+        <value>true</value>
+    </property>
+</configuration>

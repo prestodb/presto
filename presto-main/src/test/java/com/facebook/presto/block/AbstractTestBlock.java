@@ -465,4 +465,19 @@ public abstract class AbstractTestBlock
         }
         return expectedValues;
     }
+
+    protected static void assertEstimatedDataSizeForStats(BlockBuilder blockBuilder, Slice[] expectedSliceValues)
+    {
+        Block block = blockBuilder.build();
+        assertEquals(block.getPositionCount(), expectedSliceValues.length);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            int expectedSize = expectedSliceValues[i] == null ? 0 : expectedSliceValues[i].length();
+            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
+            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+        }
+
+        BlockBuilder nullValueBlockBuilder = blockBuilder.newBlockBuilderLike(null).appendNull();
+        assertEquals(nullValueBlockBuilder.getEstimatedDataSizeForStats(0), 0);
+        assertEquals(nullValueBlockBuilder.build().getEstimatedDataSizeForStats(0), 0);
+    }
 }

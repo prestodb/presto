@@ -194,8 +194,7 @@ public class HiveFileFormatBenchmark
             while (!pageSource.isFinished()) {
                 Page page = pageSource.getNextPage();
                 if (page != null) {
-                    page.assureLoaded();
-                    pages.add(page);
+                    pages.add(page.getLoadedPage());
                 }
             }
         }

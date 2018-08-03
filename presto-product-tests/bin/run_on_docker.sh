@@ -123,6 +123,8 @@ if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
+elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
 fi
 
 # check docker and docker compose installation
@@ -152,6 +154,8 @@ elif [[ "$ENVIRONMENT" == "singlenode-postgresql" ]]; then
   EXTERNAL_SERVICES="hadoop-master postgres"
 elif [[ "$ENVIRONMENT" == "singlenode-cassandra" ]]; then
   EXTERNAL_SERVICES="hadoop-master cassandra"
+elif [[ "$ENVIRONMENT" == "singlenode-kafka" ]]; then
+  EXTERNAL_SERVICES="hadoop-master kafka"
 else
   EXTERNAL_SERVICES="hadoop-master"
 fi

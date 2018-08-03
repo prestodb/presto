@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingSession;
@@ -42,15 +43,11 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
-import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
-import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
-import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_TABLE;
-import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
@@ -942,41 +939,6 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM test_nested_view_access",
                 privilege(getSession().getUser(), "test_view_access", SELECT_COLUMN));
 
-        // TEST TABLE-LEVEL PRIVILEGES
-        // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
-        assertAccessDenied(
-                "SELECT * FROM test_view_access",
-                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
-                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
-
-        // verify the view owner can select from the view even without special view creation privileges
-        assertAccessAllowed(
-                viewOwnerSession,
-                "SELECT * FROM test_view_access",
-                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
-
-        // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
-        assertAccessAllowed(
-                "SELECT * FROM test_view_access",
-                privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
-        assertAccessAllowed(
-                "SELECT * FROM test_view_access",
-                privilege(getSession().getUser(), "orders", SELECT_TABLE));
-
-        // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
-        assertAccessDenied(
-                "SELECT * FROM test_nested_view_access",
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
-                privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
-
-        // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
-        assertAccessAllowed(
-                "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
-        assertAccessAllowed(
-                "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", SELECT_VIEW));
-
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
     }
@@ -989,7 +951,7 @@ public abstract class AbstractTestDistributedQueries
         // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
         Session session = Session.builder(getSession())
                 // With broadcast join, lineitem would be source-distributed and not executed concurrently.
-                .setSystemProperty(SystemSessionProperties.DISTRIBUTED_JOIN, "true")
+                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.toString())
                 .build();
         long joinOutputRowCount = 60175;
         assertQuery(

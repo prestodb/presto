@@ -37,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_PROTECTION;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_SOCKET_FACTORY_CLASS_DEFAULT_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SERVER_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
@@ -61,6 +62,7 @@ public class HdfsConfigurationUpdater
     private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
+    private final boolean isHdfsWireEncryptionEnabled;
 
     @VisibleForTesting
     public HdfsConfigurationUpdater(HiveClientConfig config)
@@ -83,6 +85,7 @@ public class HdfsConfigurationUpdater
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
         this.compressionCodec = config.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
+        this.isHdfsWireEncryptionEnabled = config.isHdfsWireEncryptionEnabled();
 
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
     }
@@ -128,6 +131,11 @@ public class HdfsConfigurationUpdater
         config.setInt(IPC_PING_INTERVAL_KEY, toIntExact(ipcPingInterval.toMillis()));
         config.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, toIntExact(dfsConnectTimeout.toMillis()));
         config.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, dfsConnectMaxRetries);
+
+        if (isHdfsWireEncryptionEnabled) {
+            config.set(HADOOP_RPC_PROTECTION, "privacy");
+            config.setBoolean("dfs.encrypt.data.transfer", true);
+        }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 

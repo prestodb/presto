@@ -1,0 +1,45 @@
+{
+  "tableName": "all_datatypes_csv",
+  "schemaName": "product_tests",
+  "topicName": "all_datatypes_csv",
+  "message": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "c_varchar",
+        "type": "VARCHAR",
+        "mapping": "0"
+      },
+      {
+        "name": "c_bigint",
+        "type": "BIGINT",
+        "mapping": "1"
+      },
+      {
+        "name": "c_integer",
+        "type": "INTEGER",
+        "mapping": "2"
+      },
+      {
+        "name": "c_smallint",
+        "type": "SMALLINT",
+        "mapping": "3"
+      },
+      {
+        "name": "c_tinyint",
+        "type": "TINYINT",
+        "mapping": "4"
+      },
+      {
+        "name": "c_double",
+        "type": "DOUBLE",
+        "mapping": "5"
+      },
+      {
+        "name": "c_boolean",
+        "type": "BOOLEAN",
+        "mapping": "6"
+      }
+    ]
+  }
+}

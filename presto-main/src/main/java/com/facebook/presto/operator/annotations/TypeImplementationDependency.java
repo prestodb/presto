@@ -19,6 +19,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 
+import java.util.Objects;
+
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
@@ -37,5 +39,25 @@ public final class TypeImplementationDependency
     public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         return typeManager.getType(applyBoundVariables(signature, boundVariables));
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TypeImplementationDependency that = (TypeImplementationDependency) o;
+        return Objects.equals(signature, that.signature);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(signature);
     }
 }

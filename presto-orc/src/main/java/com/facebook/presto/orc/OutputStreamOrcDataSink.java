@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.stream.OrcDataOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -25,6 +26,8 @@ import static java.util.Objects.requireNonNull;
 public class OutputStreamOrcDataSink
         implements OrcDataSink
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamOrcDataSink.class).instanceSize();
+
     private final OutputStreamSliceOutput output;
 
     public OutputStreamOrcDataSink(OutputStream outputStream)
@@ -41,7 +44,7 @@ public class OutputStreamOrcDataSink
     @Override
     public long getRetainedSizeInBytes()
     {
-        return 0;
+        return INSTANCE_SIZE + output.getRetainedSize();
     }
 
     @Override

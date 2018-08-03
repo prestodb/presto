@@ -174,4 +174,20 @@ public class ArrayBlock
         sb.append('}');
         return sb.toString();
     }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedValuesBlock = values.getLoadedBlock();
+
+        if (loadedValuesBlock == values) {
+            return this;
+        }
+        return createArrayBlockInternal(
+                arrayOffset,
+                positionCount,
+                valueIsNull,
+                offsets,
+                loadedValuesBlock);
+    }
 }

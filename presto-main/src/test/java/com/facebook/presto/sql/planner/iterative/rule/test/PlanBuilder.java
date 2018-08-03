@@ -161,15 +161,17 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, Symbol... columns)
     {
-        return new ValuesNode(
-                id,
-                ImmutableList.copyOf(columns),
-                ImmutableList.of());
+        return values(id, ImmutableList.copyOf(columns), ImmutableList.of());
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
     {
-        return new ValuesNode(idAllocator.getNextId(), columns, rows);
+        return values(idAllocator.getNextId(), columns, rows);
+    }
+
+    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
+    {
+        return new ValuesNode(id, columns, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)
@@ -418,7 +420,9 @@ public class PlanBuilder
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
                 deleteHandle,
-                ImmutableList.of(deleteRowId));
+                ImmutableList.of(deleteRowId),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -668,6 +672,8 @@ public class PlanBuilder
                 columns,
                 columnNames,
                 ImmutableList.of(symbol("partialrows", BIGINT), symbol("fragment", VARBINARY)),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

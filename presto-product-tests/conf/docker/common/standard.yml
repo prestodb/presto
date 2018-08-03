@@ -14,6 +14,7 @@ services:
     hostname: hadoop-master
     ports:
       - '${HIVE_PROXY_PORT}:1180'
+      - '5006:5006'
       - '8020:8020'
       - '8042:8042'
       - '8088:8088'
@@ -48,6 +49,7 @@ services:
       - ${PRESTO_JDBC_DRIVER_JAR}:/docker/volumes/jdbc/driver.jar
       - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
       - ../../../target/test-reports:/docker/volumes/test-reports
+      - /tmp/presto_history_docker:/root/.presto_history
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
       - TEMPTO_EXTRA_CONFIG_FILE

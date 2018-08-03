@@ -55,14 +55,12 @@ public class KafkaMetadata
     private final String connectorId;
     private final boolean hideInternalColumns;
     private final Map<SchemaTableName, KafkaTopicDescription> tableDescriptions;
-    private final Set<KafkaInternalFieldDescription> internalFieldDescriptions;
 
     @Inject
     public KafkaMetadata(
             KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
-            Supplier<Map<SchemaTableName, KafkaTopicDescription>> kafkaTableDescriptionSupplier,
-            Set<KafkaInternalFieldDescription> internalFieldDescriptions)
+            Supplier<Map<SchemaTableName, KafkaTopicDescription>> kafkaTableDescriptionSupplier)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -71,7 +69,6 @@ public class KafkaMetadata
 
         requireNonNull(kafkaTableDescriptionSupplier, "kafkaTableDescriptionSupplier is null");
         this.tableDescriptions = kafkaTableDescriptionSupplier.get();
-        this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");
     }
 
     @Override
@@ -158,8 +155,8 @@ public class KafkaMetadata
             }
         }
 
-        for (KafkaInternalFieldDescription kafkaInternalFieldDescription : internalFieldDescriptions) {
-            columnHandles.put(kafkaInternalFieldDescription.getName(), kafkaInternalFieldDescription.getColumnHandle(connectorId, index++, hideInternalColumns));
+        for (KafkaInternalFieldDescription kafkaInternalFieldDescription : KafkaInternalFieldDescription.values()) {
+            columnHandles.put(kafkaInternalFieldDescription.getColumnName(), kafkaInternalFieldDescription.getColumnHandle(connectorId, index++, hideInternalColumns));
         }
 
         return columnHandles.build();
@@ -243,7 +240,7 @@ public class KafkaMetadata
             }
         }
 
-        for (KafkaInternalFieldDescription fieldDescription : internalFieldDescriptions) {
+        for (KafkaInternalFieldDescription fieldDescription : KafkaInternalFieldDescription.values()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 

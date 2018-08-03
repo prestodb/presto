@@ -31,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveColumnStatistics
 {
+    private static final HiveColumnStatistics EMPTY = HiveColumnStatistics.builder().build();
+
     private final Optional<IntegerStatistics> integerStatistics;
     private final Optional<DoubleStatistics> doubleStatistics;
     private final Optional<DecimalStatistics> decimalStatistics;
@@ -40,6 +42,11 @@ public class HiveColumnStatistics
     private final OptionalDouble averageColumnLength;
     private final OptionalLong nullsCount;
     private final OptionalLong distinctValuesCount;
+
+    public static HiveColumnStatistics empty()
+    {
+        return EMPTY;
+    }
 
     @JsonCreator
     public HiveColumnStatistics(
@@ -241,6 +248,11 @@ public class HiveColumnStatistics
                 .build();
     }
 
+    public static Builder builder(HiveColumnStatistics other)
+    {
+        return new Builder(other);
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -258,9 +270,36 @@ public class HiveColumnStatistics
         private OptionalLong nullsCount = OptionalLong.empty();
         private OptionalLong distinctValuesCount = OptionalLong.empty();
 
+        private Builder() {}
+
+        private Builder(HiveColumnStatistics other)
+        {
+            this.integerStatistics = other.getIntegerStatistics();
+            this.doubleStatistics = other.getDoubleStatistics();
+            this.decimalStatistics = other.getDecimalStatistics();
+            this.dateStatistics = other.getDateStatistics();
+            this.booleanStatistics = other.getBooleanStatistics();
+            this.maxColumnLength = other.getMaxColumnLength();
+            this.averageColumnLength = other.getAverageColumnLength();
+            this.nullsCount = other.getNullsCount();
+            this.distinctValuesCount = other.getDistinctValuesCount();
+        }
+
+        public Builder setIntegerStatistics(Optional<IntegerStatistics> integerStatistics)
+        {
+            this.integerStatistics = integerStatistics;
+            return this;
+        }
+
         public Builder setIntegerStatistics(IntegerStatistics integerStatistics)
         {
             this.integerStatistics = Optional.of(integerStatistics);
+            return this;
+        }
+
+        public Builder setDoubleStatistics(Optional<DoubleStatistics> doubleStatistics)
+        {
+            this.doubleStatistics = doubleStatistics;
             return this;
         }
 
@@ -270,15 +309,33 @@ public class HiveColumnStatistics
             return this;
         }
 
+        public Builder setDecimalStatistics(Optional<DecimalStatistics> decimalStatistics)
+        {
+            this.decimalStatistics = decimalStatistics;
+            return this;
+        }
+
         public Builder setDecimalStatistics(DecimalStatistics decimalStatistics)
         {
             this.decimalStatistics = Optional.of(decimalStatistics);
             return this;
         }
 
+        public Builder setDateStatistics(Optional<DateStatistics> dateStatistics)
+        {
+            this.dateStatistics = dateStatistics;
+            return this;
+        }
+
         public Builder setDateStatistics(DateStatistics dateStatistics)
         {
             this.dateStatistics = Optional.of(dateStatistics);
+            return this;
+        }
+
+        public Builder setBooleanStatistics(Optional<BooleanStatistics> booleanStatistics)
+        {
+            this.booleanStatistics = booleanStatistics;
             return this;
         }
 

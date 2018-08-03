@@ -39,8 +39,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
@@ -72,7 +72,7 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_CLIENT_INFO, "client-info")
                     .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
                     .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
-                    .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
+                    .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
                     .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
                     .build(),
             "testRemote");
@@ -104,7 +104,7 @@ public class TestQuerySessionSupplier
         assertEquals(session.getClientTags(), ImmutableSet.of("tag1", "tag2", "tag3"));
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
-                .put(DISTRIBUTED_JOIN, "true")
+                .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
                 .build());
         assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
@@ -131,7 +131,7 @@ public class TestQuerySessionSupplier
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, Optional.empty(), TEST_RESOURCE_GROUP_ID);
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
-                .put(DISTRIBUTED_JOIN, "true")
+                .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
                 .put("key2", "20")
                 .put("key3", "3")

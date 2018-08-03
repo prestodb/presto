@@ -19,7 +19,6 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class FileBasedAccessControlModule
         implements Module
@@ -28,7 +27,6 @@ public class FileBasedAccessControlModule
     public void configure(Binder binder)
     {
         binder.bind(ConnectorAccessControl.class).to(FileBasedAccessControl.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(AccessControlRules.class);
         configBinder(binder).bindConfig(FileBasedAccessControlConfig.class);
     }
 }

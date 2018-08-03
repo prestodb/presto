@@ -33,13 +33,6 @@ public class ColumnarMap
         if (block instanceof RunLengthEncodedBlock) {
             return toColumnarMap((RunLengthEncodedBlock) block);
         }
-        if (block instanceof LazyBlock) {
-            LazyBlock lazyBlock = (LazyBlock) block;
-            if (!lazyBlock.isLoaded()) {
-                throw new IllegalArgumentException("LazyBlock is expected to be loaded");
-            }
-            return toColumnarMap(lazyBlock.getBlock());
-        }
 
         if (!(block instanceof AbstractMapBlock)) {
             throw new IllegalArgumentException("Invalid map block: " + block.getClass().getName());

@@ -25,6 +25,11 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Float.isNaN;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestRealOperators
         extends AbstractTestFunctions
@@ -244,5 +249,15 @@ public class TestRealOperators
         assertOperator(INDETERMINATE, "cast(-1.2 as real)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(1.2 as real)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(123 as real)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testNanHash()
+    {
+        int[] nanRepresentations = {floatToIntBits(Float.NaN), 0xffc00000, 0x7fc00000, 0x7fc01234, 0xffc01234};
+        for (int nanRepresentation : nanRepresentations) {
+            assertTrue(isNaN(intBitsToFloat(nanRepresentation)));
+            assertEquals(RealOperators.hashCode(nanRepresentation), RealOperators.hashCode(nanRepresentations[0]));
+        }
     }
 }

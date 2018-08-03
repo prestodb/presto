@@ -140,6 +140,10 @@ class IndexInserter
         }
 
         for (ColumnStats column : stats) {
+            if (!indexes.containsKey(column.getColumnId())) {
+                // the column no longer exists in the table
+                continue;
+            }
             int index = indexes.get(column.getColumnId());
             JDBCType type = types.get(column.getColumnId());
             bindValue(statement, type, convert(column.getMin()), index);

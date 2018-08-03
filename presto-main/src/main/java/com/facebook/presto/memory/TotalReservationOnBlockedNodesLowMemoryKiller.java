@@ -29,7 +29,7 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> queries, List<MemoryInfo> nodes)
+    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Map<QueryId, Long> memoryReservationOnBlockedNodes = new HashMap<>();
         for (MemoryInfo node : nodes) {

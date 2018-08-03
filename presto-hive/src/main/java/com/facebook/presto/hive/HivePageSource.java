@@ -623,10 +623,7 @@ public class HivePageSource
                 return;
             }
 
-            if (block instanceof LazyBlock) {
-                block = ((LazyBlock) block).getBlock();
-            }
-            lazyBlock.setBlock(coercer.apply(block));
+            lazyBlock.setBlock(coercer.apply(block.getLoadedBlock()));
 
             // clear reference to loader to free resources, since load was successful
             block = null;
@@ -652,9 +649,6 @@ public class HivePageSource
                 return;
             }
 
-            if (block instanceof LazyBlock) {
-                block = ((LazyBlock) block).getBlock();
-            }
             lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
 
             // clear reference to loader to free resources, since load was successful

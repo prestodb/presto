@@ -27,7 +27,7 @@ public interface AggregatedMemoryContext
 
     AggregatedMemoryContext newAggregatedMemoryContext();
 
-    LocalMemoryContext newLocalMemoryContext();
+    LocalMemoryContext newLocalMemoryContext(String allocationTag);
 
     long getBytes();
 

@@ -232,7 +232,7 @@ public final class VarcharOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType("varchar(x)") Slice value)
     {
-        return XxHash64.hash(value);
+        return xxHash64(value);
     }
 
     @LiteralParameters({"x", "y"})

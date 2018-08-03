@@ -20,7 +20,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
 
-import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -65,7 +65,7 @@ public class DetermineJoinDistributionType
             return REPLICATED;
         }
 
-        if (isDistributedJoinEnabled(context.getSession())) {
+        if (getJoinDistributionType(context.getSession()).canPartition()) {
             return PARTITIONED;
         }
 

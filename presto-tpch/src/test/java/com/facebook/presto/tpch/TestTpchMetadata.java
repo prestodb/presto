@@ -23,6 +23,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.tpch.util.PredicateUtils;
 import com.google.common.base.Preconditions;
@@ -42,7 +43,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysFalse;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
-import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
 import static com.facebook.presto.spi.statistics.Estimate.zeroValue;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
@@ -168,7 +168,7 @@ public class TestTpchMetadata
             testColumnStats(schema, PART_SUPPLIER, PART_KEY, columnStatistics(200_000 * scaleFactor, 1, 200_000 * scaleFactor));
 
             //dictionary
-            testColumnStats(schema, CUSTOMER, MARKET_SEGMENT, columnStatistics(5, "AUTOMOBILE", "MACHINERY"));
+            testColumnStats(schema, CUSTOMER, MARKET_SEGMENT, columnStatistics(5, "AUTOMOBILE", "MACHINERY", 45));
 
             //low-valued numeric column
             testColumnStats(schema, LINE_ITEM, LINE_NUMBER, columnStatistics(7, 1, 7));
@@ -178,11 +178,11 @@ public class TestTpchMetadata
 
             //varchar and double columns
             if (schema.equals("tiny")) {
-                testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, "Customer#000000001", "Customer#000001500"));
+                testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, "Customer#000000001", "Customer#000001500", 27000));
                 testColumnStats(schema, PART, RETAIL_PRICE, columnStatistics(1_099, 901, 1900.99));
             }
             else if (schema.equals("sf1")) {
-                testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, "Customer#000000001", "Customer#000150000"));
+                testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, "Customer#000000001", "Customer#000150000", 2700000));
                 testColumnStats(schema, PART, RETAIL_PRICE, columnStatistics(20899, 901, 2089.99));
             }
         });
@@ -195,15 +195,15 @@ public class TestTpchMetadata
             double scaleFactor = TpchMetadata.schemaNameToScaleFactor(schema);
 
             //value count, min and max are supported for the constrained column
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F"), columnStatistics(1, "F", "F"));
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "O"), columnStatistics(1, "O", "O"));
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "P"), columnStatistics(1, "P", "P"));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F"), columnStatistics(1, "F", "F", 1));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "O"), columnStatistics(1, "O", "O", 1));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "P"), columnStatistics(1, "P", "P", 1));
 
             //only min and max values for non-scaling columns can be estimated for non-constrained columns
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F"), rangeStatistics(3, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "O"), rangeStatistics(1, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "P"), rangeStatistics(65, 6_000_000 * scaleFactor));
-            testColumnStats(schema, ORDERS, CLERK, constraint(ORDER_STATUS, "O"), rangeStatistics("Clerk#000000001", "Clerk#000001000"));
+            testColumnStats(schema, ORDERS, CLERK, constraint(ORDER_STATUS, "O"), rangeStatistics("Clerk#000000001", "Clerk#000001000", 15000));
 
             //nothing can be said for always false constraints
             testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysFalse(), noColumnStatistics());
@@ -212,21 +212,21 @@ public class TestTpchMetadata
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "NO SUCH STATUS"), noColumnStatistics());
 
             //unmodified stats are returned for the always true constraint
-            testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysTrue(), columnStatistics(3, "F", "P"));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysTrue(), columnStatistics(3, "F", "P", 3));
             testColumnStats(schema, ORDERS, ORDER_KEY, alwaysTrue(), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
 
             //constraints on columns other than ORDER_STATUS are not supported and are ignored
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(CLERK, "NO SUCH CLERK"), columnStatistics(3, "F", "P"));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(CLERK, "NO SUCH CLERK"), columnStatistics(3, "F", "P", 3));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(CLERK, "Clerk#000000001"), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
 
             //compound constraints are supported
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), columnStatistics(1, "F", "F"));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), columnStatistics(1, "F", "F", 1));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), rangeStatistics(3, 6_000_000 * scaleFactor));
 
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O"), columnStatistics(2, "F", "O"));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O"), columnStatistics(2, "F", "O", 2));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "O"), rangeStatistics(1, 6_000_000 * scaleFactor));
 
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O", "P"), columnStatistics(3, "F", "P"));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O", "P"), columnStatistics(3, "F", "P", 3));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "O", "P"), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
         });
     }
@@ -245,27 +245,14 @@ public class TestTpchMetadata
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);
 
         EstimateAssertion estimateAssertion = new EstimateAssertion(TOLERANCE);
+        RangeColumnStatistics actualRange = actual.getOnlyRangeColumnStatistics();
+        RangeColumnStatistics expectedRange = expected.getOnlyRangeColumnStatistics();
 
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getDistinctValuesCount(),
-                expected.getOnlyRangeColumnStatistics().getDistinctValuesCount(),
-                "distinctValuesCount-s differ");
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getDataSize(),
-                expected.getOnlyRangeColumnStatistics().getDataSize(),
-                "dataSize-s differ");
-        estimateAssertion.assertClose(
-                actual.getNullsFraction(),
-                expected.getNullsFraction(),
-                "nullsFraction-s differ");
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getLowValue(),
-                expected.getOnlyRangeColumnStatistics().getLowValue(),
-                "lowValue-s differ");
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getHighValue(),
-                expected.getOnlyRangeColumnStatistics().getHighValue(),
-                "highValue-s differ");
+        estimateAssertion.assertClose(actualRange.getDistinctValuesCount(), expectedRange.getDistinctValuesCount(), "distinctValuesCount");
+        estimateAssertion.assertClose(actualRange.getDataSize(), expectedRange.getDataSize(), "dataSize");
+        estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction");
+        estimateAssertion.assertClose(actualRange.getLowValue(), expectedRange.getLowValue(), "lowValue");
+        estimateAssertion.assertClose(actualRange.getHighValue(), expectedRange.getHighValue(), "highValue");
     }
 
     @Test
@@ -397,38 +384,46 @@ public class TestTpchMetadata
 
     private ColumnStatistics noColumnStatistics()
     {
-        return createColumnStatistics(Optional.of((double) 0), empty(), empty());
+        return createColumnStatistics(Optional.of(0.0), empty(), empty(), Optional.of(0.0));
     }
 
-    private ColumnStatistics columnStatistics(double distinctValuesCount, String min, String max)
+    private ColumnStatistics columnStatistics(double distinctValuesCount, String min, String max, double dataSize)
     {
-        return createColumnStatistics(Optional.of(distinctValuesCount), Optional.of(utf8Slice(min)), Optional.of(utf8Slice(max)));
+        return createColumnStatistics(Optional.of(distinctValuesCount), Optional.of(utf8Slice(min)), Optional.of(utf8Slice(max)), Optional.of(dataSize));
     }
 
     private ColumnStatistics columnStatistics(double distinctValuesCount, double min, double max)
     {
-        return createColumnStatistics(Optional.of(distinctValuesCount), Optional.of(min), Optional.of(max));
+        return createColumnStatistics(Optional.of(distinctValuesCount), Optional.of(min), Optional.of(max), Optional.empty());
     }
 
-    private ColumnStatistics rangeStatistics(String min, String max)
+    private ColumnStatistics rangeStatistics(String min, String max, double dataSize)
     {
-        return createColumnStatistics(empty(), Optional.of(utf8Slice(min)), Optional.of(utf8Slice(max)));
+        return createColumnStatistics(empty(), Optional.of(utf8Slice(min)), Optional.of(utf8Slice(max)), Optional.of(dataSize));
     }
 
     private ColumnStatistics rangeStatistics(double min, double max)
     {
-        return createColumnStatistics(empty(), Optional.of(min), Optional.of(max));
+        return createColumnStatistics(empty(), Optional.of(min), Optional.of(max), Optional.empty());
     }
 
-    private ColumnStatistics createColumnStatistics(Optional<Double> distinctValuesCount, Optional<Object> min, Optional<Object> max)
+    private static ColumnStatistics createColumnStatistics(Optional<Double> distinctValuesCount, Optional<Object> min, Optional<Object> max, Optional<Double> dataSize)
     {
         return ColumnStatistics.builder()
                 .addRange(rb -> rb
-                        .setDistinctValuesCount(distinctValuesCount.map(Estimate::new).orElse(unknownValue()))
+                        .setDistinctValuesCount(toEstimate(distinctValuesCount))
                         .setLowValue(min)
                         .setHighValue(max)
+                        .setDataSize(toEstimate(dataSize))
                         .setFraction(new Estimate(1.0)))
                 .setNullsFraction(zeroValue())
                 .build();
+    }
+
+    private static Estimate toEstimate(Optional<Double> value)
+    {
+        return value
+                .map(Estimate::new)
+                .orElse(Estimate.unknownValue());
     }
 }

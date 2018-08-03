@@ -13,11 +13,25 @@
  */
 package com.facebook.presto.type;
 
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
+
 public class TestTimestampWithTimeZoneLegacy
         extends TestTimestampWithTimeZoneBase
 {
     public TestTimestampWithTimeZoneLegacy()
     {
         super(true);
+    }
+
+    @Test
+    @Override
+    public void testCastToTime()
+    {
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                sqlTimeOf(2, 4, 5, 321, session));
     }
 }

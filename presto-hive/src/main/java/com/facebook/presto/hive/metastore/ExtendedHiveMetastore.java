@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -30,7 +32,7 @@ public interface ExtendedHiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    boolean supportsColumnStatistics();
+    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
     PartitionStatistics getTableStatistics(String databaseName, String tableName);
 

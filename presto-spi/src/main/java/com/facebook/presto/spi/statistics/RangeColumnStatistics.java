@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
@@ -63,6 +64,40 @@ public final class RangeColumnStatistics
     public Estimate getDistinctValuesCount()
     {
         return distinctValuesCount;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        RangeColumnStatistics that = (RangeColumnStatistics) o;
+        return Objects.equals(lowValue, that.lowValue) &&
+                Objects.equals(highValue, that.highValue) &&
+                Objects.equals(fraction, that.fraction) &&
+                Objects.equals(dataSize, that.dataSize) &&
+                Objects.equals(distinctValuesCount, that.distinctValuesCount);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(lowValue, highValue, fraction, dataSize, distinctValuesCount);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "RangeColumnStatistics{" + "lowValue=" + lowValue +
+                ", highValue=" + highValue +
+                ", fraction=" + fraction +
+                ", dataSize=" + dataSize +
+                ", distinctValuesCount=" + distinctValuesCount +
+                '}';
     }
 
     public static Builder builder()

@@ -253,6 +253,18 @@ public class TestDictionaryBlock
         assertTrue(block.isCompact());
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        int positionCount = 10;
+        int dictionaryPositionCount = 100;
+        Slice[] expectedValues = createExpectedValues(positionCount);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, dictionaryPositionCount);
+        for (int position = 0; position < dictionaryPositionCount; position++) {
+            assertEquals(dictionaryBlock.getEstimatedDataSizeForStats(position), expectedValues[position % positionCount].length());
+        }
+    }
+
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)
     {
         // adds references to 0 and all odd indexes

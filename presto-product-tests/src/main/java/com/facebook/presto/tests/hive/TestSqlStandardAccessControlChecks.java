@@ -28,7 +28,8 @@ import static java.lang.String.format;
 public class TestSqlStandardAccessControlChecks
         extends ProductTest
 {
-    private String tableName;
+    private String tableName = "alice_owned_table";
+    private String viewName = "alice_owned_view";
     private QueryExecutor aliceExecutor;
     private QueryExecutor bobExecutor;
     private QueryExecutor charlieExecutor;
@@ -36,13 +37,15 @@ public class TestSqlStandardAccessControlChecks
     @BeforeTestWithContext
     public void setup()
     {
-        tableName = "alice_owned_table";
         aliceExecutor = connectToPresto("alice@presto");
         bobExecutor = connectToPresto("bob@presto");
         charlieExecutor = connectToPresto("charlie@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
+
+        aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+        aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT month, day FROM %s", viewName, tableName));
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
@@ -53,6 +56,11 @@ public class TestSqlStandardAccessControlChecks
 
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", viewName));
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", viewName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})

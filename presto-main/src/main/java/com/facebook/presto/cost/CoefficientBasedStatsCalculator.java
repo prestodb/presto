@@ -147,7 +147,7 @@ public class CoefficientBasedStatsCalculator
         @Override
         public PlanNodeStatsEstimate visitTableScan(TableScanNode node, Void context)
         {
-            Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint(), bindings -> true);
+            Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
             TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
             return PlanNodeStatsEstimate.builder()
                     .setOutputRowCount(tableStatistics.getRowCount().getValue())

@@ -117,6 +117,14 @@ public interface Connector
     }
 
     /**
+     * @return the column properties for this connector
+     */
+    default List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * @throws UnsupportedOperationException if this connector does not have an access control
      */
     default ConnectorAccessControl getAccessControl()
