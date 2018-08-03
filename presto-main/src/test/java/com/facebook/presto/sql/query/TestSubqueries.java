@@ -197,6 +197,14 @@ public class TestSubqueries
                 "VALUES 2");
     }
 
+    @Test
+    public void testCorrelatedSubqueryWithExplicitCoercion()
+    {
+        assertions.assertQuery(
+                "SELECT 1 FROM (VALUES 1, 2) t1(b) WHERE 1 = (SELECT cast(b as decimal(7,2)))",
+                "VALUES 1");
+    }
+
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         PlanMatchPattern source = node(ValuesNode.class);
