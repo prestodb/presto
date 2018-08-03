@@ -73,6 +73,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
@@ -130,10 +132,12 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
     private final FutureStateChange<?> whenSplitQueueHasSpace = new FutureStateChange<>();
-    @GuardedBy("this")
+
+    @GuardedBy("lock")
     private boolean splitQueueHasSpace = true;
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private OptionalInt whenSplitQueueHasSpaceThreshold = OptionalInt.empty();
+    private final Lock lock = new ReentrantLock();
 
     private final boolean summarizeTaskInfo;
 
@@ -402,29 +406,41 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
+    public ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
-        if (whenSplitQueueHasSpaceThreshold.isPresent()) {
-            checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
+        try {
+            lock.lock();
+            if (whenSplitQueueHasSpaceThreshold.isPresent()) {
+                checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
+            }
+            else {
+                whenSplitQueueHasSpaceThreshold = OptionalInt.of(threshold);
+                updateSplitQueueSpace();
+            }
+            if (splitQueueHasSpace) {
+                return immediateFuture(null);
+            }
+            return whenSplitQueueHasSpace.createNewListener();
         }
-        else {
-            whenSplitQueueHasSpaceThreshold = OptionalInt.of(threshold);
-            updateSplitQueueSpace();
+        finally {
+            lock.unlock();
         }
-        if (splitQueueHasSpace) {
-            return immediateFuture(null);
-        }
-        return whenSplitQueueHasSpace.createNewListener();
     }
 
-    private synchronized void updateSplitQueueSpace()
+    private void updateSplitQueueSpace()
     {
-        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
-            return;
+        try {
+            lock.lock();
+            if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
+                return;
+            }
+            splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
+            if (splitQueueHasSpace) {
+                whenSplitQueueHasSpace.complete(null, executor);
+            }
         }
-        splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
-        if (splitQueueHasSpace) {
-            whenSplitQueueHasSpace.complete(null, executor);
+        finally {
+            lock.unlock();
         }
     }
 
