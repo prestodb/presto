@@ -66,4 +66,10 @@ public class HiveHdfsConfiguration
         // use the same configuration for everything
         return hadoopConfiguration.get();
     }
+
+    @Override
+    public Configuration getConfiguration()
+    {
+        return hadoopConfiguration.get();
+    }
 }

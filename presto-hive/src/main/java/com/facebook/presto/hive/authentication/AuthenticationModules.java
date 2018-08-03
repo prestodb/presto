@@ -24,6 +24,7 @@ import com.google.inject.Singleton;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -138,7 +139,7 @@ public final class AuthenticationModules
     private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfiguration hdfsConfiguration)
     {
         KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(principal, keytabLocation);
-        KerberosHadoopAuthentication kerberosHadoopAuthentication = new KerberosHadoopAuthentication(kerberosAuthentication, hdfsConfiguration);
+        KerberosHadoopAuthentication kerberosHadoopAuthentication = createKerberosHadoopAuthentication(kerberosAuthentication, hdfsConfiguration);
         return new CachingKerberosHadoopAuthentication(kerberosHadoopAuthentication);
     }
 }
