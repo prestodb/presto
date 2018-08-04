@@ -68,7 +68,7 @@ public class BenchmarkInequalityJoin
 
         // How many positions out of 1000 will be actually joined
         // 10 means 1 - 10/1000 = 99/100 positions will be filtered out
-        @Param({"10"})
+        @Param("10")
         private int filterOutCoefficient;
 
         public MemoryLocalQueryRunner getQueryRunner()
