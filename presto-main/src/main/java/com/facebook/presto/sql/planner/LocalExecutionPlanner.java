@@ -2463,11 +2463,7 @@ public class LocalExecutionPlanner
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
 
-            Optional<Integer> maskChannel = Optional.empty();
-            if (aggregation.getMask() != null) {
-                maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
-            }
-
+            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
             List<SortOrder> sortOrders = ImmutableList.of();
             List<Symbol> sortKeys = ImmutableList.of();
             if (aggregation.getCall().getOrderBy().isPresent()) {

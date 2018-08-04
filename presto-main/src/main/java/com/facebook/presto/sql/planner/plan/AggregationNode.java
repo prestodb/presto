@@ -298,9 +298,9 @@ public class AggregationNode
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.call = call;
-            this.signature = signature;
-            this.mask = mask;
+            this.call = requireNonNull(call, "call is null");
+            this.signature = requireNonNull(signature, "signature is null");
+            this.mask = requireNonNull(mask, "mask is null");
         }
 
         @JsonProperty
