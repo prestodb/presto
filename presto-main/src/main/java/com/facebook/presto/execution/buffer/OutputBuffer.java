@@ -112,9 +112,4 @@ public interface OutputBuffer
      * @return the peak memory usage of this output buffer.
      */
     long getPeakMemoryUsage();
-
-    /**
-     * Force free the memory allocated by this output buffer.
-     */
-    void forceFreeMemory();
 }

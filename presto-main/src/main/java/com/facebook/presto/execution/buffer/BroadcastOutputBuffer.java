@@ -296,6 +296,7 @@ public class BroadcastOutputBuffer
             safeGetBuffersSnapshot().forEach(ClientBuffer::destroy);
 
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
         }
     }
 
@@ -305,6 +306,7 @@ public class BroadcastOutputBuffer
         // ignore fail if the buffer already in a terminal state.
         if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
     }
@@ -315,8 +317,8 @@ public class BroadcastOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
-    @Override
-    public void forceFreeMemory()
+    @VisibleForTesting
+    void forceFreeMemory()
     {
         memoryManager.close();
     }

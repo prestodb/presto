@@ -246,6 +246,7 @@ public class PartitionedOutputBuffer
         if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
             partitions.forEach(ClientBuffer::destroy);
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
         }
     }
 
@@ -255,6 +256,7 @@ public class PartitionedOutputBuffer
         // ignore fail if the buffer already in a terminal state.
         if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
     }
@@ -265,8 +267,8 @@ public class PartitionedOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
-    @Override
-    public void forceFreeMemory()
+    @VisibleForTesting
+    void forceFreeMemory()
     {
         memoryManager.close();
     }
