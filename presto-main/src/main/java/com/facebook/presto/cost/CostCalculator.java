@@ -47,7 +47,7 @@ public interface CostCalculator
             TypeProvider types);
 
     @BindingAnnotation
-    @Target({PARAMETER})
+    @Target(PARAMETER)
     @Retention(RUNTIME)
     @interface EstimatedExchanges {}
 }
