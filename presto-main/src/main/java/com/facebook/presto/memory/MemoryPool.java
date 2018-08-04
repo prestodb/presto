@@ -322,7 +322,7 @@ public class MemoryPool
     {
         public static <V> NonCancellableMemoryFuture<V> create()
         {
-            return new NonCancellableMemoryFuture<V>();
+            return new NonCancellableMemoryFuture<>();
         }
 
         @Override
