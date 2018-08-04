@@ -228,8 +228,7 @@ public class OptimizeMixedDistinctAggregations
                     source);
 
             // 2. Add aggregation node
-            Set<Symbol> groupByKeys = new HashSet<>();
-            groupByKeys.addAll(groupBySymbols);
+            Set<Symbol> groupByKeys = new HashSet<>(groupBySymbols);
             groupByKeys.add(distinctSymbol);
             groupByKeys.add(groupSymbol);
 
@@ -356,8 +355,7 @@ public class OptimizeMixedDistinctAggregations
             groups.add(ImmutableList.copyOf(group0));
 
             // g1
-            Set<Symbol> group1 = new HashSet<>();
-            group1.addAll(groupBySymbols);
+            Set<Symbol> group1 = new HashSet<>(groupBySymbols);
             group1.add(distinctSymbol);
             groups.add(ImmutableList.copyOf(group1));
 

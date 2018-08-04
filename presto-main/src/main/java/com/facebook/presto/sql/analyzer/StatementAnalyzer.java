@@ -964,8 +964,7 @@ class StatementAnalyzer
                 analysis.setOrderByExpressions(node, emptyList());
             }
 
-            List<Expression> sourceExpressions = new ArrayList<>();
-            sourceExpressions.addAll(outputExpressions);
+            List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
             node.getHaving().ifPresent(sourceExpressions::add);
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
