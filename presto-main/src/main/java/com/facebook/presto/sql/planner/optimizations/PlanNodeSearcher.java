@@ -157,7 +157,7 @@ public class PlanNodeSearcher
         }
         if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
-                    .map(source -> removeAllRecursive(source))
+                    .map(this::removeAllRecursive)
                     .collect(toImmutableList());
             return replaceChildren(node, sources);
         }
