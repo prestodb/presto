@@ -700,8 +700,8 @@ class StatementAnalyzer
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
                     if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
-                        elementType.getTypeParameters().stream()
-                                .map(type -> Field.newUnqualified(Optional.empty(), type))
+                        ((RowType) elementType).getFields().stream()
+                                .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                                 .forEach(outputFields::add);
                     }
                     else {
