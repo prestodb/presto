@@ -140,7 +140,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long lastStartMillis;
     @GuardedBy("root")
-    private CounterStat timeBetweenStartsSec = new CounterStat();
+    private final CounterStat timeBetweenStartsSec = new CounterStat();
 
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {

@@ -518,7 +518,7 @@ public class LocalExecutionPlanner
         private final Optional<IndexSourceContext> indexSourceContext;
 
         // this is shared with all subContexts
-        private AtomicInteger nextPipelineId;
+        private final AtomicInteger nextPipelineId;
 
         private int nextOperatorId;
         private boolean inputDriver = true;

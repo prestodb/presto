@@ -29,8 +29,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class BindCodeGenerator
         implements BytecodeGenerator
 {
-    private Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
-    private Class lambdaInterface;
+    private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
+    private final Class lambdaInterface;
 
     public BindCodeGenerator(Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class lambdaInterface)
     {
