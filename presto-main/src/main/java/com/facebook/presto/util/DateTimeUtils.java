@@ -549,7 +549,6 @@ public final class DateTimeUtils
         List<PeriodParser> parsers = new ArrayList<>();
 
         PeriodFormatterBuilder builder = new PeriodFormatterBuilder();
-        //CHECKSTYLE.OFF
         switch (startField) {
             case YEAR:
                 builder.appendYears();
@@ -558,6 +557,8 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral("-");
+                // fall through
+
             case MONTH:
                 builder.appendMonths();
                 parsers.add(builder.toParser());
@@ -573,6 +574,7 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(" ");
+                // fall through
 
             case HOUR:
                 builder.appendHours();
@@ -581,6 +583,7 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                // fall through
 
             case MINUTE:
                 builder.appendMinutes();
@@ -589,12 +592,13 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                // fall through
 
             case SECOND:
                 builder.appendSecondsWithOptionalMillis();
                 parsers.add(builder.toParser());
+                break;
         }
-        //CHECKSTYLE.ON
 
         return new PeriodFormatter(builder.toPrinter(), new OrderedPeriodParser(parsers));
     }
