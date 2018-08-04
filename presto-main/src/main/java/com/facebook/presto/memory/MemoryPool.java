@@ -84,9 +84,7 @@ public class MemoryPool
         Map<QueryId, List<MemoryAllocation>> memoryAllocations = new HashMap<>();
         taggedMemoryAllocations.forEach((queryId, allocationMap) -> {
             List<MemoryAllocation> allocations = new ArrayList<>();
-            allocationMap.forEach((tag, allocation) -> {
-                allocations.add(new MemoryAllocation(tag, allocation));
-            });
+            allocationMap.forEach((tag, allocation) -> allocations.add(new MemoryAllocation(tag, allocation)));
             memoryAllocations.put(queryId, allocations);
         });
         return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, memoryAllocations, queryMemoryRevocableReservations);

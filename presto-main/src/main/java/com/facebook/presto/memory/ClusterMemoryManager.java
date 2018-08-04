@@ -386,9 +386,7 @@ public class ClusterMemoryManager
     public synchronized Map<MemoryPoolId, MemoryPoolInfo> getMemoryPoolInfo()
     {
         ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = new ImmutableMap.Builder<>();
-        pools.forEach((poolId, memoryPool) -> {
-            builder.put(poolId, memoryPool.getInfo());
-        });
+        pools.forEach((poolId, memoryPool) -> builder.put(poolId, memoryPool.getInfo()));
         return builder.build();
     }
 
