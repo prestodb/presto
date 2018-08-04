@@ -29,7 +29,7 @@ public class LegacyArrayAggregationGroupState
         implements ArrayAggregationState
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupArrayAggregationState.class).instanceSize();
-    private ObjectBigArray<BlockBuilder> blockBuilders;
+    private final ObjectBigArray<BlockBuilder> blockBuilders;
     private final Type type;
     private long size;
 

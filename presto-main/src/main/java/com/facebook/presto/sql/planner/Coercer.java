@@ -44,7 +44,7 @@ public class Coercer
             extends ExpressionRewriter<Void>
     {
         private final Map<NodeRef<Expression>, Type> coercions;
-        private Set<NodeRef<Expression>> typeOnlyCoercions;
+        private final Set<NodeRef<Expression>> typeOnlyCoercions;
 
         public Rewriter(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
         {

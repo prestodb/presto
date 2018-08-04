@@ -252,7 +252,7 @@ public class Memo
         }
 
         private PlanNode membership;
-        private Multiset<Integer> incomingReferences = HashMultiset.create();
+        private final Multiset<Integer> incomingReferences = HashMultiset.create();
         @Nullable
         private PlanNodeStatsEstimate stats;
         @Nullable

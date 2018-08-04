@@ -87,7 +87,7 @@ public final class TestingTaskContext
         private QueryId queryId = new QueryId("test_query");
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
-        private DataSize queryMaxTotalMemory = new DataSize(512, MEGABYTE);
+        private final DataSize queryMaxTotalMemory = new DataSize(512, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
         private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);

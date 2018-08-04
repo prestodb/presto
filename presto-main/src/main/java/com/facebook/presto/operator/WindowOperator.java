@@ -178,7 +178,7 @@ public class WindowOperator
     private final PageBuilder pageBuilder;
 
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
-    private AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
 
     private State state = State.NEEDS_INPUT;
 
