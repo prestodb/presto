@@ -45,7 +45,7 @@ public final class SqlScalarFunctionBuilder
     private Boolean deterministic;
     private boolean nullableResult;
     private List<ArgumentProperty> argumentProperties = emptyList();
-    private List<MethodsGroup> methodsGroups = new ArrayList<>();
+    private final List<MethodsGroup> methodsGroups = new ArrayList<>();
 
     public SqlScalarFunctionBuilder(Class<?> clazz)
     {

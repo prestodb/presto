@@ -222,7 +222,7 @@ public class SymbolMapper
 
     public static class Builder
     {
-        private ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
+        private final ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
 
         public SymbolMapper build()
         {

@@ -147,9 +147,9 @@ final class ShowQueriesRewrite
         private final Metadata metadata;
         private final Session session;
         private final SqlParser sqlParser;
-        List<Expression> parameters;
+        final List<Expression> parameters;
         private final AccessControl accessControl;
-        private Optional<QueryExplainer> queryExplainer;
+        private final Optional<QueryExplainer> queryExplainer;
 
         public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer)
         {

@@ -35,7 +35,7 @@ public class FilterAndProjectOperator
     private final LocalMemoryContext outputMemoryContext;
 
     private final PageProcessor processor;
-    private MergingPageOutput mergingOutput;
+    private final MergingPageOutput mergingOutput;
     private boolean finishing;
 
     public FilterAndProjectOperator(

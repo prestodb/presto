@@ -56,8 +56,8 @@ public interface PartitioningSpiller
 
     class PartitioningSpillResult
     {
-        private ListenableFuture<?> spillingFuture;
-        private Page retained;
+        private final ListenableFuture<?> spillingFuture;
+        private final Page retained;
 
         public PartitioningSpillResult(ListenableFuture<?> spillingFuture, Page retained)
         {

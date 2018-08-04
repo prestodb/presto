@@ -26,8 +26,8 @@ public class JoinProbe
 {
     public static class JoinProbeFactory
     {
-        private int[] probeOutputChannels;
-        private List<Integer> probeJoinChannels;
+        private final int[] probeOutputChannels;
+        private final List<Integer> probeJoinChannels;
         private final OptionalInt probeHashChannel;
 
         public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)

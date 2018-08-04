@@ -71,7 +71,7 @@ public final class ConcatFunction
 
     public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
 
-    private String description;
+    private final String description;
 
     private ConcatFunction(TypeSignature type, String description)
     {
