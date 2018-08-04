@@ -84,7 +84,7 @@ public class ActualProperties
     }
 
     /**
-     * @returns true if the plan will only execute on a single node
+     * @return true if the plan will only execute on a single node
      */
     public boolean isSingleNode()
     {
@@ -362,7 +362,7 @@ public class ActualProperties
         }
 
         /**
-         * @returns true if the plan will only execute on a single node
+         * @return true if the plan will only execute on a single node
          */
         private boolean isSingleNode()
         {
