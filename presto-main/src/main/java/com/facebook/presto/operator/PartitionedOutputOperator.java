@@ -244,7 +244,6 @@ public class PartitionedOutputOperator
     {
         finished = true;
         partitionFunction.flush(true);
-        outputBuffer.forceFreeMemory();
     }
 
     @Override
