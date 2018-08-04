@@ -230,6 +230,8 @@ public class PlanOptimizers
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
 
         builder.add(
+                // Clean up all other symbols or expressions which are not a part of the given query
+                new PruneUnreferencedOutputs(),
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
                         ruleStats,
