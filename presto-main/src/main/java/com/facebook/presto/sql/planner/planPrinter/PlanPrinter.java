@@ -615,7 +615,7 @@ public class PlanPrinter
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(clause.toExpression());
             }
-            node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
+            node.getFilter().ifPresent(joinExpressions::add);
 
             if (node.isSpatialJoin()) {
                 print(indent, "- Spatial%s[%s] => [%s]",

@@ -81,7 +81,7 @@ public final class MetadataListing
                 session.getRequiredTransactionId(),
                 session.getIdentity(),
                 prefix.getCatalogName(),
-                grants.stream().map(grantInfo -> grantInfo.getSchemaTableName()).collect(toImmutableSet()));
+                grants.stream().map(GrantInfo::getSchemaTableName).collect(toImmutableSet()));
 
         return grants.stream()
                 .filter(grantInfo -> allowedTables.contains(grantInfo.getSchemaTableName()))
