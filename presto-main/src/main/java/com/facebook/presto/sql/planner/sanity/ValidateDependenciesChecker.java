@@ -349,7 +349,7 @@ public final class ValidateDependenciesChecker
 
             int leftMaxPosition = -1;
             Optional<Integer> rightMinPosition = Optional.empty();
-            Set<Symbol> leftSymbols = new HashSet<Symbol>(node.getLeft().getOutputSymbols());
+            Set<Symbol> leftSymbols = new HashSet<>(node.getLeft().getOutputSymbols());
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
                 if (leftSymbols.contains(symbol)) {
