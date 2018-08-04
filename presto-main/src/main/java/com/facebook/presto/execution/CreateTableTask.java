@@ -195,8 +195,7 @@ public class CreateTableTask
 
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)
     {
-        Map<String, Object> finalProperties = new HashMap<>();
-        finalProperties.putAll(inheritedProperties);
+        Map<String, Object> finalProperties = new HashMap<>(inheritedProperties);
         for (Map.Entry<String, Object> entry : defaultProperties.entrySet()) {
             if (specifiedPropertyKeys.contains(entry.getKey()) || !finalProperties.containsKey(entry.getKey())) {
                 finalProperties.put(entry.getKey(), entry.getValue());
