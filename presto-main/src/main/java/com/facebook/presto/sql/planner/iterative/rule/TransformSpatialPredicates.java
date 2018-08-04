@@ -129,7 +129,7 @@ public class TransformSpatialPredicates
     {
         private static final Capture<JoinNode> JOIN = newCapture();
         private static final Pattern<FilterNode> PATTERN = filter()
-                .with(source().matching(join().capturedAs(JOIN).matching(node -> node.isCrossJoin())));
+                .with(source().matching(join().capturedAs(JOIN).matching(JoinNode::isCrossJoin)));
 
         private final Metadata metadata;
 

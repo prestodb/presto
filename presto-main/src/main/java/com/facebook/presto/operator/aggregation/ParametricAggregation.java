@@ -72,7 +72,7 @@ public class ParametricAggregation
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, typeManager, functionRegistry);
 
         // Build argument and return Types from signatures
-        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
+        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(typeManager::getType).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
         // Create classloader for additional aggregation dependencies
@@ -181,7 +181,7 @@ public class ParametricAggregation
     {
         return types
                 .stream()
-                .map(x -> x.getTypeSignature())
+                .map(Type::getTypeSignature)
                 .collect(toImmutableList());
     }
 

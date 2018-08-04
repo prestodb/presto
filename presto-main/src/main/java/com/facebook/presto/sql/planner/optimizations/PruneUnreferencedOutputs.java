@@ -721,7 +721,7 @@ public class PruneUnreferencedOutputs
                 }
             }
             List<List<Expression>> rewrittenRows = rowBuilders.stream()
-                    .map((rowBuilder) -> rowBuilder.build())
+                    .map(ImmutableList.Builder::build)
                     .collect(toImmutableList());
             return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
         }

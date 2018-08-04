@@ -48,7 +48,7 @@ public final class FunctionParametricType
                 parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
                 "Expected only types as a parameters, got %s",
                 parameters);
-        List<Type> types = parameters.stream().map(parameter -> parameter.getType()).collect(toList());
+        List<Type> types = parameters.stream().map(TypeParameter::getType).collect(toList());
 
         return new FunctionType(types.subList(0, types.size() - 1), types.get(types.size() - 1));
     }
