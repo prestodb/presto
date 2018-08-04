@@ -85,8 +85,6 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
-    private final CounterStat failedTasks;
-
     public SqlTask(
             TaskId taskId,
             URI location,
@@ -107,7 +105,6 @@ public class SqlTask
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
-        this.failedTasks = requireNonNull(failedTasks, "failedTasks is null");
 
         outputBuffer = new LazyOutputBuffer(
                 taskId,
