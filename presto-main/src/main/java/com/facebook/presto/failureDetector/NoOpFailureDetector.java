@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.failureDetector;
 
-import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;

@@ -54,7 +54,7 @@ import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -87,7 +87,6 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
@@ -126,7 +125,6 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
@@ -134,7 +132,6 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
@@ -142,7 +139,6 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
@@ -156,7 +152,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -210,6 +205,9 @@ public class ServerMainModule
             // Install no-op transaction manager on workers, since only coordinators manage transactions.
             binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
 
+            // Install no-op failure detector on workers, since only coordinators need global node selection.
+            binder.bind(FailureDetector.class).to(NoOpFailureDetector.class).in(Scopes.SINGLETON);
+
             // HACK: this binding is needed by SystemConnectorModule, but will only be used on the coordinator
             binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
                 throw new UnsupportedOperationException();
@@ -227,8 +225,6 @@ public class ServerMainModule
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
-
-        bindFailureDetector(binder, serverConfig.isCoordinator());
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
@@ -509,34 +505,6 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
-    }
-
-    private static void bindFailureDetector(Binder binder, boolean coordinator)
-    {
-        // TODO: this is a hack until the coordinator module works correctly
-        if (coordinator) {
-            binder.install(new FailureDetectorModule());
-            jaxrsBinder(binder).bind(NodeResource.class);
-            jaxrsBinder(binder).bind(WorkerResource.class);
-            httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
-        }
-        else {
-            binder.bind(FailureDetector.class).toInstance(new FailureDetector()
-            {
-                @Override
-                public Set<ServiceDescriptor> getFailed()
-                {
-                    return ImmutableSet.of();
-                }
-
-                @Override
-                public State getState(HostAddress hostAddress)
-                {
-                    // failure detector is not available on workers
-                    return State.UNKNOWN;
-                }
-            });
-        }
     }
 
     public static class ExecutorCleanup
