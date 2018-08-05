@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -61,6 +62,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_A
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SIGNER_TYPE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SKIP_GLACIER_OBJECTS;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRECTORY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
@@ -467,6 +469,34 @@ public class TestPrestoS3FileSystem
             assertEquals(config.getMaxConnections(), defaults.getS3MaxConnections());
             assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
             assertEquals(config.getUserAgentPrefix(), "");
+        }
+    }
+
+    @DataProvider(name = "skipGlacierObjectsConfig")
+    public static Object[][] skipGlacierObjectsConfigProvider()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    @Test(dataProvider = "skipGlacierObjectsConfig")
+    public void testSkipGlacierObjectsEnabled(boolean skipGlacierObjects)
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_SKIP_GLACIER_OBJECTS, String.valueOf(skipGlacierObjects));
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setHasGlacierObjects(true);
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
+            if (skipGlacierObjects) {
+                assertEquals(statuses.length, 1);
+            }
+            else {
+                assertEquals(statuses.length, 2);
+            }
         }
     }
 

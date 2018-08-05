@@ -92,6 +92,7 @@ import java.util.Optional;
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
+import static com.amazonaws.services.s3.model.StorageClass.Glacier;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
@@ -111,6 +112,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_A
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SIGNER_TYPE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SKIP_GLACIER_OBJECTS;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SOCKET_TIMEOUT;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_ENABLED;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_KMS_KEY_ID;
@@ -172,6 +174,7 @@ public class PrestoS3FileSystem
     private long multiPartUploadMinFileSize;
     private long multiPartUploadMinPartSize;
     private PrestoS3AclType s3AclType;
+    private boolean skipGlacierObjects;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -207,6 +210,7 @@ public class PrestoS3FileSystem
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
         this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
+        this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -523,6 +527,7 @@ public class PrestoS3FileSystem
         // user metadata, and in this case it doesn't matter.
         return objects.stream()
                 .filter(object -> !object.getKey().endsWith(PATH_SEPARATOR))
+                .filter(object -> !skipGlacierObjects || !isGlacierObject(object))
                 .map(object -> new FileStatus(
                         object.getSize(),
                         false,
@@ -532,6 +537,11 @@ public class PrestoS3FileSystem
                         qualifiedPath(new Path(PATH_SEPARATOR + object.getKey()))))
                 .map(this::createLocatedFileStatus)
                 .iterator();
+    }
+
+    private boolean isGlacierObject(S3ObjectSummary object)
+    {
+        return Glacier.toString().equals(object.getStorageClass());
     }
 
     /**
