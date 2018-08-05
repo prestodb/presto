@@ -57,6 +57,7 @@ public class HiveS3Config
     private boolean pinS3ClientToCurrentRegion;
     private String s3UserAgentPrefix = "";
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
+    private boolean skipGlacierObjects;
 
     public String getS3AwsAccessKey()
     {
@@ -387,6 +388,18 @@ public class HiveS3Config
     public HiveS3Config setS3AclType(PrestoS3AclType s3AclType)
     {
         this.s3AclType = s3AclType;
+        return this;
+    }
+
+    public boolean isSkipGlacierObjects()
+    {
+        return skipGlacierObjects;
+    }
+
+    @Config("hive.s3.skip-glacier-objects")
+    public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
+    {
+        this.skipGlacierObjects = skipGlacierObjects;
         return this;
     }
 }

@@ -49,6 +49,7 @@ public class PrestoS3ConfigurationUpdater
     private final boolean pinClientToCurrentRegion;
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
+    private boolean skipGlacierObjects;
 
     @Inject
     public PrestoS3ConfigurationUpdater(HiveS3Config config)
@@ -78,6 +79,7 @@ public class PrestoS3ConfigurationUpdater
         this.pinClientToCurrentRegion = config.isPinS3ClientToCurrentRegion();
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
+        this.skipGlacierObjects = config.isSkipGlacierObjects();
     }
 
     @Override
@@ -127,5 +129,6 @@ public class PrestoS3ConfigurationUpdater
         config.setBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, pinClientToCurrentRegion);
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
         config.set(S3_ACL_TYPE, aclType.name());
+        config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
     }
 }

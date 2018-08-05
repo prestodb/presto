@@ -257,6 +257,9 @@ Property Name                                Description
 
 ``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3 (defaults
                                              to ``Private``).
+``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
+                                             will skip data that may be expected to be part of the table
+                                             or partition. Defaults to ``false``.
 ============================================ =================================================================
 
 S3 Credentials
