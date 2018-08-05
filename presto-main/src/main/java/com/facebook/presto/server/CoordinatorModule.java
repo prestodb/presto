@@ -57,6 +57,7 @@ import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.memory.LowMemoryKiller;
@@ -163,6 +164,12 @@ public class CoordinatorModule
 
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);
+
+        // failure detector
+        binder.install(new FailureDetectorModule());
+        jaxrsBinder(binder).bind(NodeResource.class);
+        jaxrsBinder(binder).bind(WorkerResource.class);
+        httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
