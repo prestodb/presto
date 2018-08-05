@@ -38,7 +38,6 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TestingTypeManager;
@@ -76,6 +75,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -141,7 +141,7 @@ public final class TaskTestUtils
                 new SqlParser(),
                 new SelectingStatsCalculator(
                         new CoefficientBasedStatsCalculator(metadata),
-                        ServerMainModule.createNewStatsCalculator(metadata)),
+                        createNewStatsCalculator(metadata)),
                 new CostCalculatorUsingExchanges(() -> 1),
                 Optional.empty(),
                 pageSourceManager,
