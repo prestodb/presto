@@ -26,6 +26,7 @@ import com.facebook.presto.execution.DropColumnTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
+import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
 import com.facebook.presto.execution.PrepareTask;
@@ -34,6 +35,7 @@ import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameSchemaTask;
@@ -195,6 +197,9 @@ public class CoordinatorModule
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
 
+        // explain analyze
+        binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);
+
         // execution scheduler
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
@@ -261,6 +266,13 @@ public class CoordinatorModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public static QueryPerformanceFetcher createQueryPerformanceFetcher(QueryManager queryManager)
+    {
+        return queryManager::getQueryInfo;
     }
 
     @Provides

@@ -30,13 +30,12 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculatorModule;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
+import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.QueryPerformanceFetcher;
-import com.facebook.presto.execution.QueryPerformanceFetcherProvider;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -156,7 +155,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -166,6 +164,7 @@ import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.Networ
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -199,11 +198,8 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
-
             // Install no-op session supplier on workers, since only coordinators create sessions.
             binder.bind(SessionSupplier.class).to(NoOpSessionSupplier.class).in(Scopes.SINGLETON);
 
@@ -240,6 +236,8 @@ public class ServerMainModule
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
+
+        newOptionalBinder(binder, ExplainAnalyzeContext.class);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
