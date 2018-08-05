@@ -147,7 +147,6 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.transaction.ForTransactionManager;
@@ -471,9 +470,6 @@ public class ServerMainModule
         configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
-
-        // optimizers
-        binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
 
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
