@@ -679,8 +679,6 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
-                statsCalculator,
-                costCalculator,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,

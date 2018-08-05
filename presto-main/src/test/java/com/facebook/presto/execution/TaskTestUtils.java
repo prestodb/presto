@@ -19,9 +19,6 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
-import com.facebook.presto.cost.CostCalculatorUsingExchanges;
-import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -75,7 +72,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -139,10 +135,6 @@ public final class TaskTestUtils
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
-                new SelectingStatsCalculator(
-                        new CoefficientBasedStatsCalculator(metadata),
-                        createNewStatsCalculator(metadata)),
-                new CostCalculatorUsingExchanges(() -> 1),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),
