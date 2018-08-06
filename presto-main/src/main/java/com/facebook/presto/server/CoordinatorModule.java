@@ -359,12 +359,16 @@ public class CoordinatorModule
 
         @Inject
         public ExecutorCleanup(
+                @ForStatementResource ExecutorService statementResponseExecutor,
+                @ForStatementResource ScheduledExecutorService statementTimeoutExecutor,
                 @ForQueryExecution ExecutorService queryExecutionExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
                 @ForTransactionManager ExecutorService transactionFinishingExecutor,
                 @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
         {
             executors = ImmutableList.<ExecutorService>builder()
+                    .add(statementResponseExecutor)
+                    .add(statementTimeoutExecutor)
                     .add(queryExecutionExecutor)
                     .add(schedulerExecutor)
                     .add(transactionFinishingExecutor)
