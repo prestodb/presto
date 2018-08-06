@@ -23,7 +23,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import org.joda.time.DateTime;
@@ -31,6 +30,7 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -199,7 +199,7 @@ public class StageStateMachine
         peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
     }
 
-    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, Supplier<Iterable<StageInfo>> subStageInfosSupplier)
+    public StageInfo getStageInfo(Supplier<List<TaskInfo>> taskInfosSupplier, Supplier<List<StageInfo>> subStageInfosSupplier)
     {
         // stage state must be captured first in order to provide a
         // consistent view of the stage. For example, building this
@@ -207,8 +207,8 @@ public class StageStateMachine
         // never be visible.
         StageState state = stageState.get();
 
-        List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
-        List<StageInfo> subStageInfos = ImmutableList.copyOf(subStageInfosSupplier.get());
+        List<TaskInfo> taskInfos = Collections.unmodifiableList(taskInfosSupplier.get());
+        List<StageInfo> subStageInfos = Collections.unmodifiableList(subStageInfosSupplier.get());
 
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
@@ -357,8 +357,7 @@ public class StageStateMachine
                         maxFullGcSec,
                         totalFullGcSec,
                         (int) (1.0 * totalFullGcSec / fullGcCount)),
-
-                ImmutableList.copyOf(operatorToStats.values()));
+                Collections.unmodifiableCollection(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;
         if (state == FAILED) {

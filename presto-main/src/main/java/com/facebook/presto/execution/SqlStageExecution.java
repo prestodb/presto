@@ -230,11 +230,7 @@ public final class SqlStageExecution
 
     public StageInfo getStageInfo()
     {
-        return stateMachine.getStageInfo(
-                () -> getAllTasks().stream()
-                        .map(RemoteTask::getTaskInfo)
-                        .collect(toImmutableList()),
-                ImmutableList::of);
+        return stateMachine.getStageInfo(this::getAllTaskInfo, ImmutableList::of);
     }
 
     public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> sourceTasks, boolean noMoreExchangeLocations)
@@ -305,6 +301,16 @@ public final class SqlStageExecution
         return tasks.values().stream()
                 .flatMap(Set::stream)
                 .collect(toImmutableList());
+    }
+
+    private List<TaskInfo> getAllTaskInfo()
+    {
+        // This avoids calling getAllTasks(), creating immutable list out of it and
+        // then creating immutable list of TaskInfo.
+        return tasks.values().stream()
+            .flatMap(Set::stream)
+            .map(RemoteTask::getTaskInfo)
+            .collect(toImmutableList());
     }
 
     public synchronized RemoteTask scheduleTask(Node node, int partition, OptionalInt totalPartitions)

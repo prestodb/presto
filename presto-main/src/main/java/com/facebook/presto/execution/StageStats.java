@@ -124,7 +124,7 @@ public class StageStats
 
             @JsonProperty("gcInfo") StageGcStatistics gcInfo,
 
-            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
+            @JsonProperty("operatorSummaries") Iterable<OperatorStats> operatorSummaries)
     {
         this.schedulingComplete = schedulingComplete;
         this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
