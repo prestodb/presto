@@ -46,7 +46,6 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -201,13 +200,7 @@ public class TableWriterOperator
         if (state != State.RUNNING || !blocked.isDone()) {
             return false;
         }
-        // AggregationOperator doesn't return false unless it is finished.
-        // HashAggregationOperator doesn't return false unless it is full or there is some unfinishedWork,
-        // that is not the option here.
-        // The assumption is that the spill is always disabled for the statistics aggregation, and
-        // since it is not a partial aggregation it doesn't have a partial aggregation memory limit.
-        verify(statisticAggregationOperator.needsInput());
-        return true;
+        return statisticAggregationOperator.needsInput();
     }
 
     @Override
@@ -234,7 +227,7 @@ public class TableWriterOperator
     @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING || !blocked.isDone()) {
+        if (!blocked.isDone()) {
             return null;
         }
 
@@ -244,6 +237,10 @@ public class TableWriterOperator
                 return null;
             }
             return createStatisticsPage(aggregationOutput);
+        }
+
+        if (state != State.FINISHING) {
+            return null;
         }
 
         Page fragmentsPage = createFragmentsPage();
