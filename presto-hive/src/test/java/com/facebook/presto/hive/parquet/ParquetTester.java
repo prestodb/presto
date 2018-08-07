@@ -86,6 +86,7 @@ import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
@@ -360,7 +361,7 @@ public class ParquetTester
                 return toRowValue(block, type.getTypeParameters());
             }
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return new SqlDecimal((BigInteger) fieldFromCursor, decimalType.getPrecision(), decimalType.getScale());
         }

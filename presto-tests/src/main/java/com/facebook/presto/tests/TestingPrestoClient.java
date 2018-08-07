@@ -20,7 +20,6 @@ import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
@@ -57,6 +56,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -246,7 +246,7 @@ public class TestingPrestoClient
                             e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey(), timeZoneKey),
                             e -> convertToRowValue(((MapType) type).getValueType(), e.getValue(), timeZoneKey)));
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             return new BigDecimal((String) value);
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {

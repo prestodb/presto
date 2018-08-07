@@ -41,6 +41,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Decimals.readBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -144,7 +145,7 @@ public class JdbcPageSink
         else if (REAL.equals(type)) {
             statement.setFloat(parameter, intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             statement.setBigDecimal(parameter, readBigDecimal((DecimalType) type, block, position));
         }
         else if (isVarcharType(type) || isCharType(type)) {

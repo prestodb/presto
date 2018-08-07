@@ -50,6 +50,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -146,7 +147,7 @@ public final class LiteralEncoder
             return new GenericLiteral("REAL", value.toString());
         }
 
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             String string;
             if (isShortDecimal(type)) {
                 string = Decimals.toString((long) object, ((DecimalType) type).getScale());

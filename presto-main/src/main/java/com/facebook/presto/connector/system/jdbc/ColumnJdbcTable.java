@@ -50,6 +50,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -189,7 +190,7 @@ public class ColumnJdbcTable
         if (type.equals(DOUBLE)) {
             return Types.DOUBLE;
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             return Types.DECIMAL;
         }
         if (isVarcharType(type)) {
@@ -236,7 +237,7 @@ public class ColumnJdbcTable
         if (type.equals(TINYINT)) {
             return 3;   // 2**7-1
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             return ((DecimalType) type).getPrecision();
         }
         if (type.equals(REAL)) {
@@ -275,7 +276,7 @@ public class ColumnJdbcTable
     // DECIMAL_DIGITS is the number of fractional digits
     private static Integer decimalDigits(Type type)
     {
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             return ((DecimalType) type).getScale();
         }
         return null;
@@ -301,7 +302,7 @@ public class ColumnJdbcTable
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
-                (type instanceof DecimalType)) {
+                (isDecimalType(type))) {
             return 10;
         }
         if (type.equals(REAL) || type.equals(DOUBLE)) {

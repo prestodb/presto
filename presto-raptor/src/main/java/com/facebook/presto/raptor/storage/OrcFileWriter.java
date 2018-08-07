@@ -62,6 +62,7 @@ import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -293,7 +294,7 @@ public class OrcFileWriter
 
     private static StorageType toStorageType(Type type)
     {
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return StorageType.decimal(decimalType.getPrecision(), decimalType.getScale());
         }

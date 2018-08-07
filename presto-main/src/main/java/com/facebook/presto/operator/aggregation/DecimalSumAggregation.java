@@ -42,6 +42,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwOverflowException;
@@ -89,7 +90,7 @@ public class DecimalSumAggregation
 
     private static InternalAggregationFunction generateAggregation(Type inputType, Type outputType)
     {
-        checkArgument(inputType instanceof DecimalType, "type must be Decimal");
+        checkArgument(isDecimalType(inputType), "type must be Decimal");
         DynamicClassLoader classLoader = new DynamicClassLoader(DecimalSumAggregation.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(inputType);
         MethodHandle inputFunction;

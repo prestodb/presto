@@ -66,6 +66,21 @@ public final class Decimals
         }
     }
 
+    public static boolean isDecimalType(Type type)
+    {
+        return type instanceof DecimalType;
+    }
+
+    public static boolean isShortDecimal(Type type)
+    {
+        return type instanceof ShortDecimalType;
+    }
+
+    public static boolean isLongDecimal(Type type)
+    {
+        return type instanceof LongDecimalType;
+    }
+
     public static long longTenToNth(int n)
     {
         return LONG_POWERS_OF_TEN[n];
@@ -297,16 +312,6 @@ public final class Decimals
             throw new IllegalArgumentException("target scale must be larger than source scale");
         }
         return value.multiply(bigIntegerTenToNth(toScale - fromScale));
-    }
-
-    public static boolean isShortDecimal(Type type)
-    {
-        return type instanceof ShortDecimalType;
-    }
-
-    public static boolean isLongDecimal(Type type)
-    {
-        return type instanceof LongDecimalType;
     }
 
     private static void checkArgument(boolean condition)

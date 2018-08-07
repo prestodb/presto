@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
@@ -32,6 +31,7 @@ import com.facebook.presto.sql.FunctionInvoker;
 
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static java.util.Collections.singletonList;
 
 final class StatsUtil
@@ -60,7 +60,7 @@ final class StatsUtil
 
     private static boolean convertibleToDoubleWithCast(Type type)
     {
-        return type instanceof DecimalType
+        return isDecimalType(type)
                 || DoubleType.DOUBLE.equals(type)
                 || RealType.REAL.equals(type)
                 || BigintType.BIGINT.equals(type)

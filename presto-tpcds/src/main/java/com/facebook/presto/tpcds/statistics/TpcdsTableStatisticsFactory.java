@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpcds.TpcdsColumnHandle;
@@ -33,6 +32,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -97,7 +97,7 @@ public class TpcdsTableStatisticsFactory
         else if (tpcdsValue instanceof String && type.equals(DATE)) {
             return LocalDate.parse((CharSequence) tpcdsValue).toEpochDay();
         }
-        else if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || (type instanceof DecimalType && isShortDecimal(type))) {
+        else if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || (isDecimalType(type) && isShortDecimal(type))) {
             return ((Number) tpcdsValue).longValue();
         }
         else if (type.equals(DOUBLE)) {

@@ -106,6 +106,7 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -412,7 +413,7 @@ public final class HiveUtil
 
     private static boolean isValidPartitionType(Type type)
     {
-        return type instanceof DecimalType ||
+        return isDecimalType(type) ||
                 BOOLEAN.equals(type) ||
                 TINYINT.equals(type) ||
                 SMALLINT.equals(type) ||
@@ -432,7 +433,7 @@ public final class HiveUtil
 
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             if (isNull) {
                 return NullableValue.asNull(decimalType);

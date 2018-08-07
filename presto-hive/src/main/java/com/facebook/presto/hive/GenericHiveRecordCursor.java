@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -495,7 +496,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else if (TIMESTAMP.equals(type)) {
             parseLongColumn(column);
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             parseDecimalColumn(column);
         }
         else {

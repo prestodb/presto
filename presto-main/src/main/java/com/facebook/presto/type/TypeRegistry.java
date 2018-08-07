@@ -56,6 +56,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -233,7 +234,7 @@ public final class TypeRegistry
             return true;
         }
 
-        if (source instanceof DecimalType && result instanceof DecimalType) {
+        if (isDecimalType(source) && isDecimalType(result)) {
             DecimalType sourceDecimal = (DecimalType) source;
             DecimalType resultDecimal = (DecimalType) result;
             boolean sameDecimalSubtype = (sourceDecimal.isShort() && resultDecimal.isShort())

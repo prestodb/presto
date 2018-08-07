@@ -31,6 +31,7 @@ import java.util.Map;
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -130,7 +131,7 @@ public class Row
         if (nativeValue == null) {
             return null;
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             BigInteger unscaledValue;
             DecimalType decimalType = (DecimalType) type;
             if (decimalType.isShort()) {

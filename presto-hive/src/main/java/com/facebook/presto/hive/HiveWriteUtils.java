@@ -122,6 +122,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
@@ -287,7 +288,7 @@ public final class HiveWriteUtils
         else if (type.equals(TimestampType.TIMESTAMP)) {
             return javaTimestampObjectInspector;
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
@@ -376,7 +377,7 @@ public final class HiveWriteUtils
             long millisUtc = type.getLong(block, position);
             return new Timestamp(millisUtc);
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return getHiveDecimal(decimalType, block, position);
         }
@@ -701,7 +702,7 @@ public final class HiveWriteUtils
             return writableTimestampObjectInspector;
         }
 
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveWritableObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
@@ -763,7 +764,7 @@ public final class HiveWriteUtils
             return new TimestampFieldSetter(rowInspector, row, field);
         }
 
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return new DecimalFieldSetter(rowInspector, row, field, decimalType);
         }

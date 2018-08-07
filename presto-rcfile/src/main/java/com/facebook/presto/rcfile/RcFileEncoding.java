@@ -14,7 +14,6 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
@@ -24,6 +23,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -86,7 +86,7 @@ public interface RcFileEncoding
         if (BIGINT.equals(type)) {
             return longEncoding(type);
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             return decimalEncoding(type);
         }
         if (REAL.equals(type)) {

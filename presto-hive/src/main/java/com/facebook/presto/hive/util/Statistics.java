@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_T
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -297,7 +298,7 @@ public final class Statistics
                     boxed(integerStatistics.getMax()).map(value -> convertLocalToUtc(timeZone, value))))
                     .orElse(Range.empty());
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             return statistics.getDecimalStatistics().map(decimalStatistics -> Range.create(
                     decimalStatistics.getMin().map(value -> encodeDecimal(type, value)),
                     decimalStatistics.getMax().map(value -> encodeDecimal(type, value))))
@@ -428,7 +429,7 @@ public final class Statistics
         else if (type.equals(TIMESTAMP)) {
             result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(timeZone, min), getTimestampValue(timeZone, max)));
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(session, type, min), getDecimalValue(session, type, max)));
         }
         else {

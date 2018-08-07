@@ -32,6 +32,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.floor;
@@ -140,7 +141,7 @@ public class StatsNormalizer
             return NaN;
         }
 
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             length *= pow(10, ((DecimalType) type).getScale());
         }
         return floor(length + 1);
@@ -154,6 +155,6 @@ public class StatsNormalizer
                 type.equals(TinyintType.TINYINT) ||
                 type.equals(BooleanType.BOOLEAN) ||
                 type.equals(DateType.DATE) ||
-                type instanceof DecimalType;
+                isDecimalType(type);
     }
 }

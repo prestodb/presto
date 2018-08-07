@@ -66,6 +66,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
@@ -244,11 +245,11 @@ public class HivePartitionManager
                 else if (!assumeCanonicalPartitionKeys) {
                     filter.add(PARTITION_VALUE_WILDCARD);
                 }
-                else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+                else if (isDecimalType(type) && !((DecimalType) type).isShort()) {
                     Slice slice = (Slice) value;
                     filter.add(Decimals.toString(slice, ((DecimalType) type).getScale()));
                 }
-                else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
+                else if (isDecimalType(type) && ((DecimalType) type).isShort()) {
                     filter.add(Decimals.toString((long) value, ((DecimalType) type).getScale()));
                 }
                 else if (type instanceof DateType) {

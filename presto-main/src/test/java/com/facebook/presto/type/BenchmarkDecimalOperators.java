@@ -67,6 +67,7 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -620,7 +621,7 @@ public class BenchmarkDecimalOperators
             if (type instanceof DoubleType) {
                 return random.nextDouble() * (2L * doubleMaxValue) - doubleMaxValue;
             }
-            else if (type instanceof DecimalType) {
+            else if (isDecimalType(type)) {
                 return randomDecimal((DecimalType) type);
             }
             else if (type instanceof BigintType) {

@@ -62,6 +62,7 @@ import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -162,7 +163,7 @@ public class MongoPageSink
             long millisUtc = unpackMillisUtc(type.getLong(block, position));
             return new Date(millisUtc);
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             // TODO: decimal type might not support yet
             // TODO: this code is likely wrong and should switch to Decimals.readBigDecimal()
             DecimalType decimalType = (DecimalType) type;

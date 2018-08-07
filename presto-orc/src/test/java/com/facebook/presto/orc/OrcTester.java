@@ -122,6 +122,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -1036,7 +1037,7 @@ public class OrcTester
         if (type.equals(TIMESTAMP)) {
             return javaTimestampObjectInspector;
         }
-        if (type instanceof DecimalType) {
+        if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
@@ -1111,7 +1112,7 @@ public class OrcTester
             long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
             return new Timestamp(millisUtc);
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {

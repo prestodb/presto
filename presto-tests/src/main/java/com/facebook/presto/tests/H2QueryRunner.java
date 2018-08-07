@@ -58,6 +58,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -333,7 +334,7 @@ public class H2QueryRunner
                         checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                         row.add(null);
                     }
-                    else if (type instanceof DecimalType) {
+                    else if (isDecimalType(type)) {
                         DecimalType decimalType = (DecimalType) type;
                         BigDecimal decimalValue = resultSet.getBigDecimal(i);
                         if (resultSet.wasNull()) {

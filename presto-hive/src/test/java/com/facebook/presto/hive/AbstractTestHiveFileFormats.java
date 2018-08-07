@@ -99,6 +99,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -657,7 +658,7 @@ public abstract class AbstractTestHiveFileFormats
         else if (isStructuralType(type)) {
             return cursor.getObject(field);
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             if (decimalType.isShort()) {
                 return BigInteger.valueOf(cursor.getLong(field));
@@ -681,7 +682,7 @@ public abstract class AbstractTestHiveFileFormats
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
                 }
-                else if (type instanceof DecimalType) {
+                else if (isDecimalType(type)) {
                     DecimalType decimalType = (DecimalType) type;
                     fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
                     assertEquals(fieldFromCursor, testColumn.getExpectedValue(), String.format("Wrong value for column %s", testColumn.getName()));

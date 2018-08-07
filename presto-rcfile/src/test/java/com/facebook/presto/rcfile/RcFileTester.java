@@ -132,6 +132,7 @@ import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSI
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isDecimalType;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -986,7 +987,7 @@ public class RcFileTester
         else if (type.equals(TIMESTAMP)) {
             return javaTimestampObjectInspector;
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
@@ -1058,7 +1059,7 @@ public class RcFileTester
             long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
             return new Timestamp(millisUtc);
         }
-        else if (type instanceof DecimalType) {
+        else if (isDecimalType(type)) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
         else if (type.getTypeSignature().getBase().equals(ARRAY)) {
