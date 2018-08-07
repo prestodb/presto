@@ -122,6 +122,13 @@ public class AggregationOperator
     }
 
     @Override
+    public void close()
+    {
+        userMemoryContext.setBytes(0);
+        systemMemoryContext.close();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return state == State.FINISHED;

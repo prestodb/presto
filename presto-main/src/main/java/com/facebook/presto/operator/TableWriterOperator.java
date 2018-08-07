@@ -311,6 +311,7 @@ public class TableWriterOperator
             }
         }
         closer.register(statisticAggregationOperator);
+        closer.register(() -> pageSinkMemoryContext.close());
         closer.close();
     }
 
@@ -326,6 +327,12 @@ public class TableWriterOperator
         long pageSinkMemoryUsage = pageSink.getSystemMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
         pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+    }
+
+    @VisibleForTesting
+    Operator getStatisticAggregationOperator()
+    {
+        return statisticAggregationOperator;
     }
 
     @VisibleForTesting
