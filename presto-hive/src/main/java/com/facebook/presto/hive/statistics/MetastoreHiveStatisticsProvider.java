@@ -182,20 +182,15 @@ public class MetastoreHiveStatisticsProvider
 
     private boolean isLowHighSupportedForType(Type type)
     {
-        if (isDecimalType(type)) {
-            return true;
-        }
-        if (type.equals(TINYINT)
+        return isDecimalType(type)
+                || type.equals(TINYINT)
                 || type.equals(SMALLINT)
                 || type.equals(INTEGER)
                 || type.equals(BIGINT)
                 || type.equals(REAL)
                 || type.equals(DOUBLE)
                 || type.equals(DATE)
-                || type.equals(TIMESTAMP)) {
-            return true;
-        }
-        return false;
+                || type.equals(TIMESTAMP);
     }
 
     private OptionalDouble calculateRowsPerPartition(Map<String, PartitionStatistics> statisticsSample)
