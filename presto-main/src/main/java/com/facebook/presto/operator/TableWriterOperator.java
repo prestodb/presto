@@ -243,17 +243,7 @@ public class TableWriterOperator
             if (aggregationOutput == null) {
                 return null;
             }
-            int positionCount = aggregationOutput.getPositionCount();
-            Block[] outputBlocks = new Block[types.size()];
-            for (int channel = 0; channel < types.size(); channel++) {
-                if (channel < WRITER_CHANNELS) {
-                    outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
-                }
-                else {
-                    outputBlocks[channel] = aggregationOutput.getBlock(channel - 2);
-                }
-            }
-            return new Page(positionCount, outputBlocks);
+            return createStatisticsPage(aggregationOutput);
         }
 
         Page fragmentsPage = createFragmentsPage();
@@ -269,6 +259,21 @@ public class TableWriterOperator
         }
 
         state = State.FINISHED;
+        return new Page(positionCount, outputBlocks);
+    }
+
+    private Page createStatisticsPage(Page aggregationOutput)
+    {
+        int positionCount = aggregationOutput.getPositionCount();
+        Block[] outputBlocks = new Block[types.size()];
+        for (int channel = 0; channel < types.size(); channel++) {
+            if (channel < WRITER_CHANNELS) {
+                outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
+            }
+            else {
+                outputBlocks[channel] = aggregationOutput.getBlock(channel - 2);
+            }
+        }
         return new Page(positionCount, outputBlocks);
     }
 
