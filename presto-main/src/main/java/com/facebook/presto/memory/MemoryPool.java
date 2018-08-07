@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -82,11 +83,13 @@ public class MemoryPool
     public synchronized MemoryPoolInfo getInfo()
     {
         Map<QueryId, List<MemoryAllocation>> memoryAllocations = new HashMap<>();
-        taggedMemoryAllocations.forEach((queryId, allocationMap) -> {
+        for (Entry<QueryId, Map<String, Long>> entry : taggedMemoryAllocations.entrySet()) {
             List<MemoryAllocation> allocations = new ArrayList<>();
-            allocationMap.forEach((tag, allocation) -> allocations.add(new MemoryAllocation(tag, allocation)));
-            memoryAllocations.put(queryId, allocations);
-        });
+            if (entry.getValue() != null) {
+                entry.getValue().forEach((tag, allocation) -> allocations.add(new MemoryAllocation(tag, allocation)));
+            }
+            memoryAllocations.put(entry.getKey(), allocations);
+        }
         return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, memoryAllocations, queryMemoryRevocableReservations);
     }
 
