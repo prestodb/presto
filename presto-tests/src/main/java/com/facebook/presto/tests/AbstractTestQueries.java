@@ -8086,6 +8086,30 @@ public abstract class AbstractTestQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
+    @Test
+    public void testNumericalStability()
+    {
+        assertQuery(
+                "SELECT ROUND(VAR_SAMP(totalprice + exp(30))/VAR_SAMP(totalprice), 2) FROM orders",
+                "VALUES 1.0");
+
+        assertQuery(
+                "SELECT ROUND(COVAR_SAMP(totalprice + exp(30), totalprice + exp(30))/VAR_SAMP(totalprice), 2) FROM orders",
+                "VALUES 1.0");
+
+        assertQuery(
+                "SELECT ROUND(CORR(totalprice + exp(30), totalprice + exp(30)), 2) FROM orders",
+                "VALUES 1.0");
+
+        assertQuery(
+                "SELECT ROUND(REGR_SLOPE((totalprice + exp(30)) * 5 + 10, totalprice + exp(30)), 2) FROM orders",
+                "VALUES 5.0");
+
+        assertQuery(
+                "SELECT ROUND(REGR_INTERCEPT((totalprice + exp(20)) * 5 + 10, totalprice + exp(20)), 2) FROM orders",
+                "VALUES 10.0");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
