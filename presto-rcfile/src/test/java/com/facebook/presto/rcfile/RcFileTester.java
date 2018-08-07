@@ -34,7 +34,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.AbstractIterator;
@@ -146,6 +145,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
@@ -974,7 +974,7 @@ public class RcFileTester
         else if (type.equals(DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return javaStringObjectInspector;
         }
         else if (type.equals(VARBINARY)) {
@@ -1037,7 +1037,7 @@ public class RcFileTester
         else if (type.equals(DOUBLE)) {
             return ((Number) value).doubleValue();
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return value;
         }
         else if (type.equals(VARBINARY)) {

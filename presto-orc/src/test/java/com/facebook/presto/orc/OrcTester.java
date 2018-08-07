@@ -35,7 +35,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.AbstractIterator;
@@ -120,6 +119,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.rescale;
@@ -130,6 +130,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -700,11 +701,11 @@ public class OrcTester
                 float floatValue = ((Number) value).floatValue();
                 type.writeLong(blockBuilder, Float.floatToIntBits(floatValue));
             }
-            else if (type instanceof VarcharType) {
+            else if (isVarcharType(type)) {
                 Slice slice = truncateToLength(utf8Slice((String) value), type);
                 type.writeSlice(blockBuilder, slice);
             }
-            else if (type instanceof CharType) {
+            else if (isCharType(type)) {
                 Slice slice = truncateToLengthAndTrimSpaces(utf8Slice((String) value), type);
                 type.writeSlice(blockBuilder, slice);
             }
@@ -1019,10 +1020,10 @@ public class OrcTester
         if (type.equals(DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return javaStringObjectInspector;
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             int charLength = ((CharType) type).getLength();
             return new JavaHiveCharObjectInspector(getCharTypeInfo(charLength));
         }
@@ -1086,10 +1087,10 @@ public class OrcTester
         else if (type.equals(DOUBLE)) {
             return ((Number) value).doubleValue();
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return value;
         }
-        else if (type instanceof CharType) {
+        else if (isCharType(type)) {
             return new HiveChar((String) value, ((CharType) type).getLength());
         }
         else if (type.equals(VARBINARY)) {

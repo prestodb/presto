@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -170,7 +169,7 @@ public class TupleDomainOrcPredicate<C>
             return bloomFilter.testDouble((Double) predicateValue);
         }
 
-        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
+        if (isVarcharType(sqlType) || sqlType instanceof VarbinaryType) {
             return bloomFilter.test(((Slice) predicateValue).getBytes());
         }
 

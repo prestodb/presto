@@ -28,7 +28,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -40,7 +39,6 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -66,7 +64,9 @@ import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
@@ -228,11 +228,11 @@ public class HivePartitionManager
                 if (value == null) {
                     filter.add(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION);
                 }
-                else if (type instanceof CharType) {
+                else if (isCharType(type)) {
                     Slice slice = (Slice) value;
                     filter.add(padSpaces(slice, type).toStringUtf8());
                 }
-                else if (type instanceof VarcharType) {
+                else if (isVarcharType(type)) {
                     Slice slice = (Slice) value;
                     filter.add(slice.toStringUtf8());
                 }

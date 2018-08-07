@@ -14,16 +14,15 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -35,6 +34,7 @@ import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.util.stream.Collectors.toList;
 
 public interface RcFileEncoding
@@ -95,7 +95,7 @@ public interface RcFileEncoding
         if (DOUBLE.equals(type)) {
             return doubleEncoding(type);
         }
-        if (type instanceof VarcharType || type instanceof CharType) {
+        if (isVarcharType(type) || isCharType(type)) {
             return stringEncoding(type);
         }
         if (VARBINARY.equals(type)) {

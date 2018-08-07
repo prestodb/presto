@@ -36,7 +36,6 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.tpch.statistics.ColumnStatisticsData;
 import com.facebook.presto.tpch.statistics.StatisticsEstimator;
 import com.facebook.presto.tpch.statistics.TableStatisticsData;
@@ -70,6 +69,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -384,7 +384,7 @@ public class TpchMetadata
 
     private Object toPrestoValue(Object tpchValue, Type columnType)
     {
-        if (columnType instanceof VarcharType) {
+        if (isVarcharType(columnType)) {
             return Slices.utf8Slice((String) tpchValue);
         }
         if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {

@@ -18,11 +18,9 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.tpcds.TpcdsColumnHandle;
 import com.teradata.tpcds.Table;
 import io.airlift.slice.Slices;
@@ -32,11 +30,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 
 public class TpcdsTableStatisticsFactory
 {
@@ -88,10 +88,10 @@ public class TpcdsTableStatisticsFactory
 
     private Object toPrestoValue(Object tpcdsValue, Type type)
     {
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return Slices.utf8Slice((String) tpcdsValue);
         }
-        else if (type instanceof CharType) {
+        else if (isCharType(type)) {
             return truncateToLengthAndTrimSpaces(Slices.utf8Slice((String) tpcdsValue), type);
         }
         else if (tpcdsValue instanceof String && type.equals(DATE)) {

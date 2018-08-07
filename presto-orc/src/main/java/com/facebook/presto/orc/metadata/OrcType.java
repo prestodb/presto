@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -39,6 +40,7 @@ import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -195,14 +197,14 @@ public class OrcType
         if (REAL.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.FLOAT));
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded()) {
                 return ImmutableList.of(new OrcType(OrcTypeKind.STRING));
             }
             return ImmutableList.of(new OrcType(OrcTypeKind.VARCHAR, varcharType.getLengthSafe()));
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.CHAR, ((CharType) type).getLength()));
         }
         if (VARBINARY.equals(type)) {

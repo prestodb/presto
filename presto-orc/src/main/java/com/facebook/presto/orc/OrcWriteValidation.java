@@ -37,11 +37,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.block.ColumnarRow;
 import com.facebook.presto.spi.type.AbstractLongType;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
@@ -71,6 +69,7 @@ import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -82,6 +81,7 @@ import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -653,12 +653,12 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type instanceof VarcharType) {
+            else if (isVarcharType(type)) {
                 statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type instanceof CharType) {
+            else if (isCharType(type)) {
                 statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();

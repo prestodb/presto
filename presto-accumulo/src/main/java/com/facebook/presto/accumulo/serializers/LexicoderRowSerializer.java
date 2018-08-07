@@ -18,7 +18,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.client.lexicoder.BytesLexicoder;
 import org.apache.accumulo.core.client.lexicoder.DoubleLexicoder;
@@ -51,6 +50,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -363,7 +363,7 @@ public class LexicoderRowSerializer
         else if (type.equals(VARBINARY) && value instanceof Slice) {
             toEncode = ((Slice) value).getBytes();
         }
-        else if (type instanceof VarcharType && value instanceof Slice) {
+        else if (isVarcharType(type) && value instanceof Slice) {
             toEncode = ((Slice) value).toStringUtf8();
         }
         else {
@@ -387,7 +387,7 @@ public class LexicoderRowSerializer
         else if (Types.isMapType(type)) {
             return getMapLexicoder(type);
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return LEXICODER_MAP.get(VARCHAR);
         }
         else {

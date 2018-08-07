@@ -34,7 +34,6 @@ import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -114,9 +113,11 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -1039,12 +1040,12 @@ public class ExpressionInterpreter
 
         private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)
         {
-            if (type(node.getValue()) instanceof VarcharType) {
+            if (isVarcharType(type(node.getValue()))) {
                 return LikeFunctions.likeVarchar(value, regex);
             }
 
             Type type = type(node.getValue());
-            checkState(type instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
+            checkState(isCharType(type), "LIKE value is neither VARCHAR or CHAR");
             return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
         }
 

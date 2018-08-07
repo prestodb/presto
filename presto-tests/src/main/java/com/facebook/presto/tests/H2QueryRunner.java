@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -398,7 +397,7 @@ public class H2QueryRunner
                     else if (DOUBLE.equals(type)) {
                         batch.bind(column, cursor.getDouble(column));
                     }
-                    else if (type instanceof VarcharType) {
+                    else if (isVarcharType(type)) {
                         batch.bind(column, cursor.getSlice(column).toStringUtf8());
                     }
                     else if (DATE.equals(type)) {

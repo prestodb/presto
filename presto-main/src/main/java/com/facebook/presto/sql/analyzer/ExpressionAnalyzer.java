@@ -119,6 +119,7 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdina
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -132,6 +133,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -617,7 +619,7 @@ public class ExpressionAnalyzer
         protected Type visitLikePredicate(LikePredicate node, StackableAstVisitorContext<Context> context)
         {
             Type valueType = process(node.getValue(), context);
-            if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
+            if (!isCharType(valueType) && !isVarcharType(valueType)) {
                 coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
             }
 
@@ -635,7 +637,7 @@ public class ExpressionAnalyzer
         private Type getVarcharType(Expression value, StackableAstVisitorContext<Context> context)
         {
             Type type = process(value, context);
-            if (!(type instanceof VarcharType)) {
+            if (!isVarcharType(type)) {
                 return VARCHAR;
             }
             return type;

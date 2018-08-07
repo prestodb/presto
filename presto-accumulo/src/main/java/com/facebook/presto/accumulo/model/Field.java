@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 
 import java.sql.Date;
@@ -46,6 +45,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -364,7 +364,7 @@ public class Field
         else if (type.equals(VARBINARY)) {
             return "CAST('" + new String((byte[]) value, UTF_8).replaceAll("'", "''") + "' AS VARBINARY)";
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return "'" + value.toString().replaceAll("'", "''") + "'";
         }
         else {
@@ -511,7 +511,7 @@ public class Field
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice byte[], but " + value.getClass());
             }
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             if (value instanceof Slice) {
                 return new String(((Slice) value).getBytes(), UTF_8);
             }

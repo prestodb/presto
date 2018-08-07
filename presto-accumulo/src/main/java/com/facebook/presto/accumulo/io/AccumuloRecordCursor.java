@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.accumulo.core.client.BatchScanner;
@@ -51,6 +50,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -258,7 +258,7 @@ public class AccumuloRecordCursor
         if (type instanceof VarbinaryType) {
             return Slices.wrappedBuffer(serializer.getVarbinary(fieldToColumnName[field]));
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return Slices.utf8Slice(serializer.getVarchar(fieldToColumnName[field]));
         }
         else {

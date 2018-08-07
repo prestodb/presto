@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDate;
@@ -49,11 +48,13 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -156,7 +157,7 @@ public final class LiteralEncoder
             return new Cast(new DecimalLiteral(string), type.getDisplayName());
         }
 
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             Slice value = (Slice) object;
             StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
@@ -167,7 +168,7 @@ public final class LiteralEncoder
             return new Cast(stringLiteral, type.getDisplayName(), false, true);
         }
 
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
             return new Cast(stringLiteral, type.getDisplayName(), false, true);
         }

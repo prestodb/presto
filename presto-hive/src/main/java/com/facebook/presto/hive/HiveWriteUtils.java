@@ -122,6 +122,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Float.intBitsToFloat;
@@ -271,10 +272,10 @@ public final class HiveWriteUtils
         else if (type.equals(DoubleType.DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type instanceof VarcharType) {
+        else if (isVarcharType(type)) {
             return writableStringObjectInspector;
         }
-        else if (type instanceof CharType) {
+        else if (isCharType(type)) {
             return writableHiveCharObjectInspector;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
@@ -357,10 +358,10 @@ public final class HiveWriteUtils
         if (DoubleType.DOUBLE.equals(type)) {
             return type.getDouble(block, position);
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return new Text(type.getSlice(block, position).getBytes());
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             CharType charType = (CharType) type;
             return new Text(padEnd(type.getSlice(block, position).toStringUtf8(), charType.getLength(), ' '));
         }
@@ -668,7 +669,7 @@ public final class HiveWriteUtils
             return writableDoubleObjectInspector;
         }
 
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             int varcharLength = varcharType.getLength();
             // VARCHAR columns with the length less than or equal to 65535 are supported natively by Hive
@@ -742,11 +743,11 @@ public final class HiveWriteUtils
             return new DoubleFieldSetter(rowInspector, row, field);
         }
 
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return new VarcharFieldSetter(rowInspector, row, field, type);
         }
 
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             return new CharFieldSetter(rowInspector, row, field, type);
         }
 

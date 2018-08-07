@@ -43,6 +43,7 @@ import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -51,6 +52,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
@@ -86,7 +88,7 @@ public class HiveTypeTranslator
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.getTypeInfo();
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             int varcharLength = varcharType.getLength();
             if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
@@ -100,7 +102,7 @@ public class HiveTypeTranslator
                         type, HiveVarchar.MAX_VARCHAR_LENGTH));
             }
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             CharType charType = (CharType) type;
             int charLength = charType.getLength();
             if (charLength <= HiveChar.MAX_CHAR_LENGTH) {

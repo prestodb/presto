@@ -25,7 +25,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -59,6 +58,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -217,7 +217,7 @@ public class AccumuloPageSink
             else if (type.equals(VARBINARY)) {
                 serializer.setVarbinary(value, field.getVarbinary());
             }
-            else if (type instanceof VarcharType) {
+            else if (isVarcharType(type)) {
                 serializer.setVarchar(value, field.getVarchar());
             }
             else {

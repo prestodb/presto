@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -32,6 +31,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -51,10 +51,10 @@ public class HiveCoercionPolicy
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
-        if (fromType instanceof VarcharType) {
+        if (isVarcharType(fromType)) {
             return toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
         }
-        if (toType instanceof VarcharType) {
+        if (isVarcharType(toType)) {
             return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG);
         }
         if (fromHiveType.equals(HIVE_BYTE)) {

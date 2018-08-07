@@ -15,14 +15,12 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
@@ -37,6 +35,7 @@ import java.util.Objects;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -47,6 +46,7 @@ import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
@@ -103,10 +103,10 @@ public final class TestingOrcPredicate
             // binary does not have stats
             return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return new StringOrcPredicate(expectedValues, format, isHiveWriter);
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             return new CharOrcPredicate(expectedValues, format == DWRF);
         }
         if (type instanceof DecimalType) {

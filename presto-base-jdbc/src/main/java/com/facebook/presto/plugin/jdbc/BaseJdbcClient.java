@@ -53,6 +53,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -472,7 +473,7 @@ public class BaseJdbcClient
             }
             return "varchar(" + varcharType.getLengthSafe() + ")";
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
                 return "char";
             }

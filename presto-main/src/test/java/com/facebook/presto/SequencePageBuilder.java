@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 
 import java.util.List;
 
@@ -31,6 +30,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 
 public final class SequencePageBuilder
 {
@@ -59,7 +59,7 @@ public final class SequencePageBuilder
             else if (type.equals(DOUBLE)) {
                 blocks[i] = BlockAssertions.createDoubleSequenceBlock(initialValue, initialValue + length);
             }
-            else if (type instanceof VarcharType) {
+            else if (isVarcharType(type)) {
                 blocks[i] = BlockAssertions.createStringSequenceBlock(initialValue, initialValue + length);
             }
             else if (type.equals(BOOLEAN)) {

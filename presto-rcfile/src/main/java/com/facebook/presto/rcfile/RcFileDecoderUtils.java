@@ -23,6 +23,8 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -234,10 +236,10 @@ public final class RcFileDecoderUtils
     public static int calculateTruncationLength(Type type, Slice slice, int offset, int length)
     {
         requireNonNull(type, "type is null");
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return calculateTruncationLength(((VarcharType) type).getLength(), slice, offset, length);
         }
-        if (type instanceof CharType) {
+        if (isCharType(type)) {
             int truncationLength = calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);
             // At run-time char(x) is represented without trailing spaces
             while (truncationLength > 0 && slice.getByte(offset + truncationLength - 1) == ' ') {

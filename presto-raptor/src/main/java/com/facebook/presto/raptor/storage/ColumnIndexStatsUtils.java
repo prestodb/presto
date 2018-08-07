@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 
 import java.sql.JDBCType;
 
@@ -24,6 +23,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 
 public class ColumnIndexStatsUtils
 {
@@ -46,7 +46,7 @@ public class ColumnIndexStatsUtils
         if (type.equals(DATE)) {
             return JDBCType.INTEGER;
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return JDBCType.VARBINARY;
         }
         return null;
