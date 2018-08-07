@@ -29,6 +29,12 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -36,6 +42,7 @@ import org.joda.time.DateTime;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
@@ -50,7 +57,24 @@ public class QuerySystemTable
 {
     public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("runtime", "queries");
 
-    public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
+    private final ConnectorTableMetadata queryTableMetadata;
+    private final MapType sessionPropertiesType;
+    private final QueryManager queryManager;
+    private final String nodeId;
+
+    @Inject
+    public QuerySystemTable(QueryManager queryManager, NodeInfo nodeInfo, TypeManager typeManager)
+    {
+        requireNonNull(typeManager, "typeManager is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.nodeId = nodeInfo.getNodeId();
+        this.sessionPropertiesType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP,
+                ImmutableList.<TypeSignatureParameter>builder()
+                        .add(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))
+                        .add(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))
+                        .build());
+        this.queryTableMetadata = tableMetadataBuilder(QUERY_TABLE_NAME)
             .column("node_id", createUnboundedVarcharType())
             .column("query_id", createUnboundedVarcharType())
             .column("state", createUnboundedVarcharType())
@@ -58,7 +82,7 @@ public class QuerySystemTable
             .column("source", createUnboundedVarcharType())
             .column("query", createUnboundedVarcharType())
             .column("resource_group_id", new ArrayType(createUnboundedVarcharType()))
-
+            .column("session_properties", sessionPropertiesType)
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
             .column("distributed_planning_time_ms", BIGINT)
@@ -68,15 +92,6 @@ public class QuerySystemTable
             .column("last_heartbeat", TIMESTAMP)
             .column("end", TIMESTAMP)
             .build();
-
-    private final QueryManager queryManager;
-    private final String nodeId;
-
-    @Inject
-    public QuerySystemTable(QueryManager queryManager, NodeInfo nodeInfo)
-    {
-        this.queryManager = queryManager;
-        this.nodeId = nodeInfo.getNodeId();
     }
 
     @Override
@@ -88,13 +103,13 @@ public class QuerySystemTable
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
-        return QUERY_TABLE;
+        return queryTableMetadata;
     }
 
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
+        Builder table = InMemoryRecordSet.builder(queryTableMetadata);
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
             QueryStats queryStats = queryInfo.getQueryStats();
             table.addRow(
@@ -105,7 +120,7 @@ public class QuerySystemTable
                     queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
                     queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
-
+                    sessionPropertiesToBlock(queryInfo.getSession().getSystemProperties()),
                     toMillis(queryStats.getQueuedTime()),
                     toMillis(queryStats.getAnalysisTime()),
                     toMillis(queryStats.getDistributedPlanningTime()),
@@ -118,7 +133,7 @@ public class QuerySystemTable
         return table.build().cursor();
     }
 
-    private static Block resourceGroupIdToBlock(ResourceGroupId resourceGroupId)
+    static Block resourceGroupIdToBlock(ResourceGroupId resourceGroupId)
     {
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         List<String> segments = resourceGroupId.getSegments();
@@ -127,6 +142,32 @@ public class QuerySystemTable
             createUnboundedVarcharType().writeSlice(blockBuilder, utf8Slice(segment));
         }
         return blockBuilder.build();
+    }
+
+    private Block sessionPropertiesToBlock(Map<String, String> properties)
+    {
+        requireNonNull(properties, "properties is null");
+        BlockBuilder blockBuilder = sessionPropertiesType.createBlockBuilder(null, properties.size());
+        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+        Type keyType = sessionPropertiesType.getTypeParameters().get(0);
+        Type valueType = sessionPropertiesType.getTypeParameters().get(1);
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            appendToBlockBuilder(keyType, entry.getKey(), entryBuilder);
+            appendToBlockBuilder(valueType, entry.getValue(), entryBuilder);
+        }
+        blockBuilder.closeEntry();
+        return sessionPropertiesType.getObject(blockBuilder, 0);
+    }
+
+    private static void appendToBlockBuilder(Type type, String value, BlockBuilder blockBuilder)
+    {
+        // Copied from StructuralTestUtil
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else {
+            type.writeSlice(blockBuilder, utf8Slice(value));
+        }
     }
 
     private static Long toMillis(Duration duration)

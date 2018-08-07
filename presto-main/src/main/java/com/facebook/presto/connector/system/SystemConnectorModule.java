@@ -50,6 +50,7 @@ public class SystemConnectorModule
         Multibinder<SystemTable> globalTableBinder = Multibinder.newSetBinder(binder, SystemTable.class);
         globalTableBinder.addBinding().to(NodeSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(QuerySystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(ResourceGroupInfoSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TaskSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(SchemaPropertiesSystemTable.class).in(Scopes.SINGLETON);
