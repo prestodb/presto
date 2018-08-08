@@ -621,9 +621,10 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     source,
                     node.getTarget(),
+                    node.getRowCountSymbol(),
+                    node.getFragmentSymbol(),
                     node.getColumns(),
                     node.getColumnNames(),
-                    node.getOutputSymbols(),
                     node.getPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
@@ -637,7 +638,7 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     source,
                     node.getTarget(),
-                    node.getOutputSymbols(),
+                    node.getRowCountSymbol(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
