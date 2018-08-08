@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.MethodsGroup;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;

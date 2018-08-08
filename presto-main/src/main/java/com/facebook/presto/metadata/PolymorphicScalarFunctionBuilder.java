@@ -36,7 +36,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
-public final class SqlScalarFunctionBuilder
+public final class PolymorphicScalarFunctionBuilder
 {
     private final Class<?> clazz;
     private Signature signature;
@@ -47,56 +47,56 @@ public final class SqlScalarFunctionBuilder
     private List<ArgumentProperty> argumentProperties = emptyList();
     private final List<MethodsGroup> methodsGroups = new ArrayList<>();
 
-    public SqlScalarFunctionBuilder(Class<?> clazz)
+    public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
         this.clazz = clazz;
     }
 
-    public SqlScalarFunctionBuilder signature(Signature signature)
+    public PolymorphicScalarFunctionBuilder signature(Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.hidden = Optional.of(hidden.orElse(isOperator(signature)));
         return this;
     }
 
-    public SqlScalarFunctionBuilder description(String description)
+    public PolymorphicScalarFunctionBuilder description(String description)
     {
         this.description = description;
         return this;
     }
 
-    public SqlScalarFunctionBuilder hidden(boolean hidden)
+    public PolymorphicScalarFunctionBuilder hidden(boolean hidden)
     {
         this.hidden = Optional.of(hidden);
         return this;
     }
 
-    public SqlScalarFunctionBuilder deterministic(boolean deterministic)
+    public PolymorphicScalarFunctionBuilder deterministic(boolean deterministic)
     {
         this.deterministic = deterministic;
         return this;
     }
 
-    public SqlScalarFunctionBuilder nullableResult(boolean nullableResult)
+    public PolymorphicScalarFunctionBuilder nullableResult(boolean nullableResult)
     {
         this.nullableResult = nullableResult;
         return this;
     }
 
-    public SqlScalarFunctionBuilder argumentProperties(ArgumentProperty... argumentProperties)
+    public PolymorphicScalarFunctionBuilder argumentProperties(ArgumentProperty... argumentProperties)
     {
         requireNonNull(argumentProperties, "argumentProperties is null");
         this.argumentProperties = ImmutableList.copyOf(argumentProperties);
         return this;
     }
 
-    public SqlScalarFunctionBuilder argumentProperties(List<ArgumentProperty> argumentProperties)
+    public PolymorphicScalarFunctionBuilder argumentProperties(List<ArgumentProperty> argumentProperties)
     {
         this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
         return this;
     }
 
-    public SqlScalarFunctionBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodGroupSpecification)
+    public PolymorphicScalarFunctionBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodGroupSpecification)
     {
         MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz);
         methodGroupSpecification.apply(methodsGroupBuilder);
