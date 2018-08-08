@@ -19,7 +19,6 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
@@ -46,6 +45,7 @@ import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
@@ -99,7 +99,7 @@ public final class TestingOrcPredicate
                             .collect(toList()),
                     format == DWRF);
         }
-        if (type instanceof VarbinaryType) {
+        if (VARBINARY.equals(type)) {
             // binary does not have stats
             return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
         }

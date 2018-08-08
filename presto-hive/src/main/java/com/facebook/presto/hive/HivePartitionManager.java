@@ -26,17 +26,8 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Predicates;
@@ -64,9 +55,18 @@ import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isDecimalType;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
@@ -252,21 +252,21 @@ public class HivePartitionManager
                 else if (isDecimalType(type) && ((DecimalType) type).isShort()) {
                     filter.add(Decimals.toString((long) value, ((DecimalType) type).getScale()));
                 }
-                else if (type instanceof DateType) {
+                else if (DATE.equals(type)) {
                     DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
                     filter.add(dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value)));
                 }
-                else if (type instanceof TimestampType) {
+                else if (TIMESTAMP.equals(type)) {
                     // we don't have time zone info, so just add a wildcard
                     filter.add(PARTITION_VALUE_WILDCARD);
                 }
-                else if (type instanceof TinyintType
-                        || type instanceof SmallintType
-                        || type instanceof IntegerType
-                        || type instanceof BigintType
-                        || type instanceof DoubleType
-                        || type instanceof RealType
-                        || type instanceof BooleanType) {
+                else if (TINYINT.equals(type)
+                        || SMALLINT.equals(type)
+                        || INTEGER.equals(type)
+                        || BIGINT.equals(type)
+                        || DOUBLE.equals(type)
+                        || REAL.equals(type)
+                        || BOOLEAN.equals(type)) {
                     filter.add(value.toString());
                 }
                 else {

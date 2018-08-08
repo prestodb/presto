@@ -19,9 +19,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -618,13 +616,13 @@ public class BenchmarkDecimalOperators
 
         private Object generateRandomValue(Type type)
         {
-            if (type instanceof DoubleType) {
+            if (DOUBLE.equals(type)) {
                 return random.nextDouble() * (2L * doubleMaxValue) - doubleMaxValue;
             }
             else if (isDecimalType(type)) {
                 return randomDecimal((DecimalType) type);
             }
-            else if (type instanceof BigintType) {
+            else if (BIGINT.equals(type)) {
                 int randomInt = random.nextInt();
                 return randomInt == 0 ? 1 : randomInt;
             }

@@ -29,7 +29,6 @@ import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +48,7 @@ import static com.facebook.presto.connector.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -183,7 +183,7 @@ public class TestJmxSplitManager
                 if (cursor.isNull(0)) {
                     return result.build();
                 }
-                assertTrue(recordSet.getColumnTypes().get(0) instanceof TimestampType);
+                assertTrue(TIMESTAMP.equals(recordSet.getColumnTypes().get(0)));
                 result.add(cursor.getLong(0));
             }
         }

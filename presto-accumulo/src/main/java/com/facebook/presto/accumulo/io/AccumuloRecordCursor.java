@@ -20,7 +20,6 @@ import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.accumulo.core.client.BatchScanner;
@@ -50,6 +49,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -255,7 +255,7 @@ public class AccumuloRecordCursor
     public Slice getSlice(int field)
     {
         Type type = getType(field);
-        if (type instanceof VarbinaryType) {
+        if (VARBINARY.equals(type)) {
             return Slices.wrappedBuffer(serializer.getVarbinary(fieldToColumnName[field]));
         }
         else if (isVarcharType(type)) {

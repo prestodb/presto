@@ -34,7 +34,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.AbstractIterator;
@@ -1028,7 +1027,7 @@ public class OrcTester
             int charLength = ((CharType) type).getLength();
             return new JavaHiveCharObjectInspector(getCharTypeInfo(charLength));
         }
-        if (type instanceof VarbinaryType) {
+        if (type.equals(VARBINARY)) {
             return javaByteArrayObjectInspector;
         }
         if (type.equals(DATE)) {

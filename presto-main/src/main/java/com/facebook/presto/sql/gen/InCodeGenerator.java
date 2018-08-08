@@ -16,9 +16,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -46,6 +43,8 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
@@ -84,7 +83,7 @@ public class InCodeGenerator
             return SwitchGenerationCase.SET_CONTAINS;
         }
 
-        if (!(type instanceof IntegerType || type instanceof BigintType || type instanceof DateType)) {
+        if (!(INTEGER.equals(type) || BIGINT.equals(type) || DATE.equals(type))) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
         for (RowExpression expression : values) {

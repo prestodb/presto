@@ -24,7 +24,6 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -49,6 +48,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -169,7 +169,7 @@ public class TupleDomainOrcPredicate<C>
             return bloomFilter.testDouble((Double) predicateValue);
         }
 
-        if (isVarcharType(sqlType) || sqlType instanceof VarbinaryType) {
+        if (isVarcharType(sqlType) || sqlType == VARBINARY) {
             return bloomFilter.test(((Slice) predicateValue).getBytes());
         }
 
