@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -204,7 +203,6 @@ public final class PolymorphicScalarFunctionBuilder
     {
         private final Class<?> clazz;
         private List<Method> methods;
-        private Optional<Predicate<SpecializeContext>> predicate = Optional.empty();
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 
         private MethodsGroupBuilder(Class<?> clazz)
@@ -237,14 +235,6 @@ public final class PolymorphicScalarFunctionBuilder
             return this;
         }
 
-        public MethodsGroupBuilder withPredicate(Predicate<SpecializeContext> predicate)
-        {
-            checkState(methods != null, "methods must be selected first");
-            requireNonNull(predicate, "predicate is null");
-            this.predicate = Optional.of(predicate);
-            return this;
-        }
-
         public MethodsGroupBuilder withExtraParameters(Function<SpecializeContext, List<Object>> extraParametersFunction)
         {
             checkState(methods != null, "methods must be selected first");
@@ -255,34 +245,26 @@ public final class PolymorphicScalarFunctionBuilder
 
         public MethodsGroup build()
         {
-            return new MethodsGroup(methods, predicate, extraParametersFunction);
+            return new MethodsGroup(methods, extraParametersFunction);
         }
     }
 
     static class MethodsGroup
     {
         private final List<Method> methods;
-        private final Optional<Predicate<SpecializeContext>> predicate;
         private final Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction;
 
         private MethodsGroup(
                 List<Method> methods,
-                Optional<Predicate<SpecializeContext>> predicate,
                 Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction)
         {
             this.methods = requireNonNull(methods, "methods is null");
-            this.predicate = requireNonNull(predicate, "predicate is null");
             this.extraParametersFunction = requireNonNull(extraParametersFunction, "extraParametersFunction is null");
         }
 
         List<Method> getMethods()
         {
             return methods;
-        }
-
-        Optional<Predicate<SpecializeContext>> getPredicate()
-        {
-            return predicate;
         }
 
         Optional<Function<SpecializeContext, List<Object>>> getExtraParametersFunction()

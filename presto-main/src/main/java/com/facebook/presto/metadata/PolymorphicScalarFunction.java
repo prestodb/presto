@@ -99,12 +99,8 @@ class PolymorphicScalarFunction
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : methodsGroups) {
             for (Method candidateMethod : candidateMethodsGroup.getMethods()) {
-                if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType) &&
-                        predicateIsTrue(candidateMethodsGroup, context)) {
+                if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType)) {
                     if (matchingMethod.isPresent()) {
-                        if (onlyFirstMatchedMethodHasPredicate(matchingMethodsGroup.get(), candidateMethodsGroup)) {
-                            continue;
-                        }
                         throw new IllegalStateException("two matching methods (" + matchingMethod.get().getName() + " and " + candidateMethod.getName() + ") for parameter types " + resolvedParameterTypeSignatures);
                     }
 
@@ -140,16 +136,6 @@ class PolymorphicScalarFunction
             methodParameterIndex += nullConvention.getParameterCount();
         }
         return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
-    }
-
-    private static boolean onlyFirstMatchedMethodHasPredicate(MethodsGroup matchingMethodsGroup, MethodsGroup methodsGroup)
-    {
-        return matchingMethodsGroup.getPredicate().isPresent() && !methodsGroup.getPredicate().isPresent();
-    }
-
-    private static boolean predicateIsTrue(MethodsGroup methodsGroup, SpecializeContext context)
-    {
-        return methodsGroup.getPredicate().map(predicate -> predicate.test(context)).orElse(true);
     }
 
     private static List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
