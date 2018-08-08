@@ -75,6 +75,11 @@ public class Patterns
         return typeOf(JoinNode.class);
     }
 
+    public static Pattern<SpatialJoinNode> spatialJoin()
+    {
+        return typeOf(SpatialJoinNode.class);
+    }
+
     public static Pattern<LateralJoinNode> lateralJoin()
     {
         return typeOf(LateralJoinNode.class);

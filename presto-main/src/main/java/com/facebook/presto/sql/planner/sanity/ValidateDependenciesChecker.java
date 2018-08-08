@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -64,6 +65,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -346,20 +348,7 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
-            int leftMaxPosition = -1;
-            Optional<Integer> rightMinPosition = Optional.empty();
-            Set<Symbol> leftSymbols = new HashSet<>(node.getLeft().getOutputSymbols());
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol symbol = node.getOutputSymbols().get(i);
-                if (leftSymbols.contains(symbol)) {
-                    leftMaxPosition = i;
-                }
-                else if (!rightMinPosition.isPresent()) {
-                    rightMinPosition = Optional.of(i);
-                }
-            }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
-
+            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
             return null;
         }
 
@@ -380,6 +369,47 @@ public final class ValidateDependenciesChecker
                     node.getSemiJoinOutput());
 
             return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Set<Symbol> boundSymbols)
+        {
+            node.getLeft().accept(this, boundSymbols);
+            node.getRight().accept(this, boundSymbols);
+
+            Set<Symbol> leftInputs = createInputs(node.getLeft(), boundSymbols);
+            Set<Symbol> rightInputs = createInputs(node.getRight(), boundSymbols);
+            Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(leftInputs)
+                    .addAll(rightInputs)
+                    .build();
+
+            Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+            checkArgument(
+                    allInputs.containsAll(predicateSymbols),
+                    "Symbol from filter (%s) not in sources (%s)",
+                    predicateSymbols,
+                    allInputs);
+
+            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
+            return null;
+        }
+
+        private void checkLeftOutputSymbolsBeforeRight(List<Symbol> leftSymbols, List<Symbol> outputSymbols)
+        {
+            int leftMaxPosition = -1;
+            Optional<Integer> rightMinPosition = Optional.empty();
+            Set<Symbol> leftSymbolsSet = new HashSet<>(leftSymbols);
+            for (int i = 0; i < outputSymbols.size(); i++) {
+                Symbol symbol = outputSymbols.get(i);
+                if (leftSymbolsSet.contains(symbol)) {
+                    leftMaxPosition = i;
+                }
+                else if (!rightMinPosition.isPresent()) {
+                    rightMinPosition = Optional.of(i);
+                }
+            }
+            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
         }
 
         @Override

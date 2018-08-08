@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
 
@@ -62,6 +63,14 @@ public class SchedulingOrderVisitor
         {
             node.getFilteringSource().accept(this, schedulingOrder);
             node.getSource().accept(this, schedulingOrder);
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        {
+            node.getRight().accept(this, schedulingOrder);
+            node.getLeft().accept(this, schedulingOrder);
             return null;
         }
 

@@ -48,6 +48,7 @@ public class StatsCalculatorModule
         rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
         rules.add(new ExchangeStatsRule(normalizer));
         rules.add(new JoinStatsRule(filterStatsCalculator, normalizer));
+        rules.add(new SpatialJoinStatsRule(filterStatsCalculator, normalizer));
         rules.add(new AggregationStatsRule(normalizer));
         rules.add(new UnionStatsRule(normalizer));
         rules.add(new AssignUniqueIdStatsRule());

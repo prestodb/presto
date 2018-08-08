@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -180,7 +181,7 @@ public class TransformSpatialPredicates
     public static final class TransformSpatialPredicateToLeftJoin
             implements Rule<JoinNode>
     {
-        private static final Pattern<JoinNode> PATTERN = join().matching(node -> node.getCriteria().isEmpty() && node.getFilter().isPresent() && node.getType() == LEFT && !node.isSpatialJoin());
+        private static final Pattern<JoinNode> PATTERN = join().matching(node -> node.getCriteria().isEmpty() && node.getFilter().isPresent() && node.getType() == LEFT);
 
         private final Metadata metadata;
 
@@ -323,17 +324,13 @@ public class TransformSpatialPredicates
         Expression newSpatialFunction = new FunctionCall(spatialFunction.getName(), ImmutableList.of(newFirstArgument, newSecondArgument));
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
-        return Result.ofPlanNode(new JoinNode(
+        return Result.ofPlanNode(new SpatialJoinNode(
                 nodeId,
-                joinNode.getType(),
+                SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
                 newRightNode,
-                joinNode.getCriteria(),
                 outputSymbols,
-                Optional.of(newFilter),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType()));
+                newFilter));
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)
