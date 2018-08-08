@@ -48,15 +48,6 @@ public class TestTransformSpatialPredicateToLeftJoin
                                 expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)")))
                 .doesNotFire();
 
-        // symbols
-        assertRuleApplication()
-                .on(p ->
-                        p.join(LEFT,
-                                p.values(p.symbol("a")),
-                                p.values(p.symbol("b")),
-                                expression("ST_Contains(a, b)")))
-                .doesNotFire();
-
         // OR operand
         assertRuleApplication()
                 .on(p ->
@@ -83,6 +74,46 @@ public class TestTransformSpatialPredicateToLeftJoin
                                 p.values(p.symbol("b", GEOMETRY)),
                                 expression("ST_Distance(a, b) > 5")))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testConvertToSpatialJoin()
+    {
+        // symbols
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a")),
+                                p.values(p.symbol("b")),
+                                p.expression("ST_Contains(a, b)")))
+                .matches(
+                        spatialLeftJoin("ST_Contains(a, b)",
+                                values(ImmutableMap.of("a", 0)),
+                                values(ImmutableMap.of("b", 0))));
+
+        // AND
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a"), p.symbol("name_1")),
+                                p.values(p.symbol("b"), p.symbol("name_2")),
+                                p.expression("name_1 != name_2 AND ST_Contains(a, b)")))
+                .matches(
+                        spatialLeftJoin("name_1 != name_2 AND ST_Contains(a, b)",
+                                values(ImmutableMap.of("a", 0, "name_1", 1)),
+                                values(ImmutableMap.of("b", 0, "name_2", 1))));
+
+        // AND
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a1"), p.symbol("a2")),
+                                p.values(p.symbol("b1"), p.symbol("b2")),
+                                p.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)")))
+                .matches(
+                        spatialLeftJoin("ST_Contains(a1, b1) AND ST_Contains(a2, b2)",
+                                values(ImmutableMap.of("a1", 0, "a2", 1)),
+                                values(ImmutableMap.of("b1", 0, "b2", 1))));
     }
 
     @Test

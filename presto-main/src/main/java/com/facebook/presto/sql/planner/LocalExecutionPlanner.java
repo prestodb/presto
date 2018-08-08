@@ -146,6 +146,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -1566,10 +1567,6 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitJoin(JoinNode node, LocalExecutionPlanContext context)
         {
-            if (node.isSpatialJoin()) {
-                return createSpatialJoin(node, context);
-            }
-
             if (node.isCrossJoin()) {
                 return createNestedLoopJoin(node, context);
             }
@@ -1589,10 +1586,10 @@ public class LocalExecutionPlanner
             }
         }
 
-        private PhysicalOperation createSpatialJoin(JoinNode node, LocalExecutionPlanContext context)
+        @Override
+        public PhysicalOperation visitSpatialJoin(SpatialJoinNode node, LocalExecutionPlanContext context)
         {
-            verify(node.getFilter().isPresent() && node.getCriteria().isEmpty());
-            Expression filterExpression = node.getFilter().get();
+            Expression filterExpression = node.getFilter();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filterExpression);
             for (FunctionCall spatialFunction : spatialFunctions) {
                 Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialFunction), spatialFunction, Optional.empty(), Optional.empty());
@@ -1621,7 +1618,7 @@ public class LocalExecutionPlanner
 
         private Optional<PhysicalOperation> tryCreateSpatialJoin(
                 LocalExecutionPlanContext context,
-                JoinNode node,
+                SpatialJoinNode node,
                 Optional<Expression> filterExpression,
                 FunctionCall spatialFunction,
                 Optional<Expression> radius,
@@ -1755,7 +1752,7 @@ public class LocalExecutionPlanner
         }
 
         private PhysicalOperation createSpatialLookupJoin(
-                JoinNode node,
+                SpatialJoinNode node,
                 PlanNode probeNode,
                 Symbol probeSymbol,
                 PlanNode buildNode,
@@ -1790,7 +1787,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
         }
 
-        private OperatorFactory createSpatialLookupJoin(JoinNode node,
+        private OperatorFactory createSpatialLookupJoin(SpatialJoinNode node,
                 PlanNode probeNode,
                 PhysicalOperation probeSource,
                 Symbol probeSymbol,
@@ -1815,7 +1812,7 @@ public class LocalExecutionPlanner
         }
 
         private PagesSpatialIndexFactory createPagesSpatialIndexFactory(
-                JoinNode node,
+                SpatialJoinNode node,
                 PlanNode buildNode,
                 Symbol buildSymbol,
                 Optional<Symbol> radiusSymbol,

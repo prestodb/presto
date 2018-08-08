@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -171,6 +172,17 @@ public class DistributedExecutionPlanner
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(sourceSplits)
                     .putAll(filteringSourceSplits)
+                    .build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
+            Map<PlanNodeId, SplitSource> rightSplits = node.getRight().accept(this, context);
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(leftSplits)
+                    .putAll(rightSplits)
                     .build();
         }
 
