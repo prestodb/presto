@@ -919,6 +919,34 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateEmptyBucketedPartition()
+    {
+        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
+            testCreateEmptyBucketedPartition(storageFormat.getFormat());
+        }
+    }
+
+    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_insert_partitioned_bucketed_table";
+        createPartitionedBucketedTable(tableName, storageFormat);
+
+        List<String> orderStatusList = ImmutableList.of("F", "O", "P");
+        for (int i = 0; i < orderStatusList.size(); i++) {
+            String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
+            assertUpdate(sql);
+            assertQuery(
+                    "SELECT count(*) FROM \"test_insert_partitioned_bucketed_table$partitions\"",
+                    "SELECT " + (i + 1));
+
+            assertQueryFails(sql, "Partition already exists.*");
+        }
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTable()
     {
         testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
@@ -927,20 +955,9 @@ public class TestHiveIntegrationSmokeTest
     private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_partitioned_bucketed_table";
+        createPartitionedBucketedTable(tableName, storageFormat);
 
-        assertUpdate("" +
-                "CREATE TABLE " + tableName + " (" +
-                "  custkey bigint," +
-                "  custkey2 bigint," +
-                "  comment varchar," +
-                "  orderstatus varchar)" +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
-                "bucket_count = 11)");
-
-        ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
+        List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
@@ -959,6 +976,21 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    private void createPartitionedBucketedTable(String tableName, HiveStorageFormat storageFormat)
+    {
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  custkey bigint," +
+                "  custkey2 bigint," +
+                "  comment varchar," +
+                "  orderstatus varchar)" +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
+                "bucket_count = 11)");
     }
 
     @Test
@@ -983,7 +1015,7 @@ public class TestHiveIntegrationSmokeTest
                 "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
                 "bucket_count = 11)");
 
-        ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
+        List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
