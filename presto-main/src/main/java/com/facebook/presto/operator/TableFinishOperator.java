@@ -282,17 +282,17 @@ public class TableFinishOperator
     {
         ImmutableList.Builder<String> groupingColumns = ImmutableList.builder();
         ImmutableList.Builder<Block> groupingValues = ImmutableList.builder();
-        descriptor.getGrouping().forEach((channel, column) -> {
+        descriptor.getGrouping().forEach((column, channel) -> {
             groupingColumns.add(column);
             groupingValues.add(page.getBlock(channel).getSingleValueBlock(position));
         });
 
         ComputedStatistics.Builder statistics = ComputedStatistics.builder(groupingColumns.build(), groupingValues.build());
 
-        descriptor.getTableStatistics().forEach((channel, type) ->
+        descriptor.getTableStatistics().forEach((type, channel) ->
                 statistics.addTableStatistic(type, page.getBlock(channel).getSingleValueBlock(position)));
 
-        descriptor.getColumnStatistics().forEach((channel, metadata) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
+        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
 
         return statistics.build();
     }

@@ -2662,6 +2662,50 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
+    @Test
+    public void testInsertMultipleColumnsFromSameChannel()
+    {
+        String tableName = "test_insert_multiple_columns_same_channel";
+        assertUpdate(format("" +
+                "CREATE TABLE %s ( " +
+                "   c_bigint_1 BIGINT, " +
+                "   c_bigint_2 BIGINT, " +
+                "   p_varchar_1 VARCHAR, " +
+                "   p_varchar_2 VARCHAR " +
+                ") " +
+                "WITH ( " +
+                "   partitioned_by = ARRAY['p_varchar_1', 'p_varchar_2'] " +
+                ")", tableName));
+
+        assertUpdate(format("" +
+                "INSERT INTO %s " +
+                "SELECT 1 c_bigint_1, 1 c_bigint_2, '2' p_varchar_1, '2' p_varchar_2 ", tableName), 1);
+
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar_1 = '2' AND p_varchar_2 = '2')", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_bigint_1', null, 1.0E0, 0.0E0, null, 1, 1), " +
+                        "('c_bigint_2', null, 1.0E0, 0.0E0, null, 1, 1), " +
+                        "('p_varchar_1', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "('p_varchar_2', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 1.0E0, null, null)");
+
+        assertUpdate(format("" +
+                "INSERT INTO %s (c_bigint_1, c_bigint_2, p_varchar_1, p_varchar_2) " +
+                "SELECT orderkey, orderkey, orderstatus, orderstatus " +
+                "FROM orders " +
+                "WHERE orderstatus='O' AND orderkey = 15008", tableName), 1);
+
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar_1 = 'O' AND p_varchar_2 = 'O')", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_bigint_1', null, 1.0E0, 0.0E0, null, 15008, 15008), " +
+                        "('c_bigint_2', null, 1.0E0, 0.0E0, null, 15008, 15008), " +
+                        "('p_varchar_1', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "('p_varchar_2', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
+                        "(null, null, null, null, 1.0E0, null, null)");
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())

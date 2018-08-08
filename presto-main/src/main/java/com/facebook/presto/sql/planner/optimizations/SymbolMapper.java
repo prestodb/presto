@@ -188,7 +188,7 @@ public class SymbolMapper
     {
         Map<Symbol, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
                 .collect(toImmutableMap(entry -> map(entry.getKey()), entry -> map(entry.getValue())));
-        return new StatisticAggregations(aggregations, map(statisticAggregations.getGroupingSymbols()));
+        return new StatisticAggregations(aggregations, mapAndDistinct(statisticAggregations.getGroupingSymbols()));
     }
 
     private StatisticAggregationsDescriptor<Symbol> map(StatisticAggregationsDescriptor<Symbol> descriptor)
