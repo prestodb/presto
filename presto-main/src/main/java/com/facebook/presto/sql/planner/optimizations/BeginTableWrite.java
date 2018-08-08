@@ -92,9 +92,10 @@ public class BeginTableWrite
                     node.getId(),
                     node.getSource().accept(this, context),
                     writerTarget,
+                    node.getRowCountSymbol(),
+                    node.getFragmentSymbol(),
                     node.getColumns(),
                     node.getColumnNames(),
-                    node.getOutputSymbols(),
                     node.getPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
@@ -127,7 +128,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     newTarget,
-                    node.getOutputSymbols(),
+                    node.getRowCountSymbol(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }

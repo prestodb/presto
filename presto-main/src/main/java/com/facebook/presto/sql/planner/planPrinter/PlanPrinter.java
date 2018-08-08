@@ -1185,40 +1185,40 @@ public class PlanPrinter
         {
             print(indent, "Collected statistics:");
             printStatisticAggregationsInfo(descriptor.getTableStatistics(), descriptor.getColumnStatistics(), aggregations.getAggregations(), indent + 1);
-            print(indent + 1, "grouped by => [%s]", getStatisticGroupingSetsInfo(aggregations.getGroupingSymbols(), descriptor.getGrouping()));
+            print(indent + 1, "grouped by => [%s]", getStatisticGroupingSetsInfo(descriptor.getGrouping()));
         }
 
-        private String getStatisticGroupingSetsInfo(List<Symbol> groupingSymbols, Map<Symbol, String> columnMappings)
+        private String getStatisticGroupingSetsInfo(Map<String, Symbol> columnMappings)
         {
-            return groupingSymbols.stream()
-                    .map(symbol -> format("%s := %s", symbol, columnMappings.get(symbol)))
+            return columnMappings.entrySet().stream()
+                    .map(entry -> format("%s := %s", entry.getValue(), entry.getKey()))
                     .collect(joining(", "));
         }
 
         private void printStatisticAggregationsInfo(
-                Map<Symbol, TableStatisticType> tableStatistics,
-                Map<Symbol, ColumnStatisticMetadata> columnStatistics,
+                Map<TableStatisticType, Symbol> tableStatistics,
+                Map<ColumnStatisticMetadata, Symbol> columnStatistics,
                 Map<Symbol, Aggregation> aggregations,
                 int indent)
         {
             print(indent, "aggregations =>");
-            for (Map.Entry<Symbol, TableStatisticType> tableStatistic : tableStatistics.entrySet()) {
+            for (Map.Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
                 print(
                         indent + 1,
                         "%s => [%s := %s]",
                         tableStatistic.getValue(),
                         tableStatistic.getKey(),
-                        aggregations.get(tableStatistic.getKey()).getCall());
+                        aggregations.get(tableStatistic.getValue()).getCall());
             }
 
-            for (Map.Entry<Symbol, ColumnStatisticMetadata> columnStatistic : columnStatistics.entrySet()) {
+            for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
                 print(
                         indent + 1,
                         "%s[%s] => [%s := %s]",
-                        columnStatistic.getValue().getStatisticType(),
-                        columnStatistic.getValue().getColumnName(),
-                        columnStatistic.getKey(),
-                        aggregations.get(columnStatistic.getKey()).getCall());
+                        columnStatistic.getKey().getStatisticType(),
+                        columnStatistic.getKey().getColumnName(),
+                        columnStatistic.getValue(),
+                        aggregations.get(columnStatistic.getValue()).getCall());
             }
         }
 
