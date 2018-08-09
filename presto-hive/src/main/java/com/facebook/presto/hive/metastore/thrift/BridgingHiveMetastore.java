@@ -15,7 +15,6 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
-import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -188,19 +187,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
-    {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        Map<String, String> parameters = table.getParameters();
-        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
-        if (!parameters.equals(updatedParameters)) {
-            table.setParameters(updatedParameters);
-            alterTable(databaseName, tableName, table);
-        }
-    }
-
-    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
@@ -308,19 +294,6 @@ public class BridgingHiveMetastore
     public void alterPartition(String databaseName, String tableName, Partition partition)
     {
         delegate.alterPartition(databaseName, tableName, toMetastoreApiPartition(partition));
-    }
-
-    @Override
-    public synchronized void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
-    {
-        org.apache.hadoop.hive.metastore.api.Partition partition = delegate.getPartition(databaseName, tableName, partitionValues)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
-        Map<String, String> parameters = partition.getParameters();
-        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
-        if (!parameters.equals(updatedParameters)) {
-            partition.setParameters(updatedParameters);
-            delegate.alterPartition(databaseName, tableName, partition);
-        }
     }
 
     @Override

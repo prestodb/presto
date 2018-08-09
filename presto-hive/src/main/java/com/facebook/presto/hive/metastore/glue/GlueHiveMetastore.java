@@ -498,29 +498,6 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
-    {
-        Table table = getTableOrElseThrow(databaseName, tableName);
-        try {
-            Map<String, String> parameters = table.getParameters();
-            Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
-            if (!parameters.equals(updatedParameters)) {
-                TableInput tableInput = GlueInputConverter.convertTable(table);
-                tableInput.setParameters(updatedParameters);
-                glueClient.updateTable(new UpdateTableRequest()
-                        .withDatabaseName(databaseName)
-                        .withTableInput(tableInput));
-            }
-        }
-        catch (EntityNotFoundException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        catch (AmazonServiceException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         Table oldTable = getTableOrElseThrow(databaseName, tableName);
@@ -794,32 +771,6 @@ public class GlueHiveMetastore
                     .withTableName(tableName)
                     .withPartitionInput(newPartition)
                     .withPartitionValueList(partition.getValues()));
-        }
-        catch (EntityNotFoundException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getValues());
-        }
-        catch (AmazonServiceException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    @Override
-    public synchronized void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
-    {
-        Partition partition = getPartition(databaseName, tableName, partitionValues)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
-        try {
-            Map<String, String> parameters = partition.getParameters();
-            Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
-            if (!parameters.equals(updatedParameters)) {
-                PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
-                partitionInput.setParameters(updatedParameters);
-                glueClient.updatePartition(new UpdatePartitionRequest()
-                        .withDatabaseName(databaseName)
-                        .withTableName(tableName)
-                        .withPartitionValueList(partition.getValues())
-                        .withPartitionInput(partitionInput));
-            }
         }
         catch (EntityNotFoundException e) {
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getValues());

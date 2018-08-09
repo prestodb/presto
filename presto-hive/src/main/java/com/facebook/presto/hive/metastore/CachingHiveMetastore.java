@@ -456,17 +456,6 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
-    {
-        try {
-            delegate.updateTableParameters(databaseName, tableName, update);
-        }
-        finally {
-            invalidateTable(databaseName, tableName);
-        }
-    }
-
-    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         try {
@@ -617,17 +606,6 @@ public class CachingHiveMetastore
     {
         try {
             delegate.alterPartition(databaseName, tableName, partition);
-        }
-        finally {
-            invalidatePartitionCache(databaseName, tableName);
-        }
-    }
-
-    @Override
-    public void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
-    {
-        try {
-            delegate.updatePartitionParameters(databaseName, tableName, partitionValues, update);
         }
         finally {
             invalidatePartitionCache(databaseName, tableName);
