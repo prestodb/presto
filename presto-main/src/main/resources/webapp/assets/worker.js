@@ -78,6 +78,10 @@ let WorkerStatus = React.createClass({
         new Clipboard('.copy-button');
     },
     renderPoolBar: function(name, pool) {
+        if (pool === undefined) {
+             return (<div className="row"><h4>{name} Pool is disabled.</h4></div>)
+        }
+
         const size = pool.maxBytes;
         const reserved = pool.reservedBytes;
         const revocable = pool.reservedRevocableBytes;
@@ -155,6 +159,10 @@ let WorkerStatus = React.createClass({
         )
     },
     renderPoolQueries: function(pool) {
+        if (pool === undefined) {
+             return;
+        }
+
         const queries = {};
         const reservations = pool.queryMemoryReservations;
         const revocableReservations = pool.queryMemoryRevocableReservations;

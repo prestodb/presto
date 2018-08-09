@@ -105,7 +105,10 @@ public class MemoryRevokingScheduler
     private static List<MemoryPool> getMemoryPools(LocalMemoryManager localMemoryManager)
     {
         requireNonNull(localMemoryManager, "localMemoryManager can not be null");
-        return ImmutableList.of(localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.RESERVED_POOL));
+        ImmutableList.Builder<MemoryPool> builder = new ImmutableList.Builder<>();
+        builder.add(localMemoryManager.getGeneralPool());
+        localMemoryManager.getReservedPool().ifPresent(builder::add);
+        return builder.build();
     }
 
     @PostConstruct
