@@ -688,7 +688,10 @@ public class Driver
         // If there are more source updates available, attempt to reacquire the lock and process them.
         // This can happen if new sources are added while we're holding the lock here doing work.
         // NOTE: this is separate duplicate code to make debugging lock reacquisition easier
-        while (pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock()) {
+        // The first condition is for processing the pending updates if this driver is still ALIVE
+        // The second condition is to destroy the driver if the state is NEED_DESTRUCTION
+        while (((pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
+                && exclusiveLock.tryLock()) {
             try {
                 try {
                     processNewSources();
