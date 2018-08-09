@@ -61,37 +61,11 @@ public interface LongInputStream
         }
     }
 
-    default void nextLongVector(int items, long[] vector, boolean[] isNull)
-            throws IOException
-    {
-        checkPositionIndex(items, vector.length);
-        checkPositionIndex(items, isNull.length);
-
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = next();
-            }
-        }
-    }
-
     default void nextLongVector(Type type, int items, BlockBuilder builder)
             throws IOException
     {
         for (int i = 0; i < items; i++) {
             type.writeLong(builder, next());
-        }
-    }
-
-    default void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, next());
-            }
         }
     }
 

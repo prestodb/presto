@@ -70,17 +70,4 @@ public class DoubleInputStream
             type.writeDouble(builder, next());
         }
     }
-
-    public void nextVector(Type type, long items, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeDouble(builder, next());
-            }
-        }
-    }
 }
