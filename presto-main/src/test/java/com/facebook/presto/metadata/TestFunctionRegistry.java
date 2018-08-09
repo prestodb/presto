@@ -275,7 +275,7 @@ public class TestFunctionRegistry
                 .forParameters("unknown", "bigint")
                 .returns(functionSignature("bigint", "bigint"));
 
-        // when coercion between the types doesn't exist, but the return type is the same, so the random function must be choosen
+        // when coercion between the types doesn't exist, but the return type is the same, so the random function must be chosen
         assertThatResolveFunction()
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "boolean"),

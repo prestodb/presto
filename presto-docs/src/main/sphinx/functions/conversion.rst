@@ -2,7 +2,7 @@
 Conversion Functions
 ====================
 
-Presto will implicity convert numeric and character values to the
+Presto will implicitly convert numeric and character values to the
 correct type if such a conversion is possible. Presto will not convert
 between character and numeric types. For example, a query that expects
 a varchar will not automatically convert a bigint value to an

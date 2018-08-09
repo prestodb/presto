@@ -32,7 +32,7 @@ import static org.testng.Assert.assertTrue;
  * For the lineitem and partsupp tables, there is no unique identifier,
  * so a generated UUID is used in order to prevent overwriting rows of data.
  * This is the same for any test cases that were creating tables with duplicate rows,
- * so some test cases are overriden from the base class and slightly modified to add an additional UUID column.
+ * so some test cases are overridden from the base class and slightly modified to add an additional UUID column.
  */
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
