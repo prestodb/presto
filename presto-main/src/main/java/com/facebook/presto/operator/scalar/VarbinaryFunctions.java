@@ -24,6 +24,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
 
 import java.util.Base64;
@@ -276,14 +277,43 @@ public final class VarbinaryFunctions
         return hash;
     }
 
+    @Description("compute SpookyHashV2 32-bit hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice spookyHashV2_32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        Slice hash = Slices.allocate(Integer.BYTES);
+        hash.setInt(0, Integer.reverseBytes(SpookyHashV2.hash32(slice, 0, slice.length(), 0)));
+        return hash;
+    }
+
+    @Description("compute SpookyHashV2 64-bit hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice spookyHashV2_64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        Slice hash = Slices.allocate(Long.BYTES);
+        hash.setLong(0, Long.reverseBytes(SpookyHashV2.hash64(slice, 0, slice.length(), 0)));
+        return hash;
+    }
+
     @Description("compute Thomas Wang downscaling hash function")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice twang64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    public static Slice twang64From32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        Slice hash = Slices.allocate(Long.BYTES);
-        byte[] a = slice.getBytes();
-        hash.setLong(0, (long) slice);
+        if (slice == null) {
+            return null;
+        }
+        Slice hash = Slices.allocate(Integer.BYTES);
+        long key = slice.getLong(0);
+        key = (~key) + (key << 18);
+        key = key ^ (key >> 31);
+        key = key * 21;
+        key = key ^ (key >> 11);
+        key = key + (key << 6);
+        key = key ^ (key >> 22);
+        hash.setInt(0, (int) key);
         return hash;
     }
 
@@ -411,6 +441,4 @@ public final class VarbinaryFunctions
     {
         return pad(inputSlice, targetLength, padBytes, inputSlice.length());
     }
-
-
 }

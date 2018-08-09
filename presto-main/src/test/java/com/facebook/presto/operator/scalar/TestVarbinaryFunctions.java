@@ -333,6 +333,13 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testTwang64From32()
+    {
+        assertFunction("twang64From32(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("2D"));
+        assertFunction("twang64From32(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("2C"));
+    }
+
+    @Test
     public void testSpookyHash()
     {
         assertFunction("spooky_hash_v2_32(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("6BF50919"));

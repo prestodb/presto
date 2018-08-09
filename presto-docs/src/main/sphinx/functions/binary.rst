@@ -127,6 +127,10 @@ Binary Functions
 
     Computes the 64-bit SpookyHashV2 hash of ``binary``.
 
+.. function:: twang32From64(binary) -> varbinary
+
+    Computes Thomas Wang's downscaling hash of ``binary``.
+
 .. function:: hmac_md5(binary, key) -> varbinary
 
     Computes HMAC with md5 of ``binary`` with the given ``key``.
