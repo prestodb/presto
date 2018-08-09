@@ -18,7 +18,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,19 +30,25 @@ public final class ThriftTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final Optional<List<String>> bucketedBy;
+    private final int bucketCount;
 
     @JsonCreator
     public ThriftTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("bucketedBy") Optional<List<String>> bucketedBy,
+            @JsonProperty("bucketCount") int bucketCount)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.bucketedBy = requireNonNull(bucketedBy, "bucketedBy is null");
+        this.bucketCount = bucketCount;
     }
 
-    public ThriftTableHandle(SchemaTableName schemaTableName)
+    public ThriftTableHandle(SchemaTableName schemaTableName, Optional<List<String>> bucketedBy, int bucketCount)
     {
-        this(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        this(schemaTableName.getSchemaName(), schemaTableName.getTableName(), bucketedBy, bucketCount);
     }
 
     @JsonProperty
@@ -53,6 +61,17 @@ public final class ThriftTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getBucketedBy()
+    {
+        return bucketedBy;
+    }
+
+    public int getBucketCount()
+    {
+        return bucketCount;
     }
 
     @Override
@@ -72,7 +91,7 @@ public final class ThriftTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, bucketedBy);
     }
 
     @Override
@@ -81,6 +100,7 @@ public final class ThriftTableHandle
         return toStringHelper(this)
                 .add("schemaName", getSchemaName())
                 .add("tableName", getTableName())
+                .add("bucketedBy", getBucketedBy())
                 .toString();
     }
 }

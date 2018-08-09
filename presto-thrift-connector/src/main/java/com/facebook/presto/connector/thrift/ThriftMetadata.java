@@ -21,6 +21,8 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -34,7 +36,10 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -42,16 +47,20 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.drift.TException;
 import io.airlift.drift.client.DriftClient;
+import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_INVALID_RESPONSE;
 import static com.facebook.presto.connector.thrift.util.ThriftExceptions.toPrestoException;
@@ -66,6 +75,7 @@ import static java.util.function.Function.identity;
 public class ThriftMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(ThriftMetadata.class);
     private static final Duration EXPIRE_AFTER_WRITE = new Duration(10, MINUTES);
     private static final Duration REFRESH_AFTER_WRITE = new Duration(2, MINUTES);
 
@@ -105,8 +115,7 @@ public class ThriftMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return tableCache.getUnchecked(tableName)
-                .map(ThriftTableMetadata::getSchemaTableName)
-                .map(ThriftTableHandle::new)
+                .map(e -> new ThriftTableHandle(e.getSchemaTableName(), e.getBucketedBy(), e.getBucketCount()))
                 .orElse(null);
     }
 
@@ -150,6 +159,43 @@ public class ThriftMetadata
         catch (PrestoThriftServiceException | TException e) {
             throw toPrestoException(e);
         }
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        List<Type> columnTypes = getTableMetadata(session, tableHandle)
+                .getColumns()
+                .stream()
+                .map(e -> e.getType())
+                .collect(Collectors.toList());
+        ThriftTableHandle thriftTableHandle = (ThriftTableHandle) tableHandle;
+        return new ThriftInsertTableHandle(thriftTableHandle.getSchemaName(), thriftTableHandle.getTableName(), columnTypes);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        // Here's where we'd be finalizing all the inserts in the table. In Hive, this is where the folders where the data is stored get renamed to the
+        // destination folder.
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        ThriftTableHandle thriftTableHandle = (ThriftTableHandle) tableHandle;
+        Optional<List<String>> bucketedBy = thriftTableHandle.getBucketedBy();
+        if (bucketedBy.isPresent()) {
+            // TODO: include the bucket count in the partitioningHandle
+            log.info("We DO return a new connector table layout");
+            log.info("SUCCESS!!!!!");
+            ThriftPartitioningHandle partitioningHandle = new ThriftPartitioningHandle(thriftTableHandle.getBucketCount());
+            return Optional.of(new ConnectorNewTableLayout(partitioningHandle, bucketedBy.get()));
+        }
+        log.info("We DO NOT return a new connector table layout");
+        log.info("FAILURE!!!!!");
+        return Optional.empty();
     }
 
     @Override

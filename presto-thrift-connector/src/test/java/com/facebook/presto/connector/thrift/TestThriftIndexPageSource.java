@@ -18,6 +18,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableTableMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
+import com.facebook.presto.connector.thrift.api.PrestoThriftPage;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
@@ -285,6 +286,12 @@ public class TestThriftIndexPageSource
             int offset = nextToken.getToken() != null ? Ints.fromByteArray(nextToken.getToken().getId()) : 0;
             PrestoThriftId newNextToken = offset + 1 < rowsPerSplit ? new PrestoThriftId(Ints.toByteArray(offset + 1)) : null;
             return immediateFuture(pageResult(key * 10 + offset, newNextToken));
+        }
+
+        @Override
+        public ListenableFuture<PrestoThriftNullableToken> addRows(PrestoThriftSchemaTableName schemaTableName, PrestoThriftPage page, PrestoThriftNullableToken nextToken)
+        {
+            throw new UnsupportedOperationException();
         }
 
         // methods below are not used for the test

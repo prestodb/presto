@@ -34,18 +34,31 @@ public final class PrestoThriftTableMetadata
     private final List<PrestoThriftColumnMetadata> columns;
     private final String comment;
     private final List<Set<String>> indexableKeys;
+    private final List<String> bucketedBy;
+    private final int bucketCount;
+    // TODO: increase once insert work for one Bingo worker node
+    private static final int DEFAULT_BUCKET_COUNT = 1;
 
     @ThriftConstructor
     public PrestoThriftTableMetadata(
             @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName,
             @ThriftField(name = "columns") List<PrestoThriftColumnMetadata> columns,
             @ThriftField(name = "comment") @Nullable String comment,
-            @ThriftField(name = "indexableKeys") @Nullable List<Set<String>> indexableKeys)
+            @ThriftField(name = "indexableKeys") @Nullable List<Set<String>> indexableKeys,
+            @ThriftField(name = "bucketedBy") @Nullable List<String> bucketedBy,
+            @ThriftField(name = "bucketCount") @Nullable Integer bucketCount)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.comment = comment;
         this.indexableKeys = indexableKeys;
+        this.bucketedBy = bucketedBy;
+        if (bucketCount == null) {
+            this.bucketCount = DEFAULT_BUCKET_COUNT;
+        }
+        else {
+            this.bucketCount = bucketCount.intValue();
+        }
     }
 
     @ThriftField(1)
@@ -92,6 +105,20 @@ public final class PrestoThriftTableMetadata
         return Objects.equals(this.schemaTableName, other.schemaTableName) &&
                 Objects.equals(this.columns, other.columns) &&
                 Objects.equals(this.comment, other.comment);
+    }
+
+    @Nullable
+    @ThriftField(value = 5, requiredness = OPTIONAL)
+    public List<String> getBucketedBy()
+    {
+        return bucketedBy;
+    }
+
+    @Nullable
+    @ThriftField(value = 6, requiredness = OPTIONAL)
+    public Integer getBucketCount()
+    {
+        return bucketCount;
     }
 
     @Override

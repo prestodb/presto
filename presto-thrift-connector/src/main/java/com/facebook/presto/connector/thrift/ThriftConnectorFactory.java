@@ -15,6 +15,7 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.connector.thrift.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -67,6 +68,7 @@ public class ThriftConnectorFactory
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     },
                     locationModule,
                     new ThriftModule(connectorId));

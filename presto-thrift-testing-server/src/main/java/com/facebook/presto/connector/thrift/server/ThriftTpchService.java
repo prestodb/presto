@@ -20,6 +20,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableTableMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
+import com.facebook.presto.connector.thrift.api.PrestoThriftPage;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
@@ -106,7 +107,8 @@ public class ThriftTpchService
             columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column), null, false));
         }
         List<Set<String>> indexableKeys = getIndexableKeys(schemaName, tableName);
-        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null));
+        // TODO: change the last parameter to pass in a bucketedBy parameter. Note this is a different service than the one that's testing the insert rows.
+        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null, null, null));
     }
 
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)
@@ -181,6 +183,12 @@ public class ThriftTpchService
             PrestoThriftNullableToken nextToken)
     {
         return executor.submit(() -> getRowsSync(splitId, outputColumns, maxBytes, nextToken));
+    }
+
+    @Override
+    public ListenableFuture<PrestoThriftNullableToken> addRows(PrestoThriftSchemaTableName schemaTableName, PrestoThriftPage page, PrestoThriftNullableToken nextToken)
+    {
+        throw new UnsupportedOperationException("Insert not supported");
     }
 
     private PrestoThriftPageResult getRowsSync(
