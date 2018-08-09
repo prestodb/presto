@@ -495,15 +495,12 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
             Assignments.Builder builder = Assignments.builder();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol output = node.getOutputSymbols().get(i);
-                Expression expression = node.getAssignments().get(output);
-
-                if (context.get().contains(output)) {
+            node.getAssignments().forEach((symbol, expression) -> {
+                if (context.get().contains(symbol)) {
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
-                    builder.put(output, expression);
+                    builder.put(symbol, expression);
                 }
-            }
+            });
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -621,9 +618,10 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     source,
                     node.getTarget(),
+                    node.getRowCountSymbol(),
+                    node.getFragmentSymbol(),
                     node.getColumns(),
                     node.getColumnNames(),
-                    node.getOutputSymbols(),
                     node.getPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
@@ -637,7 +635,7 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     source,
                     node.getTarget(),
-                    node.getOutputSymbols(),
+                    node.getRowCountSymbol(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }

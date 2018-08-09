@@ -42,21 +42,24 @@ public class TableWriterNode
 {
     private final PlanNode source;
     private final WriterTarget target;
-    private final List<Symbol> outputs;
+    private final Symbol rowCountSymbol;
+    private final Symbol fragmentSymbol;
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
+    private final List<Symbol> outputs;
 
     @JsonCreator
     public TableWriterNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") WriterTarget target,
+            @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
+            @JsonProperty("fragmentSymbol") Symbol fragmentSymbol,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
@@ -69,13 +72,23 @@ public class TableWriterNode
 
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
+        this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
+        this.fragmentSymbol = requireNonNull(fragmentSymbol, "fragmentSymbol is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
-        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
         this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
         checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must be either present or absent");
+
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.<Symbol>builder()
+                .add(rowCountSymbol)
+                .add(fragmentSymbol);
+        statisticsAggregation.ifPresent(aggregation -> {
+            outputs.addAll(aggregation.getGroupingSymbols());
+            outputs.addAll(aggregation.getAggregations().keySet());
+        });
+        this.outputs = outputs.build();
     }
 
     @JsonProperty
@@ -91,6 +104,18 @@ public class TableWriterNode
     }
 
     @JsonProperty
+    public Symbol getRowCountSymbol()
+    {
+        return rowCountSymbol;
+    }
+
+    @JsonProperty
+    public Symbol getFragmentSymbol()
+    {
+        return fragmentSymbol;
+    }
+
+    @JsonProperty
     public List<Symbol> getColumns()
     {
         return columns;
@@ -100,13 +125,6 @@ public class TableWriterNode
     public List<String> getColumnNames()
     {
         return columnNames;
-    }
-
-    @JsonProperty("outputs")
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputs;
     }
 
     @JsonProperty
@@ -134,6 +152,12 @@ public class TableWriterNode
     }
 
     @Override
+    public List<Symbol> getOutputSymbols()
+    {
+        return outputs;
+    }
+
+    @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableWriter(this, context);
@@ -142,7 +166,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, columns, columnNames, outputs, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
