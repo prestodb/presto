@@ -223,7 +223,7 @@ public class RcFileReader
         syncSecond = input.readLong();
         validateWrite(validation -> validation.getSyncSecond() == syncSecond, "Unexpected sync sequence");
 
-        // seek to first sync point withing the specified region, unless the region starts at the beginning
+        // seek to first sync point within the specified region, unless the region starts at the beginning
         // of the file.  In that case, the reader owns all row groups up to the first sync point.
         if (offset != 0) {
             // if the specified file region does not contain the start of a sync sequence, this call will close the reader
