@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -114,6 +115,26 @@ public class TestDriver
 
         assertTrue(sink.isFinished());
         assertTrue(source.isFinished());
+    }
+
+    // The race can be reproduced somewhat reliably when the invocationCount is 10K, but we use 1K iterations to cap the test runtime.
+    @Test(invocationCount = 1_000, timeOut = 1_000)
+    public void testConcurrentClose()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "values");
+        ValuesOperator source = new ValuesOperator(operatorContext, rowPagesBuilder(types)
+                .addSequencePage(10, 20, 30, 40)
+                .build());
+
+        Operator sink = createSinkOperator(types);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
+        // let these threads race
+        scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
+        scheduledExecutor.submit(() -> driver.close());
+        while (!driverContext.isDone()) {
+            Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
+        }
     }
 
     @Test
