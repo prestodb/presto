@@ -579,7 +579,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         try {
             delegate.addPartitions(databaseName, tableName, partitions);
@@ -602,7 +602,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void alterPartition(String databaseName, String tableName, Partition partition)
+    public void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition)
     {
         try {
             delegate.alterPartition(databaseName, tableName, partition);

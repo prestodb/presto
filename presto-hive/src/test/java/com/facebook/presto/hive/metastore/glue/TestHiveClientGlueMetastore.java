@@ -80,4 +80,11 @@ public class TestHiveClientGlueMetastore
     {
         // column statistics are not supported by Glue
     }
+
+    @Override
+    public void testStorePartitionWithStatistics()
+            throws Exception
+    {
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_TABLE_STATISTICS);
+    }
 }
