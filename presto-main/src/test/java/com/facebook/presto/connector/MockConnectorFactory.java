@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -57,15 +58,18 @@ public class MockConnectorFactory
 {
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
+    private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
 
     public MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
+            BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
+        this.getViews = requireNonNull(getViews, "getViews is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
     }
 
@@ -84,7 +88,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getColumnHandles);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles);
     }
 
     private static class MockConnector
@@ -93,16 +97,20 @@ public class MockConnectorFactory
         private final ConnectorContext context;
         private final Function<ConnectorSession, List<String>> listSchemaNames;
         private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
+        private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
         private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
 
         public MockConnector(
                 ConnectorContext context,
                 Function<ConnectorSession, List<String>> listSchemaNames,
-                BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables, BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles)
+                BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
+                BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+                BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
             this.listTables = requireNonNull(listTables, "listTables is null");
+            this.getViews = requireNonNull(getViews, "getViews is null");
             this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
         }
 
@@ -190,6 +198,12 @@ public class MockConnectorFactory
             public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
             {
                 throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+            {
+                return getViews.apply(session, prefix);
             }
         }
     }
