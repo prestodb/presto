@@ -71,17 +71,4 @@ public class FloatInputStream
             type.writeLong(builder, floatToRawIntBits(next()));
         }
     }
-
-    public void nextVector(Type type, long items, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, floatToRawIntBits(next()));
-            }
-        }
-    }
 }

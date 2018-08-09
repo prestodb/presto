@@ -30,10 +30,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -41,7 +39,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class LongDictionaryStreamReader
@@ -123,64 +120,62 @@ public class LongDictionaryStreamReader
             }
         }
 
-        assureVectorSize();
-
         BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-        while (nextBatchSize > 0) {
-            int subBatchSize = min(nextBatchSize, MAX_BATCH_SIZE);
-            if (presentStream == null) {
-                if (dataStream == null) {
+
+        if (presentStream == null) {
+            // Data doesn't have nulls
+            if (dataStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            }
+            if (inDictionaryStream == null) {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    type.writeLong(builder, dictionary[((int) dataStream.next())]);
+                }
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    long id = dataStream.next();
+                    if (inDictionaryStream.nextBit()) {
+                        type.writeLong(builder, dictionary[(int) id]);
+                    }
+                    else {
+                        type.writeLong(builder, id);
+                    }
+                }
+            }
+        }
+        else {
+            // Data has nulls
+            if (dataStream == null) {
+                // The only valid case for dataStream is null when data has nulls is that all values are nulls.
+                int nullValues = presentStream.getUnsetBits(nextBatchSize);
+                if (nullValues != nextBatchSize) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                Arrays.fill(nullVector, false);
-                dataStream.nextLongVector(subBatchSize, dataVector);
-            }
-            else {
-                int nullValues = presentStream.getUnsetBits(subBatchSize, nullVector);
-                if (nullValues != subBatchSize) {
-                    if (dataStream == null) {
-                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-                    }
-                    dataStream.nextLongVector(subBatchSize, dataVector, nullVector);
-                }
-            }
-
-            if (inDictionaryStream == null) {
-                Arrays.fill(inDictionaryVector, true);
-            }
-            else {
-                inDictionaryStream.getSetBits(subBatchSize, inDictionaryVector, nullVector);
-            }
-
-            for (int i = 0; i < subBatchSize; i++) {
-                if (nullVector[i]) {
+                for (int i = 0; i < nextBatchSize; i++) {
                     builder.appendNull();
                 }
-                else if (inDictionaryVector[i]) {
-                    type.writeLong(builder, dictionary[((int) dataVector[i])]);
-                }
-                else {
-                    type.writeLong(builder, dataVector[i]);
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    if (!presentStream.nextBit()) {
+                        builder.appendNull();
+                    }
+                    else {
+                        long id = dataStream.next();
+                        if (inDictionaryStream == null || inDictionaryStream.nextBit()) {
+                            type.writeLong(builder, dictionary[(int) id]);
+                        }
+                        else {
+                            type.writeLong(builder, id);
+                        }
+                    }
                 }
             }
-            nextBatchSize -= subBatchSize;
         }
         readOffset = 0;
         nextBatchSize = 0;
-
         return builder.build();
-    }
-
-    private void assureVectorSize()
-    {
-        int requiredVectorLength = min(nextBatchSize, MAX_BATCH_SIZE);
-        // nullVector, dataVector and inDictionary should be of the same length
-        if (nullVector.length < requiredVectorLength) {
-            nullVector = new boolean[requiredVectorLength];
-            dataVector = new long[requiredVectorLength];
-            inDictionaryVector = new boolean[requiredVectorLength];
-            systemMemoryContext.setBytes(getRetainedSizeInBytes());
-        }
     }
 
     private void openRowGroup()
