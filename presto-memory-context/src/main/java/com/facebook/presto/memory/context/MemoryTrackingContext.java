@@ -81,19 +81,19 @@ public final class MemoryTrackingContext
 
     public LocalMemoryContext localUserMemoryContext()
     {
-        verify(userLocalMemoryContext != null, "local memory contexts are not initalized");
+        verify(userLocalMemoryContext != null, "local memory contexts are not initialized");
         return userLocalMemoryContext;
     }
 
     public LocalMemoryContext localSystemMemoryContext()
     {
-        verify(systemLocalMemoryContext != null, "local memory contexts are not initalized");
+        verify(systemLocalMemoryContext != null, "local memory contexts are not initialized");
         return systemLocalMemoryContext;
     }
 
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        verify(revocableLocalMemoryContext != null, "local memory contexts are not initalized");
+        verify(revocableLocalMemoryContext != null, "local memory contexts are not initialized");
         return revocableLocalMemoryContext;
     }
 
@@ -141,7 +141,7 @@ public final class MemoryTrackingContext
     }
 
     /**
-     * This method has to be called to initalize the local memory contexts. Otherwise, calls to methods
+     * This method has to be called to initialize the local memory contexts. Otherwise, calls to methods
      * localUserMemoryContext(), localSystemMemoryContext(), etc. will fail.
      */
     public void initializeLocalMemoryContexts(String allocationTag)
