@@ -137,7 +137,7 @@ let LivePlan = React.createClass({
                         </div>
                     </td>
                     <td>
-                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className="btn btn-warning" target="_blank">
+                        <a onClick={ () => $.ajax({url: '/v1/query/' + query.queryId, type: 'DELETE'}) } className="btn btn-warning" target="_blank">
                             Kill
                         </a>
                     </td>
