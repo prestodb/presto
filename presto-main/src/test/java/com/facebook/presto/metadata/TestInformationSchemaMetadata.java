@@ -67,21 +67,17 @@ public class TestInformationSchemaMetadata
 
     public TestInformationSchemaMetadata()
     {
-        MockConnectorFactory mockConnectorFactory = new MockConnectorFactory(
-                connectorSession -> ImmutableList.of("test_schema"),
-                (connectorSession, schemaNameOrNull) ->
+        MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
+        MockConnectorFactory mockConnectorFactory = builder.withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
+                .withListTables((connectorSession, schemaNameOrNull) ->
                         ImmutableList.of(
                                 new SchemaTableName("test_schema", "test_view"),
-                                new SchemaTableName("test_schema", "another_table")),
-                (connectorSession, prefix) -> {
+                                new SchemaTableName("test_schema", "another_table")))
+                .withGetViews((connectorSession, prefix) -> {
                     String viewJson = VIEW_DEFINITION_JSON_CODEC.toJson(new ViewDefinition("select 1", Optional.of("test_catalog"), Optional.of("test_schema"), ImmutableList.of(), Optional.empty()));
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
                     return ImmutableMap.of(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewJson));
-                },
-                (connectorSession, tableHandle) -> {
-                    throw new UnsupportedOperationException();
-                });
-
+                }).build();
         Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
         CatalogManager catalogManager = new CatalogManager();
         String catalogName = "test_catalog";

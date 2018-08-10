@@ -39,6 +39,7 @@ import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -61,7 +62,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
 
-    public MockConnectorFactory(
+    private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
@@ -89,6 +90,11 @@ public class MockConnectorFactory
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
         return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
     }
 
     private static class MockConnector
@@ -205,6 +211,48 @@ public class MockConnectorFactory
             {
                 return getViews.apply(session, prefix);
             }
+        }
+    }
+
+    public static final class Builder
+    {
+        private Function<ConnectorSession, List<String>> listSchemaNames = (session) -> ImmutableList.of();
+        private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaName) -> ImmutableList.of();
+        private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = (session, schemaTablePrefix) -> ImmutableMap.of();
+        private BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> notSupported();
+
+        public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
+        {
+            this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
+            return this;
+        }
+
+        public Builder withListTables(BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables)
+        {
+            this.listTables = requireNonNull(listTables, "listTables is null");
+            return this;
+        }
+
+        public Builder withGetViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews)
+        {
+            this.getViews = requireNonNull(getViews, "getViews is null");
+            return this;
+        }
+
+        public Builder withGetColumnHandles(BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles)
+        {
+            this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
+            return this;
+        }
+
+        public MockConnectorFactory build()
+        {
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles);
+        }
+
+        private static <T> T notSupported()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }
