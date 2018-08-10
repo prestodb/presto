@@ -126,7 +126,13 @@ public class BenchmarkInformationSchema
                             .boxed()
                             .map(i -> "column_" + i)
                             .collect(toImmutableMap(column -> column, column -> new TpchColumnHandle(column, createUnboundedVarcharType()) {}));
-                    return ImmutableList.of(new MockConnectorFactory(listSchemaNames, listTables, (session, prefix) -> ImmutableMap.of(), getColumnHandles));
+                    MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                            .withListSchemaNames(listSchemaNames)
+                            .withListTables(listTables)
+                            .withGetViews((session, prefix) -> ImmutableMap.of())
+                            .withGetColumnHandles(getColumnHandles)
+                            .build();
+                    return ImmutableList.of(connectorFactory);
                 }
             });
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
