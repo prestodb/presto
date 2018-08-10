@@ -61,4 +61,33 @@ public class TestGrouping
                         "HAVING grouping(a, b) = 0",
                 "VALUES ('x0', 'y0', 0), ('x1', 'y1', 0)");
     }
+
+    @Test
+    public void testNumericalStability()
+    {
+        assertions.assertQuery(
+                "SELECT CAST(VAR_SAMP(x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
+                "VALUES 1.00");
+
+        assertions.assertQuery(
+                "SELECT CAST(COVAR_SAMP(x + exp(30), x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
+                "VALUES 1.00");
+
+        assertions.assertQuery(
+                "SELECT CAST(CORR(x + exp(30), x + exp(30)) AS DECIMAL(3,2)) " +
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
+                "VALUES 1.00");
+
+        assertions.assertQuery(
+                "SELECT CAST(REGR_SLOPE((x + exp(30)) * 5 + 10, x + exp(30)) AS DECIMAL(3,2)) " +
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
+                "VALUES 5.00");
+
+        assertions.assertQuery(
+                "SELECT CAST(REGR_INTERCEPT((x + exp(20)) * 5 + 10, x + exp(20)) AS DECIMAL(4,2)) " +
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
+                "VALUES 10.00");
+    }
 }
