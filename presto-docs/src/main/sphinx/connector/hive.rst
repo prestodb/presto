@@ -141,7 +141,7 @@ Property Name                                      Description                  
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
                                                    format or the default Presto format?
 
-``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
+``hive.immutable-partitions``                      Are existing partitions immutable (and new data cannot be inserted into them)?           ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
