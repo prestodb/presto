@@ -341,6 +341,13 @@ public class TestStatementBuilder
     private static void printTpchQuery(int query, Object... values)
             throws IOException
     {
+        String sql = getSqlFromTpchQuery(query, values);
+        printStatement(sql);
+    }
+
+    public static String getSqlFromTpchQuery(int query, Object... values)
+            throws IOException
+    {
         String sql = getTpchQuery(query);
 
         for (int i = values.length - 1; i >= 0; i--) {
@@ -350,7 +357,7 @@ public class TestStatementBuilder
         assertFalse(sql.matches("(?s).*:[0-9].*"), "Not all bind parameters were replaced: " + sql);
 
         sql = fixTpchQuery(sql);
-        printStatement(sql);
+        return sql;
     }
 
     private static String readResource(String name)

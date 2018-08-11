@@ -51,4 +51,23 @@ public abstract class Node
 
     @Override
     public abstract String toString();
+
+    private boolean pruned;
+    private String pruneReplacement = "";
+
+    public void setPruned(String replacement)
+    {
+        this.pruned = true;
+        this.pruneReplacement = replacement;
+    }
+
+    public boolean isPruned()
+    {
+        return pruned;
+    }
+
+    public String getPruneReplacement()
+    {
+        return pruneReplacement;
+    }
 }

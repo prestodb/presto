@@ -82,7 +82,7 @@ public class BasicQueryInfo
                 queryInfo.getMemoryPool(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
-                queryInfo.getQuery(),
+                queryInfo.getQueryAbridged(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode());

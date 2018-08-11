@@ -70,7 +70,7 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters);
+        T createQueryExecution(QueryId queryId, String query, String queryAbridged, Session session, Statement statement, List<Expression> parameters);
     }
 
     /**

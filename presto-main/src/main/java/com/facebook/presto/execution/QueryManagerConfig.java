@@ -60,6 +60,9 @@ public class QueryManagerConfig
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
+    private boolean queryAbridgingEnabled;
+    private int queryAbridgedMaxLength = 100;
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -328,6 +331,33 @@ public class QueryManagerConfig
     public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
     {
         this.initializationTimeout = initializationTimeout;
+        return this;
+    }
+
+    public boolean isQueryAbridgingEnabled()
+    {
+        return queryAbridgingEnabled;
+    }
+
+    @Config("query.abridging.enabled")
+    @ConfigDescription("Is query abridging enabled?")
+    public QueryManagerConfig setQueryAbridgingEnabled(boolean queryAbridgingEnabled)
+    {
+        this.queryAbridgingEnabled = queryAbridgingEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getQueryAbridgedMaxLength()
+    {
+        return queryAbridgedMaxLength;
+    }
+
+    @Config("query.abridged.max.length")
+    @ConfigDescription("threshold for query abbreviation")
+    public QueryManagerConfig setQueryAbridgedMaxLength(int queryAbridgedMaxLength)
+    {
+        this.queryAbridgedMaxLength = queryAbridgedMaxLength;
         return this;
     }
 }

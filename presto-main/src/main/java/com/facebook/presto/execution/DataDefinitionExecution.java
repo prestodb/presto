@@ -302,6 +302,7 @@ public class DataDefinitionExecution<T extends Statement>
         public DataDefinitionExecution<?> createQueryExecution(
                 QueryId queryId,
                 String query,
+                String queryAbridged,
                 Session session,
                 Statement statement,
                 List<Expression> parameters)
@@ -311,7 +312,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, queryAbridged, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

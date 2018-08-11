@@ -34,6 +34,7 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.sql.QueryAbbreviator;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -124,6 +125,8 @@ public class SqlQueryManager
     private final int maxQueryHistory;
     private final Duration minQueryExpireAge;
     private final int maxQueryLength;
+    private final boolean queryAbridgingEnabled;
+    private final int queryAbridgedMaxLength;
     private final int initializationRequiredWorkers;
     private final Duration initializationTimeout;
     private final long initialNanos;
@@ -203,6 +206,8 @@ public class SqlQueryManager
         this.clientTimeout = queryManagerConfig.getClientTimeout();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
+        this.queryAbridgingEnabled = queryManagerConfig.isQueryAbridgingEnabled();
+        this.queryAbridgedMaxLength = queryManagerConfig.getQueryAbridgedMaxLength();
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
         this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
         this.initialNanos = System.nanoTime();
@@ -396,6 +401,7 @@ public class SqlQueryManager
         SelectionContext<?> selectionContext;
         QueryExecution queryExecution;
         Statement statement;
+        String queryAbridged = query;
         try {
             if (!acceptQueries.get()) {
                 int activeWorkerCount = internalNodeManager.getNodes(ACTIVE).size();
@@ -428,6 +434,11 @@ public class SqlQueryManager
             session = sessionSupplier.createSession(queryId, sessionContext, queryType, selectionContext.getResourceGroupId());
             Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
+
+            if (queryAbridgingEnabled) {
+                queryAbridged = getAbridgedVersion(query, wrappedStatement, session);
+            }
+
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
             validateParameters(statement, parameters);
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
@@ -441,7 +452,7 @@ public class SqlQueryManager
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
                 }
             }
-            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters);
+            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, queryAbridged, session, statement, parameters);
         }
         catch (ParsingException | PrestoException | SemanticException e) {
             // This is intentionally not a method, since after the state change listener is registered
@@ -456,9 +467,17 @@ public class SqlQueryManager
                         .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
+
+            if (queryAbridgingEnabled) {
+                if (queryAbridged.length() > queryAbridgedMaxLength) {
+                    queryAbridged = queryAbridged.substring(0, queryAbridgedMaxLength);
+                }
+            }
+
             QueryExecution execution = new FailedQueryExecution(
                     queryId,
                     query,
+                    queryAbridged,
                     Optional.empty(),
                     session,
                     self,
@@ -518,6 +537,14 @@ public class SqlQueryManager
         return StatementUtils.getQueryType(statement.getClass()).map(Enum::name);
     }
 
+    public static String wrapExecuteQueryString(String abbreviatedQuery, Statement statement)
+    {
+        if ((!(statement instanceof Execute))) {
+            return abbreviatedQuery;
+        }
+        return "EXECUTE Statement: " + abbreviatedQuery;
+    }
+
     public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
     {
         if ((!(statement instanceof Execute))) {
@@ -526,6 +553,14 @@ public class SqlQueryManager
 
         String sql = session.getPreparedStatementFromExecute((Execute) statement);
         return sqlParser.createStatement(sql, createParsingOptions(session));
+    }
+
+    public String getAbridgedVersion(String query, Statement wrappedStatement, Session session)
+    {
+        Statement statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
+        List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
+        String abbreviatedQuery = QueryAbbreviator.abbreviate(query, statement, Optional.of(parameters), queryAbridgedMaxLength);
+        return wrapExecuteQueryString(abbreviatedQuery, wrappedStatement);
     }
 
     public static void validateParameters(Statement node, List<Expression> parameterValues)

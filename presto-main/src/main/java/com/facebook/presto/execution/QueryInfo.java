@@ -50,6 +50,7 @@ public class QueryInfo
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
+    private final String queryAbridged;
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
@@ -127,6 +128,87 @@ public class QueryInfo
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
+        this.queryAbridged = query;
+        this.queryStats = queryStats;
+        this.setCatalog = setCatalog;
+        this.setSchema = setSchema;
+        this.setPath = setPath;
+        this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
+        this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
+        this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
+        this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
+        this.startedTransactionId = startedTransactionId;
+        this.clearTransactionId = clearTransactionId;
+        this.updateType = updateType;
+        this.outputStage = outputStage;
+        this.failureInfo = failureInfo;
+        this.errorType = errorCode == null ? null : errorCode.getType();
+        this.errorCode = errorCode;
+        this.inputs = ImmutableSet.copyOf(inputs);
+        this.output = output;
+        this.completeInfo = completeInfo;
+        this.resourceGroupId = resourceGroupId;
+    }
+
+    @JsonCreator
+    public QueryInfo(
+            @JsonProperty("queryId") QueryId queryId,
+            @JsonProperty("session") SessionRepresentation session,
+            @JsonProperty("state") QueryState state,
+            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
+            @JsonProperty("scheduled") boolean scheduled,
+            @JsonProperty("self") URI self,
+            @JsonProperty("fieldNames") List<String> fieldNames,
+            @JsonProperty("query") String query,
+            @JsonProperty("queryAbridged") String queryAbridged,
+            @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("setCatalog") Optional<String> setCatalog,
+            @JsonProperty("setSchema") Optional<String> setSchema,
+            @JsonProperty("setPath") Optional<String> setPath,
+            @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
+            @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
+            @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
+            @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements,
+            @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
+            @JsonProperty("clearTransactionId") boolean clearTransactionId,
+            @JsonProperty("updateType") String updateType,
+            @JsonProperty("outputStage") Optional<StageInfo> outputStage,
+            @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("inputs") Set<Input> inputs,
+            @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("completeInfo") boolean completeInfo,
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(state, "state is null");
+        requireNonNull(self, "self is null");
+        requireNonNull(fieldNames, "fieldNames is null");
+        requireNonNull(queryStats, "queryStats is null");
+        requireNonNull(setCatalog, "setCatalog is null");
+        requireNonNull(setSchema, "setSchema is null");
+        requireNonNull(setPath, "setPath is null");
+        requireNonNull(setSessionProperties, "setSessionProperties is null");
+        requireNonNull(resetSessionProperties, "resetSessionProperties is null");
+        requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
+        requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
+        requireNonNull(startedTransactionId, "startedTransactionId is null");
+        requireNonNull(query, "query is null");
+        requireNonNull(outputStage, "outputStage is null");
+        requireNonNull(inputs, "inputs is null");
+        requireNonNull(output, "output is null");
+        requireNonNull(resourceGroupId, "resourceGroupId is null");
+
+        this.queryId = queryId;
+        this.session = session;
+        this.state = state;
+        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
+        this.scheduled = scheduled;
+        this.self = self;
+        this.fieldNames = ImmutableList.copyOf(fieldNames);
+        this.query = query;
+        this.queryAbridged = queryAbridged;
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
@@ -194,6 +276,12 @@ public class QueryInfo
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public String getQueryAbridged()
+    {
+        return queryAbridged;
     }
 
     @JsonProperty
