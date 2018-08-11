@@ -65,6 +65,7 @@ public class TestGrouping
     @Test
     public void testNumericalStability()
     {
+        // Checks numerical stability of basic functions
         assertions.assertQuery(
                 "SELECT CAST(VAR_SAMP(x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
                         "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
