@@ -45,6 +45,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -191,12 +192,11 @@ public class ScalarAggregationToJoinRewriter
             }
         }
 
-        List<Symbol> groupBySymbols = leftOuterJoin.getLeft().getOutputSymbols();
         return Optional.of(new AggregationNode(
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 aggregations.build(),
-                ImmutableList.of(groupBySymbols),
+                singleGroupingSet(leftOuterJoin.getLeft().getOutputSymbols()),
                 ImmutableList.of(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashSymbol(),

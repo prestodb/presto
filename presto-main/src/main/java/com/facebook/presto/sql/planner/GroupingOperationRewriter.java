@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
@@ -38,7 +39,7 @@ public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<List<Expression>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<Integer>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -62,18 +63,9 @@ public final class GroupingOperationRewriter
                     .map(fieldId -> translateFieldToInteger(fieldId, relationId))
                     .collect(toImmutableList());
 
-            List<List<Integer>> groupingSetDescriptors = groupingSets.stream()
-                    .map(groupingSet -> groupingSet.stream()
-                            .map(NodeRef::of)
-                            .filter(columnReferenceFields::containsKey)
-                            .map(columnReferenceFields::get)
-                            .map(fieldId -> translateFieldToInteger(fieldId, relationId))
-                            .collect(toImmutableList()))
-                    .collect(toImmutableList());
-
-            List<Expression> groupingResults = groupingSetDescriptors.stream()
-                    .map(groupingSetDescriptors::indexOf)
-                    .map(groupId -> String.valueOf(calculateGrouping(groupId, columns, groupingSetDescriptors)))
+            List<Expression> groupingResults = groupingSets.stream()
+                    .map(groupingSets::indexOf)
+                    .map(groupId -> String.valueOf(calculateGrouping(groupId, columns, groupingSets)))
                     .map(LongLiteral::new)
                     .collect(toImmutableList());
 
@@ -120,14 +112,16 @@ public final class GroupingOperationRewriter
      *         the grouping. If a column is NOT present in the grouping its corresponding
      *         bit is set to 1 and to 0 if the column is present in the grouping.
      */
-    static long calculateGrouping(long groupId, List<Integer> columns, List<List<Integer>> groupingSetDescriptors)
+    static long calculateGrouping(long groupId, List<Integer> columns, List<Set<Integer>> groupingSetDescriptors)
     {
         long grouping = (1L << columns.size()) - 1;
 
-        List<Integer> groupingSet = groupingSetDescriptors.get(toIntExact(groupId));
-        for (Integer groupingColumn : groupingSet) {
-            int index = columns.indexOf(groupingColumn);
-            if (index != -1) {
+        Set<Integer> groupingSet = groupingSetDescriptors.get(toIntExact(groupId));
+
+        for (int index = 0; index < columns.size(); index++) {
+            int column = columns.get(index);
+
+            if (groupingSet.contains(column)) {
                 // Leftmost argument to grouping() (i.e. when index = 0) corresponds to
                 // the most significant bit in the result. That is why we shift 1L starting
                 // from the columns.size() - 1 bit index.

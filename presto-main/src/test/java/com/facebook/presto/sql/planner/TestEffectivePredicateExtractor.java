@@ -80,6 +80,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertEquals;
@@ -156,7 +158,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(
                         C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
                         D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
-                ImmutableList.of(ImmutableList.of(A, B, C)),
+                singleGroupingSet(ImmutableList.of(A, B, C)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -180,7 +182,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 filter(baseTableScan, FALSE_LITERAL),
                 ImmutableMap.of(),
-                ImmutableList.of(ImmutableList.of()),
+                globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

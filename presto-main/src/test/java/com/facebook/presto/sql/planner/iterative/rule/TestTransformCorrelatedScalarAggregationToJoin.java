@@ -73,7 +73,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                 .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                .addGroupingSet(p.symbol("b")))))
+                                .singleGroupingSet(p.symbol("b")))))
                 .doesNotFire();
     }
 
