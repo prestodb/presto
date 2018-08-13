@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionInvoker;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.InvocationConvention;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -31,6 +32,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -45,6 +47,7 @@ public class RowDistinctFromOperator
 {
     public static final RowDistinctFromOperator ROW_DISTINCT_FROM = new RowDistinctFromOperator();
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, boolean.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_BLOCK_POSITION = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, int.class, Block.class, int.class);
 
     private RowDistinctFromOperator()
     {
@@ -71,11 +74,17 @@ public class RowDistinctFromOperator
             argumentMethods.add(functionInvoker.methodHandle());
         }
         return new ScalarFunctionImplementation(
-                false,
                 ImmutableList.of(
-                        valueTypeArgumentProperty(USE_NULL_FLAG),
-                        valueTypeArgumentProperty(USE_NULL_FLAG)),
-                METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
+                        new ScalarImplementationChoice(
+                                false,
+                                ImmutableList.of(valueTypeArgumentProperty(USE_NULL_FLAG), valueTypeArgumentProperty(USE_NULL_FLAG)),
+                                METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
+                                Optional.empty()),
+                        new ScalarImplementationChoice(
+                                false,
+                                ImmutableList.of(valueTypeArgumentProperty(BLOCK_AND_POSITION), valueTypeArgumentProperty(BLOCK_AND_POSITION)),
+                                METHOD_HANDLE_BLOCK_POSITION.bindTo(type).bindTo(argumentMethods.build()),
+                                Optional.empty())),
                 isDeterministic());
     }
 
@@ -114,5 +123,10 @@ public class RowDistinctFromOperator
             }
         }
         return false;
+    }
+
+    public static boolean isDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, int leftPosition, Block rightRow, int rightPosition)
+    {
+        return isDistinctFrom(rowType, argumentMethods, (Block) rowType.getObject(leftRow, leftPosition), leftRow.isNull(leftPosition), (Block) rowType.getObject(rightRow, rightPosition), rightRow.isNull(rightPosition));
     }
 }

@@ -15,6 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -49,6 +52,7 @@ import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
@@ -315,23 +319,45 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType(StandardTypes.DOUBLE) double left,
-            @IsNull boolean leftNull,
-            @SqlType(StandardTypes.DOUBLE) double right,
-            @IsNull boolean rightNull)
+    public static class DoubleIsDistinctFrom
     {
-        if (leftNull != rightNull) {
-            return true;
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType(StandardTypes.DOUBLE) double left,
+                @IsNull boolean leftNull,
+                @SqlType(StandardTypes.DOUBLE) double right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            if (Double.isNaN(left) && Double.isNaN(right)) {
+                return false;
+            }
+            return notEqual(left, right);
         }
-        if (leftNull) {
-            return false;
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = StandardTypes.DOUBLE, nativeContainerType = double.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = StandardTypes.DOUBLE, nativeContainerType = double.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+                return true;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            if (Double.isNaN(DOUBLE.getDouble(left, leftPosition)) && Double.isNaN(DOUBLE.getDouble(right, rightPosition))) {
+                return false;
+            }
+            return !DOUBLE.equalTo(left, leftPosition, right, rightPosition);
         }
-        if (Double.isNaN(left) && Double.isNaN(right)) {
-            return false;
-        }
-        return notEqual(left, right);
     }
 
     @ScalarOperator(XX_HASH_64)
