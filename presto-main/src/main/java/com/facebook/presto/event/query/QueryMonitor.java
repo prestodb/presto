@@ -27,7 +27,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.DriverStats;
@@ -90,6 +92,8 @@ public class QueryMonitor
     private final int maxJsonLimit;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final InternalNodeManager nodeManager;
+    private final NodeSchedulerConfig nodeSchedulerConfig;
 
     @Inject
     public QueryMonitor(
@@ -102,7 +106,9 @@ public class QueryMonitor
             Metadata metadata,
             QueryMonitorConfig config,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
+            CostCalculator costCalculator,
+            InternalNodeManager nodeManager,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -115,6 +121,8 @@ public class QueryMonitor
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -210,6 +218,8 @@ public class QueryMonitor
                             functionRegistry,
                             statsCalculator,
                             costCalculator,
+                            nodeManager,
+                            nodeSchedulerConfig,
                             queryInfo.getSession().toSession(sessionPropertyManager),
                             false));
                 }
