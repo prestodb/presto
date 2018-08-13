@@ -14,6 +14,9 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -44,6 +47,7 @@ import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
@@ -180,20 +184,39 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left,
-            @IsNull boolean leftNull,
-            @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right,
-            @IsNull boolean rightNull)
+    public static class TimeWithTimeZoneDistinctFromOperator
     {
-        if (leftNull != rightNull) {
-            return true;
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left,
+                @IsNull boolean leftNull,
+                @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return notEqual(left, right);
         }
-        if (leftNull) {
-            return false;
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = StandardTypes.TIME_WITH_TIME_ZONE, nativeContainerType = long.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = StandardTypes.TIME_WITH_TIME_ZONE, nativeContainerType = long.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) && right.isNull(rightPosition)) {
+                return false;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            return notEqual(TIME_WITH_TIME_ZONE.getLong(left, leftPosition), TIME_WITH_TIME_ZONE.getLong(right, rightPosition));
         }
-        return notEqual(left, right);
     }
 
     @ScalarOperator(INDETERMINATE)

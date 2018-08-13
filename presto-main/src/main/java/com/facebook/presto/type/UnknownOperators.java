@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -93,14 +96,27 @@ public final class UnknownOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType("unknown") boolean left,
-            @IsNull boolean leftNull,
-            @SqlType("unknown") boolean right,
-            @IsNull boolean rightNull)
+    public static class UnknownDistinctFromOperator
     {
-        return false;
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType("unknown") boolean left,
+                @IsNull boolean leftNull,
+                @SqlType("unknown") boolean right,
+                @IsNull boolean rightNull)
+        {
+            return false;
+        }
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = "unknown", nativeContainerType = boolean.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = "unknown", nativeContainerType = boolean.class) Block right,
+                @BlockIndex int rightNull)
+        {
+            return false;
+        }
     }
 
     @ScalarOperator(INDETERMINATE)

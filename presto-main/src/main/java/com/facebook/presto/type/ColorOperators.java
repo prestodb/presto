@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -24,6 +27,7 @@ import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.type.ColorType.COLOR;
 
 public final class ColorOperators
 {
@@ -55,20 +59,39 @@ public final class ColorOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType(ColorType.NAME) long left,
-            @IsNull boolean leftNull,
-            @SqlType(ColorType.NAME) long right,
-            @IsNull boolean rightNull)
+    public static class ColorDistinctFromOperator
     {
-        if (leftNull != rightNull) {
-            return true;
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType(ColorType.NAME) long left,
+                @IsNull boolean leftNull,
+                @SqlType(ColorType.NAME) long right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return notEqual(left, right);
         }
-        if (leftNull) {
-            return false;
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = ColorType.NAME, nativeContainerType = long.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = ColorType.NAME, nativeContainerType = long.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+                return true;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            return notEqual(COLOR.getLong(left, leftPosition), COLOR.getLong(right, rightPosition));
         }
-        return notEqual(left, right);
     }
 
     @ScalarOperator(INDETERMINATE)

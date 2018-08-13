@@ -14,6 +14,9 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -238,22 +241,48 @@ public final class VarcharOperators
         return xxHash64(value);
     }
 
-    @LiteralParameters({"x", "y"})
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType("varchar(x)") Slice left,
-            @IsNull boolean leftNull,
-            @SqlType("varchar(y)") Slice right,
-            @IsNull boolean rightNull)
+    public static class VarcharDistinctFromOperator
     {
-        if (leftNull != rightNull) {
-            return true;
+        @LiteralParameters({"x", "y"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType("varchar(x)") Slice left,
+                @IsNull boolean leftNull,
+                @SqlType("varchar(y)") Slice right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return notEqual(left, right);
         }
-        if (leftNull) {
-            return false;
+
+        @LiteralParameters({"x", "y"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = "varchar(x)", nativeContainerType = Slice.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = "varchar(y)", nativeContainerType = Slice.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+                return true;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+
+            int leftLength = left.getSliceLength(leftPosition);
+            int rightLength = right.getSliceLength(rightPosition);
+            if (leftLength != rightLength) {
+                return true;
+            }
+            return !left.equals(leftPosition, 0, right, rightPosition, 0, leftLength);
         }
-        return notEqual(left, right);
     }
 
     @LiteralParameters("x")
