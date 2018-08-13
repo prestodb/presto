@@ -59,6 +59,7 @@ import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -386,6 +387,9 @@ public class TpchMetadata
     {
         if (columnType instanceof VarcharType) {
             return Slices.utf8Slice((String) tpchValue);
+        }
+        if (tpchValue instanceof String && columnType.equals(DATE)) {
+            return LocalDate.parse((CharSequence) tpchValue).toEpochDay();
         }
         if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
             return ((Number) tpchValue).longValue();
