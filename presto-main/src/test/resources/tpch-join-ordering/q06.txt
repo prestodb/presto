@@ -1,0 +1,5 @@
+final aggregation over()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over()
+                tpch:lineitem:sf3000.0

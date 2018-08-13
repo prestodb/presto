@@ -1,0 +1,15 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over(orderdate, orderkey_3, shippriority)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["orderdate", "orderkey_3", "shippriority"])
+                    partial aggregation over(orderdate, orderkey_3, shippriority)
+                        join (INNER, REPLICATED):
+                            tpch:lineitem:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    join (INNER, REPLICATED):
+                                        tpch:orders:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                tpch:customer:sf3000.0

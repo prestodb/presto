@@ -1,0 +1,93 @@
+cross join:
+    cross join:
+        cross join:
+            cross join:
+                cross join:
+                    cross join:
+                        cross join:
+                            cross join:
+                                cross join:
+                                    cross join:
+                                        cross join:
+                                            cross join:
+                                                cross join:
+                                                    cross join:
+                                                        cross join:
+                                                            final aggregation over()
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (GATHER, SINGLE, [])
+                                                                        partial aggregation over()
+                                                                            tpcds:store_sales:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (GATHER, SINGLE, [])
+                                                                    tpcds:reason:sf3000.0
+                                                        final aggregation over()
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (GATHER, SINGLE, [])
+                                                                    partial aggregation over()
+                                                                        tpcds:store_sales:sf3000.0
+                                                    final aggregation over()
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (GATHER, SINGLE, [])
+                                                                partial aggregation over()
+                                                                    tpcds:store_sales:sf3000.0
+                                                final aggregation over()
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (GATHER, SINGLE, [])
+                                                            partial aggregation over()
+                                                                tpcds:store_sales:sf3000.0
+                                            final aggregation over()
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (GATHER, SINGLE, [])
+                                                        partial aggregation over()
+                                                            tpcds:store_sales:sf3000.0
+                                        final aggregation over()
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (GATHER, SINGLE, [])
+                                                    partial aggregation over()
+                                                        tpcds:store_sales:sf3000.0
+                                    final aggregation over()
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (GATHER, SINGLE, [])
+                                                partial aggregation over()
+                                                    tpcds:store_sales:sf3000.0
+                                final aggregation over()
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (GATHER, SINGLE, [])
+                                            partial aggregation over()
+                                                tpcds:store_sales:sf3000.0
+                            final aggregation over()
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (GATHER, SINGLE, [])
+                                        partial aggregation over()
+                                            tpcds:store_sales:sf3000.0
+                        final aggregation over()
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (GATHER, SINGLE, [])
+                                    partial aggregation over()
+                                        tpcds:store_sales:sf3000.0
+                    final aggregation over()
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (GATHER, SINGLE, [])
+                                partial aggregation over()
+                                    tpcds:store_sales:sf3000.0
+                final aggregation over()
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (GATHER, SINGLE, [])
+                            partial aggregation over()
+                                tpcds:store_sales:sf3000.0
+            final aggregation over()
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (GATHER, SINGLE, [])
+                        partial aggregation over()
+                            tpcds:store_sales:sf3000.0
+        final aggregation over()
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (GATHER, SINGLE, [])
+                    partial aggregation over()
+                        tpcds:store_sales:sf3000.0
+    final aggregation over()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over()
+                    tpcds:store_sales:sf3000.0

@@ -1,0 +1,31 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            semijoin (PARTITIONED):
+                remote exchange (REPARTITION, HASH, ["suppkey"])
+                    join (INNER, REPLICATED):
+                        tpch:supplier:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                tpch:nation:sf3000.0
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["suppkey_4"])
+                        cross join:
+                            join (RIGHT, PARTITIONED):
+                                final aggregation over(partkey_18, suppkey_19)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["partkey_18", "suppkey_19"])
+                                            partial aggregation over(partkey_18, suppkey_19)
+                                                tpch:lineitem:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["partkey", "suppkey_4"])
+                                        semijoin (PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["partkey"])
+                                                tpch:partsupp:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["partkey_8"])
+                                                    tpch:part:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    single aggregation over()
+                                        values
