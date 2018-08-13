@@ -1358,9 +1358,15 @@ public class TestArrayOperators
         assertFunction("ARRAY [1, NULL] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, false);
         assertFunction("ARRAY [1, NULL] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, false);
         assertFunction("ARRAY [1, 2, NULL] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY [TRUE, FALSE] IS DISTINCT FROM ARRAY [TRUE, FALSE]", BOOLEAN, false);
+        assertFunction("ARRAY [TRUE, NULL] IS DISTINCT FROM ARRAY [TRUE, FALSE]", BOOLEAN, true);
+        assertFunction("ARRAY [FALSE, NULL] IS DISTINCT FROM ARRAY [NULL, FALSE]", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens'] IS DISTINCT FROM ARRAY ['puppies', 'kittens']", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', NULL] IS DISTINCT FROM ARRAY ['puppies', 'kittens']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', NULL] IS DISTINCT FROM ARRAY [NULL, 'kittens']", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY ['puppies'], ARRAY ['kittens']] IS DISTINCT FROM ARRAY [ARRAY ['puppies'], ARRAY ['kittens']]", BOOLEAN, false);
+        assertFunction("ARRAY [ARRAY ['puppies'], NULL] IS DISTINCT FROM ARRAY [ARRAY ['puppies'], ARRAY ['kittens']]", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY ['puppies'], NULL] IS DISTINCT FROM ARRAY [NULL, ARRAY ['kittens']]", BOOLEAN, true);
     }
 
     @Test

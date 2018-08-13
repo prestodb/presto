@@ -787,6 +787,14 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '-2' IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM DECIMAL '12345678901234567.89012345678901234567'", BOOLEAN, true);
         assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM NULL", BOOLEAN, true);
+
+        // delegation from other operator (exercises block-position convention implementation)
+        assertFunction("ARRAY [1.23, 4.56] IS DISTINCT FROM ARRAY [1.23, 4.56]", BOOLEAN, false);
+        assertFunction("ARRAY [1.23, NULL] IS DISTINCT FROM ARRAY [1.23, 4.56]", BOOLEAN, true);
+        assertFunction("ARRAY [1.23, NULL] IS DISTINCT FROM ARRAY [NULL, 4.56]", BOOLEAN, true);
+        assertFunction("ARRAY [1234567890.123456789, 9876543210.987654321] IS DISTINCT FROM ARRAY [1234567890.123456789, 9876543210.987654321]", BOOLEAN, false);
+        assertFunction("ARRAY [1234567890.123456789, NULL] IS DISTINCT FROM ARRAY [1234567890.123456789, 9876543210.987654321]", BOOLEAN, true);
+        assertFunction("ARRAY [1234567890.123456789, NULL] IS DISTINCT FROM ARRAY [NULL, 9876543210.987654321]", BOOLEAN, true);
     }
 
     @Test

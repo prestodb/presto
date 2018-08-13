@@ -15,6 +15,9 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -391,15 +394,39 @@ public final class JsonOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(BOOLEAN)
-    public static boolean isDistinctFrom(@SqlType(JSON) Slice leftJson, @IsNull boolean leftNull, @SqlType(JSON) Slice rightJson, @IsNull boolean rightNull)
+    public static class JsonDistinctFromOperator
     {
-        if (leftNull != rightNull) {
-            return true;
+        @SqlType(BOOLEAN)
+        public static boolean isDistinctFrom(@SqlType(JSON) Slice leftJson, @IsNull boolean leftNull, @SqlType(JSON) Slice rightJson, @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return notEqual(leftJson, rightJson);
         }
-        if (leftNull) {
-            return false;
+
+        @SqlType(BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = JSON, nativeContainerType = Slice.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = JSON, nativeContainerType = Slice.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+                return true;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            int leftLength = left.getSliceLength(leftPosition);
+            int rightLength = right.getSliceLength(rightPosition);
+            if (leftLength != rightLength) {
+                return true;
+            }
+            return !left.equals(leftPosition, 0, right, rightPosition, 0, leftLength);
         }
-        return notEqual(leftJson, rightJson);
     }
 }
