@@ -10,6 +10,7 @@ Presto Documentation
     installation
     security
     admin
+    optimizer
     connector
     functions
     language
