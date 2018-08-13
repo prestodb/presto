@@ -274,14 +274,8 @@ public class PlanPrinter
         }
         builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionStrategy().isAnyScanGroupedExecution()));
 
-        if (stageInfo.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, statsCalculator, costCalculator, session, Optional.of(planNodeStats.get()), 1, verbose))
-                    .append("\n");
-        }
-        else {
-            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), 1, verbose))
-                    .append("\n");
-        }
+        builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, statsCalculator, costCalculator, session, planNodeStats, 1, verbose))
+                .append("\n");
 
         return builder.toString();
     }
