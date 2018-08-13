@@ -188,6 +188,14 @@ public class Patterns
         }
     }
 
+    public static class Exchange
+    {
+        public static Property<ExchangeNode, ExchangeNode.Scope> scope()
+        {
+            return property("scope", ExchangeNode::getScope);
+        }
+    }
+
     public static class LateralJoin
     {
         public static Property<LateralJoinNode, List<Symbol>> correlation()

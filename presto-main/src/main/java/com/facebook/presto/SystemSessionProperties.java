@@ -95,6 +95,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
+    public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
@@ -427,6 +428,11 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
+                booleanProperty(
+                        ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID,
+                        "Enable a stats-based rule adding exchanges below GroupId",
+                        featuresConfig.isEnableForcedExchangeBelowGroupId(),
+                        true),
                 booleanProperty(
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
@@ -763,6 +769,11 @@ public final class SystemSessionProperties
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isEnableForcedExchangeBelowGroupId(Session session)
+    {
+        return session.getSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.class);
     }
 
     public static boolean isExchangeCompressionEnabled(Session session)

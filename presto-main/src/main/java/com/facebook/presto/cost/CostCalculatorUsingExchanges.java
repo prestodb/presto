@@ -70,7 +70,7 @@ public class CostCalculatorUsingExchanges
         this(currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeManager));
     }
 
-    static IntSupplier currentNumberOfWorkerNodes(boolean includeCoordinator, InternalNodeManager nodeManager)
+    public static IntSupplier currentNumberOfWorkerNodes(boolean includeCoordinator, InternalNodeManager nodeManager)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         return () -> {
