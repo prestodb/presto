@@ -74,8 +74,8 @@ public class TestNumericalStability
     public void testRegressionIntercept()
     {
         assertions.assertQuery(
-                "SELECT CAST(REGR_INTERCEPT((x + exp(20)) * 5 + 10, x + exp(20)) AS DECIMAL(4,2)) " +
+                "SELECT CAST(REGR_INTERCEPT((x + exp(20)) * 5 + 8, x + exp(20)) AS DECIMAL(3,2)) " +
                         "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
-                "VALUES 10.00");
+                "VALUES 8.00");
     }
 }
