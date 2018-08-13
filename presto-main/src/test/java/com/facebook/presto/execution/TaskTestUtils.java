@@ -75,7 +75,6 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -182,6 +181,8 @@ public final class TaskTestUtils
                 metadata,
                 new QueryMonitorConfig(),
                 new ComposableStatsCalculator(ImmutableList.of()),
-                (node, stats, lookup, session, types) -> UNKNOWN_COST)
+                (node, stats, lookup, session, types) -> UNKNOWN_COST,
+                new InMemoryNodeManager(),
+                new NodeSchedulerConfig().setIncludeCoordinator(true));
     }
 }
