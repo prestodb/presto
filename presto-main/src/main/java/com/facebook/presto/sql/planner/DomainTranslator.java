@@ -29,7 +29,7 @@ import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -286,7 +286,7 @@ public final class DomainTranslator
         private final LiteralEncoder literalEncoder;
         private final Session session;
         private final TypeProvider types;
-        private final FunctionInvoker functionInvoker;
+        private final InterpretedFunctionInvoker functionInvoker;
 
         private Visitor(Metadata metadata, Session session, TypeProvider types)
         {
@@ -294,7 +294,7 @@ public final class DomainTranslator
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
         }
 
         private Type checkedTypeLookup(Symbol symbol)

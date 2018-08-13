@@ -31,11 +31,11 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
-public class FunctionInvoker
+public class InterpretedFunctionInvoker
 {
     private final FunctionRegistry registry;
 
-    public FunctionInvoker(FunctionRegistry registry)
+    public InterpretedFunctionInvoker(FunctionRegistry registry)
     {
         this.registry = requireNonNull(registry, "registry is null");
     }

@@ -39,7 +39,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -1501,7 +1501,7 @@ public class PlanPrinter
 
         try {
             Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
-            Slice coerced = (Slice) new FunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
+            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
             return coerced.toStringUtf8();
         }
         catch (OperatorNotFoundException e) {
