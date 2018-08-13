@@ -38,15 +38,21 @@ public class CachingCostProvider
     private final Lookup lookup;
     private final Session session;
     private final TypeProvider types;
+    private final PlanNodeSourceProvider sourceProvider;
 
     private final Map<PlanNode, PlanNodeCostEstimate> cache = new IdentityHashMap<>();
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Lookup lookup, Session session, TypeProvider types)
     {
-        this(costCalculator, statsProvider, Optional.empty(), noLookup(), session, types);
+        this(costCalculator, statsProvider, memo, lookup, session, types, PlanNode::getSources);
     }
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Lookup lookup, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types, PlanNodeSourceProvider sourceProvider)
+    {
+        this(costCalculator, statsProvider, Optional.empty(), noLookup(), session, types, sourceProvider);
+    }
+
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Lookup lookup, Session session, TypeProvider types, PlanNodeSourceProvider sourceProvider)
     {
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
@@ -54,6 +60,7 @@ public class CachingCostProvider
         this.lookup = requireNonNull(lookup, "lookup is null");
         this.session = requireNonNull(session, "session is null");
         this.types = requireNonNull(types, "types is null");
+        this.sourceProvider = requireNonNull(sourceProvider, "sourceProvider is null");
     }
 
     @Override
@@ -95,7 +102,7 @@ public class CachingCostProvider
     {
         PlanNodeCostEstimate localCosts = costCalculator.calculateCost(node, statsProvider, lookup, session, types);
 
-        PlanNodeCostEstimate sourcesCost = node.getSources().stream()
+        PlanNodeCostEstimate sourcesCost = sourceProvider.getSources(node).stream()
                 .map(this::getCumulativeCost)
                 .reduce(ZERO_COST, PlanNodeCostEstimate::add);
 
