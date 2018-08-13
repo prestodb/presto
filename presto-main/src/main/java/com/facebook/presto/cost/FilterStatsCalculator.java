@@ -229,10 +229,10 @@ public class FilterStatsCalculator
             if (!(node.getValue() instanceof SymbolReference)) {
                 return visitExpression(node, context);
             }
-            if (!(node.getMin() instanceof Literal || isSingleValue(getExpressionStats(node.getMin())))) {
+            if (!isSingleValue(node.getMin())) {
                 return visitExpression(node, context);
             }
-            if (!(node.getMax() instanceof Literal || isSingleValue(getExpressionStats(node.getMax())))) {
+            if (!isSingleValue(node.getMax())) {
                 return visitExpression(node, context);
             }
 
@@ -349,6 +349,12 @@ public class FilterStatsCalculator
                 return Optional.of(Symbol.from(expression));
             }
             return Optional.empty();
+        }
+
+        private boolean isSingleValue(Expression expression)
+        {
+            return (expression instanceof Literal)
+                    || isSingleValue(getExpressionStats(expression));
         }
 
         private boolean isSingleValue(SymbolStatsEstimate stats)
