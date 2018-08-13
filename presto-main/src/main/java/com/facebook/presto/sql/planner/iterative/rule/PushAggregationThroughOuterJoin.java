@@ -257,11 +257,7 @@ public class PushAggregationThroughOuterJoin
                 assignmentsBuilder.put(symbol, symbol.toSymbolReference());
             }
         }
-        return Optional.of(
-                new ProjectNode(
-                        idAllocator.getNextId(),
-                                            crossJoin,
-                                            assignmentsBuilder.build()));
+        return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
     }
 
     private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
@@ -319,10 +315,7 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty());
 
-        return Optional.of(
-                new MappedAggregationInfo(
-                        aggregationOverNullRow,
-                                aggregationsSymbolMapping));
+        return Optional.of(new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping));
     }
 
     private static boolean isUsingSymbols(AggregationNode.Aggregation aggregation, Set<Symbol> sourceSymbols)
