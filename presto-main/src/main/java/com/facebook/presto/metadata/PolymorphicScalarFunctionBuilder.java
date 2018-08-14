@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -36,7 +35,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
-public final class SqlScalarFunctionBuilder
+public final class PolymorphicScalarFunctionBuilder
 {
     private final Class<?> clazz;
     private Signature signature;
@@ -47,56 +46,56 @@ public final class SqlScalarFunctionBuilder
     private List<ArgumentProperty> argumentProperties = emptyList();
     private final List<MethodsGroup> methodsGroups = new ArrayList<>();
 
-    public SqlScalarFunctionBuilder(Class<?> clazz)
+    public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
         this.clazz = clazz;
     }
 
-    public SqlScalarFunctionBuilder signature(Signature signature)
+    public PolymorphicScalarFunctionBuilder signature(Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.hidden = Optional.of(hidden.orElse(isOperator(signature)));
         return this;
     }
 
-    public SqlScalarFunctionBuilder description(String description)
+    public PolymorphicScalarFunctionBuilder description(String description)
     {
         this.description = description;
         return this;
     }
 
-    public SqlScalarFunctionBuilder hidden(boolean hidden)
+    public PolymorphicScalarFunctionBuilder hidden(boolean hidden)
     {
         this.hidden = Optional.of(hidden);
         return this;
     }
 
-    public SqlScalarFunctionBuilder deterministic(boolean deterministic)
+    public PolymorphicScalarFunctionBuilder deterministic(boolean deterministic)
     {
         this.deterministic = deterministic;
         return this;
     }
 
-    public SqlScalarFunctionBuilder nullableResult(boolean nullableResult)
+    public PolymorphicScalarFunctionBuilder nullableResult(boolean nullableResult)
     {
         this.nullableResult = nullableResult;
         return this;
     }
 
-    public SqlScalarFunctionBuilder argumentProperties(ArgumentProperty... argumentProperties)
+    public PolymorphicScalarFunctionBuilder argumentProperties(ArgumentProperty... argumentProperties)
     {
         requireNonNull(argumentProperties, "argumentProperties is null");
         this.argumentProperties = ImmutableList.copyOf(argumentProperties);
         return this;
     }
 
-    public SqlScalarFunctionBuilder argumentProperties(List<ArgumentProperty> argumentProperties)
+    public PolymorphicScalarFunctionBuilder argumentProperties(List<ArgumentProperty> argumentProperties)
     {
         this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
         return this;
     }
 
-    public SqlScalarFunctionBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodGroupSpecification)
+    public PolymorphicScalarFunctionBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodGroupSpecification)
     {
         MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz);
         methodGroupSpecification.apply(methodsGroupBuilder);
@@ -204,7 +203,6 @@ public final class SqlScalarFunctionBuilder
     {
         private final Class<?> clazz;
         private List<Method> methods;
-        private Optional<Predicate<SpecializeContext>> predicate = Optional.empty();
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 
         private MethodsGroupBuilder(Class<?> clazz)
@@ -237,14 +235,6 @@ public final class SqlScalarFunctionBuilder
             return this;
         }
 
-        public MethodsGroupBuilder withPredicate(Predicate<SpecializeContext> predicate)
-        {
-            checkState(methods != null, "methods must be selected first");
-            requireNonNull(predicate, "predicate is null");
-            this.predicate = Optional.of(predicate);
-            return this;
-        }
-
         public MethodsGroupBuilder withExtraParameters(Function<SpecializeContext, List<Object>> extraParametersFunction)
         {
             checkState(methods != null, "methods must be selected first");
@@ -255,34 +245,26 @@ public final class SqlScalarFunctionBuilder
 
         public MethodsGroup build()
         {
-            return new MethodsGroup(methods, predicate, extraParametersFunction);
+            return new MethodsGroup(methods, extraParametersFunction);
         }
     }
 
     static class MethodsGroup
     {
         private final List<Method> methods;
-        private final Optional<Predicate<SpecializeContext>> predicate;
         private final Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction;
 
         private MethodsGroup(
                 List<Method> methods,
-                Optional<Predicate<SpecializeContext>> predicate,
                 Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction)
         {
             this.methods = requireNonNull(methods, "methods is null");
-            this.predicate = requireNonNull(predicate, "predicate is null");
             this.extraParametersFunction = requireNonNull(extraParametersFunction, "extraParametersFunction is null");
         }
 
         List<Method> getMethods()
         {
             return methods;
-        }
-
-        Optional<Predicate<SpecializeContext>> getPredicate()
-        {
-            return predicate;
         }
 
         Optional<Function<SpecializeContext, List<Object>>> getExtraParametersFunction()

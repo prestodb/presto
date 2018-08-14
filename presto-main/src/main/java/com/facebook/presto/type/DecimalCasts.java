@@ -14,9 +14,9 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -157,7 +157,7 @@ public final class DecimalCasts
         return castFunctionToDecimalFromBuilder(from, methodNames).build();
     }
 
-    private static SqlScalarFunctionBuilder castFunctionToDecimalFromBuilder(TypeSignature from, String... methodNames)
+    private static PolymorphicScalarFunctionBuilder castFunctionToDecimalFromBuilder(TypeSignature from, String... methodNames)
     {
         Signature signature = Signature.builder()
                 .kind(SCALAR)
