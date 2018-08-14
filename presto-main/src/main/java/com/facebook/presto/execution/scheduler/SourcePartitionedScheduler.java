@@ -188,7 +188,7 @@ public class SourcePartitionedScheduler
             ScheduleGroup scheduleGroup = entry.getValue();
             Set<Split> pendingSplits = scheduleGroup.pendingSplits;
 
-            if (scheduleGroup.state != ScheduleGroupState.DISCOVERING_SPLITS) {
+            if (scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS || scheduleGroup.state == ScheduleGroupState.DONE) {
                 verify(scheduleGroup.nextSplitBatchFuture == null);
             }
             else if (pendingSplits.isEmpty()) {
@@ -204,7 +204,20 @@ public class SourcePartitionedScheduler
                     SplitBatch nextSplits = getFutureValue(scheduleGroup.nextSplitBatchFuture);
                     scheduleGroup.nextSplitBatchFuture = null;
                     pendingSplits.addAll(nextSplits.getSplits());
-                    if (nextSplits.isLastBatch() && scheduleGroup.state == ScheduleGroupState.DISCOVERING_SPLITS) {
+                    if (nextSplits.isLastBatch()) {
+                        if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && pendingSplits.isEmpty()) {
+                            // Add an empty split in case no splits have been produced for the source.
+                            // For source operators, they never take input, but they may produce output.
+                            // This is well handled by Presto execution engine.
+                            // However, there are certain non-source operators that may produce output without any input,
+                            // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
+                            // Scheduling an empty split kicks off necessary driver instantiation to make this work.
+                            pendingSplits.add(new Split(
+                                    splitSource.getConnectorId(),
+                                    splitSource.getTransactionHandle(),
+                                    new EmptySplit(splitSource.getConnectorId()),
+                                    lifespan));
+                        }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }
                 }
@@ -221,6 +234,9 @@ public class SourcePartitionedScheduler
                     continue;
                 }
 
+                if (scheduleGroup.state == ScheduleGroupState.INITIALIZED) {
+                    scheduleGroup.state = ScheduleGroupState.SPLITS_ADDED;
+                }
                 if (state == State.INITIALIZED) {
                     state = State.SPLITS_ADDED;
                 }
@@ -280,12 +296,9 @@ public class SourcePartitionedScheduler
         if ((state == State.NO_MORE_SPLITS || state == State.FINISHED) || (scheduleGroups.isEmpty() && splitSource.isFinished())) {
             switch (state) {
                 case INITIALIZED:
-                    // we have not scheduled a single split so far
-                    state = State.SPLITS_ADDED;
-                    ScheduleResult emptySplitScheduleResult = scheduleEmptySplit();
-                    overallNewTasks.addAll(emptySplitScheduleResult.getNewTasks());
-                    overallSplitAssignmentCount++;
-                    // fall through
+                    // We have not scheduled a single split so far.
+                    // But this shouldn't be possible. See usage of EmptySplit in this method.
+                    throw new IllegalStateException("At least 1 split should have been scheduled for this plan node");
                 case SPLITS_ADDED:
                     state = State.NO_MORE_SPLITS;
                     splitSource.close();
@@ -448,7 +461,7 @@ public class SourcePartitionedScheduler
         public ListenableFuture<SplitBatch> nextSplitBatchFuture;
         public ListenableFuture<?> placementFuture = Futures.immediateFuture(null);
         public final Set<Split> pendingSplits = new HashSet<>();
-        public ScheduleGroupState state = ScheduleGroupState.DISCOVERING_SPLITS;
+        public ScheduleGroupState state = ScheduleGroupState.INITIALIZED;
 
         public ScheduleGroup(ConnectorPartitionHandle partitionHandle)
         {
@@ -459,9 +472,14 @@ public class SourcePartitionedScheduler
     private enum ScheduleGroupState
     {
         /**
-         * The underlying SplitSource is not complete.
+         * No splits have been added to pendingSplits set.
          */
-        DISCOVERING_SPLITS,
+        INITIALIZED,
+
+        /**
+         * At least one split has been added to pendingSplits set.
+         */
+        SPLITS_ADDED,
 
         /**
          * All splits from underlying SplitSource has been discovered.

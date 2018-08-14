@@ -2523,6 +2523,20 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
             assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult);
             assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult);
+
+            //
+            // Filter out all splits
+            // =====================
+            @Language("SQL") String noSplits =
+                    "SELECT key1, arbitrary(value1)\n" +
+                            "FROM test_grouped_join1\n" +
+                            "WHERE \"$bucket\" < 0\n" +
+                            "GROUP BY key1";
+            @Language("SQL") String expectedNoSplits = "SELECT 1, 'a' WHERE FALSE";
+
+            assertQuery(notColocated, noSplits, expectedNoSplits);
+            assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits);
+            assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
