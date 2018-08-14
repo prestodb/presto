@@ -16,6 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
@@ -111,13 +113,31 @@ public class MemoryAwareQueryExecution
     }
 
     @Override
-    public long getUserMemoryReservation()
+    public Optional<ErrorCode> getErrorCode()
+    {
+        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+    }
+
+    @Override
+    public BasicQueryInfo getBasicQueryInfo()
+    {
+        return new BasicQueryInfo(getQueryInfo());
+    }
+
+    @Override
+    public Session getSession()
+    {
+        return delegate.getSession();
+    }
+
+    @Override
+    public DataSize getUserMemoryReservation()
     {
         return delegate.getUserMemoryReservation();
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public DataSize getTotalMemoryReservation()
     {
         return delegate.getTotalMemoryReservation();
     }
@@ -126,12 +146,6 @@ public class MemoryAwareQueryExecution
     public Duration getTotalCpuTime()
     {
         return delegate.getTotalCpuTime();
-    }
-
-    @Override
-    public Session getSession()
-    {
-        return delegate.getSession();
     }
 
     @Override
@@ -168,6 +182,12 @@ public class MemoryAwareQueryExecution
     public void fail(Throwable cause)
     {
         delegate.fail(cause);
+    }
+
+    @Override
+    public boolean isDone()
+    {
+        return getState().isDone();
     }
 
     @Override

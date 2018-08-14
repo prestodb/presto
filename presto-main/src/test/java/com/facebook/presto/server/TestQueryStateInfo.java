@@ -63,7 +63,7 @@ public class TestQueryStateInfo
 
         // Verify QueryStateInfo for query queued on resource group root.a.y
         QueryStateInfo query = createQueuedQueryStateInfo(
-                createQueryInfo("query_root_a_x", QUEUED, "SELECT 1"),
+                new BasicQueryInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1")),
                 Optional.of(rootAX.getId()),
                 Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
 

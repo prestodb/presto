@@ -70,11 +70,12 @@ public class QueryStateInfoResource
 
         return queryInfos.stream()
                 .filter(queryInfo -> !queryInfo.getState().isDone())
+                .map(BasicQueryInfo::new)
                 .map(this::getQueryStateInfo)
                 .collect(toImmutableList());
     }
 
-    private QueryStateInfo getQueryStateInfo(QueryInfo queryInfo)
+    private QueryStateInfo getQueryStateInfo(BasicQueryInfo queryInfo)
     {
         Optional<ResourceGroupId> groupId = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
         if (queryInfo.getState() == QUEUED) {
@@ -93,7 +94,7 @@ public class QueryStateInfoResource
             throws WebApplicationException
     {
         try {
-            return getQueryStateInfo(queryManager.getQueryInfo(new QueryId(queryId)));
+            return getQueryStateInfo(new BasicQueryInfo(queryManager.getQueryInfo(new QueryId(queryId))));
         }
         catch (NoSuchElementException e) {
             throw new WebApplicationException(NOT_FOUND);
