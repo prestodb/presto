@@ -199,6 +199,7 @@ public class FixedSourcePartitionedScheduler
             driverGroupsToStart = sourcePartitionedScheduler.drainCompletedLifespans();
 
             if (schedule.isFinished()) {
+                stage.schedulingComplete(sourcePartitionedScheduler.getPlanNodeId());
                 schedulerIterator.remove();
                 sourcePartitionedScheduler.close();
             }
