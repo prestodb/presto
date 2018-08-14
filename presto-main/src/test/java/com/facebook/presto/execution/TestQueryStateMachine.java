@@ -440,7 +440,7 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.isDone(), expectedState.isDone());
 
         if (expectedState == FAILED) {
-            FailureInfo failure = queryInfo.getFailureInfo();
+            FailureInfo failure = queryInfo.getFailureInfo().toFailureInfo();
             assertNotNull(failure);
             assertEquals(failure.getType(), expectedException.getClass().getName());
             if (expectedException instanceof PrestoException) {

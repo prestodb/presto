@@ -73,6 +73,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -507,7 +508,7 @@ class Query
         // Close the exchange client if the query has failed, or if the query
         // is done and it does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if ((queryInfo.getState() == QueryState.FAILED) ||
+        if ((queryInfo.getState() == FAILED) ||
                 (queryInfo.getState().isDone() && !queryInfo.getOutputStage().isPresent())) {
             exchangeClient.close();
         }
@@ -666,12 +667,16 @@ class Query
 
     private static QueryError toQueryError(QueryInfo queryInfo)
     {
-        FailureInfo failure = queryInfo.getFailureInfo();
-        if (failure == null) {
-            QueryState state = queryInfo.getState();
-            if ((!state.isDone()) || (state == QueryState.FINISHED)) {
-                return null;
-            }
+        QueryState state = queryInfo.getState();
+        if (state != FAILED) {
+            return null;
+        }
+
+        FailureInfo failure;
+        if (queryInfo.getFailureInfo() != null) {
+            failure = queryInfo.getFailureInfo().toFailureInfo();
+        }
+        else {
             log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
             failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo();
         }
