@@ -28,7 +28,7 @@ import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -338,7 +338,7 @@ public class ShowStatsRewrite
                 return new Cast(new NullLiteral(), VARCHAR);
             }
             FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionRegistry);
             Signature castSignature = functionRegistry.getCoercion(valueType, VarcharType.createUnboundedVarcharType());
             Slice varcharValue = (Slice) functionInvoker.invoke(castSignature, session.toConnectorSession(), singletonList(value.get()));
             String stringValue = varcharValue.toStringUtf8();

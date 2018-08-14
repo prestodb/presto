@@ -11,27 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.spi.HostAddress;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.presto.spi.InvocationConvention;
 
-import java.util.Set;
-
-public class NoOpFailureDetector
-        implements FailureDetector
+public @interface Convention
 {
-    @Override
-    public Set<ServiceDescriptor> getFailed()
-    {
-        return ImmutableSet.of();
-    }
+    InvocationConvention.InvocationArgumentConvention[] arguments();
+    InvocationConvention.InvocationReturnConvention result();
+    boolean session() default false;
 
-    @Override
-    public State getState(HostAddress hostAddress)
-    {
-        return State.UNKNOWN;
-    }
+    boolean $notSpecified() default false;
 }

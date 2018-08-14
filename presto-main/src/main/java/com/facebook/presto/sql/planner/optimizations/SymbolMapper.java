@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -93,15 +94,14 @@ public class SymbolMapper
             aggregations.put(map(entry.getKey()), map(entry.getValue()));
         }
 
-        List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
-                .map(this::mapAndDistinct)
-                .collect(toImmutableList());
-
         return new AggregationNode(
                 newNodeId,
                 source,
                 aggregations.build(),
-                groupingSets,
+                groupingSets(
+                        mapAndDistinct(node.getGroupingKeys()),
+                        node.getGroupingSetCount(),
+                        node.getGlobalGroupingSets()),
                 ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),

@@ -99,7 +99,7 @@ public class PagesSortBenchmark
     public static class PagesIndexSortBenchmarkData
             extends BaseBenchmarkData
     {
-        @Param({"1"})
+        @Param("1")
         private int numSortChannels = 1;
 
         @Param({"1", "8"})
@@ -160,7 +160,7 @@ public class PagesSortBenchmark
     public static class MergeSortedBenchmarkData
             extends BaseBenchmarkData
     {
-        @Param({"1"})
+        @Param("1")
         private int numSortChannels = 1;
 
         @Param({"1", "8"})

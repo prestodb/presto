@@ -471,7 +471,7 @@ public class TestTpchLocalStats
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(45, 45)));
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
-                // TODO fix EXCEPT stats calculation as custkey values distirbution is pretty linear
+                // TODO fix EXCEPT stats calculation as custkey values distribution is pretty linear
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(1.5, 2))
                         .estimate(distinctValuesCount("o_orderkey"), relativeError(0.5, 1))

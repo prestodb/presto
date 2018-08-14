@@ -97,10 +97,10 @@ public class BenchmarkBinaryFileSpiller
                 1.0);
         private final SpillerFactory spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
 
-        @Param({"10000"})
+        @Param("10000")
         private int rowsPerPage = 10000;
 
-        @Param({"10"})
+        @Param("10")
         private int pagesCount = 10;
 
         private List<Page> pages;

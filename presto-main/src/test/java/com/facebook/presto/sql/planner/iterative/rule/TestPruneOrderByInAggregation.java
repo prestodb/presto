@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -46,7 +47,7 @@ public class TestPruneOrderByInAggregation
                 .on(this::buildAggregation)
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("key")),
+                                singleGroupingSet("key"),
                                 ImmutableMap.of(
                                         Optional.of("avg"), functionCall("avg", ImmutableList.of("input")),
                                         Optional.of("array_agg"), functionCall(
@@ -69,7 +70,7 @@ public class TestPruneOrderByInAggregation
         Symbol mask = planBuilder.symbol("mask");
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
-                .addGroupingSet(key)
+                .singleGroupingSet(key)
                 .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)

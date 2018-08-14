@@ -15,9 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.QueryPerformanceFetcher;
+import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -274,10 +272,7 @@ public class LocalExecutionPlanner
 
     private final Metadata metadata;
     private final SqlParser sqlParser;
-    private final StatsCalculator statsCalculator;
-    private final CostCalculator costCalculator;
-
-    private final Optional<QueryPerformanceFetcher> queryPerformanceFetcher;
+    private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -304,9 +299,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             Metadata metadata,
             SqlParser sqlParser,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            Optional<QueryPerformanceFetcher> queryPerformanceFetcher,
+            Optional<ExplainAnalyzeContext> explainAnalyzeContext,
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
@@ -326,15 +319,13 @@ public class LocalExecutionPlanner
             LookupJoinOperators lookupJoinOperators,
             OrderingCompiler orderingCompiler)
     {
-        this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
+        this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
-        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "compiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
@@ -736,16 +727,17 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExplainAnalyze(ExplainAnalyzeNode node, LocalExecutionPlanContext context)
         {
-            checkState(queryPerformanceFetcher.isPresent(), "ExplainAnalyze can only run on coordinator");
+            ExplainAnalyzeContext analyzeContext = explainAnalyzeContext
+                    .orElseThrow(() -> new IllegalStateException("ExplainAnalyze can only run on coordinator"));
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new ExplainAnalyzeOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    queryPerformanceFetcher.get(),
+                    analyzeContext.getQueryPerformanceFetcher(),
                     metadata.getFunctionRegistry(),
-                    statsCalculator,
-                    costCalculator,
+                    analyzeContext.getStatsCalculator(),
+                    analyzeContext.getCostCalculator(),
                     node.isVerbose());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
@@ -2161,7 +2153,7 @@ public class LocalExecutionPlanner
                 return createHashAggregationOperatorFactory(
                         node.getId(),
                         aggregation.getAggregations(),
-                        ImmutableList.of(groupingSymbols),
+                        ImmutableSet.of(),
                         groupingSymbols,
                         PARTIAL,
                         Optional.empty(),
@@ -2215,7 +2207,7 @@ public class LocalExecutionPlanner
                 return createHashAggregationOperatorFactory(
                         node.getId(),
                         aggregation.getAggregations(),
-                        ImmutableList.of(groupingSymbols),
+                        ImmutableSet.of(),
                         groupingSymbols,
                         FINAL,
                         Optional.empty(),
@@ -2531,7 +2523,7 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = createHashAggregationOperatorFactory(
                     node.getId(),
                     node.getAggregations(),
-                    node.getGroupingSets(),
+                    node.getGlobalGroupingSets(),
                     node.getGroupingKeys(),
                     node.getStep(),
                     node.getHashSymbol(),
@@ -2550,7 +2542,7 @@ public class LocalExecutionPlanner
         private OperatorFactory createHashAggregationOperatorFactory(
                 PlanNodeId planNodeId,
                 Map<Symbol, Aggregation> aggregations,
-                List<List<Symbol>> groupingSets,
+                Set<Integer> globalGroupingSets,
                 List<Symbol> groupBySymbols,
                 Step step,
                 Optional<Symbol> hashSymbol,
@@ -2572,13 +2564,6 @@ public class LocalExecutionPlanner
 
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
                 aggregationOutputSymbols.add(symbol);
-            }
-
-            ImmutableList.Builder<Integer> globalAggregationGroupIds = ImmutableList.builder();
-            for (int i = 0; i < groupingSets.size(); i++) {
-                if (groupingSets.get(i).isEmpty()) {
-                    globalAggregationGroupIds.add(i);
-                }
             }
 
             // add group-by key fields each in a separate channel
@@ -2608,8 +2593,6 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
-            Map<Symbol, Integer> mappings = outputMappings.build();
-
             if (isStreamable) {
                 return new StreamingAggregationOperatorFactory(
                         context.getNextOperatorId(),
@@ -2628,7 +2611,7 @@ public class LocalExecutionPlanner
                         planNodeId,
                         groupByTypes,
                         groupByChannels,
-                        globalAggregationGroupIds.build(),
+                        ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
                         accumulatorFactories,

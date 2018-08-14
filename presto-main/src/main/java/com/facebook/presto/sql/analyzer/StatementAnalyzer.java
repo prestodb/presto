@@ -73,6 +73,7 @@ import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -105,6 +106,7 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StartTransaction;
@@ -1443,18 +1445,24 @@ class StatementAnalyzer
             for (GroupingElement element : node.getGroupingElements()) {
                 try {
                     int product;
-                    if (element instanceof Cube) {
-                        int exponent = ((Cube) element).getColumns().size();
+                    if (element instanceof SimpleGroupBy) {
+                        product = 1;
+                    }
+                    else if (element instanceof Cube) {
+                        int exponent = element.getExpressions().size();
                         if (exponent > 30) {
                             throw new ArithmeticException();
                         }
                         product = 1 << exponent;
                     }
                     else if (element instanceof Rollup) {
-                        product = ((Rollup) element).getColumns().size() + 1;
+                        product = element.getExpressions().size() + 1;
+                    }
+                    else if (element instanceof GroupingSets) {
+                        product = ((GroupingSets) element).getSets().size();
                     }
                     else {
-                        product = element.enumerateGroupingSets().size();
+                        throw new UnsupportedOperationException("Unsupported grouping element type: " + element.getClass().getName());
                     }
                     crossProduct = Math.multiplyExact(crossProduct, product);
                 }
@@ -1475,6 +1483,17 @@ class StatementAnalyzer
 
             if (node.getGroupBy().isPresent()) {
                 checkGroupingSetsCount(node.getGroupBy().get());
+
+                node.getGroupBy().get().getGroupingElements().stream()
+                        .filter(element -> !(element instanceof SimpleGroupBy)) // Only SimpleGroupBy allows complex expressions (a deviation from the SQL specification)
+                        .flatMap(element -> element.getExpressions().stream())
+                        .forEach(column -> {
+                            analyzeExpression(column, scope);
+                            if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
+                                throw new SemanticException(SemanticErrorCode.MUST_BE_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
+                            }
+                        });
+
                 List<List<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().get().getGroupingElements().stream()
                         .map(GroupingElement::enumerateGroupingSets)
                         .collect(toImmutableList());

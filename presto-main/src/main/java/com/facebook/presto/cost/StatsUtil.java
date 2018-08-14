@@ -28,7 +28,7 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 
@@ -46,7 +46,7 @@ final class StatsUtil
     static OptionalDouble toStatsRepresentation(FunctionRegistry functionRegistry, ConnectorSession session, Type type, Object value)
     {
         if (convertibleToDoubleWithCast(type)) {
-            FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionRegistry);
             Signature castSignature = functionRegistry.getCoercion(type, DoubleType.DOUBLE);
             return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session, singletonList(value)));
         }

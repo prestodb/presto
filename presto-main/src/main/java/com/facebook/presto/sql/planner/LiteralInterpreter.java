@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BinaryLiteral;
@@ -66,12 +66,12 @@ public final class LiteralInterpreter
             extends AstVisitor<Object, ConnectorSession>
     {
         private final Metadata metadata;
-        private final FunctionInvoker functionInvoker;
+        private final InterpretedFunctionInvoker functionInvoker;
 
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
-            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
         }
 
         @Override

@@ -22,43 +22,20 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
-import com.facebook.presto.cost.AggregationStatsRule;
-import com.facebook.presto.cost.AssignUniqueIdStatsRule;
-import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
-import com.facebook.presto.cost.ComposableStatsCalculator;
-import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.EnforceSingleRowStatsRule;
-import com.facebook.presto.cost.ExchangeStatsRule;
-import com.facebook.presto.cost.FilterStatsCalculator;
-import com.facebook.presto.cost.FilterStatsRule;
-import com.facebook.presto.cost.JoinStatsRule;
-import com.facebook.presto.cost.LimitStatsRule;
-import com.facebook.presto.cost.OutputStatsRule;
-import com.facebook.presto.cost.ProjectStatsRule;
-import com.facebook.presto.cost.ScalarStatsCalculator;
-import com.facebook.presto.cost.SelectingStatsCalculator;
-import com.facebook.presto.cost.SelectingStatsCalculator.New;
-import com.facebook.presto.cost.SemiJoinStatsRule;
-import com.facebook.presto.cost.SimpleFilterProjectSemiJoinStatsRule;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.cost.StatsNormalizer;
-import com.facebook.presto.cost.TableScanStatsRule;
-import com.facebook.presto.cost.UnionStatsRule;
-import com.facebook.presto.cost.ValuesStatsRule;
+import com.facebook.presto.cost.StatsCalculatorModule;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
+import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.QueryPerformanceFetcher;
-import com.facebook.presto.execution.QueryPerformanceFetcherProvider;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -77,7 +54,7 @@ import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -110,7 +87,6 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
@@ -156,7 +132,6 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
@@ -164,8 +139,6 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -178,8 +151,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -188,6 +159,7 @@ import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.Networ
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -221,11 +193,8 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
-
             // Install no-op session supplier on workers, since only coordinators create sessions.
             binder.bind(SessionSupplier.class).to(NoOpSessionSupplier.class).in(Scopes.SINGLETON);
 
@@ -235,15 +204,14 @@ public class ServerMainModule
             // Install no-op transaction manager on workers, since only coordinators manage transactions.
             binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
 
+            // Install no-op failure detector on workers, since only coordinators need global node selection.
+            binder.bind(FailureDetector.class).to(NoOpFailureDetector.class).in(Scopes.SINGLETON);
+
             // HACK: this binding is needed by SystemConnectorModule, but will only be used on the coordinator
             binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
                 throw new UnsupportedOperationException();
             }));
         }
-
-        // discovery server
-        // TODO: move to CoordinatorModule
-        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         install(new InternalCommunicationModule());
 
@@ -253,8 +221,6 @@ public class ServerMainModule
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
 
-        bindFailureDetector(binder, serverConfig.isCoordinator());
-
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
         configBinder(binder).bindConfig(QueryManagerConfig.class);
@@ -262,6 +228,8 @@ public class ServerMainModule
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
+
+        newOptionalBinder(binder, ExplainAnalyzeContext.class);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
@@ -343,8 +311,6 @@ public class ServerMainModule
         configBinder(binder).bindConfig(TaskManagerConfig.class);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
-        binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AsyncHttpExecutionMBean.class).withGeneratedName();
         binder.bind(JoinFilterFunctionCompiler.class).in(Scopes.SINGLETON);
@@ -404,8 +370,7 @@ public class ServerMainModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
         // statistics calculator
-        binder.bind(StatsCalculator.class).annotatedWith(SelectingStatsCalculator.Old.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
-        binder.bind(StatsCalculator.class).to(SelectingStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.install(new StatsCalculatorModule());
 
         // cost calculator
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
@@ -507,34 +472,6 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    @New
-    public static StatsCalculator createNewStatsCalculator(Metadata metadata)
-    {
-        StatsNormalizer normalizer = new StatsNormalizer();
-        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
-        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, normalizer);
-
-        ImmutableList.Builder<Rule<?>> rules = ImmutableList.builder();
-        rules.add(new OutputStatsRule());
-        rules.add(new TableScanStatsRule(metadata, normalizer));
-        rules.add(new SimpleFilterProjectSemiJoinStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
-        rules.add(new FilterStatsRule(filterStatsCalculator));
-        rules.add(new ValuesStatsRule(metadata));
-        rules.add(new LimitStatsRule(normalizer));
-        rules.add(new EnforceSingleRowStatsRule(normalizer));
-        rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
-        rules.add(new ExchangeStatsRule(normalizer));
-        rules.add(new JoinStatsRule(filterStatsCalculator, normalizer));
-        rules.add(new AggregationStatsRule(normalizer));
-        rules.add(new UnionStatsRule(normalizer));
-        rules.add(new AssignUniqueIdStatsRule());
-        rules.add(new SemiJoinStatsRule());
-
-        return new ComposableStatsCalculator(rules.build());
-    }
-
-    @Provides
-    @Singleton
     @ForExchange
     public static ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
     {
@@ -563,58 +500,6 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForStatementResource
-    public static ExecutorService createStatementResponseCoreExecutor()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("statement-response-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForStatementResource
-    public static BoundedExecutor createStatementResponseExecutor(@ForStatementResource ExecutorService coreExecutor, TaskManagerConfig config)
-    {
-        return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
-    }
-
-    @Provides
-    @Singleton
-    @ForStatementResource
-    public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
-    {
-        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
-    }
-
-    private static void bindFailureDetector(Binder binder, boolean coordinator)
-    {
-        // TODO: this is a hack until the coordinator module works correctly
-        if (coordinator) {
-            binder.install(new FailureDetectorModule());
-            jaxrsBinder(binder).bind(NodeResource.class);
-            jaxrsBinder(binder).bind(WorkerResource.class);
-            httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
-        }
-        else {
-            binder.bind(FailureDetector.class).toInstance(new FailureDetector()
-            {
-                @Override
-                public Set<ServiceDescriptor> getFailed()
-                {
-                    return ImmutableSet.of();
-                }
-
-                @Override
-                public State getState(HostAddress hostAddress)
-                {
-                    // failure detector is not available on workers
-                    return State.UNKNOWN;
-                }
-            });
-        }
     }
 
     public static class ExecutorCleanup

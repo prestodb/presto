@@ -11,29 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.failureDetector;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
+import com.facebook.presto.spi.HostAddress;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.discovery.client.ServiceDescriptor;
 
-import java.util.Optional;
+import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
-
-public class QueryPerformanceFetcherProvider
-        implements Provider<Optional<QueryPerformanceFetcher>>
+public class NoOpFailureDetector
+        implements FailureDetector
 {
-    private final QueryManager queryManager;
-
-    @Inject
-    public QueryPerformanceFetcherProvider(QueryManager queryManager)
+    @Override
+    public Set<ServiceDescriptor> getFailed()
     {
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        return ImmutableSet.of();
     }
 
     @Override
-    public Optional<QueryPerformanceFetcher> get()
+    public State getState(HostAddress hostAddress)
     {
-        return Optional.of(queryManager::getQueryInfo);
+        return State.UNKNOWN;
     }
 }

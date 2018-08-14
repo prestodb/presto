@@ -61,7 +61,6 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -175,33 +174,27 @@ public abstract class AbstractMinMaxBy
         Parameter key = arg("key", Block.class);
         Parameter position = arg("position", int.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "input", type(void.class), state, value, key, position);
-        if (keyType.equals(UNKNOWN)) {
-            method.getBody().ret();
-            return;
-        }
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
 
         BytecodeBlock ifBlock = new BytecodeBlock()
                 .append(state.invoke("setFirst", void.class, keySqlType.getValue(key, position)))
                 .append(state.invoke("setFirstNull", void.class, constantBoolean(false)))
                 .append(state.invoke("setSecondNull", void.class, value.invoke("isNull", boolean.class, position)));
-        if (!valueType.equals(UNKNOWN)) {
-            BytecodeNode setValueNode;
-            if (valueType.getJavaType().isPrimitive()) {
-                SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
-                setValueNode = state.invoke("setSecond", void.class, valueSqlType.getValue(value, position));
-            }
-            else {
-                // Do not get value directly given it creates object overhead.
-                // Such objects would live long enough in Block or SliceBigArray to cause GC pressure.
-                setValueNode = new BytecodeBlock()
-                        .append(state.invoke("setSecondBlock", void.class, value))
-                        .append(state.invoke("setSecondPosition", void.class, position));
-            }
-            ifBlock.append(new IfStatement()
-                    .condition(value.invoke("isNull", boolean.class, position))
-                    .ifFalse(setValueNode));
+        BytecodeNode setValueNode;
+        if (valueType.getJavaType().isPrimitive()) {
+            SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
+            setValueNode = state.invoke("setSecond", void.class, valueSqlType.getValue(value, position));
         }
+        else {
+            // Do not get value directly given it creates object overhead.
+            // Such objects would live long enough in Block or SliceBigArray to cause GC pressure.
+            setValueNode = new BytecodeBlock()
+                    .append(state.invoke("setSecondBlock", void.class, value))
+                    .append(state.invoke("setSecondPosition", void.class, position));
+        }
+        ifBlock.append(new IfStatement()
+                .condition(value.invoke("isNull", boolean.class, position))
+                .ifFalse(setValueNode));
 
         method.getBody().append(new IfStatement()
                 .condition(or(
@@ -218,10 +211,6 @@ public abstract class AbstractMinMaxBy
         Parameter state = arg("state", stateClass);
         Parameter otherState = arg("otherState", stateClass);
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "combine", type(void.class), state, otherState);
-        if (keyType.equals(UNKNOWN)) {
-            method.getBody().ret();
-            return;
-        }
 
         Class<?> keyJavaType = keyType.getJavaType();
 
@@ -229,15 +218,13 @@ public abstract class AbstractMinMaxBy
                 .append(state.invoke("setFirst", void.class, otherState.invoke("getFirst", keyJavaType)))
                 .append(state.invoke("setFirstNull", void.class, otherState.invoke("isFirstNull", boolean.class)))
                 .append(state.invoke("setSecondNull", void.class, otherState.invoke("isSecondNull", boolean.class)));
-        if (!valueType.equals(UNKNOWN)) {
-            if (valueType.getJavaType().isPrimitive()) {
-                ifBlock.append(state.invoke("setSecond", void.class, otherState.invoke("getSecond", valueType.getJavaType())));
-            }
-            else {
-                ifBlock.append(new BytecodeBlock()
-                        .append(state.invoke("setSecondBlock", void.class, otherState.invoke("getSecondBlock", Block.class)))
-                        .append(state.invoke("setSecondPosition", void.class, otherState.invoke("getSecondPosition", int.class))));
-            }
+        if (valueType.getJavaType().isPrimitive()) {
+            ifBlock.append(state.invoke("setSecond", void.class, otherState.invoke("getSecond", valueType.getJavaType())));
+        }
+        else {
+            ifBlock.append(new BytecodeBlock()
+                    .append(state.invoke("setSecondBlock", void.class, otherState.invoke("getSecondBlock", Block.class)))
+                    .append(state.invoke("setSecondPosition", void.class, otherState.invoke("getSecondPosition", int.class))));
         }
 
         method.getBody()
@@ -260,17 +247,15 @@ public abstract class AbstractMinMaxBy
         IfStatement ifStatement = new IfStatement()
                 .condition(or(state.invoke("isFirstNull", boolean.class), state.invoke("isSecondNull", boolean.class)))
                 .ifTrue(new BytecodeBlock().append(out.invoke("appendNull", BlockBuilder.class)).pop());
-        if (!valueType.equals(UNKNOWN)) {
-            SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
-            BytecodeExpression getValueExpression;
-            if (valueType.getJavaType().isPrimitive()) {
-                getValueExpression = state.invoke("getSecond", valueType.getJavaType());
-            }
-            else {
-                getValueExpression = valueSqlType.getValue(state.invoke("getSecondBlock", Block.class), state.invoke("getSecondPosition", int.class));
-            }
-            ifStatement.ifFalse(valueSqlType.writeValue(out, getValueExpression));
+        SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
+        BytecodeExpression getValueExpression;
+        if (valueType.getJavaType().isPrimitive()) {
+            getValueExpression = state.invoke("getSecond", valueType.getJavaType());
         }
+        else {
+            getValueExpression = valueSqlType.getValue(state.invoke("getSecondBlock", Block.class), state.invoke("getSecondPosition", int.class));
+        }
+        ifStatement.ifFalse(valueSqlType.writeValue(out, getValueExpression));
         method.getBody().append(ifStatement).ret();
     }
 }

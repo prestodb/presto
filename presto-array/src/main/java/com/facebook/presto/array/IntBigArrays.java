@@ -99,7 +99,7 @@ public class IntBigArrays
      * @param to the index of the last element (exclusive) to be sorted.
      * @param comp the comparator to determine the sorting order.
      */
-    @SuppressWarnings({"checkstyle:InnerAssignment"})
+    @SuppressWarnings("checkstyle:InnerAssignment")
     public static void quickSort(final int[][] x, final long from, final long to, final IntComparator comp)
     {
         final long len = to - from;

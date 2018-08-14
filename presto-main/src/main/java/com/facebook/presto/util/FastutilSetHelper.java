@@ -40,7 +40,7 @@ public final class FastutilSetHelper
 {
     private FastutilSetHelper() {}
 
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings("unchecked")
     public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
     {
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),

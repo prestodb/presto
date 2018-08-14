@@ -93,6 +93,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_COLUMN_REFERENCE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NONDETERMINISTIC_ORDER_BY_EXPRESSION_WITH_SELECT_DISTINCT;
@@ -930,6 +931,36 @@ public class TestAnalyzer
     public void testGroupByEmpty()
     {
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a FROM t1 GROUP BY ()");
+    }
+
+    @Test
+    public void testComplexExpressionInGroupingSet()
+    {
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:49: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY ROLLUP(x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:47: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY CUBE(x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:57: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY GROUPING SETS (x + 1)");
+
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:52: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY ROLLUP(x, x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:50: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY CUBE(x, x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:60: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY GROUPING SETS (x, x + 1)");
     }
 
     @Test

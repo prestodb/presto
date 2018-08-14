@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 
 @Test(singleThreaded = true)
 public class TestTypeValidator
@@ -197,7 +198,7 @@ public class TestTypeValidator
                                 ImmutableList.of(DOUBLE.getTypeSignature()),
                                 false),
                         Optional.empty())),
-                ImmutableList.of(ImmutableList.of(columnA, columnB)),
+                singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
@@ -255,7 +256,7 @@ public class TestTypeValidator
                                 ImmutableList.of(DOUBLE.getTypeSignature()),
                                 false),
                         Optional.empty())),
-                ImmutableList.of(ImmutableList.of(columnA, columnB)),
+                singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
@@ -283,7 +284,7 @@ public class TestTypeValidator
                                 ImmutableList.of(DOUBLE.getTypeSignature()),
                                 false),
                         Optional.empty())),
-                ImmutableList.of(ImmutableList.of(columnA, columnB)),
+                singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),

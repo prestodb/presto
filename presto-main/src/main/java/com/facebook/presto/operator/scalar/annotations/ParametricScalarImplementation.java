@@ -112,7 +112,7 @@ public class ParametricScalarImplementation
         this.returnNativeContainerType = requireNonNull(returnContainerType, "return native container type is null");
 
         for (int i = 1; i < choices.size(); i++) {
-            checkCondition(Objects.equals(choices.get(i).getDependencies(), choices.get(0).getDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching dependencies: %s", signature);
+            checkCondition(Objects.equals(choices.get(i).checkDependencies(), choices.get(0).checkDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching dependencies: %s", signature);
             checkCondition(Objects.equals(choices.get(i).getConstructorDependencies(), choices.get(0).getConstructorDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructor dependencies: %s", signature);
             checkCondition(Objects.equals(choices.get(i).getConstructor(), choices.get(0).getConstructor()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructors: %s", signature);
         }
@@ -295,6 +295,16 @@ public class ParametricScalarImplementation
             return dependencies;
         }
 
+        public boolean checkDependencies()
+        {
+            for (int i = 1; i < getDependencies().size(); i++) {
+                if (!getDependencies().get(i).equals(getDependencies().get(0))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         @VisibleForTesting
         List<ImplementationDependency> getConstructorDependencies()
         {
@@ -445,6 +455,7 @@ public class ParametricScalarImplementation
                     // check if only declared typeParameters and literalParameters are used
                     validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
                     dependencies.add(createDependency(implementationDependency.get(), literalParameters));
+
                     i++;
                 }
                 else {

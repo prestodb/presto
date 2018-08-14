@@ -188,7 +188,7 @@ public class IndexLookup
                 }
             }
             else {
-                LOG.warn("Query containts constraint on non-indexed column %s. Is it worth indexing?", columnConstraint.getName());
+                LOG.warn("Query contains constraint on non-indexed column %s. Is it worth indexing?", columnConstraint.getName());
             }
         }
         return builder.build();

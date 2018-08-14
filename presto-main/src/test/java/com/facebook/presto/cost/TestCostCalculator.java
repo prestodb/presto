@@ -58,6 +58,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -392,7 +393,7 @@ public class TestCostCalculator
                 new PlanNodeId(id),
                 source,
                 ImmutableMap.of(new Symbol("count"), aggregation),
-                ImmutableList.of(source.getOutputSymbols()),
+                singleGroupingSet(source.getOutputSymbols()),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
