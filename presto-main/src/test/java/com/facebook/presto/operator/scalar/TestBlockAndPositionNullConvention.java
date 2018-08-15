@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -82,7 +83,6 @@ public class TestBlockAndPositionNullConvention
         private static final AtomicBoolean hitBlockPositionBoolean = new AtomicBoolean();
         private static final AtomicBoolean hitBlockPositionObject = new AtomicBoolean();
 
-        /*
         // generic implementations
         // these will not work right now because MethodHandle is not properly adapted
 
@@ -100,9 +100,8 @@ public class TestBlockAndPositionNullConvention
         public static Object generic(@TypeParameter("E") Type type, @BlockPosition @SqlType("E") Block block, @BlockIndex int position)
         {
             hitBlockPositionObject.set(true);
-            return TypeUtils.readNativeValue(type, block, position);
+            return readNativeValue(type, block, position);
         }
-        */
 
         // specialized
 
