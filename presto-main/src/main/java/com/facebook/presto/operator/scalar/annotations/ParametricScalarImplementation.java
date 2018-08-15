@@ -150,10 +150,22 @@ public class ParametricScalarImplementation
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            MethodHandle boundMethodHandle = bindDependencies(choice.methodHandle, choice.getDependencies(), boundVariables, typeManager, functionRegistry);
-            Optional<MethodHandle> boundConstructor = choice.constructor.map(handle -> bindDependencies(handle, choice.getConstructorDependencies(), boundVariables, typeManager, functionRegistry));
+            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionRegistry);
+            Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
+                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionRegistry);
+                checkCondition(
+                        result.type().parameterList().isEmpty(),
+                        FUNCTION_IMPLEMENTATION_ERROR,
+                        "All parameters of a constructor in a function definition class must be Dependencies. Signature: %s",
+                        boundSignature);
+                return result;
+            });
 
-            implementationChoices.add(new ScalarImplementationChoice(choice.nullable, choice.argumentProperties, boundMethodHandle, boundConstructor));
+            implementationChoices.add(new ScalarImplementationChoice(
+                    choice.nullable,
+                    choice.argumentProperties,
+                    boundMethodHandle,
+                    boundConstructor));
         }
         return Optional.of(new ScalarFunctionImplementation(implementationChoices, isDeterministic));
     }
