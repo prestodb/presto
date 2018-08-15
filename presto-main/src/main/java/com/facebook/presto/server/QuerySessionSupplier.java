@@ -114,7 +114,7 @@ public class QuerySessionSupplier
     public void setConfigurationManager(String name, Map<String, String> properties)
     {
         SessionPropertyConfigurationManagerFactory factory = sessionPropertyConfigurationManagerFactories.get(name);
-        checkState(factory != null, "Session property configuration manager %s is not registered");
+        checkState(factory != null, "Session property configuration manager '%s' is not registered", name);
 
         SessionPropertyConfigurationManager manager = factory.create(properties, configurationManagerContext);
         checkState(sessionPropertyConfigurationManager.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");
