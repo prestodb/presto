@@ -109,8 +109,6 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
-        assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
-        assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
 
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
         ResourceGroup sub = new TestingResourceGroup(subId);
@@ -121,8 +119,6 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);
         assertEquals(sub.getJmxExport(), false);
-        assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
-        assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
     }
 
     @Test
