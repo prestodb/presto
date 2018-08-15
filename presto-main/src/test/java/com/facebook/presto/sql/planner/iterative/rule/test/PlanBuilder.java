@@ -232,7 +232,7 @@ public class PlanBuilder
     {
         private PlanNode source;
         private Map<Symbol, Aggregation> assignments = new HashMap<>();
-        private List<List<Symbol>> groupingSets = new ArrayList<>();
+        private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
@@ -270,24 +270,20 @@ public class PlanBuilder
 
         public AggregationBuilder globalGrouping()
         {
-            return groupingSets(ImmutableList.of(ImmutableList.of()));
-        }
-
-        public AggregationBuilder groupingSets(List<List<Symbol>> groupingSets)
-        {
-            checkState(this.groupingSets.isEmpty(), "groupingSets already defined");
-            this.groupingSets.addAll(groupingSets);
+            groupingSets(AggregationNode.singleGroupingSet(ImmutableList.of()));
             return this;
         }
 
-        public AggregationBuilder addGroupingSet(Symbol... symbols)
+        public AggregationBuilder singleGroupingSet(Symbol... symbols)
         {
-            return addGroupingSet(ImmutableList.copyOf(symbols));
+            groupingSets(AggregationNode.singleGroupingSet(ImmutableList.copyOf(symbols)));
+            return this;
         }
 
-        public AggregationBuilder addGroupingSet(List<Symbol> symbols)
+        public AggregationBuilder groupingSets(AggregationNode.GroupingSetDescriptor groupingSets)
         {
-            groupingSets.add(ImmutableList.copyOf(symbols));
+            checkState(this.groupingSets == null, "groupingSets already defined");
+            this.groupingSets = groupingSets;
             return this;
         }
 
@@ -318,7 +314,7 @@ public class PlanBuilder
 
         protected AggregationNode build()
         {
-            checkState(!groupingSets.isEmpty(), "No grouping sets defined; use globalGrouping/addGroupingSet/addEmptyGroupingSet method");
+            checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
                     idAllocator.getNextId(),
                     source,
@@ -420,7 +416,7 @@ public class PlanBuilder
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
                 deleteHandle,
-                ImmutableList.of(deleteRowId),
+                deleteRowId,
                 Optional.empty(),
                 Optional.empty());
     }
@@ -669,9 +665,10 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 new TestingWriterTarget(),
+                symbol("partialrows", BIGINT),
+                symbol("fragment", VARBINARY),
                 columns,
                 columnNames,
-                ImmutableList.of(symbol("partialrows", BIGINT), symbol("fragment", VARBINARY)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

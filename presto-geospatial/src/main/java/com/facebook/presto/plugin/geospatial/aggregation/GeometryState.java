@@ -11,27 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.plugin.geospatial.aggregation;
 
-import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.spi.HostAddress;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.discovery.client.ServiceDescriptor;
+import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
-import java.util.Set;
-
-public class NoOpFailureDetector
-        implements FailureDetector
+@AccumulatorStateMetadata(stateSerializerClass = GeometryStateSerializer.class, stateFactoryClass = GeometryStateFactory.class)
+public interface GeometryState
+        extends AccumulatorState
 {
-    @Override
-    public Set<ServiceDescriptor> getFailed()
-    {
-        return ImmutableSet.of();
-    }
+    OGCGeometry getGeometry();
 
-    @Override
-    public State getState(HostAddress hostAddress)
-    {
-        return State.UNKNOWN;
-    }
+    void setGeometry(OGCGeometry geometry);
 }

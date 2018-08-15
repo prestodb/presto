@@ -45,7 +45,8 @@ public final class SimpleGroupBy
         this.columns = ImmutableList.copyOf(requireNonNull(simpleGroupByExpressions, "simpleGroupByExpressions is null"));
     }
 
-    public List<Expression> getColumnExpressions()
+    @Override
+    public List<Expression> getExpressions()
     {
         return columns;
     }

@@ -63,6 +63,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -201,7 +202,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countMatchesSymbol, countWithFilter(matchCondition))
                         .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
                         .build(),
-                ImmutableList.of(probeSide.getOutputSymbols()),
+                singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),

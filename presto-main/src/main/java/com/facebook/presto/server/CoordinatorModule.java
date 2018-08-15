@@ -26,6 +26,7 @@ import com.facebook.presto.execution.DropColumnTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
+import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
 import com.facebook.presto.execution.PrepareTask;
@@ -34,6 +35,7 @@ import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameSchemaTask;
@@ -46,6 +48,7 @@ import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
@@ -54,6 +57,7 @@ import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.memory.LowMemoryKiller;
@@ -62,6 +66,7 @@ import com.facebook.presto.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
 import com.facebook.presto.memory.NoneLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
@@ -94,16 +99,24 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Use;
+import com.facebook.presto.transaction.ForTransactionManager;
+import com.facebook.presto.transaction.InMemoryTransactionManager;
+import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -115,6 +128,7 @@ import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionF
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -123,6 +137,7 @@ import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -137,6 +152,9 @@ public class CoordinatorModule
         httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
         httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
 
+        // discovery server
+        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
+
         // presto coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
 
@@ -145,9 +163,17 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jaxrsBinder(binder).bind(StatementResource.class);
+        binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
 
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);
+
+        // failure detector
+        binder.install(new FailureDetectorModule());
+        jaxrsBinder(binder).bind(NodeResource.class);
+        jaxrsBinder(binder).bind(WorkerResource.class);
+        httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
@@ -186,6 +212,9 @@ public class CoordinatorModule
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
+
+        // explain analyze
+        binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);
 
         // execution scheduler
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
@@ -255,6 +284,64 @@ public class CoordinatorModule
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }
 
+    @Provides
+    @Singleton
+    public static QueryPerformanceFetcher createQueryPerformanceFetcher(QueryManager queryManager)
+    {
+        return queryManager::getQueryInfo;
+    }
+
+    @Provides
+    @Singleton
+    @ForStatementResource
+    public static ExecutorService createStatementResponseCoreExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("statement-response-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForStatementResource
+    public static BoundedExecutor createStatementResponseExecutor(@ForStatementResource ExecutorService coreExecutor, TaskManagerConfig config)
+    {
+        return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
+    }
+
+    @Provides
+    @Singleton
+    @ForStatementResource
+    public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
+    {
+        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
+    {
+        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ExecutorService createTransactionFinishingExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
+    }
+
+    @Provides
+    @Singleton
+    public static TransactionManager createTransactionManager(
+            TransactionManagerConfig config,
+            CatalogManager catalogManager,
+            @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
+            @ForTransactionManager ExecutorService finishingExecutor)
+    {
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+    }
+
     private static <T extends Statement> void bindDataDefinitionTask(
             Binder binder,
             MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder,
@@ -283,12 +370,20 @@ public class CoordinatorModule
 
         @Inject
         public ExecutorCleanup(
+                @ForStatementResource ExecutorService statementResponseExecutor,
+                @ForStatementResource ScheduledExecutorService statementTimeoutExecutor,
                 @ForQueryExecution ExecutorService queryExecutionExecutor,
-                @ForScheduler ScheduledExecutorService schedulerExecutor)
+                @ForScheduler ScheduledExecutorService schedulerExecutor,
+                @ForTransactionManager ExecutorService transactionFinishingExecutor,
+                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
         {
             executors = ImmutableList.<ExecutorService>builder()
+                    .add(statementResponseExecutor)
+                    .add(statementTimeoutExecutor)
                     .add(queryExecutionExecutor)
                     .add(schedulerExecutor)
+                    .add(transactionFinishingExecutor)
+                    .add(transactionIdleExecutor)
                     .build();
         }
 

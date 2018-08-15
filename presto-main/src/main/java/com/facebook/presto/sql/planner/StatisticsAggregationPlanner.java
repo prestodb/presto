@@ -68,7 +68,7 @@ public class StatisticsAggregationPlanner
                 .collect(toImmutableList());
 
         for (int i = 0; i < groupingSymbols.size(); i++) {
-            descriptor.addGrouping(groupingSymbols.get(i), groupingColumns.get(i));
+            descriptor.addGrouping(groupingColumns.get(i), groupingSymbols.get(i));
         }
 
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
@@ -84,7 +84,7 @@ public class StatisticsAggregationPlanner
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
-            descriptor.addTableStatistic(symbol, ROW_COUNT);
+            descriptor.addTableStatistic(ROW_COUNT, symbol);
         }
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
@@ -97,7 +97,7 @@ public class StatisticsAggregationPlanner
             ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
             Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
-            descriptor.addColumnStatistic(symbol, columnStatisticMetadata);
+            descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
 
         StatisticAggregations aggregation = new StatisticAggregations(aggregations.build(), groupingSymbols);

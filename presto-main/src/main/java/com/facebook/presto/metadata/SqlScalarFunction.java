@@ -39,8 +39,8 @@ public abstract class SqlScalarFunction
 
     public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
-    public static SqlScalarFunctionBuilder builder(Class<?> clazz)
+    public static PolymorphicScalarFunctionBuilder builder(Class<?> clazz)
     {
-        return new SqlScalarFunctionBuilder(clazz);
+        return new PolymorphicScalarFunctionBuilder(clazz);
     }
 }

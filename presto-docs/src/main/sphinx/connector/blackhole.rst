@@ -68,7 +68,7 @@ Now query it::
 
 The above query will return 1,000,000,000.
 
-Length of variable length columns can be controled using ``field_length``
+Length of variable length columns can be controlled using ``field_length``
 table property (default value is equal to 16)::
 
     CREATE TABLE blackhole.test.nation (

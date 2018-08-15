@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.spi.InvocationConvention;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency
 {
-    public FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
     {
-        super(internalScalarFunction(name, returnType, argumentTypes));
+        super(internalScalarFunction(name, returnType, argumentTypes), invocationConvention);
     }
 }

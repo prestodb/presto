@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -49,13 +48,13 @@ public class AggregationStatsRule
     @Override
     protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
     {
-        if (node.getGroupingSets().size() != 1) {
+        if (node.getGroupingSetCount() != 1) {
             return Optional.empty();
         }
 
         return Optional.of(groupBy(
                 statsProvider.getStats(node.getSource()),
-                getOnlyElement(node.getGroupingSets()),
+                node.getGroupingKeys(),
                 node.getAggregations()));
     }
 

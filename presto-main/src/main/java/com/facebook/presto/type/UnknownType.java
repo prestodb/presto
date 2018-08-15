@@ -95,4 +95,14 @@ public final class UnknownType
         checkArgument(block.isNull(position));
         return false;
     }
+
+    @Deprecated
+    @Override
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
+    {
+        // Ideally, this function should never be invoked for unknown type.
+        // However, some logic (e.g. AbstractMinMaxBy) rely on writing a default value before the null check.
+        checkArgument(!value);
+        blockBuilder.appendNull();
+    }
 }

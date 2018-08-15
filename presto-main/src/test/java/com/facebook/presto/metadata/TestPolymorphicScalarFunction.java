@@ -90,42 +90,6 @@ public class TestPolymorphicScalarFunction
     }
 
     @Test
-    public void testSelectsFirstMethodBasedOnPredicate()
-            throws Throwable
-    {
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
-                .signature(SIGNATURE)
-                .deterministic(true)
-                .implementation(b -> b
-                        .methods("varcharToBigint")
-                        .withPredicate(context -> true))
-                .implementation(b -> b.methods("varcharToBigintReturnExtraParameter"))
-                .build();
-
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, REGISTRY);
-
-        assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), VARCHAR_TO_BIGINT_RETURN_VALUE);
-    }
-
-    @Test
-    public void testSelectsSecondMethodBasedOnPredicate()
-            throws Throwable
-    {
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
-                .signature(SIGNATURE)
-                .deterministic(true)
-                .implementation(b -> b
-                        .methods("varcharToBigintReturnExtraParameter")
-                        .withPredicate(context -> false))
-                .implementation(b -> b.methods("varcharToBigint"))
-                .build();
-
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, REGISTRY);
-
-        assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), VARCHAR_TO_BIGINT_RETURN_VALUE);
-    }
-
-    @Test
     public void testSameLiteralInArgumentsAndReturnValue()
             throws Throwable
     {
@@ -222,24 +186,6 @@ public class TestPolymorphicScalarFunction
                 .deterministic(true)
                 .implementation(b -> b.methods("varcharToBigintReturnFirstExtraParameter"))
                 .implementation(b -> b.methods("varcharToBigintReturnExtraParameter"))
-                .build();
-
-        function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, REGISTRY);
-    }
-
-    @Test(expectedExceptions = {IllegalStateException.class},
-            expectedExceptionsMessageRegExp = "two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]")
-    public void testFailIfTwoMethodsWithPredicatesWithSameArguments()
-    {
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
-                .signature(SIGNATURE)
-                .deterministic(true)
-                .implementation(b -> b
-                        .methods("varcharToBigintReturnFirstExtraParameter")
-                        .withPredicate(context -> true))
-                .implementation(b -> b
-                        .methods("varcharToBigintReturnExtraParameter")
-                        .withPredicate(context -> true))
                 .build();
 
         function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, REGISTRY);

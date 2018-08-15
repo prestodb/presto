@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -21,9 +22,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -41,16 +45,18 @@ import static java.util.Objects.requireNonNull;
 public class SliceStreamReader
         implements StreamReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceStreamReader.class).instanceSize();
+
     private final StreamDescriptor streamDescriptor;
     private final SliceDirectStreamReader directReader;
     private final SliceDictionaryStreamReader dictionaryReader;
     private StreamReader currentReader;
 
-    public SliceStreamReader(StreamDescriptor streamDescriptor)
+    public SliceStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new SliceDirectStreamReader(streamDescriptor);
-        dictionaryReader = new SliceDictionaryStreamReader(streamDescriptor);
+        dictionaryReader = new SliceDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(SliceStreamReader.class.getSimpleName()));
     }
 
     @Override
@@ -113,5 +119,23 @@ public class SliceStreamReader
             truncatedLength = byteCountWithoutTrailingSpace(slice, offset, length, ((CharType) type).getLength());
         }
         return truncatedLength;
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> directReader.close());
+            closer.register(() -> dictionaryReader.close());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + dictionaryReader.getRetainedSizeInBytes();
     }
 }

@@ -54,14 +54,17 @@ public final class ScalarFunctionImplementation
             Optional<MethodHandle> instanceFactory,
             boolean deterministic)
     {
-         this (ImmutableList.of(new ScalarImplementationChoice(nullable, argumentProperties, methodHandle, instanceFactory)), deterministic);
+        this (ImmutableList.of(new ScalarImplementationChoice(nullable, argumentProperties, methodHandle, instanceFactory)), deterministic);
     }
 
     /**
-     * @param choices - must be ordered from generic to specific.
-     * First choice is the default choice, which is the choice that is returned when legacy access method is used.
-     * The default choice must be usable for any invocation.
-     * @param deterministic
+     * Creates a ScalarFunctionImplementation consisting of one or more choices.
+     * <p>
+     * All choices must have the same SQL signature, and are equivalent in what they do.
+     * The first choice is the default choice, which is the one used for legacy access methods.
+     * The default choice must be usable under any context. (e.g. it must not use BLOCK_POSITION convention.)
+     *
+     * @param choices  the list of choices, ordered from generic to specific
      */
     public ScalarFunctionImplementation(List<ScalarImplementationChoice> choices, boolean deterministic)
     {
@@ -106,6 +109,7 @@ public final class ScalarFunctionImplementation
         private final List<ArgumentProperty> argumentProperties;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> instanceFactory;
+        private final boolean hasSession;
 
         public ScalarImplementationChoice(
                 boolean nullable,
@@ -125,6 +129,7 @@ public final class ScalarFunctionImplementation
             }
 
             List<Class<?>> parameterList = methodHandle.type().parameterList();
+            boolean hasSession = false;
             if (parameterList.contains(ConnectorSession.class)) {
                 checkArgument(parameterList.stream().filter(ConnectorSession.class::equals).count() == 1, "function implementation should have exactly one ConnectorSession parameter");
                 if (!instanceFactory.isPresent()) {
@@ -133,12 +138,19 @@ public final class ScalarFunctionImplementation
                 else {
                     checkArgument(parameterList.get(1) == ConnectorSession.class, "ConnectorSession must be the second argument when instanceFactory is present");
                 }
+                hasSession = true;
             }
+            this.hasSession = hasSession;
         }
 
         public boolean isNullable()
         {
             return nullable;
+        }
+
+        public List<ArgumentProperty> getArgumentProperties()
+        {
+            return argumentProperties;
         }
 
         public ArgumentProperty getArgumentProperty(int argumentIndex)
@@ -154,6 +166,11 @@ public final class ScalarFunctionImplementation
         public Optional<MethodHandle> getInstanceFactory()
         {
             return instanceFactory;
+        }
+
+        public boolean hasSession()
+        {
+            return hasSession;
         }
     }
 
@@ -174,7 +191,7 @@ public final class ScalarFunctionImplementation
             return new ArgumentProperty(FUNCTION_TYPE, Optional.empty(), Optional.of(lambdaInterface));
         }
 
-        private ArgumentProperty(ArgumentType argumentType, Optional<NullConvention> nullConvention, Optional<Class> lambdaInterface)
+        public ArgumentProperty(ArgumentType argumentType, Optional<NullConvention> nullConvention, Optional<Class> lambdaInterface)
         {
             switch (argumentType) {
                 case VALUE_TYPE:

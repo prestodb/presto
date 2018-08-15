@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
@@ -167,6 +168,11 @@ public class Assignments
     public boolean isEmpty()
     {
         return size() == 0;
+    }
+
+    public void forEach(BiConsumer<Symbol, Expression> consumer)
+    {
+        assignments.forEach(consumer);
     }
 
     @Override
