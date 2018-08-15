@@ -22,12 +22,19 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
@@ -68,6 +75,9 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
+import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
+import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
+import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -88,6 +98,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -141,6 +152,42 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE new_schema.test");
 
         assertUpdate("DROP SCHEMA new_schema");
+    }
+
+    @Test
+    public void testIOExplain()
+    {
+        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 10");
+
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM orders where orderkey > 5 AND custkey <= 10");
+        TableColumnInfo input = new TableColumnInfo(
+                new CatalogSchemaTableName("hive", "tpch", "orders"),
+                ImmutableSet.of(
+                        new ColumnConstraint(
+                                "custkey",
+                                BIGINT.getTypeSignature(),
+                                new FormattedDomain(
+                                        false,
+                                        ImmutableSet.of(
+                                                new FormattedRange(
+                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                        new ColumnConstraint(
+                                "orderkey",
+                                BIGINT.getTypeSignature(),
+                                new FormattedDomain(
+                                        false,
+                                        ImmutableSet.of(
+                                                new FormattedRange(
+                                                        new FormattedMarker(Optional.of("5"), ABOVE),
+                                                        new FormattedMarker(Optional.empty(), BELOW)))))));
+        assertEquals(
+                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlan(
+                        ImmutableSet.of(input),
+                        Optional.of(new CatalogSchemaTableName("hive", "tpch", "test_orders"))));
+
+        assertUpdate("DROP TABLE test_orders");
     }
 
     @Test
