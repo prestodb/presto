@@ -833,13 +833,13 @@ public class InternalResourceGroup
                 group.enforceTimeLimits();
             }
             for (QueryExecution query : runningQueries) {
-                Duration runningTime = query.getQueryInfo().getQueryStats().getExecutionTime();
+                Duration runningTime = query.getExecutionTime();
                 if (runningQueries.contains(query) && runningTime != null && runningTime.compareTo(runningTimeLimit) > 0) {
                     query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "query exceeded resource group runtime limit"));
                 }
             }
             for (QueryExecution query : queuedQueries) {
-                Duration elapsedTime = query.getQueryInfo().getQueryStats().getElapsedTime();
+                Duration elapsedTime = query.getElapsedTime();
                 if (queuedQueries.contains(query) && elapsedTime != null && elapsedTime.compareTo(queuedTimeLimit) > 0) {
                     query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "query exceeded resource group queued time limit"));
                 }

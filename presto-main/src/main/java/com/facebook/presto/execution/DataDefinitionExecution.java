@@ -180,6 +180,18 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public Duration getElapsedTime()
+    {
+        return stateMachine.getElpasedTime();
+    }
+
+    @Override
+    public Duration getExecutionTime()
+    {
+        return stateMachine.getExecutionTime();
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         // no-op

@@ -306,6 +306,27 @@ public class QueryStateMachine
         return getQueryInfo(Optional.empty());
     }
 
+    public Duration getElpasedTime()
+    {
+        if (endNanos.get() != 0) {
+            return new Duration(endNanos.get() - createNanos, NANOSECONDS);
+        }
+        else {
+            return nanosSince(createNanos);
+        }
+    }
+
+    public Duration getExecutionTime()
+    {
+        if (queuedTime.get() == null) {
+            // counter-intuitively, this means that the query is still queued
+            return new Duration(0, NANOSECONDS);
+        }
+        long executionNanos = (long) getElpasedTime().getValue(NANOSECONDS) -
+                (long) queuedTime.get().getValue(NANOSECONDS);
+        return succinctNanos(Math.max(0, executionNanos));
+    }
+
     public QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
     {
         // Query state must be captured first in order to provide a
@@ -314,13 +335,7 @@ public class QueryStateMachine
         // never be visible.
         QueryState state = queryState.get();
 
-        Duration elapsedTime;
-        if (endNanos.get() != 0) {
-            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
-        }
-        else {
-            elapsedTime = nanosSince(createNanos);
-        }
+        Duration elapsedTime = getElpasedTime();
 
         // don't report failure info is query is marked as success
         FailureInfo failureInfo = null;

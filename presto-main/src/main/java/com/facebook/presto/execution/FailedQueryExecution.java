@@ -155,6 +155,18 @@ public class FailedQueryExecution
     }
 
     @Override
+    public Duration getElapsedTime()
+    {
+        return new Duration(0, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public Duration getExecutionTime()
+    {
+        return new Duration(0, TimeUnit.SECONDS);
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         // no-op
