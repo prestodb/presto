@@ -161,7 +161,7 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM orders where orderkey > 5 AND custkey <= 10");
         TableColumnInfo input = new TableColumnInfo(
-                new CatalogSchemaTableName("hive", "tpch", "orders"),
+                new CatalogSchemaTableName(catalog, "tpch", "orders"),
                 ImmutableSet.of(
                         new ColumnConstraint(
                                 "custkey",
@@ -185,7 +185,7 @@ public class TestHiveIntegrationSmokeTest
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
                         ImmutableSet.of(input),
-                        Optional.of(new CatalogSchemaTableName("hive", "tpch", "test_orders"))));
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
     }
