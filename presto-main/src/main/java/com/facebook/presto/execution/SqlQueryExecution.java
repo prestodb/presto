@@ -237,6 +237,18 @@ public class SqlQueryExecution
     }
 
     @Override
+    public Duration getElapsedTime()
+    {
+        return stateMachine.getElpasedTime();
+    }
+
+    @Override
+    public Duration getExecutionTime()
+    {
+        return stateMachine.getExecutionTime();
+    }
+
+    @Override
     public Duration getTotalCpuTime()
     {
         SqlQueryScheduler scheduler = queryScheduler.get();

@@ -129,6 +129,18 @@ public class MemoryAwareQueryExecution
     }
 
     @Override
+    public Duration getElapsedTime()
+    {
+        return delegate.getElapsedTime();
+    }
+
+    @Override
+    public Duration getExecutionTime()
+    {
+        return delegate.getElapsedTime();
+    }
+
+    @Override
     public Session getSession()
     {
         return delegate.getSession();

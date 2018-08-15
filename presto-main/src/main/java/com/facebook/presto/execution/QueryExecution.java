@@ -66,6 +66,10 @@ public interface QueryExecution
 
     Duration getTotalCpuTime();
 
+    Duration getElapsedTime();
+
+    Duration getExecutionTime();
+
     Session getSession();
 
     void start();

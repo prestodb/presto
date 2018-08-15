@@ -32,6 +32,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_PRIORITY;
@@ -271,6 +272,18 @@ public class MockQueryExecution
     {
         state = FAILED;
         fireStateChange();
+    }
+
+    @Override
+    public Duration getElapsedTime()
+    {
+        return new Duration(0.0, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public Duration getExecutionTime()
+    {
+        return new Duration(0.0, TimeUnit.SECONDS);
     }
 
     @Override
