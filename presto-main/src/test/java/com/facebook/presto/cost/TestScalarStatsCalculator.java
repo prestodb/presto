@@ -351,14 +351,14 @@ public class TestScalarStatsCalculator
                 .distinctValuesCount(5)
                 .lowValue(-2)
                 .highValue(10)
-                .nullsFraction(0.02)
+                .nullsFraction(0.28)
                 .averageRowSize(2.0);
 
         assertCalculate(expression("coalesce(y, x)"), relationStats)
                 .distinctValuesCount(5)
                 .lowValue(-2)
                 .highValue(10)
-                .nullsFraction(0.02)
+                .nullsFraction(0.28)
                 .averageRowSize(2.0);
     }
 

@@ -280,7 +280,7 @@ public class ScalarStatsCalculator
                         .setHighValue(max(left.getHighValue(), right.getHighValue()))
                         .setDistinctValuesCount(left.getDistinctValuesCount() +
                                 min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
-                        .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
+                        .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                         // TODO check if dataSize estimation method is correct
                         .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
                         .build();
