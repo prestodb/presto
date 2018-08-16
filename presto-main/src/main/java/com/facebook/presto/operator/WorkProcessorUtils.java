@@ -72,7 +72,8 @@ public final class WorkProcessorUtils
 
                     return Optional.of(processor.getResult());
                 }
-                else if (processor.isBlocked()) {
+
+                if (processor.isBlocked()) {
                     throw new IllegalStateException("Cannot iterate over blocking WorkProcessor");
                 }
 
