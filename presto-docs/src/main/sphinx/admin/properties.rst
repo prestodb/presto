@@ -48,16 +48,51 @@ General Properties
     redistributing all the data across the network. This can also be specified
     on a per-query basis using the ``redistribute_writes`` session property.
 
+``query.max-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory * 0.1``
+
+    This is the max amount of user memory a query can use on a worker.
+    User memory is allocated during execution for things that are directly
+    attributable to or controllable by a user query. For example, memory used
+    by the hash tables built during execution, memory used during sorting, etc.
+    When a query hits this limit it will be killed by Presto.
+
+``query.max-total-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory * 0.3``
+
+    This is the max amount of user and system memory a query can use on a worker.
+    System memory is allocated during execution for things that are not directly
+    attributable to or controllable by a user query. For example, memory allocated
+    by the readers, writers, and network buffers, etc. The value of
+    ``query.max-total-memory-per-node`` must be greater than
+    ``query.max-memory-per-node``.
+
+``memory.heap-headroom-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory * 0.3``
+
+    This is the amount of memory set aside as headroom/buffer in the JVM heap
+    for allocations that are not tracked by Presto.
+
 ``resources.reserved-system-memory``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
     * **Default value:** ``JVM max memory * 0.4``
 
-    The amount of JVM memory reserved, for accounting purposes, for things
-    that are not directly attributable to or controllable by a user query.
-    For example, output buffers, code caches, etc. This also accounts for
-    memory that is not tracked by the memory tracking system.
+    The amount of JVM memory reserved for system memory usage. System memory is
+    allocated during execution for things that are not directly attributable to
+    or controllable by a user query. For example, memory allocated by the readers,
+    writers, and network buffers, etc. This also accounts for memory that is not
+    tracked by the memory tracking system.
 
     The purpose of this property is to prevent the JVM from running out of
     memory (OOM). The default value is suitable for smaller JVM heap sizes or
@@ -65,6 +100,9 @@ General Properties
     large heap, a smaller value may work. Basically, set this value large
     enough that the JVM does not fail with ``OutOfMemoryError``.
 
+    Please note that this config property is only used when
+    ``deprecated.legacy-system-pool-enabled=true``, and it will be removed
+    in the future.
 
 .. _tuning-spilling:
 
