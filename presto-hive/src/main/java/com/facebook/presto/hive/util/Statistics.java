@@ -53,10 +53,12 @@ import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.MAX;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.MIN;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -82,7 +84,7 @@ public final class Statistics
     {
         return new PartitionStatistics(
                 reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
-                merge(first.getColumnStatistics(), first.getBasicStatistics().getRowCount(), second.getColumnStatistics(), second.getBasicStatistics().getRowCount()));
+                merge(first.getColumnStatistics(), second.getColumnStatistics()));
     }
 
     public static HiveBasicStatistics reduce(HiveBasicStatistics first, HiveBasicStatistics second, ReduceOperator operator)
@@ -94,21 +96,17 @@ public final class Statistics
                 reduce(first.getOnDiskDataSizeInBytes(), second.getOnDiskDataSizeInBytes(), operator, false));
     }
 
-    public static Map<String, HiveColumnStatistics> merge(
-            Map<String, HiveColumnStatistics> first,
-            OptionalLong firstRowCount,
-            Map<String, HiveColumnStatistics> second,
-            OptionalLong secondRowCount)
+    public static Map<String, HiveColumnStatistics> merge(Map<String, HiveColumnStatistics> first, Map<String, HiveColumnStatistics> second)
     {
         // only keep columns that have statistics for both sides
         Set<String> columns = intersection(first.keySet(), second.keySet());
         return columns.stream()
                 .collect(toImmutableMap(
                         column -> column,
-                        column -> merge(first.get(column), firstRowCount, second.get(column), secondRowCount)));
+                        column -> merge(first.get(column), second.get(column))));
     }
 
-    public static HiveColumnStatistics merge(HiveColumnStatistics first, OptionalLong firstRowCount, HiveColumnStatistics second, OptionalLong secondRowCount)
+    public static HiveColumnStatistics merge(HiveColumnStatistics first, HiveColumnStatistics second)
     {
         return new HiveColumnStatistics(
                 mergeIntegerStatistics(first.getIntegerStatistics(), second.getIntegerStatistics()),
@@ -116,8 +114,8 @@ public final class Statistics
                 mergeDecimalStatistics(first.getDecimalStatistics(), second.getDecimalStatistics()),
                 mergeDateStatistics(first.getDateStatistics(), second.getDateStatistics()),
                 mergeBooleanStatistics(first.getBooleanStatistics(), second.getBooleanStatistics()),
-                reduce(first.getMaxColumnLength(), second.getMaxColumnLength(), MAX, true),
-                mergeAverage(first.getAverageColumnLength(), firstRowCount, second.getAverageColumnLength(), secondRowCount),
+                reduce(first.getMaxValueSizeInBytes(), second.getMaxValueSizeInBytes(), MAX, true),
+                reduce(first.getTotalSizeInBytes(), second.getTotalSizeInBytes(), ADD, true),
                 reduce(first.getNullsCount(), second.getNullsCount(), ADD, false),
                 reduce(first.getDistinctValuesCount(), second.getDistinctValuesCount(), MAX, false));
     }
@@ -385,6 +383,16 @@ public final class Statistics
         verify(computedStatistics.containsKey(MIN_VALUE) == computedStatistics.containsKey(MAX_VALUE));
         if (computedStatistics.containsKey(MIN_VALUE)) {
             setMinMax(session, timeZone, columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
+        }
+
+        // MAX_VALUE_SIZE_IN_BYTES
+        if (computedStatistics.containsKey(MAX_VALUE_SIZE_IN_BYTES)) {
+            result.setMaxValueSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(MAX_VALUE_SIZE_IN_BYTES)));
+        }
+
+        // TOTAL_VALUES_SIZE_IN_BYTES
+        if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
+            result.setTotalSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
         }
 
         // NDV

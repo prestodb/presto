@@ -119,19 +119,7 @@ public class BooleanInputStream
 
         // count remaining bits
         for (int i = 0; i < items; i++) {
-            // read more data if necessary
-            if (bitsInData == 0) {
-                readByte();
-            }
-
-            // read bit
-            if ((data & HIGH_BIT_MASK) != 0) {
-                count++;
-            }
-
-            // mark bit consumed
-            data <<= 1;
-            bitsInData--;
+            count += nextBit() ? 1 : 0;
         }
 
         return count;
@@ -144,17 +132,7 @@ public class BooleanInputStream
             throws IOException
     {
         for (int i = 0; i < batchSize; i++) {
-            // read more data if necessary
-            if (bitsInData == 0) {
-                readByte();
-            }
-
-            // read bit
-            vector[i] = (data & HIGH_BIT_MASK) != 0;
-
-            // mark bit consumed
-            data <<= 1;
-            bitsInData--;
+            vector[i] = nextBit();
         }
     }
 
@@ -166,17 +144,7 @@ public class BooleanInputStream
     {
         for (int i = 0; i < batchSize; i++) {
             if (!isNull[i]) {
-                // read more data if necessary
-                if (bitsInData == 0) {
-                    readByte();
-                }
-
-                // read bit
-                vector[i] = (data & HIGH_BIT_MASK) != 0;
-
-                // mark bit consumed
-                data <<= 1;
-                bitsInData--;
+                vector[i] = nextBit();
             }
         }
     }
@@ -188,17 +156,7 @@ public class BooleanInputStream
             throws IOException
     {
         for (int i = 0; i < batchSize; i++) {
-            // read more data if necessary
-            if (bitsInData == 0) {
-                readByte();
-            }
-
-            // read bit
-            type.writeBoolean(builder, (data & HIGH_BIT_MASK) != 0);
-
-            // mark bit consumed
-            data <<= 1;
-            bitsInData--;
+            type.writeBoolean(builder, nextBit());
         }
     }
 
@@ -247,9 +205,7 @@ public class BooleanInputStream
         int count = 0;
         for (int i = offset; i < batchSize + offset; i++) {
             vector[i] = !nextBit();
-            if (vector[i]) {
-                count++;
-            }
+            count += vector[i] ? 1 : 0;
         }
         return count;
     }

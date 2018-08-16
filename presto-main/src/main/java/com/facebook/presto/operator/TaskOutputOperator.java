@@ -111,7 +111,6 @@ public class TaskOutputOperator
     public void finish()
     {
         finished = true;
-        outputBuffer.forceFreeMemory();
     }
 
     @Override

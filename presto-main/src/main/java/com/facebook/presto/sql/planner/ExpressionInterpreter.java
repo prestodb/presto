@@ -35,7 +35,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -142,7 +142,7 @@ public class ExpressionInterpreter
     private final ConnectorSession session;
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
-    private final FunctionInvoker functionInvoker;
+    private final InterpretedFunctionInvoker functionInvoker;
     private final boolean legacyRowFieldOrdinalAccess;
 
     private final Visitor visitor;
@@ -231,7 +231,7 @@ public class ExpressionInterpreter
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
-        this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
 
         this.visitor = new Visitor();

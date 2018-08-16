@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -87,6 +88,8 @@ public abstract class TestTimestampBase
         assertFunction("TIMESTAMP '2001-1-2 3:4:5'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
         assertFunction("TIMESTAMP '2001-1-2 3:4'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
         assertFunction("TIMESTAMP '2001-1-2'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+
+        assertInvalidFunction("TIMESTAMP 'text'", SemanticErrorCode.INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
     }
 
     @Test

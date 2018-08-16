@@ -24,7 +24,7 @@ import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
@@ -46,11 +46,11 @@ import static java.lang.String.format;
 public class MapSubscriptOperator
         extends SqlOperator
 {
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, InterpretedFunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, InterpretedFunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, InterpretedFunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, InterpretedFunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, InterpretedFunctionInvoker.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
 
     private final boolean legacyMissingKey;
 
@@ -87,16 +87,9 @@ public class MapSubscriptOperator
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
-        FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionRegistry);
         methodHandle = methodHandle.bindTo(functionInvoker).bindTo(keyType).bindTo(valueType);
-
-        // this casting is necessary because otherwise presto byte code generator will generate illegal byte code
-        if (valueType.getJavaType() == void.class) {
-            methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(void.class));
-        }
-        else {
-            methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
-        }
+        methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
         return new ScalarFunctionImplementation(
                 true,
@@ -108,7 +101,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
+    public static Object subscript(boolean legacyMissingKey, InterpretedFunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -122,7 +115,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
+    public static Object subscript(boolean legacyMissingKey, InterpretedFunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -136,7 +129,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
+    public static Object subscript(boolean legacyMissingKey, InterpretedFunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -150,7 +143,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
+    public static Object subscript(boolean legacyMissingKey, InterpretedFunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -164,7 +157,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
+    public static Object subscript(boolean legacyMissingKey, InterpretedFunctionInvoker functionInvoker, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact((Block) key);
@@ -177,7 +170,7 @@ public class MapSubscriptOperator
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
-    private static RuntimeException throwMissingKeyException(Type type, FunctionInvoker functionInvoker, Object value, ConnectorSession session)
+    private static RuntimeException throwMissingKeyException(Type type, InterpretedFunctionInvoker functionInvoker, Object value, ConnectorSession session)
     {
         String stringValue;
         try {

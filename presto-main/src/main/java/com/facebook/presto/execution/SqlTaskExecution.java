@@ -1248,7 +1248,7 @@ public class SqlTaskExecution
 
         int pendingCreation;
         int lifespansWithNoMoreDriverRunners;
-        List<Lifespan> unacknowledgedLifespansWithNoMoreDrivers = new ArrayList<>();
+        final List<Lifespan> unacknowledgedLifespansWithNoMoreDrivers = new ArrayList<>();
 
         public PerPipelineStatus(PipelineExecutionStrategy executionStrategy)
         {

@@ -45,6 +45,7 @@ import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
@@ -84,7 +85,8 @@ public abstract class AbstractTestType
     {
         BlockBuilder nullsBlockBuilder = type.createBlockBuilder(null, testBlock.getPositionCount());
         for (int position = 0; position < testBlock.getPositionCount(); position++) {
-            if (type.getJavaType() == void.class) {
+            if (testBlock.isNull(position)) {
+                checkState(type instanceof UnknownType);
                 nullsBlockBuilder.appendNull();
             }
             else if (type.getJavaType() == boolean.class) {
@@ -184,7 +186,7 @@ public abstract class AbstractTestType
         verifyInvalidPositionHandling(block);
 
         if (block.isNull(position)) {
-            if (type.isOrderable() && type.getJavaType() != void.class) {
+            if (type.isOrderable() && !(type instanceof UnknownType)) {
                 Block nonNullValue = toBlock(getNonNullValue());
                 assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, nonNullValue, 0) < 0);
                 assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, nonNullValue, 0) > 0);
@@ -353,7 +355,7 @@ public abstract class AbstractTestType
         catch (RuntimeException expected) {
         }
 
-        if (type.isComparable() && type.getJavaType() != void.class) {
+        if (type.isComparable() && !(type instanceof UnknownType)) {
             Block other = toBlock(getNonNullValue());
             try {
                 type.equalTo(block, -1, other, 0);
@@ -369,7 +371,7 @@ public abstract class AbstractTestType
             }
         }
 
-        if (type.isOrderable() && type.getJavaType() != void.class) {
+        if (type.isOrderable() && !(type instanceof UnknownType)) {
             Block other = toBlock(getNonNullValue());
             try {
                 ASC_NULLS_FIRST.compareBlockValue(type, block, -1, other, 0);

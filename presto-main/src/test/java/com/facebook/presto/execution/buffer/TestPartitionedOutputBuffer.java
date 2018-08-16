@@ -833,8 +833,7 @@ public class TestPartitionedOutputBuffer
         assertTrue(memoryManager.getBufferedBytes() > 0);
         buffer.forceFreeMemory();
         assertEquals(memoryManager.getBufferedBytes(), 0);
-        // adding another page after buffer.forceFreeMemory()
-        // should have no effect in terms of memory usage
+        // adding a page after forceFreeMemory() should be NOOP
         addPage(buffer, createPage(1));
         assertEquals(memoryManager.getBufferedBytes(), 0);
     }

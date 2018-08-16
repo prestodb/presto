@@ -164,7 +164,7 @@ public class Patterns
 
     public static class Aggregation
     {
-        public static Property<AggregationNode, List<Symbol>> groupingKeys()
+        public static Property<AggregationNode, List<Symbol>> groupingColumns()
         {
             return property("groupingKeys", AggregationNode::getGroupingKeys);
         }

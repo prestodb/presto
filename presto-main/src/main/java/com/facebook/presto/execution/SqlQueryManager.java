@@ -598,7 +598,7 @@ public class SqlQueryManager
         List<QueryExecution> runningQueries = queries.values().stream()
                 .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList());
-        memoryManager.process(runningQueries, () -> getAllQueryInfo());
+        memoryManager.process(runningQueries, this::getAllQueryInfo);
     }
 
     /**

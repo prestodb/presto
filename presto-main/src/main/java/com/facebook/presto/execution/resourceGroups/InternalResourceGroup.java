@@ -60,6 +60,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.math.LongMath.saturatedAdd;
+import static com.google.common.math.LongMath.saturatedMultiply;
+import static com.google.common.math.LongMath.saturatedSubtract;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -137,7 +140,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long lastStartMillis;
     @GuardedBy("root")
-    private CounterStat timeBetweenStartsSec = new CounterStat();
+    private final CounterStat timeBetweenStartsSec = new CounterStat();
 
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
@@ -718,12 +721,7 @@ public class InternalResourceGroup
             if (query.getState() == QueryState.FINISHED || query.getQueryInfo().getErrorType() == USER_ERROR) {
                 InternalResourceGroup group = this;
                 while (group != null) {
-                    try {
-                        group.cpuUsageMillis = Math.addExact(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
-                    }
-                    catch (ArithmeticException e) {
-                        group.cpuUsageMillis = Long.MAX_VALUE;
-                    }
+                    group.cpuUsageMillis = saturatedAdd(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
                     group = group.parent.orElse(null);
                 }
             }
@@ -780,20 +778,11 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
         synchronized (root) {
-            long newQuota;
-            try {
-                newQuota = Math.multiplyExact(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
-            }
-            catch (ArithmeticException e) {
-                newQuota = Long.MAX_VALUE;
-            }
-            try {
-                cpuUsageMillis = Math.subtractExact(cpuUsageMillis, newQuota);
-            }
-            catch (ArithmeticException e) {
+            long newQuota = saturatedMultiply(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            cpuUsageMillis = saturatedSubtract(cpuUsageMillis, newQuota);
+            if (cpuUsageMillis < 0 || cpuUsageMillis == Long.MAX_VALUE) {
                 cpuUsageMillis = 0;
             }
-            cpuUsageMillis = Math.max(0, cpuUsageMillis);
             for (InternalResourceGroup group : subGroups.values()) {
                 group.internalGenerateCpuQuota(elapsedSeconds);
             }

@@ -32,9 +32,9 @@ public class LogicalBinaryExpression
         {
             switch (this) {
                 case AND:
-                    return Operator.OR;
+                    return OR;
                 case OR:
-                    return Operator.AND;
+                    return AND;
                 default:
                     throw new IllegalArgumentException("Unsupported logical expression type: " + this);
             }

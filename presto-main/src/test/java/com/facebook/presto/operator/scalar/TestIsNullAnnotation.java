@@ -86,7 +86,7 @@ public class TestIsNullAnnotation
 
     @ScalarFunction("test_is_null_void")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean testIsNullVoid(@SqlType("unknown") Void value, @IsNull boolean isNull)
+    public static boolean testIsNullVoid(@SqlType("unknown") boolean value, @IsNull boolean isNull)
     {
         return isNull;
     }

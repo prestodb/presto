@@ -20,9 +20,6 @@ import com.facebook.presto.spi.type.Type;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
-
 public class BinaryRcFileEncoding
         implements RcFileEncoding
 {
@@ -59,13 +56,7 @@ public class BinaryRcFileEncoding
     @Override
     public ColumnEncoding decimalEncoding(Type type)
     {
-        if (isShortDecimal(type)) {
-            return new DecimalEncoding(type);
-        }
-        else if (isLongDecimal(type)) {
-            return new DecimalEncoding(type);
-        }
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return new DecimalEncoding(type);
     }
 
     @Override

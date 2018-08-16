@@ -19,6 +19,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -28,6 +29,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Expression;
@@ -40,6 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
@@ -120,6 +125,8 @@ public class QueryExplainer
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionRegistry(), statsCalculator, costCalculator, session);
+            case IO:
+                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters).getRoot(), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -146,6 +153,23 @@ public class QueryExplainer
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
+    }
+
+    public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
+    {
+        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
+        if (task != null) {
+            // todo format as json
+            return explainTask(statement, task, parameters);
+        }
+
+        switch (planType) {
+            case IO:
+                Plan plan = getLogicalPlan(session, statement, parameters);
+                return textIOPlan(plan.getRoot(), metadata, session);
+            default:
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
+        }
     }
 
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)

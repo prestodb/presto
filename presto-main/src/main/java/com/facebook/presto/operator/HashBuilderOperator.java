@@ -215,7 +215,7 @@ public class HashBuilderOperator
 
     private State state = State.CONSUMING_INPUT;
     private Optional<ListenableFuture<?>> lookupSourceNotNeeded = Optional.empty();
-    private SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
+    private final SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
     private Optional<SingleStreamSpiller> spiller = Optional.empty();
     private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();

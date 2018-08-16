@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.FunctionType;
@@ -74,7 +75,6 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.A
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -111,8 +111,12 @@ public class ParametricScalarImplementation
         this.choices = requireNonNull(choices, "choices is null");
         this.returnNativeContainerType = requireNonNull(returnContainerType, "return native container type is null");
 
+        for (Class<?> specializedJavaType : specializedTypeParameters.values()) {
+            checkArgument(specializedJavaType != Object.class, "specializedTypeParameter must not contain Object.class entries");
+            checkArgument(!Primitives.isWrapperType(specializedJavaType), "specializedTypeParameter must not contain boxed primitive types");
+        }
         for (int i = 1; i < choices.size(); i++) {
-            checkCondition(Objects.equals(choices.get(i).getDependencies(), choices.get(0).getDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching dependencies: %s", signature);
+            checkCondition(Objects.equals(choices.get(i).checkDependencies(), choices.get(0).checkDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching dependencies: %s", signature);
             checkCondition(Objects.equals(choices.get(i).getConstructorDependencies(), choices.get(0).getConstructorDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructor dependencies: %s", signature);
             checkCondition(Objects.equals(choices.get(i).getConstructor(), choices.get(0).getConstructor()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructors: %s", signature);
         }
@@ -122,12 +126,12 @@ public class ParametricScalarImplementation
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(boundVariables.getTypeVariable(entry.getKey()).getJavaType())) {
+            if (entry.getValue() != boundVariables.getTypeVariable(entry.getKey()).getJavaType()) {
                 return Optional.empty();
             }
         }
 
-        if (!returnNativeContainerType.equals(typeManager.getType(boundSignature.getReturnType()).getJavaType())) {
+        if (returnNativeContainerType != Object.class && returnNativeContainerType != typeManager.getType(boundSignature.getReturnType()).getJavaType()) {
             return Optional.empty();
         }
 
@@ -143,17 +147,30 @@ public class ParametricScalarImplementation
                 }
 
                 Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
-                if (!argumentNativeContainerTypes.get(i).get().isAssignableFrom(argumentType)) {
+                Class<?> argumentNativeContainerType = argumentNativeContainerTypes.get(i).get();
+                if (argumentNativeContainerType != Object.class && argumentNativeContainerType != argumentType) {
                     return Optional.empty();
                 }
             }
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            MethodHandle boundMethodHandle = bindDependencies(choice.methodHandle, choice.getDependencies(), boundVariables, typeManager, functionRegistry);
-            Optional<MethodHandle> boundConstructor = choice.constructor.map(handle -> bindDependencies(handle, choice.getConstructorDependencies(), boundVariables, typeManager, functionRegistry));
+            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionRegistry);
+            Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
+                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionRegistry);
+                checkCondition(
+                        result.type().parameterList().isEmpty(),
+                        FUNCTION_IMPLEMENTATION_ERROR,
+                        "All parameters of a constructor in a function definition class must be Dependencies. Signature: %s",
+                        boundSignature);
+                return result;
+            });
 
-            implementationChoices.add(new ScalarImplementationChoice(choice.nullable, choice.argumentProperties, boundMethodHandle, boundConstructor));
+            implementationChoices.add(new ScalarImplementationChoice(
+                    choice.nullable,
+                    choice.argumentProperties,
+                    boundMethodHandle.asType(javaMethodType(choice, boundSignature, typeManager)),
+                    boundConstructor));
         }
         return Optional.of(new ScalarFunctionImplementation(implementationChoices, isDeterministic));
     }
@@ -207,9 +224,59 @@ public class ParametricScalarImplementation
                 returnNativeContainerType);
     }
 
-    public Builder builder()
+    private static MethodType javaMethodType(ParametricScalarImplementationChoice choice, Signature signature, TypeManager typeManager)
     {
-        return new Builder(signature, argumentNativeContainerTypes, specializedTypeParameters, returnNativeContainerType);
+        // This method accomplishes two purposes:
+        // * Assert that the method signature is as expected.
+        //   This catches errors that would otherwise surface during bytecode generation and class loading.
+        // * Adapt the method signature when necessary (for example, when the parameter type or return type is declared as Object).
+        ImmutableList.Builder<Class<?>> methodHandleParameterTypes = ImmutableList.builder();
+        if (choice.getConstructor().isPresent()) {
+            methodHandleParameterTypes.add(Object.class);
+        }
+        if (choice.hasConnectorSession()) {
+            methodHandleParameterTypes.add(ConnectorSession.class);
+        }
+
+        List<ArgumentProperty> argumentProperties = choice.getArgumentProperties();
+        for (int i = 0; i < argumentProperties.size(); i++) {
+            ArgumentProperty argumentProperty = argumentProperties.get(i);
+            switch (argumentProperty.getArgumentType()) {
+                case VALUE_TYPE:
+                    Type signatureType = typeManager.getType(signature.getArgumentTypes().get(i));
+                    switch (argumentProperty.getNullConvention()) {
+                        case RETURN_NULL_ON_NULL:
+                            methodHandleParameterTypes.add(signatureType.getJavaType());
+                            break;
+                        case USE_NULL_FLAG:
+                            methodHandleParameterTypes.add(signatureType.getJavaType());
+                            methodHandleParameterTypes.add(boolean.class);
+                            break;
+                        case USE_BOXED_TYPE:
+                            methodHandleParameterTypes.add(Primitives.wrap(signatureType.getJavaType()));
+                            break;
+                        case BLOCK_AND_POSITION:
+                            methodHandleParameterTypes.add(Block.class);
+                            methodHandleParameterTypes.add(int.class);
+                            break;
+                        default:
+                            throw new UnsupportedOperationException("unknown NullConvention");
+                    }
+                    break;
+                case FUNCTION_TYPE:
+                    methodHandleParameterTypes.add(argumentProperty.getLambdaInterface());
+                    break;
+                default:
+                    throw new UnsupportedOperationException("unknown ArgumentType");
+            }
+        }
+
+        Class<?> methodHandleReturnType = typeManager.getType(signature.getReturnType()).getJavaType();
+        if (choice.isNullable()) {
+            methodHandleReturnType = Primitives.wrap(methodHandleReturnType);
+        }
+
+        return MethodType.methodType(methodHandleReturnType, methodHandleParameterTypes.build());
     }
 
     public static final class Builder
@@ -255,9 +322,11 @@ public class ParametricScalarImplementation
         private final List<ImplementationDependency> dependencies;
         private final List<ImplementationDependency> constructorDependencies;
         private final int numberOfBlockPositionArguments;
+        private final boolean hasConnectorSession;
 
         private ParametricScalarImplementationChoice(
                 boolean nullable,
+                boolean hasConnectorSession,
                 List<ArgumentProperty> argumentProperties,
                 MethodHandle methodHandle,
                 Optional<MethodHandle> constructor,
@@ -265,8 +334,9 @@ public class ParametricScalarImplementation
                 List<ImplementationDependency> constructorDependencies)
         {
             this.nullable = nullable;
-            this.argumentProperties = argumentProperties;
-            this.methodHandle = methodHandle;
+            this.hasConnectorSession = hasConnectorSession;
+            this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
+            this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             this.constructor = requireNonNull(constructor, "constructor is null");
             this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
             this.constructorDependencies = ImmutableList.copyOf(requireNonNull(constructorDependencies, "constructorDependencies is null"));
@@ -285,6 +355,11 @@ public class ParametricScalarImplementation
             return nullable;
         }
 
+        public boolean hasConnectorSession()
+        {
+            return hasConnectorSession;
+        }
+
         public MethodHandle getMethodHandle()
         {
             return methodHandle;
@@ -293,6 +368,21 @@ public class ParametricScalarImplementation
         public List<ImplementationDependency> getDependencies()
         {
             return dependencies;
+        }
+
+        public List<ArgumentProperty> getArgumentProperties()
+        {
+            return argumentProperties;
+        }
+
+        public boolean checkDependencies()
+        {
+            for (int i = 1; i < getDependencies().size(); i++) {
+                if (!getDependencies().get(i).equals(getDependencies().get(0))) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @VisibleForTesting
@@ -376,6 +466,7 @@ public class ParametricScalarImplementation
         private final List<ImplementationDependency> constructorDependencies = new ArrayList<>();
         private final List<LongVariableConstraint> longVariableConstraints;
         private final Class<?> returnNativeContainerType;
+        private boolean hasConnectorSession;
 
         private final List<ParametricScalarImplementationChoice> choices = new ArrayList<>();
 
@@ -416,19 +507,20 @@ public class ParametricScalarImplementation
                         "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]", typeParameter.value(), method);
             }
 
-            inferSpecialization(method, actualReturnType, returnType.value(), nullable);
+            inferSpecialization(method, actualReturnType, returnType.value());
             parseArguments(method);
 
             this.constructorMethodHandle = getConstructor(method, constructor);
 
             this.methodHandle = getMethodHandle(method);
 
-            ParametricScalarImplementationChoice choice = new ParametricScalarImplementationChoice(nullable, argumentProperties, methodHandle, constructorMethodHandle, dependencies, constructorDependencies);
+            ParametricScalarImplementationChoice choice = new ParametricScalarImplementationChoice(nullable, hasConnectorSession, argumentProperties, methodHandle, constructorMethodHandle, dependencies, constructorDependencies);
             choices.add(choice);
         }
 
         private void parseArguments(Method method)
         {
+            boolean encounteredNonDependencyAnnotation = false;
             int i = 0;
             while (i < method.getParameterCount()) {
                 Parameter parameter = method.getParameters()[i];
@@ -436,18 +528,25 @@ public class ParametricScalarImplementation
 
                 // Skip injected parameters
                 if (parameterType == ConnectorSession.class) {
+                    checkCondition(!hasConnectorSession, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has more than 1 ConnectorSession in the parameter list", method);
+                    hasConnectorSession = true;
                     i++;
                     continue;
                 }
 
                 Optional<Annotation> implementationDependency = getImplementationDependencyAnnotation(parameter);
                 if (implementationDependency.isPresent()) {
+                    checkCondition(!encounteredNonDependencyAnnotation, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has parameters annotated with Dependency annotations that appears after other parameters", method);
+
                     // check if only declared typeParameters and literalParameters are used
                     validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
                     dependencies.add(createDependency(implementationDependency.get(), literalParameters));
+
                     i++;
                 }
                 else {
+                    encounteredNonDependencyAnnotation = true;
+
                     Annotation[] annotations = parameter.getAnnotations();
                     checkArgument(Stream.of(annotations).noneMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that does not follow a @SqlType parameter", method);
 
@@ -512,7 +611,7 @@ public class ParametricScalarImplementation
                             argumentNativeContainerTypes.add(Optional.of(type.nativeContainerType()));
                         }
                         else {
-                            inferSpecialization(method, parameterType, type.value(), nullConvention);
+                            inferSpecialization(method, parameterType, type.value());
 
                             checkCondition(type.nativeContainerType().equals(Object.class), FUNCTION_IMPLEMENTATION_ERROR, "@SqlType can only contain an explicitly specified nativeContainerType when using @BlockPosition");
                             argumentNativeContainerTypes.add(Optional.of(Primitives.unwrap(parameterType)));
@@ -525,22 +624,11 @@ public class ParametricScalarImplementation
             }
         }
 
-        private void inferSpecialization(Method method, Class<?> parameterType, String typeParameterName, NullConvention nullConventionFlag)
+        private void inferSpecialization(Method method, Class<?> parameterType, String typeParameterName)
         {
-            checkArgument(nullConventionFlag != BLOCK_AND_POSITION);
-
-            if (nullConventionFlag == USE_BOXED_TYPE) {
-                inferSpecialization(method, parameterType, typeParameterName, true);
-            }
-            else {
-                inferSpecialization(method, parameterType, typeParameterName, false);
-            }
-        }
-
-        private void inferSpecialization(Method method, Class<?> parameterType, String typeParameterName, boolean nullable)
-        {
-            if (typeParameterNames.contains(typeParameterName) && !(parameterType == Object.class && nullable)) {
-                // Infer specialization on this type parameter. We don't do this for @SqlNullable Object because it could match a type like BIGINT
+            if (typeParameterNames.contains(typeParameterName) && parameterType != Object.class) {
+                // Infer specialization on this type parameter.
+                // We don't do this for Object because it could match any type.
                 Class<?> specialization = specializedTypeParameters.get(typeParameterName);
                 Class<?> nativeParameterType = Primitives.unwrap(parameterType);
                 checkArgument(specialization == null || specialization.equals(nativeParameterType), "Method [%s] type %s has conflicting specializations %s and %s", method, typeParameterName, specialization, nativeParameterType);

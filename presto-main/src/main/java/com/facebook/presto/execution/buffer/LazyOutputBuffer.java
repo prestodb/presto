@@ -337,12 +337,6 @@ public class LazyOutputBuffer
         return 0;
     }
 
-    @Override
-    public synchronized void forceFreeMemory()
-    {
-        delegate.forceFreeMemory();
-    }
-
     private static class PendingRead
     {
         private final OutputBufferId bufferId;

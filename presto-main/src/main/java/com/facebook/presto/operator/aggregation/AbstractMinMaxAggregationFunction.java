@@ -55,20 +55,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
 {
-    private static final MethodHandle UNKNOWN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", AccumulatorState.class, Block.class, int.class);
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableLongState.class, long.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableDoubleState.class, double.class);
     private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableBooleanState.class, boolean.class);
     private static final MethodHandle BLOCK_POSITION_MIN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "minInput", Type.class, BlockPositionState.class, Block.class, int.class);
     private static final MethodHandle BLOCK_POSITION_MAX_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "maxInput", Type.class, BlockPositionState.class, Block.class, int.class);
 
-    private static final MethodHandle UNKNOWN_OUTPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "writeNull", AccumulatorState.class, BlockBuilder.class);
     private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
     private static final MethodHandle BLOCK_POSITION_OUTPUT_FUNCTION = methodHandle(BlockPositionState.class, "write", Type.class, BlockPositionState.class, BlockBuilder.class);
 
-    private static final MethodHandle UNKNOWN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", AccumulatorState.class, AccumulatorState.class);
     private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableLongState.class, NullableLongState.class);
     private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableDoubleState.class, NullableDoubleState.class);
     private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableBooleanState.class, NullableBooleanState.class);
@@ -109,14 +106,7 @@ public abstract class AbstractMinMaxAggregationFunction
         Class<? extends AccumulatorState> stateInterface;
         AccumulatorStateSerializer<?> stateSerializer;
 
-        if (type.getJavaType() == void.class) {
-            stateInterface = AccumulatorState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-            inputFunction = UNKNOWN_INPUT_FUNCTION;
-            combineFunction = UNKNOWN_COMBINE_FUNCTION;
-            outputFunction = UNKNOWN_OUTPUT_FUNCTION;
-        }
-        else if (type.getJavaType() == long.class) {
+        if (type.getJavaType() == long.class) {
             stateInterface = NullableLongState.class;
             stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
@@ -166,7 +156,7 @@ public abstract class AbstractMinMaxAggregationFunction
 
     private static List<ParameterMetadata> createParameterMetadata(Type type)
     {
-        if (type.getJavaType().isPrimitive() && type.getJavaType() != void.class) {
+        if (type.getJavaType().isPrimitive()) {
             return ImmutableList.of(
                     new ParameterMetadata(STATE),
                     new ParameterMetadata(INPUT_CHANNEL, type));
@@ -177,11 +167,6 @@ public abstract class AbstractMinMaxAggregationFunction
                     new ParameterMetadata(BLOCK_INPUT_CHANNEL, type),
                     new ParameterMetadata(BLOCK_INDEX));
         }
-    }
-
-    public static void input(AccumulatorState state, Block block, int position)
-    {
-        // Do nothing
     }
 
     public static void input(MethodHandle methodHandle, NullableDoubleState state, double value)
@@ -215,11 +200,6 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
-    public static void combine(AccumulatorState state, AccumulatorState otherState)
-    {
-        // Do nothing
-    }
-
     public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getLong());
@@ -249,11 +229,6 @@ public abstract class AbstractMinMaxAggregationFunction
             state.setBlock(otherState.getBlock());
             state.setPosition(otherState.getPosition());
         }
-    }
-
-    public static void writeNull(AccumulatorState state, BlockBuilder out)
-    {
-        out.appendNull();
     }
 
     private static void compareAndUpdateState(MethodHandle methodHandle, NullableLongState state, long value)

@@ -42,7 +42,6 @@ public class ArraySubscriptOperator
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
 
-    private static final MethodHandle METHOD_HANDLE_UNKNOWN = methodHandle(ArraySubscriptOperator.class, "arrayWithUnknownType", Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArraySubscriptOperator.class, "longSubscript", Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Type.class, Block.class, long.class);
@@ -65,10 +64,7 @@ public class ArraySubscriptOperator
         Type elementType = boundVariables.getTypeVariable("E");
 
         MethodHandle methodHandle;
-        if (elementType.getJavaType() == void.class) {
-            methodHandle = METHOD_HANDLE_UNKNOWN;
-        }
-        else if (elementType.getJavaType() == boolean.class) {
+        if (elementType.getJavaType() == boolean.class) {
             methodHandle = METHOD_HANDLE_BOOLEAN;
         }
         else if (elementType.getJavaType() == long.class) {
@@ -92,12 +88,6 @@ public class ArraySubscriptOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
                 isDeterministic());
-    }
-
-    @UsedByGeneratedCode
-    public static void arrayWithUnknownType(Type elementType, Block array, long index)
-    {
-        checkIndex(array, index);
     }
 
     @UsedByGeneratedCode

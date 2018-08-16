@@ -279,7 +279,7 @@ public class TestPageProcessor
             assertPageEquals(ImmutableList.of(VARCHAR, VARCHAR), actualPage, expectedPage);
             pageCount++;
 
-            // batch size will be further reduced to fit withing the bounds
+            // batch size will be further reduced to fit within the bounds
             if (actualPage.getSizeInBytes() > MAX_PAGE_SIZE_IN_BYTES) {
                 batchSize = batchSize / 2;
             }

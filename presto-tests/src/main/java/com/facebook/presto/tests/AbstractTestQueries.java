@@ -68,6 +68,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
+import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -691,7 +692,7 @@ public abstract class AbstractTestQueries
                         "SELECT * FROM a",
                 "VALUES (1.1, 2), (sin(3.3), 2+2)");
 
-        // implicity coersions
+        // implicit coersions
         assertQuery("VALUES 1, 2.2, 3, 4.4");
         assertQuery("VALUES (1, 2), (3.3, 4.4)");
         assertQuery("VALUES true, 1.0 in (1, 2, 3)");
@@ -4439,6 +4440,14 @@ public abstract class AbstractTestQueries
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
+    public void testIOExplain()
+    {
+        String query = "SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO) " + query);
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, IO));
     }
 
     @Test

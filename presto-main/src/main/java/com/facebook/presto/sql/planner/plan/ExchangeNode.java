@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -91,7 +92,7 @@ public class ExchangeNode
         checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == partitioningScheme.getOutputLayout().size()), "Input symbols do not match output symbols");
         checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
         for (int i = 0; i < inputs.size(); i++) {
-            checkArgument(sources.get(i).getOutputSymbols().containsAll(inputs.get(i)), "Source does not supply all required input symbols");
+            checkArgument(ImmutableSet.copyOf(sources.get(i).getOutputSymbols()).containsAll(inputs.get(i)), "Source does not supply all required input symbols");
         }
 
         checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),

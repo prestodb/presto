@@ -564,8 +564,8 @@ public class PagesIndex
         return new AbstractIterator<Page>()
         {
             private int currentPosition;
-            private PageBuilder pageBuilder = new PageBuilder(types);
-            private int[] outputChannels = new int[types.size()];
+            private final PageBuilder pageBuilder = new PageBuilder(types);
+            private final int[] outputChannels = new int[types.size()];
 
             {
                 Arrays.setAll(outputChannels, IntUnaryOperator.identity());

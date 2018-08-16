@@ -306,6 +306,13 @@ Accessors
 
     Returns the great-circle distance between two points on Earth's surface in kilometers.
 
+Aggregations
+------------
+.. function:: convex_hull_agg(Geometry) -> Geometry
+
+    Returns the minimum convex geometry that encloses all input geometries.
+    This function doesn't support geometry collections.
+
 Bing Tiles
 ----------
 

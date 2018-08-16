@@ -17,6 +17,7 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.ServerConfig;
@@ -111,6 +112,7 @@ public class ClusterMemoryManager
     private final AtomicLong clusterTotalMemoryReservation = new AtomicLong();
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
+    private final boolean isWorkScheduledOnCoordinator;
 
     private final Map<QueryId, Long> preAllocations = new HashMap<>();
     private final Map<QueryId, Long> preAllocationsConsumed = new HashMap<>();
@@ -145,11 +147,13 @@ public class ClusterMemoryManager
             LowMemoryKiller lowMemoryKiller,
             ServerConfig serverConfig,
             MemoryManagerConfig config,
-            NodeMemoryConfig nodeMemoryConfig)
+            NodeMemoryConfig nodeMemoryConfig,
+            NodeSchedulerConfig schedulerConfig)
     {
         requireNonNull(config, "config is null");
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         requireNonNull(serverConfig, "serverConfig is null");
+        requireNonNull(schedulerConfig, "schedulerConfig is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -163,6 +167,7 @@ public class ClusterMemoryManager
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isLegacySystemPoolEnabled = nodeMemoryConfig.isLegacySystemPoolEnabled();
+        this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
@@ -386,9 +391,7 @@ public class ClusterMemoryManager
     public synchronized Map<MemoryPoolId, MemoryPoolInfo> getMemoryPoolInfo()
     {
         ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = new ImmutableMap.Builder<>();
-        pools.forEach((poolId, memoryPool) -> {
-            builder.put(poolId, memoryPool.getInfo());
-        });
+        pools.forEach((poolId, memoryPool) -> builder.put(poolId, memoryPool.getInfo()));
         return builder.build();
     }
 
@@ -496,6 +499,12 @@ public class ClusterMemoryManager
             if (!nodes.containsKey(node.getNodeIdentifier())) {
                 nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(node, httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
             }
+        }
+
+        // If work isn't scheduled on the coordinator (the current node) there is no point
+        // in polling or updating (when moving queries to the reserved pool) its memory pools
+        if (!isWorkScheduledOnCoordinator) {
+            nodes.remove(nodeManager.getCurrentNode().getNodeIdentifier());
         }
 
         // Schedule refresh

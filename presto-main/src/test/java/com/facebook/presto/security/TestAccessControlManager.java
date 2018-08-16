@@ -50,8 +50,8 @@ import static com.facebook.presto.connector.ConnectorId.createInformationSchemaC
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

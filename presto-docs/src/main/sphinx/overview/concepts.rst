@@ -149,7 +149,7 @@ documentation refers to a statement, it is referring to statements as
 defined in the ANSI SQL standard which consists of clauses,
 expressions, and predicates.
 
-Some readers might be curious why this section lists seperate concepts
+Some readers might be curious why this section lists separate concepts
 for statements and queries. This is necessary because, in Presto,
 statements simply refer to the textual representation of a SQL
 statement. When a statement is executed, Presto creates a query along

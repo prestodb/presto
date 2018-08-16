@@ -80,6 +80,44 @@ public class TestMinMaxByAggregation
     }
 
     @Test
+    public void testMinUnknown()
+    {
+        InternalAggregationFunction unknownKey = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(UnknownType.NAME), parseTypeSignature(UnknownType.NAME), parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createBooleansBlock(null, null),
+                createDoublesBlock(1.0, 2.0));
+        InternalAggregationFunction unknownValue = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createDoublesBlock(1.0, 2.0),
+                createBooleansBlock(null, null));
+    }
+
+    @Test
+    public void testMaxUnknown()
+    {
+        InternalAggregationFunction unknownKey = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(UnknownType.NAME), parseTypeSignature(UnknownType.NAME), parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createBooleansBlock(null, null),
+                createDoublesBlock(1.0, 2.0));
+        InternalAggregationFunction unknownValue = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createDoublesBlock(1.0, 2.0),
+                createBooleansBlock(null, null));
+    }
+
+    @Test
     public void testMinNull()
     {
         InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(

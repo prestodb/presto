@@ -133,7 +133,7 @@ public class TransformCorrelatedScalarSubquery
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
                 isDistinct,
-                ImmutableList.of(unique),
+                rewrittenLateralJoinNode.getInput().getOutputSymbols(),
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(

@@ -269,7 +269,7 @@ public class AggregationImplementation
             inputDependencies = parseImplementationDependencies(inputFunction);
             outputDependencies = parseImplementationDependencies(outputFunction);
             combineDependencies = parseImplementationDependencies(combineFunction);
-            stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(function -> parseImplementationDependencies(function)).orElse(ImmutableList.of());
+            stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
             // parse metadata types
             parameterMetadataTypes = parseParameterMetadataTypes(inputFunction);

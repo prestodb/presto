@@ -58,7 +58,7 @@ public class GenericPartitioningSpiller
     private final Optional<SingleStreamSpiller>[] spillers;
 
     private boolean readingStarted;
-    private Set<Integer> spilledPartitions = new HashSet<>();
+    private final Set<Integer> spilledPartitions = new HashSet<>();
 
     public GenericPartitioningSpiller(
             List<Type> types,

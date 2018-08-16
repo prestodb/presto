@@ -101,6 +101,7 @@ public class TableFinishOperator
     private long rowCount;
     private Optional<ConnectorOutputMetadata> outputMetadata = Optional.empty();
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
+    private final ImmutableList.Builder<ComputedStatistics> computedStatisticsBuilder = ImmutableList.builder();
 
     public TableFinishOperator(
             OperatorContext operatorContext,
@@ -153,13 +154,7 @@ public class TableFinishOperator
         if (state != State.RUNNING) {
             return false;
         }
-        // AggregationOperator doesn't return false unless it is finished.
-        // HashAggregationOperator doesn't return false unless it is full or there is some unfinishedWork,
-        // that is not the option here.
-        // The assumption is that the spill is always disabled for the statistics aggregation, and
-        // since it is not a partial aggregation it doesn't have a partial aggregation memory limit.
-        verify(statisticsAggregationOperator.needsInput());
-        return true;
+        return statisticsAggregationOperator.needsInput();
     }
 
     @Override
@@ -252,16 +247,28 @@ public class TableFinishOperator
     @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING) {
+        if (!isBlocked().isDone()) {
             return null;
         }
-        if (!isBlocked().isDone()) {
+
+        if (!statisticsAggregationOperator.isFinished()) {
+            verify(statisticsAggregationOperator.isBlocked().isDone(), "aggregation operator should not be blocked");
+            Page page = statisticsAggregationOperator.getOutput();
+            if (page == null) {
+                return null;
+            }
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                computedStatisticsBuilder.add(getComputedStatistics(page, position));
+            }
+            return null;
+        }
+
+        if (state != State.FINISHING) {
             return null;
         }
         state = State.FINISHED;
 
-        List<ComputedStatistics> statistics = getComputedStatistics();
-        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build(), statistics);
+        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build(), computedStatisticsBuilder.build());
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -271,39 +278,21 @@ public class TableFinishOperator
         return page.build();
     }
 
-    private List<ComputedStatistics> getComputedStatistics()
-    {
-        ImmutableList.Builder<ComputedStatistics> statistics = ImmutableList.builder();
-        while (!statisticsAggregationOperator.isFinished()) {
-            verify(statisticsAggregationOperator.isBlocked().isDone());
-            Page page = statisticsAggregationOperator.getOutput();
-            if (page == null) {
-                // statistics output is expected to be small,
-                // it can be processed in a single getOutput call
-                continue;
-            }
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                statistics.add(getComputedStatistics(page, position));
-            }
-        }
-        return statistics.build();
-    }
-
     private ComputedStatistics getComputedStatistics(Page page, int position)
     {
         ImmutableList.Builder<String> groupingColumns = ImmutableList.builder();
         ImmutableList.Builder<Block> groupingValues = ImmutableList.builder();
-        descriptor.getGrouping().forEach((channel, column) -> {
+        descriptor.getGrouping().forEach((column, channel) -> {
             groupingColumns.add(column);
             groupingValues.add(page.getBlock(channel).getSingleValueBlock(position));
         });
 
         ComputedStatistics.Builder statistics = ComputedStatistics.builder(groupingColumns.build(), groupingValues.build());
 
-        descriptor.getTableStatistics().forEach((channel, type) ->
+        descriptor.getTableStatistics().forEach((type, channel) ->
                 statistics.addTableStatistic(type, page.getBlock(channel).getSingleValueBlock(position)));
 
-        descriptor.getColumnStatistics().forEach((channel, metadata) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
+        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
 
         return statistics.build();
     }

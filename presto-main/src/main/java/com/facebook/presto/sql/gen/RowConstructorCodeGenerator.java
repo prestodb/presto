@@ -56,22 +56,15 @@ public class RowConstructorCodeGenerator
 
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
-            Class<?> javaType = fieldType.getJavaType();
-            if (javaType == void.class) {
-                block.comment(i + "-th field type of row is undefined");
-                block.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
-            }
-            else {
-                Variable field = scope.createTempVariable(javaType);
-                block.comment("Clean wasNull and Generate + " + i + "-th field of row");
-                block.append(context.wasNull().set(constantFalse()));
-                block.append(context.generate(arguments.get(i)));
-                block.putVariable(field);
-                block.append(new IfStatement()
-                        .condition(context.wasNull())
-                        .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
-                        .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
-            }
+            Variable field = scope.createTempVariable(fieldType.getJavaType());
+            block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+            block.append(context.wasNull().set(constantFalse()));
+            block.append(context.generate(arguments.get(i)));
+            block.putVariable(field);
+            block.append(new IfStatement()
+                    .condition(context.wasNull())
+                    .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
         }
         block.comment("closeEntry; slice the SingleRowBlock; wasNull = false;");
         block.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());

@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -93,15 +94,14 @@ public class SymbolMapper
             aggregations.put(map(entry.getKey()), map(entry.getValue()));
         }
 
-        List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
-                .map(this::mapAndDistinct)
-                .collect(toImmutableList());
-
         return new AggregationNode(
                 newNodeId,
                 source,
                 aggregations.build(),
-                groupingSets,
+                groupingSets(
+                        mapAndDistinct(node.getGroupingKeys()),
+                        node.getGroupingSetCount(),
+                        node.getGlobalGroupingSets()),
                 ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
@@ -154,9 +154,10 @@ public class SymbolMapper
                 newNodeId,
                 source,
                 node.getTarget(),
+                map(node.getRowCountSymbol()),
+                map(node.getFragmentSymbol()),
                 columns,
                 node.getColumnNames(),
-                map(node.getOutputSymbols()),
                 node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(this::map));
@@ -168,7 +169,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 node.getTarget(),
-                map(node.getOutputSymbols()),
+                map(node.getRowCountSymbol()),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
     }
@@ -187,7 +188,7 @@ public class SymbolMapper
     {
         Map<Symbol, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
                 .collect(toImmutableMap(entry -> map(entry.getKey()), entry -> map(entry.getValue())));
-        return new StatisticAggregations(aggregations, map(statisticAggregations.getGroupingSymbols()));
+        return new StatisticAggregations(aggregations, mapAndDistinct(statisticAggregations.getGroupingSymbols()));
     }
 
     private StatisticAggregationsDescriptor<Symbol> map(StatisticAggregationsDescriptor<Symbol> descriptor)
@@ -222,7 +223,7 @@ public class SymbolMapper
 
     public static class Builder
     {
-        private ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
+        private final ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
 
         public SymbolMapper build()
         {

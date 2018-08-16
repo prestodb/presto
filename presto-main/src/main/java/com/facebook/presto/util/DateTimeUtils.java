@@ -127,7 +127,9 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
-    /** {@link LocalDateTime#getLocalMillis()} */
+    /**
+     * {@link LocalDateTime#getLocalMillis()}
+     */
     private static final MethodHandle getLocalMillis;
 
     static {
@@ -252,13 +254,13 @@ public final class DateTimeUtils
                 TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(value);
                 return true;
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 // `.withZoneUTC()` makes `timestampHasTimeZone` return value independent of JVM zone
                 TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withZoneUTC().parseMillis(value);
                 return false;
             }
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             throw new IllegalArgumentException(format("Invalid timestamp '%s'", value));
         }
     }
@@ -386,11 +388,17 @@ public final class DateTimeUtils
     public static boolean timeHasTimeZone(String value)
     {
         try {
-            parseTimeWithTimeZone(value);
-            return true;
+            try {
+                parseTimeWithTimeZone(value);
+                return true;
+            }
+            catch (RuntimeException e) {
+                parseTimeWithoutTimeZone(value);
+                return false;
+            }
         }
-        catch (Exception e) {
-            return false;
+        catch (RuntimeException e) {
+            throw new IllegalArgumentException(format("Invalid time '%s'", value));
         }
     }
 
@@ -549,7 +557,6 @@ public final class DateTimeUtils
         List<PeriodParser> parsers = new ArrayList<>();
 
         PeriodFormatterBuilder builder = new PeriodFormatterBuilder();
-        //CHECKSTYLE.OFF
         switch (startField) {
             case YEAR:
                 builder.appendYears();
@@ -558,6 +565,8 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral("-");
+                // fall through
+
             case MONTH:
                 builder.appendMonths();
                 parsers.add(builder.toParser());
@@ -573,6 +582,7 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(" ");
+                // fall through
 
             case HOUR:
                 builder.appendHours();
@@ -581,6 +591,7 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                // fall through
 
             case MINUTE:
                 builder.appendMinutes();
@@ -589,12 +600,13 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                // fall through
 
             case SECOND:
                 builder.appendSecondsWithOptionalMillis();
                 parsers.add(builder.toParser());
+                break;
         }
-        //CHECKSTYLE.ON
 
         return new PeriodFormatter(builder.toPrinter(), new OrderedPeriodParser(parsers));
     }

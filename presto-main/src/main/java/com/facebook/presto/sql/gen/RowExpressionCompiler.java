@@ -183,9 +183,6 @@ public class RowExpressionCompiler
             if (javaType == String.class) {
                 return block.append(loadString((String) value));
             }
-            if (javaType == void.class) {
-                return block;
-            }
 
             // bind constant object directly into the call-site using invoke dynamic
             Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());

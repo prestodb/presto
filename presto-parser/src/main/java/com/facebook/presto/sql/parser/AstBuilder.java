@@ -599,32 +599,26 @@ class AstBuilder
     @Override
     public Node visitSingleGroupingSet(SqlBaseParser.SingleGroupingSetContext context)
     {
-        return new SimpleGroupBy(getLocation(context), visit(context.groupingExpressions().expression(), Expression.class));
+        return new SimpleGroupBy(getLocation(context), visit(context.groupingSet().expression(), Expression.class));
     }
 
     @Override
     public Node visitRollup(SqlBaseParser.RollupContext context)
     {
-        return new Rollup(getLocation(context), context.qualifiedName().stream()
-                .map(this::getQualifiedName)
-                .collect(toList()));
+        return new Rollup(getLocation(context), visit(context.expression(), Expression.class));
     }
 
     @Override
     public Node visitCube(SqlBaseParser.CubeContext context)
     {
-        return new Cube(getLocation(context), context.qualifiedName().stream()
-                .map(this::getQualifiedName)
-                .collect(toList()));
+        return new Cube(getLocation(context), visit(context.expression(), Expression.class));
     }
 
     @Override
     public Node visitMultipleGroupingSets(SqlBaseParser.MultipleGroupingSetsContext context)
     {
         return new GroupingSets(getLocation(context), context.groupingSet().stream()
-                .map(groupingSet -> groupingSet.qualifiedName().stream()
-                        .map(this::getQualifiedName)
-                        .collect(toList()))
+                .map(groupingSet -> visit(groupingSet.expression(), Expression.class))
                 .collect(toList()));
     }
 
@@ -699,6 +693,8 @@ class AstBuilder
                 return new ExplainFormat(getLocation(context), ExplainFormat.Type.GRAPHVIZ);
             case SqlBaseLexer.TEXT:
                 return new ExplainFormat(getLocation(context), ExplainFormat.Type.TEXT);
+            case SqlBaseLexer.JSON:
+                return new ExplainFormat(getLocation(context), ExplainFormat.Type.JSON);
         }
 
         throw new IllegalArgumentException("Unsupported EXPLAIN format: " + context.value.getText());
@@ -714,6 +710,8 @@ class AstBuilder
                 return new ExplainType(getLocation(context), ExplainType.Type.DISTRIBUTED);
             case SqlBaseLexer.VALIDATE:
                 return new ExplainType(getLocation(context), ExplainType.Type.VALIDATE);
+            case SqlBaseLexer.IO:
+                return new ExplainType(getLocation(context), ExplainType.Type.IO);
         }
 
         throw new IllegalArgumentException("Unsupported EXPLAIN type: " + context.value.getText());

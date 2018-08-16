@@ -30,6 +30,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
@@ -52,6 +53,7 @@ import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestQueryMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.execution.TaskTestUtils.updateTask;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -299,22 +301,27 @@ public class TestSqlTask
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
+        DefaultQueryContext queryContext = new DefaultQueryContext(new QueryId("query"),
+                new DataSize(1, MEGABYTE),
+                new DataSize(2, MEGABYTE),
+                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                new TestingGcMonitor(),
+                taskNotificationExecutor,
+                driverYieldExecutor,
+                new DataSize(1, MEGABYTE),
+                new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
+
+        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, OptionalInt.empty());
+
         return new SqlTask(
                 taskId,
                 location,
                 "fake",
-                new DefaultQueryContext(new QueryId("query"),
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(2, MEGABYTE),
-                        new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
-                        new TestingGcMonitor(),
-                        taskNotificationExecutor,
-                        driverYieldExecutor,
-                        new DataSize(1, MEGABYTE),
-                        new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
+                queryContext,
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE));
+                new DataSize(32, MEGABYTE),
+                new CounterStat());
     }
 }

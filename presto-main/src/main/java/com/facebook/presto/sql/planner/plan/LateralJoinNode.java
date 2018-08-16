@@ -47,7 +47,7 @@ public class LateralJoinNode
             this.joinNodeType = joinNodeType;
         }
 
-        private JoinNode.Type joinNodeType;
+        private final JoinNode.Type joinNodeType;
 
         public JoinNode.Type toJoinNodeType()
         {

@@ -48,7 +48,7 @@ public class LookupOuterOperator
         private final List<Type> buildOutputTypes;
         private final Function<Lifespan, ReferenceCount> referenceCount;
 
-        private Set<Lifespan> createdLifespans = new HashSet<>();
+        private final Set<Lifespan> createdLifespans = new HashSet<>();
         private boolean closed;
 
         public LookupOuterOperatorFactory(

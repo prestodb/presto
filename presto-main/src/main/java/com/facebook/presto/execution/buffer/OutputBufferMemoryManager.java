@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,13 +70,20 @@ class OutputBufferMemoryManager
 
     public synchronized void updateMemoryUsage(long bytesAdded)
     {
-        if (closed) {
+        Optional<LocalMemoryContext> systemMemoryContext = getSystemMemoryContext();
+
+        // If closed is true, that means the task is completed. In that state,
+        // the output buffers already ignore the newly added pages, and therefore
+        // we can also safely ignore any calls after OutputBufferMemoryManager is closed.
+        // If the systemMemoryContext doesn't exist, the task is probably already
+        // aborted, so we can just return (see the comment in getSystemMemoryContext()).
+        if (closed || !systemMemoryContext.isPresent()) {
             return;
         }
 
         long currentBufferedBytes = bufferedBytes.addAndGet(bytesAdded);
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
-        this.blockedOnMemory = systemMemoryContextSupplier.get().setBytes(currentBufferedBytes);
+        this.blockedOnMemory = systemMemoryContext.get().setBytes(currentBufferedBytes);
         if (!isBufferFull() && !isBlockedOnMemory() && !bufferBlockedFuture.isDone()) {
             // Complete future in a new thread to avoid making a callback on the caller thread.
             // This make is easier for callers to use this class since they can update the memory
@@ -150,7 +158,19 @@ class OutputBufferMemoryManager
     public synchronized void close()
     {
         updateMemoryUsage(-bufferedBytes.get());
-        systemMemoryContextSupplier.get().close();
+        getSystemMemoryContext().ifPresent(LocalMemoryContext::close);
         closed = true;
+    }
+
+    private Optional<LocalMemoryContext> getSystemMemoryContext()
+    {
+        try {
+            return Optional.of(systemMemoryContextSupplier.get());
+        }
+        catch (RuntimeException ignored) {
+            // This is possible with races, e.g., a task is created and then immediately aborted,
+            // so that the task context hasn't been created yet (as a result there's no memory context available).
+        }
+        return Optional.empty();
     }
 }

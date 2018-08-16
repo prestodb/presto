@@ -1072,7 +1072,7 @@ public class TestAnnotationEngineForAggregates
     }
 
     @AggregationFunction("fixed_type_parameter_injection")
-    @Description("Simple aggregate with fixed paramter type injected")
+    @Description("Simple aggregate with fixed parameter type injected")
     public static class FixedTypeParameterInjectionAggregateFunction
     {
         @InputFunction
@@ -1116,7 +1116,7 @@ public class TestAnnotationEngineForAggregates
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(FixedTypeParameterInjectionAggregateFunction.class);
-        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed paramter type injected");
+        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.isDeterministic());
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
@@ -1132,7 +1132,7 @@ public class TestAnnotationEngineForAggregates
     }
 
     @AggregationFunction("partially_fixed_type_parameter_injection")
-    @Description("Simple aggregate with fixed paramter type injected")
+    @Description("Simple aggregate with fixed parameter type injected")
     public static class PartiallyFixedTypeParameterInjectionAggregateFunction
     {
         @InputFunction
@@ -1182,7 +1182,7 @@ public class TestAnnotationEngineForAggregates
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(PartiallyFixedTypeParameterInjectionAggregateFunction.class);
-        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed paramter type injected");
+        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.isDeterministic());
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();

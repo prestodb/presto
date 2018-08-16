@@ -25,30 +25,30 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 public final class Rollup
         extends GroupingElement
 {
-    private final List<QualifiedName> columns;
+    private final List<Expression> columns;
 
-    public Rollup(List<QualifiedName> columns)
+    public Rollup(List<Expression> columns)
     {
         this(Optional.empty(), columns);
     }
 
-    public Rollup(NodeLocation location, List<QualifiedName> columns)
+    public Rollup(NodeLocation location, List<Expression> columns)
     {
         this(Optional.of(location), columns);
     }
 
-    private Rollup(Optional<NodeLocation> location, List<QualifiedName> columns)
+    private Rollup(Optional<NodeLocation> location, List<Expression> columns)
     {
         super(location);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
-    public List<QualifiedName> getColumns()
+    @Override
+    public List<Expression> getExpressions()
     {
         return columns;
     }
@@ -59,11 +59,7 @@ public final class Rollup
         int numColumns = columns.size();
         return ImmutableList.<Set<Expression>>builder()
                 .addAll(IntStream.range(0, numColumns)
-                        .mapToObj(i -> columns.subList(0, numColumns - i)
-                                .stream()
-                                .map(DereferenceExpression::from)
-                                .map(Expression.class::cast)
-                                .collect(toSet()))
+                        .mapToObj(i -> ImmutableSet.copyOf(columns.subList(0, numColumns - i)))
                         .collect(toList()))
                 .add(ImmutableSet.of())
                 .build();

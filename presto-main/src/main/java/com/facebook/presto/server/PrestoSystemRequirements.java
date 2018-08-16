@@ -40,23 +40,50 @@ final class PrestoSystemRequirements
 
     public static void verifyJvmRequirements()
     {
+        verifyJvmVendor();
+        verifyJavaVersion();
+        verify64BitJvm();
+        verifyOsArchitecture();
+        verifyByteOrder();
+        verifyUsingG1Gc();
+        verifyFileDescriptor();
+        verifySlice();
+    }
+
+    private static void verifyJvmVendor()
+    {
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
         if (!"Oracle Corporation".equals(vendor)) {
             failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
         }
+    }
 
-        verifyJavaVersion();
-
+    private static void verify64BitJvm()
+    {
         String dataModel = System.getProperty("sun.arch.data.model");
         if (!"64".equals(dataModel)) {
             failRequirement("Presto requires a 64-bit JVM (found %s)", dataModel);
         }
+    }
 
+    private static void verifyByteOrder()
+    {
+        ByteOrder order = ByteOrder.nativeOrder();
+        if (!order.equals(ByteOrder.LITTLE_ENDIAN)) {
+            failRequirement("Presto requires a little endian platform (found %s)", order);
+        }
+    }
+
+    private static void verifyOsArchitecture()
+    {
         String osName = StandardSystemProperty.OS_NAME.value();
         String osArch = StandardSystemProperty.OS_ARCH.value();
         if ("Linux".equals(osName)) {
-            if (!"amd64".equals(osArch)) {
-                failRequirement("Presto requires x86-64 or amd64 on Linux (found %s)", osArch);
+            if (!"amd64".equals(osArch) && !"ppc64le".equals(osArch)) {
+                failRequirement("Presto requires amd64 or ppc64le on Linux (found %s)", osArch);
+            }
+            if ("ppc64le".equals(osArch)) {
+                warnRequirement("Support for the POWER architecture is experimental");
             }
         }
         else if ("Mac OS X".equals(osName)) {
@@ -67,16 +94,6 @@ final class PrestoSystemRequirements
         else {
             failRequirement("Presto requires Linux or Mac OS X (found %s)", osName);
         }
-
-        if (!ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)) {
-            failRequirement("Presto requires a little endian platform (found %s)", ByteOrder.nativeOrder());
-        }
-
-        verifyUsingG1Gc();
-
-        verifyFileDescriptor();
-
-        verifySlice();
     }
 
     private static void verifyJavaVersion()

@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -228,8 +229,7 @@ public class OptimizeMixedDistinctAggregations
                     source);
 
             // 2. Add aggregation node
-            Set<Symbol> groupByKeys = new HashSet<>();
-            groupByKeys.addAll(groupBySymbols);
+            Set<Symbol> groupByKeys = new HashSet<>(groupBySymbols);
             groupByKeys.add(distinctSymbol);
             groupByKeys.add(groupSymbol);
 
@@ -356,8 +356,7 @@ public class OptimizeMixedDistinctAggregations
             groups.add(ImmutableList.copyOf(group0));
 
             // g1
-            Set<Symbol> group1 = new HashSet<>();
-            group1.addAll(groupBySymbols);
+            Set<Symbol> group1 = new HashSet<>(groupBySymbols);
             group1.add(distinctSymbol);
             groups.add(ImmutableList.copyOf(group1));
 
@@ -420,7 +419,7 @@ public class OptimizeMixedDistinctAggregations
                     idAllocator.getNextId(),
                     groupIdNode,
                     aggregations.build(),
-                    ImmutableList.of(ImmutableList.copyOf(groupByKeys)),
+                    singleGroupingSet(ImmutableList.copyOf(groupByKeys)),
                     ImmutableList.of(),
                     SINGLE,
                     originalNode.getHashSymbol(),

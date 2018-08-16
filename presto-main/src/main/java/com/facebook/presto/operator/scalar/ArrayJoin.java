@@ -205,7 +205,7 @@ public final class ArrayJoin
                     getter = GET_SLICE;
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported type: " + elementType.getClass().getName());
+                    throw new UnsupportedOperationException("Unsupported type: " + elementType.getName());
                 }
 
                 MethodHandle cast = castFunction.getMethodHandle();

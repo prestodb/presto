@@ -51,6 +51,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -68,10 +69,12 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -94,6 +97,7 @@ import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -157,6 +161,18 @@ public class TestLogicalPlanner
                                                         "L_LINENUMBER", "linenumber",
                                                         "L_ORDERKEY", "orderkey"))))
                                                 .withExactOutputs(ImmutableList.of("O_ORDERKEY"))))));
+    }
+
+    @Test
+    public void testDistinctOverConstants()
+    {
+        assertPlan("SELECT count(*), count(distinct orderkey) FROM (SELECT * FROM orders WHERE orderkey = 1)",
+                anyTree(
+                        markDistinct("is_distinct", ImmutableList.of("orderkey"), "hash",
+                                anyTree(
+                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderkey), 0))")),
+                                                filter("orderkey = BIGINT '1'",
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
     }
 
     @Test
@@ -396,6 +412,22 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedScalarSubqueryInSelect()
+    {
+        assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
+                anyTree(
+                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
+                                project(
+                                        markDistinct("is_distinct", ImmutableList.of("unique"), "hash",
+                                                project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(unique), 0))")),
+                                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                                assignUniqueId("unique",
+                                                                        exchange(REMOTE, REPARTITION,
+                                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                                                anyTree(tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))))));
+    }
+
+    @Test
     public void testStreamingAggregationForCorrelatedSubquery()
     {
         // Use equi-clause to trigger hash partitioning of the join sources
@@ -403,7 +435,7 @@ public class TestLogicalPlanner
                 "SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey AND length(name) > length(nation.name)) FROM nation",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),
+                                singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(),
@@ -422,7 +454,7 @@ public class TestLogicalPlanner
                 "SELECT name, (SELECT max(name) FROM region WHERE regionkey > nation.regionkey) FROM nation",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("n_name", "n_regionkey", "unique")),
+                                singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(),
@@ -446,7 +478,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l WHERE o.orderkey=l.orderkey GROUP BY 1",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("o_orderkey")),
+                                singleGroupingSet("o_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 ImmutableMap.of(),
@@ -462,7 +494,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o LEFT JOIN lineitem l ON o.orderkey=l.orderkey GROUP BY 1",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("o_orderkey")),
+                                singleGroupingSet("o_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 ImmutableMap.of(),
@@ -478,7 +510,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l GROUP BY 1",
                 anyTree(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("orderkey")),
+                                singleGroupingSet("orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of(), // not streaming
                                 ImmutableMap.of(),
