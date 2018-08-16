@@ -25,7 +25,6 @@ import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,14 +36,6 @@ import static java.lang.String.format;
 public final class TestUtils
 {
     private TestUtils() {}
-
-    public static int findUnusedPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
-    }
 
     public static Properties toProperties(Map<String, String> map)
     {

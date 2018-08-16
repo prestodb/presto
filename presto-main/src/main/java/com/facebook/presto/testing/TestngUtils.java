@@ -13,12 +13,22 @@
  */
 package com.facebook.presto.testing;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.stream.Collector;
 
 public final class TestngUtils
 {
     private TestngUtils() {}
+
+    public static int findUnusedPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
 
     public static <T> Collector<T, ?, Object[][]> toDataProvider()
     {

@@ -308,12 +308,12 @@ public class PrestoS3FileSystem
         ObjectMetadata metadata = getS3ObjectMetadata(path);
 
         if (metadata == null) {
-            // check if this path is a directory
-            Iterator<LocatedFileStatus> iterator = listPrefix(path);
-            if (iterator.hasNext()) {
+            if (exists(path)) {
                 return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
             }
-            throw new FileNotFoundException("File does not exist: " + path);
+            else {
+                throw new FileNotFoundException("File does not exist: " + path);
+            }
         }
 
         return new FileStatus(
@@ -323,6 +323,20 @@ public class PrestoS3FileSystem
                 BLOCK_SIZE.toBytes(),
                 lastModifiedTime(metadata),
                 qualifiedPath(path));
+    }
+
+    /**
+     * Checks if an object or directory exists on S3
+     *
+     * @param path source file or directory (bucket name is ignored)
+     */
+    public boolean exists(Path path)
+    {
+        if (path.getName().isEmpty()) {
+            return s3.doesBucketExistV2(getBucketName(uri));
+        }
+        ObjectListing listing = s3.listObjects(getBucketName(uri), keyFromPath(path));
+        return !listing.getObjectSummaries().isEmpty() || !listing.getCommonPrefixes().isEmpty();
     }
 
     private static long getObjectSize(Path path, ObjectMetadata metadata)
@@ -464,7 +478,14 @@ public class PrestoS3FileSystem
         return true;
     }
 
-    private Iterator<LocatedFileStatus> listPrefix(Path path)
+    /**
+     * List files and directories inside the path non-recursively
+     *
+     * @param path a path (bucket name is ignored)
+     * @return an iterator that traverses statuses of the files/directories in the given path
+     */
+    @VisibleForTesting
+    Iterator<LocatedFileStatus> listPrefix(Path path)
     {
         String key = keyFromPath(path);
         if (!key.isEmpty()) {

@@ -1064,6 +1064,22 @@
                 <version>3.1.4-1</version>
             </dependency>
 
+            <dependency>
+                <groupId>io.findify</groupId>
+                <artifactId>s3mock_2.11</artifactId>
+                <version>0.2.5</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.iq80.leveldb</groupId>
+                        <artifactId>leveldb</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk-s3</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
@@ -1219,6 +1235,17 @@
                         <exclude>**/*jmhTest*.java</exclude>
                         <exclude>**/*jmhType*.java</exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>reference.conf</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
                 </configuration>
             </plugin>
         </plugins>
