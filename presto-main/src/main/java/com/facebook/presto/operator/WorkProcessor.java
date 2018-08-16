@@ -100,6 +100,11 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.yieldingIteratorFrom(this);
     }
 
+    static <T> WorkProcessor<T> flatten(WorkProcessor<WorkProcessor<T>> processor)
+    {
+        return WorkProcessorUtils.flatten(processor);
+    }
+
     static <T> WorkProcessor<T> fromIterable(Iterable<T> iterable)
     {
         return WorkProcessorUtils.fromIterator(iterable.iterator());

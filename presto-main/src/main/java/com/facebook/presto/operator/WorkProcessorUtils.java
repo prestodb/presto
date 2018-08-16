@@ -162,42 +162,31 @@ public final class WorkProcessorUtils
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(transformation, "transformation is null");
-        return processor.transform(new Transformation<T, R>()
-        {
-            WorkProcessor<R> processor;
-            boolean needsMoreData;
+        return flatten(processor.transform(transformation));
+    }
 
-            @Override
-            public ProcessorState<R> process(Optional<T> elementOptional)
-            {
-                while (true) {
-                    if (processor == null) {
-                        ProcessorState<WorkProcessor<R>> state = transformation.process(elementOptional);
-                        if (state.getType() != ProcessorState.Type.RESULT) {
-                            return new ProcessorState<>(state.getType(), state.isNeedsMoreData(), Optional.empty(), state.getBlocked());
-                        }
-                        processor = state.getResult().get();
-                        needsMoreData = state.isNeedsMoreData();
-                    }
-
-                    if (processor.process()) {
-                        if (!processor.isFinished()) {
-                            return ProcessorState.ofResult(processor.getResult(), false);
-                        }
-
-                        processor = null;
-                        if (needsMoreData) {
-                            return ProcessorState.needsMoreData();
-                        }
-                    }
-                    else if (processor.isBlocked()) {
-                        return ProcessorState.blocked(processor.getBlockedFuture());
-                    }
-                    else {
-                        return ProcessorState.yield();
-                    }
-                }
+    static <T> WorkProcessor<T> flatten(WorkProcessor<WorkProcessor<T>> processor)
+    {
+        requireNonNull(processor, "processor is null");
+        return processor.transform(nestedProcessorOptional -> {
+            if (!nestedProcessorOptional.isPresent()) {
+                return ProcessorState.finished();
             }
+
+            WorkProcessor<T> nestedProcessor = nestedProcessorOptional.get();
+            if (nestedProcessor.process()) {
+                if (nestedProcessor.isFinished()) {
+                    return ProcessorState.needsMoreData();
+                }
+
+                return ProcessorState.ofResult(nestedProcessor.getResult(), false);
+            }
+
+            if (nestedProcessor.isBlocked()) {
+                return ProcessorState.blocked(nestedProcessor.getBlockedFuture());
+            }
+
+            return ProcessorState.yield();
         });
     }
 
