@@ -166,6 +166,12 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : fixedSize;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);

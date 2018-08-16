@@ -82,6 +82,7 @@ public class TestQueryContext
                     new SpillSpaceTracker(new DataSize(0, BYTE)));
 
             // Use memory
+            queryContext.getQueryMemoryContext().initializeLocalMemoryContexts("test");
             LocalMemoryContext userMemoryContext = queryContext.getQueryMemoryContext().localUserMemoryContext();
             LocalMemoryContext revocableMemoryContext = queryContext.getQueryMemoryContext().localRevocableMemoryContext();
             assertTrue(userMemoryContext.setBytes(3).isDone());

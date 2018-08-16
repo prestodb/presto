@@ -15,15 +15,26 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static com.facebook.presto.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -34,53 +45,64 @@ import static java.util.Objects.requireNonNull;
  * Uses hardcoded UTC timezone and english locale.
  */
 public class CustomDateTimeJsonFieldDecoder
-        extends JsonFieldDecoder
+        implements JsonFieldDecoder
 {
-    @Override
-    public Set<Class<?>> getJavaTypes()
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+
+    private final DecoderColumnHandle columnHandle;
+    private final DateTimeFormatter formatter;
+
+    public CustomDateTimeJsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
-        return ImmutableSet.of(long.class, Slice.class);
+        this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+        if (!SUPPORTED_TYPES.contains(columnHandle.getType())) {
+            throwUnsupportedColumnType(columnHandle);
+        }
+
+        checkArgument(columnHandle.getFormatHint() != null, "format hint not defined for column '%s'", columnHandle.getName());
+        try {
+            formatter = DateTimeFormat.forPattern(columnHandle.getFormatHint()).withLocale(Locale.ENGLISH).withZoneUTC();
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(
+                    GENERIC_USER_ERROR,
+                    format("invalid joda pattern '%s' passed as format hint for column '%s'", columnHandle.getFormatHint(), columnHandle.getName()));
+        }
     }
 
     @Override
-    public String getFieldDecoderName()
+    public FieldValueProvider decode(JsonNode value)
     {
-        return "custom-date-time";
-    }
-
-    @Override
-    public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
-    {
-        requireNonNull(columnHandle, "columnHandle is null");
-        requireNonNull(value, "value is null");
-
-        return new CustomDateTimeJsonValueProvider(value, columnHandle);
+        return new CustomDateTimeJsonValueProvider(value, columnHandle, formatter);
     }
 
     public static class CustomDateTimeJsonValueProvider
-            extends DateTimeJsonValueProvider
+            extends AbstractDateTimeJsonValueProvider
     {
-        public CustomDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+        private final DateTimeFormatter formatter;
+
+        public CustomDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, DateTimeFormatter formatter)
         {
             super(value, columnHandle);
+            this.formatter = formatter;
         }
 
         @Override
         protected long getMillis()
         {
-            if (isNull()) {
-                return 0L;
+            if (!value.isValueNode()) {
+                throw new PrestoException(
+                        DECODER_CONVERSION_NOT_SUPPORTED,
+                        format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
             }
-
-            if (value.canConvertToLong()) {
-                return value.asLong();
+            try {
+                return formatter.parseMillis(value.asText());
             }
-
-            requireNonNull(columnHandle.getFormatHint(), "formatHint is null");
-            String textValue = value.isValueNode() ? value.asText() : value.toString();
-
-            DateTimeFormatter formatter = DateTimeFormat.forPattern(columnHandle.getFormatHint()).withLocale(Locale.ENGLISH).withZoneUTC();
-            return formatter.parseMillis(textValue);
+            catch (IllegalArgumentException e) {
+                throw new PrestoException(
+                        DECODER_CONVERSION_NOT_SUPPORTED,
+                        format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+            }
         }
     }
 }

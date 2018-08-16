@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.206-SNAPSHOT</version>
+        <version>0.208-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -24,6 +24,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
@@ -32,6 +38,10 @@
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.prestodb.tempto</groupId>
+            <artifactId>tempto-kafka</artifactId>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
@@ -48,10 +58,6 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
@@ -92,6 +98,10 @@
         <dependency>
             <groupId>io.airlift.tpch</groupId>
             <artifactId>tpch</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto.hive</groupId>

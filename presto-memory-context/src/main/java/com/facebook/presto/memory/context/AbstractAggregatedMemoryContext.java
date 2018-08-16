@@ -20,6 +20,8 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 
@@ -41,9 +43,9 @@ abstract class AbstractAggregatedMemoryContext
     }
 
     @Override
-    public LocalMemoryContext newLocalMemoryContext()
+    public LocalMemoryContext newLocalMemoryContext(String allocationTag)
     {
-        return new SimpleLocalMemoryContext(this);
+        return new SimpleLocalMemoryContext(this, allocationTag);
     }
 
     @Override
@@ -72,14 +74,19 @@ abstract class AbstractAggregatedMemoryContext
                 .toString();
     }
 
+    synchronized boolean isClosed()
+    {
+        return closed;
+    }
+
     synchronized void addBytes(long bytes)
     {
         usedBytes = addExact(usedBytes, bytes);
     }
 
-    abstract ListenableFuture<?> updateBytes(long bytes);
+    abstract ListenableFuture<?> updateBytes(Optional<String> allocationTag, long bytes);
 
-    abstract boolean tryUpdateBytes(long delta);
+    abstract boolean tryUpdateBytes(Optional<String> allocationTag, long delta);
 
     @Nullable
     abstract AbstractAggregatedMemoryContext getParent();

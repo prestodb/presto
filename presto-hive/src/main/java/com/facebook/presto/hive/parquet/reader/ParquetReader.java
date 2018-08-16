@@ -211,7 +211,7 @@ public class ParquetReader
     private byte[] allocateBlock(int length)
     {
         byte[] buffer = new byte[length];
-        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext();
+        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName());
         blockMemoryContext.setBytes(buffer.length);
         return buffer;
     }

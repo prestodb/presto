@@ -50,7 +50,7 @@ public final class TimeZoneKey
     private static final TimeZoneKey[] OFFSET_TIME_ZONE_KEYS = new TimeZoneKey[OFFSET_TIME_ZONE_MAX - OFFSET_TIME_ZONE_MIN + 1];
 
     static {
-        try (InputStream in = TimeZoneIndex.class.getResourceAsStream("zone-index.properties")) {
+        try (InputStream in = TimeZoneKey.class.getResourceAsStream("zone-index.properties")) {
             // load zone file
             // todo parse file by hand since Properties ignores duplicate entries
             Properties data = new Properties()

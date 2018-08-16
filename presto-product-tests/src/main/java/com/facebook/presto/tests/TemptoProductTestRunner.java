@@ -15,12 +15,9 @@ package com.facebook.presto.tests;
 
 import io.prestodb.tempto.runner.TemptoRunner;
 import io.prestodb.tempto.runner.TemptoRunnerCommandLineParser;
-import org.joda.time.DateTimeZone;
 
 public class TemptoProductTestRunner
 {
-    public static final DateTimeZone PRODUCT_TESTS_TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
-
     public static void main(String[] args)
     {
         TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser.builder("Presto product tests")

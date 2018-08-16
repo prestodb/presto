@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -48,6 +49,7 @@ import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -626,14 +628,14 @@ public final class DecimalOperators
     public static final class HashCode
     {
         @LiteralParameters({"p", "s"})
-        @SqlType("bigint")
+        @SqlType(StandardTypes.BIGINT)
         public static long hashCode(@SqlType("decimal(p, s)") long value)
         {
             return value;
         }
 
         @LiteralParameters({"p", "s"})
-        @SqlType("bigint")
+        @SqlType(StandardTypes.BIGINT)
         public static long hashCode(@SqlType("decimal(p, s)") Slice value)
         {
             return UnscaledDecimal128Arithmetic.hash(value);
@@ -655,6 +657,24 @@ public final class DecimalOperators
         public static boolean indeterminate(@SqlType("decimal(p, s)") Slice value, @IsNull boolean isNull)
         {
             return isNull;
+        }
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    public static final class XxHash64Operator
+    {
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BIGINT)
+        public static long xxHash64(@SqlType("decimal(p, s)") long value)
+        {
+            return XxHash64.hash(value);
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BIGINT)
+        public static long xxHash64(@SqlType("decimal(p, s)") Slice value)
+        {
+            return XxHash64.hash(value);
         }
     }
 }

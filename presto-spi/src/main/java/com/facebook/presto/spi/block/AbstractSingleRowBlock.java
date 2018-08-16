@@ -148,6 +148,13 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getEstimatedDataSizeForStats(rowIndex);
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         throw new UnsupportedOperationException();

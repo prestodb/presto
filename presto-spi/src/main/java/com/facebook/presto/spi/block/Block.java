@@ -180,6 +180,12 @@ public interface Block
     long getRetainedSizeInBytes();
 
     /**
+     * Returns the estimated in memory data size for stats of position.
+     * Do not use it for other purpose.
+     */
+    long getEstimatedDataSizeForStats(int position);
+
+    /**
      * {@code consumer} visits each of the internal data container and accepts the size for it.
      * This method can be helpful in cases such as memory counting for internal data structure.
      * Also, the method should be non-recursive, only visit the elements at the top level,
@@ -256,10 +262,14 @@ public interface Block
     boolean isNull(int position);
 
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a block that assures all data is in memory.
+     * May return the same block if all block data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    default void assureLoaded() {}
+    default Block getLoadedBlock()
+    {
+        return this;
+    }
 }

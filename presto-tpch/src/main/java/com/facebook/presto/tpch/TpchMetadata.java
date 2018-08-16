@@ -238,7 +238,7 @@ public class TpchMetadata
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
-                .filter(value -> constraint.predicate().test(ImmutableMap.of(toColumnHandle(column), value)))
+                .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
     }
 
@@ -290,7 +290,7 @@ public class TpchMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(session, prefix.getSchemaName())) {
+        for (String schemaName : getSchemaNames(session, Optional.ofNullable(prefix.getSchemaName()))) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
                     ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, columnNaming);
@@ -374,6 +374,7 @@ public class TpchMetadata
         return ColumnStatistics.builder()
                 .addRange(rangeBuilder -> rangeBuilder
                         .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::new).orElse(Estimate.unknownValue()))
+                        .setDataSize(stats.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()))
                         .setLowValue(stats.getMin().map(value -> toPrestoValue(value, columnType)))
                         .setHighValue(stats.getMax().map(value -> toPrestoValue(value, columnType)))
                         .setFraction(new Estimate((1))))
@@ -416,10 +417,10 @@ public class TpchMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(session, schemaNameOrNull)) {
+        for (String schemaName : getSchemaNames(session, filterSchema)) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 builder.add(new SchemaTableName(schemaName, tpchTable.getTableName()));
             }
@@ -439,19 +440,15 @@ public class TpchMetadata
                 })));
     }
 
-    private List<String> getSchemaNames(ConnectorSession session, String schemaNameOrNull)
+    private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
     {
-        List<String> schemaNames;
-        if (schemaNameOrNull == null) {
-            schemaNames = listSchemaNames(session);
+        if (!schemaName.isPresent()) {
+            return listSchemaNames(session);
         }
-        else if (schemaNameToScaleFactor(schemaNameOrNull) > 0) {
-            schemaNames = ImmutableList.of(schemaNameOrNull);
+        if (schemaNameToScaleFactor(schemaName.get()) > 0) {
+            return ImmutableList.of(schemaName.get());
         }
-        else {
-            schemaNames = ImmutableList.of();
-        }
-        return schemaNames;
+        return ImmutableList.of();
     }
 
     private static String scaleFactorSchemaName(double scaleFactor)

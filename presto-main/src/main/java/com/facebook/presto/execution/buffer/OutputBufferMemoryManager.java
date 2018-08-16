@@ -42,6 +42,9 @@ class OutputBufferMemoryManager
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
     private final AtomicLong peakMemoryUsage = new AtomicLong();
+
+    @GuardedBy("this")
+    private boolean closed;
     @GuardedBy("this")
     private SettableFuture<?> bufferBlockedFuture;
     @GuardedBy("this")
@@ -66,6 +69,10 @@ class OutputBufferMemoryManager
 
     public synchronized void updateMemoryUsage(long bytesAdded)
     {
+        if (closed) {
+            return;
+        }
+
         long currentBufferedBytes = bufferedBytes.addAndGet(bytesAdded);
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
         this.blockedOnMemory = systemMemoryContextSupplier.get().setBytes(currentBufferedBytes);
@@ -138,5 +145,12 @@ class OutputBufferMemoryManager
     public long getPeakMemoryUsage()
     {
         return peakMemoryUsage.get();
+    }
+
+    public synchronized void close()
+    {
+        updateMemoryUsage(-bufferedBytes.get());
+        systemMemoryContextSupplier.get().close();
+        closed = true;
     }
 }

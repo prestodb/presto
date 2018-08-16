@@ -233,16 +233,28 @@ public class Page
     }
 
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a page that assures all data is in memory.
+     * May return the same page if all page data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    public void assureLoaded()
+    public Page getLoadedPage()
     {
-        for (Block block : blocks) {
-            block.assureLoaded();
+        boolean allLoaded = true;
+        Block[] loadedBlocks = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            loadedBlocks[i] = blocks[i].getLoadedBlock();
+            if (loadedBlocks[i] != blocks[i]) {
+                allLoaded = false;
+            }
         }
+
+        if (allLoaded) {
+            return this;
+        }
+
+        return new Page(loadedBlocks);
     }
 
     @Override

@@ -30,9 +30,9 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -56,7 +56,7 @@ public class HiveTableProperties
     public HiveTableProperties(TypeManager typeManager, HiveClientConfig config)
     {
         tableProperties = ImmutableList.of(
-                stringSessionProperty(
+                stringProperty(
                         EXTERNAL_LOCATION_PROPERTY,
                         "File system location URI for external table",
                         null,
@@ -119,12 +119,12 @@ public class HiveTableProperties
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value),
-                doubleSessionProperty(
+                doubleProperty(
                         ORC_BLOOM_FILTER_FPP,
                         "ORC Bloom filter false positive probability",
                         config.getOrcDefaultBloomFilterFpp(),
                         false),
-                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
+                integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()

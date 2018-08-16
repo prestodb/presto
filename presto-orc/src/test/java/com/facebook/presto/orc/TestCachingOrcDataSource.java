@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -204,7 +205,8 @@ public class TestCachingOrcDataSource
                 ImmutableMap.of(0, VARCHAR),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                INITIAL_BATCH_SIZE);
         int positionCount = 0;
         while (true) {
             int batchSize = orcRecordReader.nextBatch();

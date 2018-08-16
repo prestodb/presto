@@ -736,7 +736,7 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatName(node.getSchemaName()));
-            builder.append(formatProperties(node.getProperties()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
 
             return null;
         }
@@ -784,7 +784,7 @@ public final class SqlFormatter
                 builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
             }
 
-            builder.append(formatProperties(node.getProperties()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
 
             builder.append(" AS ");
             process(node.getQuery(), indent);
@@ -811,10 +811,7 @@ public final class SqlFormatter
                     .map(element -> {
                         if (element instanceof ColumnDefinition) {
                             ColumnDefinition column = (ColumnDefinition) element;
-                            return elementIndent + formatExpression(column.getName(), parameters) + " " + column.getType() +
-                                    column.getComment()
-                                            .map(comment -> " COMMENT " + formatStringLiteral(comment))
-                                            .orElse("");
+                            return elementIndent + formatColumnDefinition(column);
                         }
                         if (element instanceof LikeClause) {
                             LikeClause likeClause = (LikeClause) element;
@@ -838,16 +835,17 @@ public final class SqlFormatter
                 builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
             }
 
-            builder.append(formatProperties(node.getProperties()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
 
             return null;
         }
 
-        private String formatProperties(List<Property> properties)
+        private String formatPropertiesMultiLine(List<Property> properties)
         {
             if (properties.isEmpty()) {
                 return "";
             }
+
             String propertyList = properties.stream()
                     .map(element -> INDENT +
                             formatExpression(element.getName(), parameters) + " = " +
@@ -855,6 +853,20 @@ public final class SqlFormatter
                     .collect(joining(",\n"));
 
             return "\nWITH (\n" + propertyList + "\n)";
+        }
+
+        private String formatPropertiesSingleLine(List<Property> properties)
+        {
+            if (properties.isEmpty()) {
+                return "";
+            }
+
+            String propertyList = properties.stream()
+                    .map(element -> formatExpression(element.getName(), parameters) + " = " +
+                            formatExpression(element.getValue(), parameters))
+                    .collect(joining(", "));
+
+            return " WITH ( " + propertyList + " )";
         }
 
         private static String formatName(String name)
@@ -870,6 +882,15 @@ public final class SqlFormatter
             return name.getOriginalParts().stream()
                     .map(Formatter::formatName)
                     .collect(joining("."));
+        }
+
+        private String formatColumnDefinition(ColumnDefinition column)
+        {
+            return formatExpression(column.getName(), parameters) + " " + column.getType() +
+                    column.getComment()
+                            .map(comment -> " COMMENT " + formatStringLiteral(comment))
+                            .orElse("") +
+                    formatPropertiesSingleLine(column.getProperties());
         }
 
         @Override
@@ -925,9 +946,7 @@ public final class SqlFormatter
             builder.append("ALTER TABLE ")
                     .append(node.getName())
                     .append(" ADD COLUMN ")
-                    .append(node.getColumn().getName())
-                    .append(" ")
-                    .append(node.getColumn().getType());
+                    .append(formatColumnDefinition(node.getColumn()));
 
             return null;
         }

@@ -67,7 +67,7 @@ public class TestFileSingleStreamSpiller
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
-        LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext();
+        LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> {}, memoryContext);
 
         Page page = buildPage();

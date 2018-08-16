@@ -72,6 +72,7 @@ public class LowMemoryKillerTestingUtils
                                 nodeReservation.getGeneral().getTotalReservedBytes(),
                                 0,
                                 nodeReservation.getGeneral().getReservationByQuery(),
+                                ImmutableMap.of(),
                                 ImmutableMap.of()));
             }
             if (nodeReservation.getReserved().getTotalReservedBytes() > 0) {
@@ -82,6 +83,7 @@ public class LowMemoryKillerTestingUtils
                                 nodeReservation.getReserved().getTotalReservedBytes(),
                                 0,
                                 nodeReservation.getReserved().getReservationByQuery(),
+                                ImmutableMap.of(),
                                 ImmutableMap.of()));
             }
             result.add(new MemoryInfo(new DataSize(maxReservedPoolBytes + maxGeneralPoolBytes, BYTE), pools.build()));

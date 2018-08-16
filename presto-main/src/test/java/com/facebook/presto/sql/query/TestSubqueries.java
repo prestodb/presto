@@ -182,11 +182,27 @@ public class TestSubqueries
     }
 
     @Test
+    public void testLateralWithUnnest()
+    {
+        assertions.assertFails(
+                "SELECT * FROM (VALUES ARRAY[1]) t(x), LATERAL (SELECT * FROM UNNEST(x))",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
     public void testCorrelatedScalarSubquery()
     {
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 1, 2) t2(b) WHERE (SELECT b) = 2",
                 "VALUES 2");
+    }
+
+    @Test
+    public void testCorrelatedSubqueryWithExplicitCoercion()
+    {
+        assertions.assertQuery(
+                "SELECT 1 FROM (VALUES 1, 2) t1(b) WHERE 1 = (SELECT cast(b as decimal(7,2)))",
+                "VALUES 1");
     }
 
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)

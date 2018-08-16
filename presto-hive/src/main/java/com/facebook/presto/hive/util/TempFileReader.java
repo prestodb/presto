@@ -34,6 +34,7 @@ import java.util.Map;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
@@ -66,7 +67,8 @@ public class TempFileReader
                     includedColumns,
                     OrcPredicate.TRUE,
                     UTC,
-                    newSimpleAggregatedMemoryContext());
+                    newSimpleAggregatedMemoryContext(),
+                    INITIAL_BATCH_SIZE);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data");
@@ -88,9 +90,7 @@ public class TempFileReader
 
             Block[] blocks = new Block[types.size()];
             for (int i = 0; i < types.size(); i++) {
-                Block block = reader.readBlock(types.get(i), i);
-                block.assureLoaded();
-                blocks[i] = block;
+                blocks[i] = reader.readBlock(types.get(i), i).getLoadedBlock();
             }
             return new Page(batchSize, blocks);
         }

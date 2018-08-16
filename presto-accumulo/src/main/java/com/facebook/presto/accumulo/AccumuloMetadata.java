@@ -37,6 +37,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -102,7 +103,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         clearRollback();
         return Optional.empty();
@@ -162,7 +163,7 @@ public class AccumuloMetadata
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> builder = ImmutableMap.builder();
-        for (SchemaTableName stName : listViews(session, prefix.getSchemaName())) {
+        for (SchemaTableName stName : listViews(session, Optional.ofNullable(prefix.getSchemaName()))) {
             AccumuloView view = client.getView(stName);
             if (view != null) {
                 builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData()));
@@ -172,30 +173,30 @@ public class AccumuloMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return listViews(schemaNameOrNull);
+        return listViews(schemaName);
     }
 
     /**
      * Gets all views in the given schema, or all schemas if null.
      *
-     * @param schemaNameOrNull Schema to list for the views, or null to list all schemas
+     * @param filterSchema Schema to filter the views, or absent to list all schemas
      * @return List of views
      */
-    private List<SchemaTableName> listViews(String schemaNameOrNull)
+    private List<SchemaTableName> listViews(Optional<String> filterSchema)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        if (schemaNameOrNull == null) {
-            for (String schema : client.getSchemaNames()) {
-                for (String view : client.getViewNames(schema)) {
-                    builder.add(new SchemaTableName(schema, view));
-                }
+        if (filterSchema.isPresent()) {
+            for (String view : client.getViewNames(filterSchema.get())) {
+                builder.add(new SchemaTableName(filterSchema.get(), view));
             }
         }
         else {
-            for (String view : client.getViewNames(schemaNameOrNull)) {
-                builder.add(new SchemaTableName(schemaNameOrNull, view));
+            for (String schemaName : client.getSchemaNames()) {
+                for (String view : client.getViewNames(schemaName)) {
+                    builder.add(new SchemaTableName(schemaName, view));
+                }
             }
         }
 
@@ -212,7 +213,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         clearRollback();
         return Optional.empty();
@@ -237,7 +238,7 @@ public class AccumuloMetadata
         }
 
         // Need to validate that SchemaTableName is a table
-        if (!this.listViews(session, tableName.getSchemaName()).contains(tableName)) {
+        if (!this.listViews(session, Optional.of(tableName.getSchemaName())).contains(tableName)) {
             AccumuloTable table = client.getTable(tableName);
             if (table == null) {
                 return null;
@@ -271,7 +272,7 @@ public class AccumuloMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout((AccumuloTableLayoutHandle) handle);
+        return new ConnectorTableLayout(handle);
     }
 
     @Override
@@ -331,15 +332,10 @@ public class AccumuloMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
     {
-        Set<String> schemaNames;
-        if (schemaNameOrNull != null) {
-            schemaNames = ImmutableSet.of(schemaNameOrNull);
-        }
-        else {
-            schemaNames = client.getSchemaNames();
-        }
+        Set<String> schemaNames = filterSchema.<Set<String>>map(ImmutableSet::of)
+                .orElseGet(client::getSchemaNames);
 
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (String schemaName : schemaNames) {
@@ -395,7 +391,7 @@ public class AccumuloMetadata
         }
 
         // Need to validate that SchemaTableName is a table
-        if (!this.listViews(tableName.getSchemaName()).contains(tableName)) {
+        if (!this.listViews(Optional.ofNullable(tableName.getSchemaName())).contains(tableName)) {
             AccumuloTable table = client.getTable(tableName);
             if (table == null) {
                 return null;
@@ -411,7 +407,7 @@ public class AccumuloMetadata
     {
         // List all tables if schema or table is null
         if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
-            return listTables(session, prefix.getSchemaName());
+            return listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
 
         // Make sure requested table exists, returning the single table of it does

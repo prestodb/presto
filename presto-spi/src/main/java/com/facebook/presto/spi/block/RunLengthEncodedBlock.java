@@ -88,6 +88,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return value.getEstimatedDataSizeForStats(0);
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(value, value.getRetainedSizeInBytes());
@@ -263,9 +269,14 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void assureLoaded()
+    public Block getLoadedBlock()
     {
-        value.assureLoaded();
+        Block loadedValueBlock = value.getLoadedBlock();
+
+        if (loadedValueBlock == value) {
+            return this;
+        }
+        return new RunLengthEncodedBlock(loadedValueBlock, positionCount);
     }
 
     private void checkReadablePosition(int position)

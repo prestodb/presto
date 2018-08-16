@@ -79,6 +79,24 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesLeftSide()
+    {
+        assertQuery("SELECT max(x) FROM" +
+                        "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
+                        "GROUP BY x",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesRightSide()
+    {
+        assertQuery("SELECT max(y) FROM" +
+                        "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
+                        "GROUP BY y",
+                "VALUES 1");
+    }
+
+    @Test
     public void testCountWithCoalescePredicate()
     {
         assertQuery(
@@ -660,14 +678,115 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproximateCountDistinct()
     {
+        // test NULL
+        assertQuery("SELECT approx_distinct(NULL)", "SELECT 0");
+        assertQuery("SELECT approx_distinct(NULL, 0.023)", "SELECT 0");
+
+        // test date
+        assertQuery("SELECT approx_distinct(orderdate) FROM orders", "SELECT 2443");
+        assertQuery("SELECT approx_distinct(orderdate, 0.023) FROM orders", "SELECT 2443");
+
+        // test timestamp
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2384");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2384");
+
+        // test timestamp with time zone
+        assertQuery("SELECT approx_distinct(CAST((orderdate) AS TIMESTAMP WITH TIME ZONE)) FROM orders", "SELECT 2384");
+        assertQuery("SELECT approx_distinct(CAST((orderdate) AS TIMESTAMP WITH TIME ZONE), 0.023) FROM orders", "SELECT 2384");
+
+        // test time
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 993");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 993");
+
+        // test time with time zone
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 993");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 993");
+
+        // test short decimal
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0)), 0.023) FROM orders", "SELECT 990");
+
+        // test long decimal
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(25, 20))) FROM orders", "SELECT 1013");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(25, 20)), 0.023) FROM orders", "SELECT 1013");
+
+        // test real
+        assertQuery("SELECT approx_distinct(CAST(custkey AS REAL)) FROM orders", "SELECT 1006");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS REAL), 0.023) FROM orders", "SELECT 1006");
+
+        // test bigint
         assertQuery("SELECT approx_distinct(custkey) FROM orders", "SELECT 990");
         assertQuery("SELECT approx_distinct(custkey, 0.023) FROM orders", "SELECT 990");
+
+        // test integer
+        assertQuery("SELECT approx_distinct(CAST(custkey AS INTEGER)) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS INTEGER), 0.023) FROM orders", "SELECT 990");
+
+        // test smallint
+        assertQuery("SELECT approx_distinct(CAST(custkey AS SMALLINT)) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS SMALLINT), 0.023) FROM orders", "SELECT 990");
+
+        // test tinyint
+        assertQuery("SELECT approx_distinct(CAST((custkey % 128) AS TINYINT)) FROM orders", "SELECT 128");
+        assertQuery("SELECT approx_distinct(CAST((custkey % 128) AS TINYINT), 0.023) FROM orders", "SELECT 128");
+
+        // test double
         assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE)) FROM orders", "SELECT 1014");
         assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE), 0.023) FROM orders", "SELECT 1014");
+
+        // test varchar
         assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR)) FROM orders", "SELECT 1036");
         assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR), 0.023) FROM orders", "SELECT 1036");
+
+        // test char
+        assertQuery("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20))) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20)), 0.023) FROM orders", "SELECT 1036");
+
+        // test varbinary
         assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR))) FROM orders", "SELECT 1036");
         assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR)), 0.023) FROM orders", "SELECT 1036");
+    }
+
+    @Test
+    public void testSumDataSizeForStats()
+    {
+        // varchar
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
+
+        // char
+        // Presto removes trailing whitespaces when casting to CHAR.
+        // Hard code the expected data size since there is no easy to way to compute it in H2.
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
+
+        // varbinary
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+
+        // array
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+
+        // map
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(comment)) FROM orders");
+
+        // row
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+    }
+
+    @Test
+    public void testMaxDataSizeForStats()
+    {
+        // varchar
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(comment)) FROM orders");
+
+        // char
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(comment)) FROM orders");
+
+        // varbinary
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(comment)) FROM orders");
+
+        // $internal$max_data_size_for_stats is not needed for array, map and row
     }
 
     @Test

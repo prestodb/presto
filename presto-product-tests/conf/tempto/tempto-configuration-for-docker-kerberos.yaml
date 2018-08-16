@@ -24,6 +24,8 @@ databases:
   presto:
     host: presto-master.docker.cluster
     port: 7778
+    http_port: 8080
+    https_port: ${databases.presto.port}
     server_address: https://${databases.presto.host}:${databases.presto.port}
 
     # jdbc_user in here should satisfy two requirements in order to pass SQL standard access control checks in Presto:

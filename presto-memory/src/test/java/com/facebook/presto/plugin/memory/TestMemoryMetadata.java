@@ -69,9 +69,9 @@ public class TestMemoryMetadata
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty());
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
-        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tables.size() == 1, "Expected only one table");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
     }
@@ -143,7 +143,7 @@ public class TestMemoryMetadata
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty());
 
-        List<SchemaTableName> tableNames = metadata.listTables(SESSION, null);
+        List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
         assertTrue(tableNames.size() == 1, "Expected exactly one table");
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
@@ -154,7 +154,7 @@ public class TestMemoryMetadata
         assertTrue(tableLayoutHandle instanceof MemoryTableLayoutHandle);
         assertTrue(((MemoryTableLayoutHandle) tableLayoutHandle).getDataFragments().isEmpty(), "Data fragments should be empty");
 
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
     }
 
     @Test
@@ -174,9 +174,9 @@ public class TestMemoryMetadata
                         ImmutableMap.of()),
                 false);
 
-        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, "default"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
@@ -305,13 +305,13 @@ public class TestMemoryMetadata
     @Test
     public void testRenameTable()
     {
-        SchemaTableName tableName = new SchemaTableName("test_schema", "test_talbe_to_be_renamed");
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_to_be_renamed");
         metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty());
-        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         // rename table to schema which does not exist
         SchemaTableName invalidSchemaTableName = new SchemaTableName("test_schema_not_exist", "test_table_renamed");
@@ -334,6 +334,6 @@ public class TestMemoryMetadata
 
     private void assertNoTables()
     {
-        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");
+        assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(), "No table was expected");
     }
 }

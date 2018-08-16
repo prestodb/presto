@@ -65,6 +65,17 @@ public class TestFixedWidthBlock
         }
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
+            writeValues(expectedValues, blockBuilder);
+            assertEstimatedDataSizeForStats(blockBuilder, expectedValues);
+        }
+    }
+
     private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);

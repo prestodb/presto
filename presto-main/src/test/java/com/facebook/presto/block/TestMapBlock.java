@@ -225,4 +225,31 @@ public class TestMapBlock
         }
         mapBlockBuilder.closeEntryStrict();
     }
+
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        Map<String, Long>[] expectedValues = (Map<String, Long>[]) alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
+        Block block = blockBuilder.build();
+        assertEquals(block.getPositionCount(), expectedValues.length);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
+            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
+            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+        }
+    }
+
+    private static int getExpectedEstimatedDataSize(Map<String, Long> map)
+    {
+        if (map == null) {
+            return 0;
+        }
+        int size = 0;
+        for (Map.Entry<String, Long> entry : map.entrySet()) {
+            size += entry.getKey().length();
+            size += entry.getValue() == null ? 0 : Long.BYTES;
+        }
+        return size;
+    }
 }

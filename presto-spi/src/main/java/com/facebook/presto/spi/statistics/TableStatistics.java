@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
 import static java.util.Collections.unmodifiableMap;
@@ -44,6 +45,26 @@ public final class TableStatistics
     public Map<ColumnHandle, ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TableStatistics that = (TableStatistics) o;
+        return Objects.equals(rowCount, that.rowCount) &&
+                Objects.equals(columnStatistics, that.columnStatistics);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(rowCount, columnStatistics);
     }
 
     public static Builder builder()

@@ -13,30 +13,27 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.TestBlockAndPositionNullConvention.FunctionWithBlockAndPositionConvention.BLOCK_AND_POSITION_CONVENTION;
-import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestBlockAndPositionNullConvention
@@ -45,76 +42,132 @@ public class TestBlockAndPositionNullConvention
     @BeforeClass
     public void setUp()
     {
-        registerScalarFunction(BLOCK_AND_POSITION_CONVENTION);
+        registerParametricScalar(FunctionWithBlockAndPositionConvention.class);
     }
 
     @Test
     public void testBlockPosition()
     {
-        assertFunction("identityFunction(9876543210)", BIGINT, 9876543210L);
-        assertFunction("identityFunction(bound_long)", BIGINT, 1234L);
-        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPosition.get());
+        assertFunction("test_block_position(9876543210)", BIGINT, 9876543210L);
+        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get());
+
+        assertFunction("test_block_position(bound_long)", BIGINT, 1234L);
+        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get());
+
+        assertFunction("test_block_position(3.0E0)", DOUBLE, 3.0);
+        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get());
+
+        assertFunction("test_block_position(bound_double)", DOUBLE, 12.34);
+        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get());
+
+        assertFunction("test_block_position(bound_string)", VARCHAR, "hello");
+        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get());
+
+        // TODO: add adaptations so these will pass
+        //assertFunction("test_block_position(null)", UNKNOWN, null);
+        //assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get());
+
+        assertFunction("test_block_position(false)", BOOLEAN, false);
+        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
+
+        assertFunction("test_block_position(bound_boolean)", BOOLEAN, true);
+        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
     }
 
+    @ScalarFunction("test_block_position")
     public static class FunctionWithBlockAndPositionConvention
-            extends SqlScalarFunction
     {
-        private static final AtomicBoolean hitBlockPosition = new AtomicBoolean();
-        public static final FunctionWithBlockAndPositionConvention BLOCK_AND_POSITION_CONVENTION = new FunctionWithBlockAndPositionConvention();
+        private static final AtomicBoolean hitBlockPositionBigint = new AtomicBoolean();
+        private static final AtomicBoolean hitBlockPositionDouble = new AtomicBoolean();
+        private static final AtomicBoolean hitBlockPositionSlice = new AtomicBoolean();
+        private static final AtomicBoolean hitBlockPositionBoolean = new AtomicBoolean();
+        private static final AtomicBoolean hitBlockPositionObject = new AtomicBoolean();
 
-        private static final MethodHandle METHOD_HANDLE_BLOCK_AND_POSITION = methodHandle(FunctionWithBlockAndPositionConvention.class, "getBlockPosition", Block.class, int.class);
-        private static final MethodHandle METHOD_HANDLE_NULL_ON_NULL = methodHandle(FunctionWithBlockAndPositionConvention.class, "getLong", long.class);
+        /*
+        // generic implementations
+        // these will not work right now because MethodHandle is not properly adapted
 
-        protected FunctionWithBlockAndPositionConvention()
+        @TypeParameter("E")
+        @SqlNullable
+        @SqlType("E")
+        public static Object generic(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Object object)
         {
-            super(new Signature("identityFunction", FunctionKind.SCALAR, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+            return object;
         }
 
-        @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        @TypeParameter("E")
+        @SqlNullable
+        @SqlType("E")
+        public static Object generic(@TypeParameter("E") Type type, @BlockPosition @SqlType("E") Block block, @BlockIndex int position)
         {
-            return new ScalarFunctionImplementation(
-                    ImmutableList.of(
-                            new ScalarImplementationChoice(
-                                    false,
-                                    ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                                    METHOD_HANDLE_NULL_ON_NULL,
-                                    Optional.empty()),
-                            new ScalarImplementationChoice(
-                                    false,
-                                    ImmutableList.of(valueTypeArgumentProperty(BLOCK_AND_POSITION)),
-                                    METHOD_HANDLE_BLOCK_AND_POSITION,
-                                    Optional.empty())),
-                    isDeterministic());
+            hitBlockPositionObject.set(true);
+            return TypeUtils.readNativeValue(type, block, position);
+        }
+        */
+
+        // specialized
+
+        @TypeParameter("E")
+        @SqlNullable
+        @SqlType("E")
+        public static Slice specializedSlice(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Slice slice)
+        {
+            return slice;
         }
 
-        public static long getBlockPosition(Block block, int position)
+        @TypeParameter("E")
+        @SqlType("E")
+        public static Slice specializedSlice(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = Slice.class) Block block, @BlockIndex int position)
         {
-            hitBlockPosition.set(true);
-            return BIGINT.getLong(block, position);
+            hitBlockPositionSlice.set(true);
+            return type.getSlice(block, position);
         }
 
-        public static long getLong(long number)
+        @TypeParameter("E")
+        @SqlNullable
+        @SqlType("E")
+        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlType("E") boolean bool)
+        {
+            return bool;
+        }
+
+        @TypeParameter("E")
+        @SqlNullable
+        @SqlType("E")
+        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = boolean.class) Block block, @BlockIndex int position)
+        {
+            hitBlockPositionBoolean.set(true);
+            return type.getBoolean(block, position);
+        }
+
+        // exact
+
+        @SqlType(StandardTypes.BIGINT)
+        public static long getLong(@SqlType(StandardTypes.BIGINT) long number)
         {
             return number;
         }
 
-        @Override
-        public boolean isDeterministic()
+        @SqlType(StandardTypes.BIGINT)
+        public static long getBlockPosition(@BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
         {
-            return true;
+            hitBlockPositionBigint.set(true);
+            return BIGINT.getLong(block, position);
         }
 
-        @Override
-        public boolean isHidden()
+        @SqlType(StandardTypes.DOUBLE)
+        @SqlNullable
+        public static Double getDouble(@SqlType(StandardTypes.DOUBLE) double number)
         {
-            return false;
+            return number;
         }
 
-        @Override
-        public String getDescription()
+        @SqlType(StandardTypes.DOUBLE)
+        @SqlNullable
+        public static Double getDouble(@BlockPosition @SqlType(value = StandardTypes.DOUBLE, nativeContainerType = double.class) Block block, @BlockIndex int position)
         {
-            return "";
+            hitBlockPositionDouble.set(true);
+            return DOUBLE.getDouble(block, position);
         }
     }
 }

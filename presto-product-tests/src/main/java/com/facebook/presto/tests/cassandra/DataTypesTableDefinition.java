@@ -24,14 +24,14 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
-import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 
 public class DataTypesTableDefinition
 {
@@ -55,7 +55,7 @@ public class DataTypesTableDefinition
                                 BigDecimal.ZERO, Double.MIN_VALUE, Float.MIN_VALUE, ImmutableSet.of(0),
                                 Inet4Address.getByName("0.0.0.0"), Integer.MIN_VALUE, ImmutableList.of(0),
                                 ImmutableMap.of("a", 0, "\0", Integer.MIN_VALUE), ImmutableSet.of(0),
-                                "\0", parseTimestampInLocalTime("1970-01-01 00:00:00", PRODUCT_TESTS_TIME_ZONE),
+                                "\0", Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
                                 UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"),
                                 UUID.fromString("01234567-0123-0123-0123-0123456789ab"),
                                 "\0", BigInteger.valueOf(Long.MIN_VALUE)),
@@ -65,7 +65,7 @@ public class DataTypesTableDefinition
                                 Double.MAX_VALUE, Float.MAX_VALUE, ImmutableSet.of(4, 5, 6, 7),
                                 Inet4Address.getByName("255.255.255.255"), Integer.MAX_VALUE,
                                 ImmutableList.of(4, 5, 6), ImmutableMap.of("a", 1, "b", 2), ImmutableSet.of(4, 5, 6),
-                                "this is a text value", parseTimestampInLocalTime("9999-12-31 23:59:59", PRODUCT_TESTS_TIME_ZONE),
+                                "this is a text value", Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
                                 UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"),
                                 UUID.fromString("01234567-0123-0123-0123-0123456789ab"),
                                 "abc", BigInteger.valueOf(Long.MAX_VALUE)),

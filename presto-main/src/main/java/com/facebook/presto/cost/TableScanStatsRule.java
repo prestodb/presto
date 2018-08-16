@@ -61,7 +61,7 @@ public class TableScanStatsRule
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint(), bindings -> true);
+        Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();

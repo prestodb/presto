@@ -25,6 +25,7 @@ import java.util.Optional;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestOperatorStats
 {
@@ -66,6 +67,9 @@ public class TestOperatorStats
             new DataSize(20, BYTE),
             new DataSize(21, BYTE),
             new DataSize(22, BYTE),
+            new DataSize(23, BYTE),
+            new DataSize(24, BYTE),
+            new DataSize(25, BYTE),
             Optional.empty(),
             NON_MERGEABLE_INFO);
 
@@ -104,6 +108,9 @@ public class TestOperatorStats
             new DataSize(20, BYTE),
             new DataSize(21, BYTE),
             new DataSize(22, BYTE),
+            new DataSize(23, BYTE),
+            new DataSize(24, BYTE),
+            new DataSize(25, BYTE),
             Optional.empty(),
             MERGEABLE_INFO);
 
@@ -151,6 +158,9 @@ public class TestOperatorStats
         assertEquals(actual.getUserMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(22, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(23, BYTE));
+        assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(25, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
     }
@@ -190,7 +200,10 @@ public class TestOperatorStats
         assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
-        assertEquals(actual.getInfo(), null);
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(23, BYTE));
+        assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(25, BYTE));
+        assertNull(actual.getInfo());
     }
 
     @Test
@@ -228,6 +241,9 @@ public class TestOperatorStats
         assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(23, BYTE));
+        assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(25, BYTE));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
     }

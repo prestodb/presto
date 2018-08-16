@@ -15,6 +15,7 @@ package com.facebook.presto.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -39,6 +40,7 @@ import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class KerberosAuthentication
 {
+    private static final Logger log = Logger.get(KerberosAuthentication.class);
     private static final String KERBEROS_LOGIN_MODULE = "com.sun.security.auth.module.Krb5LoginModule";
 
     private final KerberosPrincipal principal;
@@ -80,14 +82,19 @@ public class KerberosAuthentication
 
     private static Configuration createConfiguration(String principal, String keytabLocation)
     {
-        Map<String, String> options = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> optionsBuilder = ImmutableMap.<String, String>builder()
                 .put("useKeyTab", "true")
                 .put("storeKey", "true")
                 .put("doNotPrompt", "true")
                 .put("isInitiator", "true")
                 .put("principal", principal)
-                .put("keyTab", keytabLocation)
-                .build();
+                .put("keyTab", keytabLocation);
+
+        if (log.isDebugEnabled()) {
+            optionsBuilder.put("debug", "true");
+        }
+
+        Map<String, String> options = optionsBuilder.build();
 
         return new Configuration()
         {

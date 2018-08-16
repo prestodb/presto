@@ -13,12 +13,22 @@
  */
 package com.facebook.presto.tpch.statistics;
 
+import io.airlift.tpch.TpchColumnType;
+
 import java.util.Optional;
 import java.util.TreeSet;
+
+import static java.util.Objects.requireNonNull;
 
 class ColumnStatisticsRecorder
 {
     private final TreeSet<Object> nonNullValues = new TreeSet<>();
+    private final TpchColumnType type;
+
+    public ColumnStatisticsRecorder(TpchColumnType type)
+    {
+        this.type = requireNonNull(type, "type is null");
+    }
 
     void record(Comparable<?> value)
     {
@@ -32,7 +42,8 @@ class ColumnStatisticsRecorder
         return new ColumnStatisticsData(
                 Optional.of(getUniqueValuesCount()),
                 getLowestValue(),
-                getHighestValue());
+                getHighestValue(),
+                getDataSize());
     }
 
     private long getUniqueValuesCount()
@@ -48,5 +59,16 @@ class ColumnStatisticsRecorder
     private Optional<Object> getHighestValue()
     {
         return nonNullValues.size() > 0 ? Optional.of(nonNullValues.last()) : Optional.empty();
+    }
+
+    public Optional<Long> getDataSize()
+    {
+        if (type.getBase() == TpchColumnType.Base.VARCHAR) {
+            return Optional.of(nonNullValues.stream()
+                    .map(String.class::cast)
+                    .mapToLong(String::length)
+                    .sum());
+        }
+        return Optional.empty();
     }
 }

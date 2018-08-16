@@ -14,6 +14,7 @@
 package com.facebook.presto.tests.jdbc;
 
 import com.facebook.presto.jdbc.PrestoConnection;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import io.airlift.log.Logger;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
@@ -55,8 +56,6 @@ import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinition
 import static io.prestodb.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
-import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.TRUE;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -275,13 +274,14 @@ public class JdbcTests
     public void testSessionProperties()
             throws SQLException
     {
-        final String distributedJoin = "distributed_join";
+        final String joinDistributionType = "join_distribution_type";
+        final String defaultValue = new FeaturesConfig().getJoinDistributionType().name();
 
-        assertThat(getSessionProperty(connection(), distributedJoin)).isEqualTo(TRUE.toString());
-        setSessionProperty(connection(), distributedJoin, FALSE.toString());
-        assertThat(getSessionProperty(connection(), distributedJoin)).isEqualTo(FALSE.toString());
-        resetSessionProperty(connection(), distributedJoin);
-        assertThat(getSessionProperty(connection(), distributedJoin)).isEqualTo(TRUE.toString());
+        assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
+        setSessionProperty(connection(), joinDistributionType, "BROADCAST");
+        assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo("BROADCAST");
+        resetSessionProperty(connection(), joinDistributionType);
+        assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
     }
 
     private QueryResult queryResult(Statement statement, String query)

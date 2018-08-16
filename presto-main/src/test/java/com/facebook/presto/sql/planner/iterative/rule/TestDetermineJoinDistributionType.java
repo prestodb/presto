@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
@@ -23,7 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -31,8 +32,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -45,18 +44,20 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testDetermineDistributionType()
     {
-        testDetermineDistributionType(true, INNER, PARTITIONED);
-        testDetermineDistributionType(false, INNER, REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.PARTITIONED, INNER, DistributionType.PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.BROADCAST, INNER, DistributionType.REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.AUTOMATIC, INNER, DistributionType.PARTITIONED);
     }
 
     @Test
     public void testDetermineDistributionTypeForLeftOuter()
     {
-        testDetermineDistributionType(true, LEFT, PARTITIONED);
-        testDetermineDistributionType(false, LEFT, REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.PARTITIONED, LEFT, DistributionType.PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.BROADCAST, LEFT, DistributionType.REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.AUTOMATIC, LEFT, DistributionType.PARTITIONED);
     }
 
-    private void testDetermineDistributionType(boolean sessionDistributedJoin, Type joinType, DistributionType expectedDistribution)
+    private void testDetermineDistributionType(JoinDistributionType sessionDistributedJoin, Type joinType, DistributionType expectedDistribution)
     {
         tester().assertThat(new DetermineJoinDistributionType())
                 .on(p ->
@@ -67,7 +68,7 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(DISTRIBUTED_JOIN, Boolean.toString(sessionDistributedJoin))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .matches(join(
                         joinType,
                         ImmutableList.of(equiJoinClause("B1", "A1")),
@@ -80,13 +81,15 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testRepartitionRightOuter()
     {
-        testRepartitionRightOuter(true, FULL);
-        testRepartitionRightOuter(true, RIGHT);
-        testRepartitionRightOuter(false, FULL);
-        testRepartitionRightOuter(false, RIGHT);
+        testRepartitionRightOuter(JoinDistributionType.PARTITIONED, FULL);
+        testRepartitionRightOuter(JoinDistributionType.PARTITIONED, RIGHT);
+        testRepartitionRightOuter(JoinDistributionType.BROADCAST, FULL);
+        testRepartitionRightOuter(JoinDistributionType.BROADCAST, RIGHT);
+        testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, FULL);
+        testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, RIGHT);
     }
 
-    private void testRepartitionRightOuter(boolean sessionDistributedJoin, Type joinType)
+    private void testRepartitionRightOuter(JoinDistributionType sessionDistributedJoin, Type joinType)
     {
         tester().assertThat(new DetermineJoinDistributionType())
                 .on(p ->
@@ -97,12 +100,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(DISTRIBUTED_JOIN, Boolean.toString(sessionDistributedJoin))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .matches(join(
                         joinType,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
-                        Optional.of(PARTITIONED),
+                        Optional.of(DistributionType.PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
     }
@@ -120,12 +123,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(DISTRIBUTED_JOIN, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
-                        Optional.of(REPLICATED),
+                        Optional.of(DistributionType.REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         enforceSingleRow(values(ImmutableMap.of("B1", 0)))));
     }
@@ -148,12 +151,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.of(expression("A1 * B1 > 100"))))
-                .setSystemProperty(DISTRIBUTED_JOIN, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         joinType,
                         ImmutableList.of(),
                         Optional.of("A1 * B1 > 100"),
-                        Optional.of(REPLICATED),
+                        Optional.of(DistributionType.REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
     }
@@ -172,7 +175,7 @@ public class TestDetermineJoinDistributionType
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(REPLICATED)))
+                                Optional.of(DistributionType.REPLICATED)))
                 .doesNotFire();
     }
 }

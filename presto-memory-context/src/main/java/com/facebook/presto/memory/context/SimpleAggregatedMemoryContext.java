@@ -15,6 +15,10 @@ package com.facebook.presto.memory.context;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * SimpleAggregatedMemoryContext doesn't have a parent or a reservation handler. It just counts bytes.
  */
@@ -22,14 +26,15 @@ class SimpleAggregatedMemoryContext
         extends AbstractAggregatedMemoryContext
 {
     @Override
-    synchronized ListenableFuture<?> updateBytes(long bytes)
+    synchronized ListenableFuture<?> updateBytes(Optional<String> allocationTag, long bytes)
     {
+        checkState(!isClosed(), "SimpleAggregatedMemoryContext is already closed");
         addBytes(bytes);
         return NOT_BLOCKED;
     }
 
     @Override
-    synchronized boolean tryUpdateBytes(long delta)
+    synchronized boolean tryUpdateBytes(Optional<String> allocationTag, long delta)
     {
         addBytes(delta);
         return true;

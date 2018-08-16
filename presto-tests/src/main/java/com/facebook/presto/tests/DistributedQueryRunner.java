@@ -184,7 +184,7 @@ public class DistributedQueryRunner
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
-            propertiesBuilder.put("distributed-joins-enabled", "true");
+            propertiesBuilder.put("join-distribution-type", "PARTITIONED");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);

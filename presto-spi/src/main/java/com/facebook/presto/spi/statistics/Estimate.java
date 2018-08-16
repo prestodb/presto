@@ -25,23 +25,24 @@ public final class Estimate
     //      Skipping for now as there hard to compute it properly and so far we do not have
     //      usecase for that.
 
-    private static final double UNKNOWN_VALUE = Double.NaN;
+    private static final Estimate UNKNOWN = new Estimate(Double.NaN);
+    private static final Estimate ZERO = new Estimate(0);
 
     private final double value;
 
-    public static final Estimate unknownValue()
+    public static Estimate unknownValue()
     {
-        return new Estimate(UNKNOWN_VALUE);
+        return UNKNOWN;
+    }
+
+    public static Estimate zeroValue()
+    {
+        return ZERO;
     }
 
     public Estimate(double value)
     {
         this.value = value;
-    }
-
-    public static final Estimate zeroValue()
-    {
-        return new Estimate(0);
     }
 
     public boolean isValueUnknown()
@@ -65,12 +66,6 @@ public final class Estimate
     }
 
     @Override
-    public String toString()
-    {
-        return String.valueOf(value);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -87,5 +82,11 @@ public final class Estimate
     public int hashCode()
     {
         return Objects.hash(value);
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.valueOf(value);
     }
 }

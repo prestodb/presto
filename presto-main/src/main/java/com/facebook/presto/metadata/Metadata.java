@@ -17,19 +17,19 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -159,26 +159,6 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
-    /**
-     * Gets the TableIdentity for the specified table.
-     */
-    TableIdentity getTableIdentity(Session session, TableHandle tableHandle);
-
-    /**
-     * Deserialize the bytes to TableIdentity
-     */
-    TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes);
-
-    /**
-     * Gets the ColumnIdentity for the specified column.
-     */
-    ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
-
-    /**
-     * Deserialize the bytes to ColumnIdentity
-     */
-    ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes);
-
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
@@ -189,9 +169,14 @@ public interface Metadata
     /**
      * Finish a table creation with data after the data is written.
      */
-    Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+
+    /**
+     * Describes statistics that must be collected during a write.
+     */
+    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query
@@ -212,7 +197,7 @@ public interface Metadata
     /**
      * Finish insert query
      */
-    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -311,4 +296,6 @@ public interface Metadata
     SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
+
+    ColumnPropertyManager getColumnPropertyManager();
 }

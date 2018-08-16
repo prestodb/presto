@@ -20,8 +20,11 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.ObjectMapperProvider;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,7 +41,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileBasedSystemAccessControl
@@ -58,7 +61,7 @@ public class FileBasedSystemAccessControl
     public static class Factory
             implements SystemAccessControlFactory
     {
-        private static final String CONFIG_FILE_NAME = "security.config-file";
+        static final String CONFIG_FILE_NAME = "security.config-file";
 
         @Override
         public String getName()
@@ -83,8 +86,7 @@ public class FileBasedSystemAccessControl
                 }
                 path.toFile().canRead();
 
-                FileBasedSystemAccessControlRules rules = jsonCodec(FileBasedSystemAccessControlRules.class)
-                        .fromJson(Files.readAllBytes(path));
+                FileBasedSystemAccessControlRules rules = parse(Files.readAllBytes(path));
 
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
                 catalogRulesBuilder.addAll(rules.getCatalogRules());
@@ -101,6 +103,19 @@ public class FileBasedSystemAccessControl
             catch (SecurityException | IOException | InvalidPathException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    private static FileBasedSystemAccessControlRules parse(byte[] json)
+    {
+        ObjectMapper mapper = new ObjectMapperProvider().get()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        Class<FileBasedSystemAccessControlRules> javaType = FileBasedSystemAccessControlRules.class;
+        try {
+            return mapper.readValue(json, javaType);
+        }
+        catch (IOException e) {
+            throw new IllegalArgumentException(format("Invalid JSON string for %s", javaType), e);
         }
     }
 

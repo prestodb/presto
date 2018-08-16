@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.MethodHandleUtil;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -79,7 +78,6 @@ public class TestColumnarMap
         assertColumnarMap(block, expectedValues);
         assertDictionaryBlock(block, expectedValues);
         assertRunLengthEncodedBlock(block, expectedValues);
-        assertLazyBlock(block, expectedValues);
 
         int offset = 1;
         int length = expectedValues.length - 2;
@@ -91,7 +89,6 @@ public class TestColumnarMap
         assertColumnarMap(blockRegion, expectedValuesRegion);
         assertDictionaryBlock(blockRegion, expectedValuesRegion);
         assertRunLengthEncodedBlock(blockRegion, expectedValuesRegion);
-        assertLazyBlock(block, expectedValues);
     }
 
     private static void assertDictionaryBlock(Block block, Slice[][][] expectedValues)
@@ -113,14 +110,6 @@ public class TestColumnarMap
             assertBlock(runLengthEncodedBlock, expectedDictionaryValues);
             assertColumnarMap(runLengthEncodedBlock, expectedDictionaryValues);
         }
-    }
-
-    private static void assertLazyBlock(Block block, Slice[][][] expectedValues)
-    {
-        LazyBlock lazyBlock = new LazyBlock(block.getPositionCount(), inputLazyBlock -> inputLazyBlock.setBlock(block));
-
-        assertBlock(lazyBlock, expectedValues);
-        assertColumnarMap(lazyBlock, expectedValues);
     }
 
     private static void assertColumnarMap(Block block, Slice[][][] expectedValues)

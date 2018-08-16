@@ -704,4 +704,33 @@ public class TestRaptorIntegrationSmokeTest
         // cleanup
         assertUpdate("DROP TABLE test_table_stats");
     }
+
+    @Test
+    public void testAlterTable()
+    {
+        assertUpdate("CREATE TABLE test_alter_table (c1 bigint, c2 bigint)");
+        assertUpdate("INSERT INTO test_alter_table VALUES (1, 1), (1, 2), (1, 3), (1, 4)", 4);
+        assertUpdate("INSERT INTO test_alter_table VALUES (11, 1), (11, 2)", 2);
+
+        assertUpdate("ALTER TABLE test_alter_table ADD COLUMN c3 bigint");
+        assertQueryFails("ALTER TABLE test_alter_table DROP COLUMN c3", "Cannot drop the column which has the largest column ID in the table");
+        assertUpdate("INSERT INTO test_alter_table VALUES (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4)", 4);
+        assertUpdate("INSERT INTO test_alter_table VALUES (22, 1, 1), (22, 2, 2), (22, 4, 4)", 3);
+
+        // Do a partial delete on a shard that does not contain newly added column
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 1 and c2 = 1", 1);
+        // Then drop a full shard that does not contain newly added column
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 11", 2);
+
+        // Drop a column from middle of table
+        assertUpdate("ALTER TABLE test_alter_table DROP COLUMN c2");
+        assertUpdate("INSERT INTO test_alter_table VALUES (3, 1), (3, 2), (3, 3), (3, 4)", 4);
+
+        // Do a partial delete on a shard that contains column already dropped
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 2 and c3 = 1", 1);
+        // Then drop a full shard that contains column already dropped
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
+
+        assertUpdate("DROP TABLE test_alter_table");
+    }
 }

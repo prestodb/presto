@@ -23,14 +23,12 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -74,7 +72,7 @@ public abstract class TestTimeWithTimeZoneBase
     }
 
     @Test
-    public void testSubstract()
+    public void testSubtract()
     {
         functionAssertions.assertFunctionString("TIME '14:15:16.432 +07:09' - TIME '03:04:05.321 +08:09'",
                 INTERVAL_DAY_TIME,
@@ -202,12 +200,7 @@ public abstract class TestTimeWithTimeZoneBase
     }
 
     @Test
-    public void testCastToTime()
-    {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)",
-                TIME,
-                sqlTimeOf(3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session));
-    }
+    public abstract void testCastToTime();
 
     @Test
     public void testCastToTimestamp()

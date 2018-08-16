@@ -43,6 +43,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -56,6 +58,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -224,6 +227,56 @@ public class TestMemoryPools
         // 3 more bytes is enough for driver to finish
         assertDriversProgress(waitingForRevocableSystemMemory());
         assertEquals(userPool.getFreeBytes(), 2);
+    }
+
+    @Test
+    public void testTaggedAllocations()
+    {
+        QueryId testQuery = new QueryId("test_query");
+        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+
+        testPool.reserve(testQuery, Optional.of("test_tag"), 10);
+
+        Map<String, Long> allocations = testPool.getTaggedMemoryAllocations().get(testQuery);
+        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
+
+        // free 5 bytes for test_tag
+        testPool.free(testQuery, Optional.of("test_tag"), 5);
+        assertEquals(allocations, ImmutableMap.of("test_tag", 5L));
+
+        testPool.reserve(testQuery, Optional.of("test_tag2"), 20);
+        assertEquals(allocations, ImmutableMap.of("test_tag", 5L, "test_tag2", 20L));
+
+        // free the remaining 5 bytes for test_tag
+        testPool.free(testQuery, Optional.of("test_tag"), 5);
+        assertEquals(allocations, ImmutableMap.of("test_tag2", 20L));
+
+        // free all for test_tag2
+        testPool.free(testQuery, Optional.of("test_tag2"), 20);
+        assertEquals(testPool.getTaggedMemoryAllocations().size(), 0);
+    }
+
+    @Test
+    public void testMoveQuery()
+    {
+        QueryId testQuery = new QueryId("test_query");
+        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        pool1.reserve(testQuery, Optional.of("test_tag"), 10);
+
+        Map<String, Long> allocations = pool1.getTaggedMemoryAllocations().get(testQuery);
+        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
+
+        pool1.moveQuery(testQuery, pool2);
+        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
+        allocations = pool2.getTaggedMemoryAllocations().get(testQuery);
+        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
+
+        assertEquals(pool1.getFreeBytes(), 1000);
+        assertEquals(pool2.getFreeBytes(), 990);
+
+        pool2.free(testQuery, 10);
+        assertEquals(pool2.getFreeBytes(), 1000);
     }
 
     private long runDriversUntilBlocked(Predicate<OperatorContext> reason)

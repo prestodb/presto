@@ -244,7 +244,7 @@ public class InformationSchemaMetadata
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
             ConnectorSession connectorSession,
             TupleDomain<ColumnHandle> constraint,
-            Predicate<Map<ColumnHandle, NullableValue>> predicate)
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
@@ -255,7 +255,7 @@ public class InformationSchemaMetadata
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
         return metadata.listSchemaNames(session, catalogName).stream()
-                .filter(schema -> predicate.test(schemaAsFixedValues(schema)))
+                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
                 .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                 .collect(toImmutableSet());
     }
@@ -264,7 +264,7 @@ public class InformationSchemaMetadata
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
             TupleDomain<ColumnHandle> constraint,
-            Predicate<Map<ColumnHandle, NullableValue>> predicate)
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
@@ -282,7 +282,7 @@ public class InformationSchemaMetadata
                 .flatMap(prefix -> Stream.concat(
                         metadata.listTables(session, prefix).stream(),
                         metadata.listViews(session, prefix).stream()))
-                .filter(objectName -> predicate.test(asFixedValues(objectName)))
+                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
                 .collect(toImmutableSet());
     }

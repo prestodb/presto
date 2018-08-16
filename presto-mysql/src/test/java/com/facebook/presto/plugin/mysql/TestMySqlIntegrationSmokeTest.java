@@ -65,7 +65,6 @@ public class TestMySqlIntegrationSmokeTest
         // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 
-        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")

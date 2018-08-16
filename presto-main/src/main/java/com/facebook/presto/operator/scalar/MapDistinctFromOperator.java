@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -47,9 +46,9 @@ public final class MapDistinctFromOperator
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
-            @SqlNullable @SqlType("map(K,V)") Block leftMapBlock,
+            @SqlType("map(K,V)") Block leftMapBlock,
             @IsNull boolean leftMapNull,
-            @SqlNullable @SqlType("map(K,V)") Block rightMapBlock,
+            @SqlType("map(K,V)") Block rightMapBlock,
             @IsNull boolean rightMapNull)
     {
         if (leftMapNull != rightMapNull) {

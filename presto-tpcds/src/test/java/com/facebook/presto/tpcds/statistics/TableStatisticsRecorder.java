@@ -66,7 +66,7 @@ class TableStatisticsRecorder
     private List<ColumnStatisticsRecorder> createStatisticsRecorders(List<Column> columns)
     {
         return columns.stream()
-                .map(column -> new ColumnStatisticsRecorder())
+                .map(column -> new ColumnStatisticsRecorder(column.getType()))
                 .collect(toImmutableList());
     }
 

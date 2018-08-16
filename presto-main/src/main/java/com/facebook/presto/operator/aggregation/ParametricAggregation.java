@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ParametricAggregation
         extends SqlAggregationFunction
@@ -51,13 +52,14 @@ public class ParametricAggregation
     AggregationHeader details;
     ParametricImplementationsGroup<AggregationImplementation> implementations;
 
-    public ParametricAggregation(Signature signature,
+    public ParametricAggregation(
+            Signature signature,
             AggregationHeader details,
-            ParametricImplementationsGroup implementations)
+            ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
-        super(signature);
-        this.details = details;
-        this.implementations = implementations;
+        super(signature, details.isHidden());
+        this.details = requireNonNull(details, "details is null");
+        this.implementations = requireNonNull(implementations, "implementations is null");
     }
 
     @Override

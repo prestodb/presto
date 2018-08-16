@@ -37,6 +37,7 @@ import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -55,8 +56,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
@@ -100,6 +104,23 @@ public class MemoryMetadata
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }
         schemas.add(schemaName);
+    }
+
+    @Override
+    public synchronized void dropSchema(ConnectorSession session, String schemaName)
+    {
+        if (!schemas.contains(schemaName)) {
+            throw new PrestoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
+        }
+
+        boolean tablesExist = tables.values().stream()
+                .anyMatch(table -> table.getSchemaName().equals(schemaName));
+
+        if (tablesExist) {
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+        }
+
+        verify(schemas.remove(schemaName));
     }
 
     @Override
@@ -184,7 +205,7 @@ public class MemoryMetadata
     public synchronized void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
-        finishCreateTable(session, outputTableHandle, ImmutableList.of());
+        finishCreateTable(session, outputTableHandle, ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -227,7 +248,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         MemoryOutputTableHandle memoryOutputHandle = (MemoryOutputTableHandle) tableHandle;
@@ -244,7 +265,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(insertHandle, "insertHandle is null");
         MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;

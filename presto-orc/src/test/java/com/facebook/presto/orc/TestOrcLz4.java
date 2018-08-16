@@ -24,6 +24,7 @@ import java.util.Map;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -60,7 +61,8 @@ public class TestOrcLz4
                 includedColumns,
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                INITIAL_BATCH_SIZE);
 
         int rows = 0;
         while (true) {

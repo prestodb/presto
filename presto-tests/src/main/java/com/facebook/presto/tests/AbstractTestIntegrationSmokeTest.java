@@ -14,16 +14,12 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -33,66 +29,76 @@ public abstract class AbstractTestIntegrationSmokeTest
         super(supplier);
     }
 
+    protected boolean isDateTypeSupported()
+    {
+        return true;
+    }
+
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return true;
+    }
+
     @Test
     public void testAggregateSingleColumn()
     {
-        assertQuery("SELECT SUM(orderkey) FROM ORDERS");
-        assertQuery("SELECT SUM(totalprice) FROM ORDERS");
-        assertQuery("SELECT MAX(comment) FROM ORDERS");
+        assertQuery("SELECT SUM(orderkey) FROM orders");
+        assertQuery("SELECT SUM(totalprice) FROM orders");
+        assertQuery("SELECT MAX(comment) FROM orders");
     }
 
     @Test
     public void testColumnsInReverseOrder()
     {
-        assertQuery("SELECT shippriority, clerk, totalprice FROM ORDERS");
+        assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
     }
 
     @Test
     public void testCountAll()
     {
-        assertQuery("SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(*) FROM orders");
     }
 
     @Test
     public void testExactPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10");
+        assertQuery("SELECT * FROM orders WHERE orderkey = 10");
     }
 
     @Test
     public void testInListPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey IN (10, 11, 20, 21)");
+        assertQuery("SELECT * FROM orders WHERE orderkey IN (10, 11, 20, 21)");
     }
 
     @Test
     public void testIsNullPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10 OR orderkey IS NULL");
+        assertQuery("SELECT * FROM orders WHERE orderkey = 10 OR orderkey IS NULL");
     }
 
     @Test
     public void testLimit()
     {
-        assertEquals(computeActual("SELECT * FROM ORDERS LIMIT 10").getRowCount(), 10);
+        assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);
     }
 
     @Test
     public void testMultipleRangesPredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50 or orderkey BETWEEN 100 AND 150");
+        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
     public void testRangePredicate()
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50");
+        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
     }
 
     @Test
     public void testSelectAll()
     {
-        assertQuery("SELECT * FROM ORDERS");
+        assertQuery("SELECT * FROM orders");
     }
 
     @Test
@@ -119,15 +125,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
-
-        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
-        List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
-                getExpectedTableDescription(true, true),
-                getExpectedTableDescription(true, false),
-                getExpectedTableDescription(false, true),
-                getExpectedTableDescription(false, false));
-        assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
+        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
     }
 
     @Test
@@ -191,7 +190,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
-    private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    private MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
         if (dateSupported) {
@@ -204,19 +203,6 @@ public abstract class AbstractTestIntegrationSmokeTest
             return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "", "")
                     .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar", "", "")
-                    .row("clerk", "varchar", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar", "", "")
-                    .build();
-        }
-        else {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
                     .row("orderstatus", "varchar(1)", "", "")
                     .row("totalprice", "double", "", "")
                     .row("orderdate", orderDateType, "", "")
@@ -224,6 +210,19 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("clerk", "varchar(15)", "", "")
                     .row("shippriority", "integer", "", "")
                     .row("comment", "varchar(79)", "", "")
+                    .build();
+        }
+        else {
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar", "", "")
+                    .row("clerk", "varchar", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar", "", "")
                     .build();
         }
     }
