@@ -30,12 +30,10 @@ import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
-import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.CommitTask;
@@ -309,9 +307,7 @@ public class LocalQueryRunner
                 transactionManager);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
-        this.statsCalculator = new SelectingStatsCalculator(
-                new CoefficientBasedStatsCalculator(metadata),
-                createNewStatsCalculator(metadata));
+        this.statsCalculator = createNewStatsCalculator(metadata);
         this.costCalculator = new CostCalculatorUsingExchanges(() -> nodeCountForStats);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, () -> nodeCountForStats);
         this.accessControl = new TestingAccessControlManager(transactionManager);

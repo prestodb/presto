@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.cost.SelectingStatsCalculator.New;
 import com.facebook.presto.metadata.Metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
 
 import javax.inject.Singleton;
 
@@ -29,13 +27,10 @@ public class StatsCalculatorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(StatsCalculator.class).annotatedWith(SelectingStatsCalculator.Old.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
-        binder.bind(StatsCalculator.class).to(SelectingStatsCalculator.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    @New
     public static StatsCalculator createNewStatsCalculator(Metadata metadata)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
