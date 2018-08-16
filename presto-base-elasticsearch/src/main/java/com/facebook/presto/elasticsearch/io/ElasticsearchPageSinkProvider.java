@@ -51,7 +51,6 @@ public class ElasticsearchPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         ElasticsearchOutputTableHandle tableHandle = (ElasticsearchOutputTableHandle) outputTableHandle;
-        //throw new UnsupportedOperationException("this method have't support!");
         return new ElasticsearchPageSink(client, tableHandle.getSchemaTableName(), tableHandle.getColumns());
     }
 

@@ -38,14 +38,14 @@ public class ElasticsearchColumnHandle
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
-            @JsonProperty("comment") String comment,  //注释
-            @JsonProperty("keyword") boolean keyword, //是否分词 5.x
+            @JsonProperty("comment") String comment,
+            @JsonProperty("keyword") boolean keyword, //5.x
             @JsonProperty("hidden") boolean hidden)
     {
         this.name = requireNonNull(name, "columnName is null");
         this.type = requireNonNull(type, "type is null");
 
-        this.comment = comment; //requireNonNull(comment, "comment is null");
+        this.comment = comment;
         this.keyword = keyword;
         this.hidden = hidden;
     }

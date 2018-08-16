@@ -39,13 +39,7 @@ public class Elasticsearch5Module
     @Override
     public void configure(Binder binder)
     {
-//        configBinder(binder).bindConfig(ElasticsearchConfig.class);
-
         binder.bind(BaseClient.class).to(Elasticsearch5Client.class);
-
-//        binder.bind(ElasticsearchTableProperties.class).in(Scopes.SINGLETON);
-//        binder.bind(ElasticsearchSessionProperties.class).in(Scopes.SINGLETON);
-
         binder.bind(Client.class).toProvider(ConnectionProvider.class);
     }
 

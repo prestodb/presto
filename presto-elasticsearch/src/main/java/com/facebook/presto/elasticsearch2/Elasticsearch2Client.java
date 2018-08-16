@@ -161,23 +161,21 @@ public final class Elasticsearch2Client
     {
         final String index = tableHandle.getTableName();
 
-        final long timeValue = ElasticsearchSessionProperties.getScrollSearchTimeout(session);  //1m
+        final long timeValue = ElasticsearchSessionProperties.getScrollSearchTimeout(session);  //Scroll duration 1m
         final boolean splitShardsEnabled = ElasticsearchSessionProperties.isOptimizeSplitShardsEnabled(session);
         final int batchSize = ElasticsearchSessionProperties.getScrollSearchBatchSize(session);
         final Map<String, String> queryDsl = getQueryDsl(layoutHandle.getConstraint());
-        //System.out.println(client.prepareSearch(index).setQuery(queryDsl.get("_allDsl")).get());
         final ImmutableList.Builder<SearchRequest> splitBuilder = ImmutableList.builder();
 
         if (splitShardsEnabled && splitSchedulingStrategy == GROUPED_SCHEDULING) {
             for (ClusterSearchShardsGroup shardsGroup : client.admin().cluster().prepareSearchShards(index).get().getGroups()) {
                 int shardId = shardsGroup.getShardId();
                 SearchRequestBuilder requestBuilder = client.prepareSearch(index)
-                        //.addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)   //5.x
                         .setQuery(queryDsl.get("_allDsl"))
-                        .setPreference("_shards:" + shardId)   //_shards:2,3
+                        .setPreference("_shards:" + shardId)   //demo: _shards:2,3
                         .setSize(batchSize)  //max of 100 hits will be returned for each scroll
-                        .setSearchType(SearchType.SCAN)  ////不加这个会导致 此处直接就返回数据(数据会在driver主节点上)
-                        .setScroll(new TimeValue(timeValue));  //1m
+                        .setSearchType(SearchType.SCAN)  //If you don't add this, it will return the data directly here (the data will be on the driver master node)
+                        .setScroll(new TimeValue(timeValue));  //Scroll duration 1m
 
                 splitBuilder.add(requestBuilder.request());
             }
@@ -185,7 +183,7 @@ public final class Elasticsearch2Client
         else {
             SearchRequestBuilder requestBuilder = client.prepareSearch(index)
                     //.addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)  //5.x
-                    .setSearchType(SearchType.SCAN)   //不加这个会导致 此处直接就返回数据(数据会在driver主节点上)
+                    .setSearchType(SearchType.SCAN)   //If you don't add this, it will return the data directly here (the data will be on the driver master node)
                     .setScroll(new TimeValue(timeValue))  //1m
                     .setQuery(queryDsl.get("_allDsl"))
                     .setSize(batchSize);  //max of 100 hits will be returned for each scroll
@@ -280,10 +278,9 @@ public final class Elasticsearch2Client
     {
         Type type = prestoRange.getType();
         BoolQueryBuilder qb = QueryBuilders.boolQuery();
-        if (prestoRange.isAll()) { //全表扫描  all rowkey
+        if (prestoRange.isAll()) { //scan all _id
         }
         else if (prestoRange.isSingleValue()) {
-            //直接get即可
             Object value = prestoRange.getSingleValue();
             qb.must(QueryBuilders.termQuery(columnName, EsTypeManager.getTypeValue(type, value)));
         }
@@ -327,24 +324,13 @@ public final class Elasticsearch2Client
         return rangeBuilder;
     }
 
-    static NamedWriteableRegistry getNamedWriteableRegistry()
-    {
-        IndicesModule indicesModule = new IndicesModule();
-        SearchModule searchModule = new SearchModule();
-//        List<NamedWriteableRegistry.Entry> entries = new ArrayList<>();
-//        entries.addAll(indicesModule.getNamedWriteables());
-//        entries.addAll(searchModule.getNamedWriteables());
-        NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry();
-        return namedWriteableRegistry;
-    }
-
     @Override
     public SearchResult<Map<String, Object>> execute(ElasticsearchSplit split, List<ElasticsearchColumnHandle> columns)
     {
         byte[] slice = split.getSearchRequest();
         final SearchRequest deserializedRequest = new SearchRequest();
         StreamInput streamInput = new ByteBufferStreamInput(ByteBuffer.wrap(slice));
-        NamedWriteableRegistry namedWriteableRegistry = getNamedWriteableRegistry();
+        NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry();
         try (StreamInput in = new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry)) {
             deserializedRequest.readFrom(in);
         }
@@ -375,7 +361,7 @@ public final class Elasticsearch2Client
                 if (batchHitIterator != null && batchHitIterator.hasNext()) {
                     return true;
                 }
-                //---- 注意es2.x scan模式首次Scroll hits是没有数据的  --
+                //---- Note that the first s2.x scan mode Scroll hits is no data.  --
                 final SearchResponse scrollResp = client.prepareSearchScroll(firstScrollResp.getScrollId())
                         .setScroll(new TimeValue(split.getTimeValue()))
                         .execute().actionGet();
@@ -410,9 +396,8 @@ public final class Elasticsearch2Client
         if (response.getIndices() == null || response.getIndices().length == 0) {
             return null;
         }
-        //TODO: es中运行index名访问时可以使用*进行匹配,所以可能会返回多个index的mapping, 因此下面需要进行mapping merge  test table = test1"*"
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = response.getMappings();
 
+        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = response.getMappings();
         List<IndexResolution> resolutions;
         if (mappings.size() > 0) {
             resolutions = new ArrayList<>(mappings.size());
@@ -423,7 +408,8 @@ public final class Elasticsearch2Client
         else {
             resolutions = emptyList();
         }
-
+        // In the es index name can be used to match *, may return multiple index mapping,
+        // so the following need to merge merge demo: table = test1 "*"
         IndexResolution indexWithMerged = merge(resolutions, indexWildcard);
         return new ElasticsearchTable(typeManager, tableName.getSchemaName(), tableName.getTableName(), indexWithMerged.get());
     }
@@ -588,9 +574,6 @@ public final class Elasticsearch2Client
         }
         else if (typeNames != null) {
             Collections.sort(typeNames);
-            //TODO: 如下注释为不支持多type--
-//            return IndexResolution.invalid(
-//                    "[" + indexOrAlias + "] contains more than one type " + typeNames + " so it is incompatible with sql");
             Map<String, EsField> mergeTypeMapping = Arrays.stream(mappings.values().toArray(MappingMetaData.class)).map(x -> {
                 try {
                     return Types.fromEs(x.sourceAsMap());

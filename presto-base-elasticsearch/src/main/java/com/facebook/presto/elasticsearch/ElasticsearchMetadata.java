@@ -142,12 +142,7 @@ public class ElasticsearchMetadata
         if (table == null) {
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
-        return table.getColumns().stream().collect(Collectors.toMap(x -> x.getName(), x -> x));
-//        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-//        for (ElasticsearchColumnHandle column : table.getColumns()) {
-//            columnHandles.put(column.getName(), column);
-//        }
-//        return columnHandles.build();
+        return table.getColumns().stream().collect(Collectors.toMap(k -> k.getName(), v -> v));
     }
 
     @Override
@@ -188,7 +183,6 @@ public class ElasticsearchMetadata
         checkNoRollback();
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) tableHandle;
         setRollback(() -> {
-            //--------插入操作无法回退
             // Rollbacks for inserts are off the table when it comes to data in Hbase.
             // When a batch of Mutations fails to be inserted, the general strategy
             // is to run the insert operation again until it is successful
@@ -224,7 +218,7 @@ public class ElasticsearchMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        checkNoRollback();   //采用乐观锁 设计
+        checkNoRollback();
 
         SchemaTableName tableName = tableMetadata.getTable();
         client.createTable(tableMetadata);
@@ -243,7 +237,7 @@ public class ElasticsearchMetadata
                 tableName.getTableName(),
                 columns);
 
-        setRollback(() -> client.dropTable(tableMetadata.getTable()));  //回滚操作
+        setRollback(() -> client.dropTable(tableMetadata.getTable()));  //Rollback operation
 
         return handle;
     }

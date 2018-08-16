@@ -75,7 +75,7 @@ public class EsTypeManager
                     type = VARCHAR;
                     break;
                 }
-                if ("geo_point".equals(stringType)) {  //地理位置类型 经纬度值
+                if ("geo_point".equals(stringType)) {  //Geographic type latitude and longitude value
                     type = mapType(VARCHAR, DOUBLE);
                     break;
                 }
@@ -115,10 +115,6 @@ public class EsTypeManager
             default:
                 throw new UnsupportedOperationException("column " + esField.getName() + "esType " + esField.getDataType() + " have't support!");
         }
-        if (ImmutableList.<String>of().contains(lastFieldName.substring(1))) {  //如果通过sess 设置了字段类型
-            return arrayType(type);
-        }
-
         return type;
     }
 

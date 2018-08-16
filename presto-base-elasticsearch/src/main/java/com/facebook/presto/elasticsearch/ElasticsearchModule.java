@@ -36,8 +36,6 @@ public class ElasticsearchModule
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSinkProvider.class).in(Scopes.SINGLETON);
-
-//        binder.bind(ElasticsearchTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSessionProperties.class).in(Scopes.SINGLETON);
     }
 }

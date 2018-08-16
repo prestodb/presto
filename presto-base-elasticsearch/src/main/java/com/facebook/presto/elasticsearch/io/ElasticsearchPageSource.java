@@ -101,42 +101,6 @@ public class ElasticsearchPageSource
         return finished;
     }
 
-    /**
-     * es array字段 展平逻辑
-     * 目前只能展平一个字段 如果有多个字段则存在 如何join的问题
-     */
-    private class ArrayDocForeachFunc
-    {
-        private final int rowlisteMapColumn;
-        private final List<Map> rowlisteMap;
-        private final Map<String, Object> docMap;
-
-        private ArrayDocForeachFunc(int rowlisteMapColumn, Map<String, Object> docMap)
-        {
-            this.rowlisteMapColumn = rowlisteMapColumn;
-            this.docMap = docMap;
-            this.rowlisteMap = (List<Map>) docMap.get(columnNames.get(rowlisteMapColumn));
-        }
-
-        void accept()
-        {
-            for (int i = 1; i < rowlisteMap.size(); i++) {
-                pageBuilder.declarePosition();
-                for (int column = 0; column < columnTypes.size(); column++) {
-                    BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                    Type type = columnTypes.get(column);
-                    Object value = docMap.get(columnNames.get(column));
-                    if (column == rowlisteMapColumn) {
-                        appendTo(type, rowlisteMap.get(i), output);
-                    }
-                    else {
-                        appendTo(type, value, output);
-                    }
-                }
-            }
-        }
-    }
-
     @Override
     public Page getNextPage()
     {
@@ -151,24 +115,19 @@ public class ElasticsearchPageSource
             count++;
 
             pageBuilder.declarePosition();
-            ImmutableList.Builder<ArrayDocForeachFunc> funcs = ImmutableList.builder();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
                 Type type = columnTypes.get(column);
                 Object value = docMap.get(columnNames.get(column));
-                //如果是 array[] 字段 则下面会进行打平处理 es head展示时则只显示了array第一个元素
+                //If it is the array[] field, it will be leveled below. When the es head is displayed, only the first element of the array is displayed.
                 if (isRowType(type) && value instanceof List && ((List) value).size() > 0 && ((List) value).get(0) instanceof Map) {
                     final List<Map> listSourceMap = (List<Map>) value;
                     appendTo(type, listSourceMap.get(0), output);
-                    //----下面是展平逻辑 目前存在如果有多个array字段 展平时笛卡尔积join问题---
-                    // 此处不做展平处理, 逻辑将和<es head `基本查询`>保持一致
-                    //funcs.add(new ArrayDocForeachFunc(column, docMap));
                 }
                 else {
                     appendTo(type, value, output);
                 }
             }
-            funcs.build().forEach(func -> func.accept());
         }
 
         Page page = pageBuilder.build();

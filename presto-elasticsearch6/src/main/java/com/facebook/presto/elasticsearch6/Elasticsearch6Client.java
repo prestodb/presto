@@ -162,32 +162,28 @@ public class Elasticsearch6Client
     {
         final String index = tableHandle.getTableName();
 
-        final long timeValue = ElasticsearchSessionProperties.getScrollSearchTimeout(session);  //1m
+        final long timeValue = ElasticsearchSessionProperties.getScrollSearchTimeout(session);  //Scroll duration 1m
         final boolean splitShardsEnabled = ElasticsearchSessionProperties.isOptimizeSplitShardsEnabled(session);
         final int batchSize = ElasticsearchSessionProperties.getScrollSearchBatchSize(session);
         final Map<String, String> queryDsl = getQueryDsl(layoutHandle.getConstraint());
-        //System.out.println(client.prepareSearch(index).setQuery(QueryBuilders.wrapperQuery(queryDsl.get("_allDsl"))).get());
         final ImmutableList.Builder<SearchRequest> splitBuilder = ImmutableList.builder();
 
         if (splitShardsEnabled && splitSchedulingStrategy == GROUPED_SCHEDULING) {
             for (ClusterSearchShardsGroup shardsGroup : client.admin().cluster().prepareSearchShards(index).get().getGroups()) {
                 int shardId = shardsGroup.getShardId().getId();
                 SearchRequestBuilder requestBuilder = client.prepareSearch(index)
-                        //.addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)
                         .setQuery(QueryBuilders.wrapperQuery(queryDsl.get("_allDsl")))
-                        .setPreference("_shards:" + shardId)   //_shards:2,3
+                        .setPreference("_shards:" + shardId)   //demo: _shards:2,3
                         .setSize(batchSize)  //max of 100 hits will be returned for each scroll
-                        //.setSearchType(SearchType.SCAN)  ////不加这个会导致 此处直接就返回数据(数据会在driver主节点上)
-                        .addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)   //es 5.x
-                        .setScroll(new TimeValue(timeValue));  //1m
+                        .addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)   //es 5.x+
+                        .setScroll(new TimeValue(timeValue));  //Scroll duration 1m
 
                 splitBuilder.add(requestBuilder.request());
             }
         }
         else {
             SearchRequestBuilder requestBuilder = client.prepareSearch(index)
-                    //.addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)
-                    //.setSearchType(SearchType.QUERY_THEN_FETCH)   //不加这个会导致 此处直接就返回数据(数据会在driver主节点上)
+                    .addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)
                     .addSort(SortBuilders.fieldSort("_doc"))   //es 5.x
                     .setScroll(new TimeValue(timeValue))  //1m
                     .setQuery(QueryBuilders.wrapperQuery(queryDsl.get("_allDsl")))
@@ -261,7 +257,7 @@ public class Elasticsearch6Client
         }
         try {
             String allDsl = mergeDslMap.isEmpty() ? QueryBuilders.boolQuery().toString() :
-                    MAPPER.writeValueAsString(mergeDslMap.get("query"));   //es5和 6开始只能返回 query的自节点
+                    MAPPER.writeValueAsString(mergeDslMap.get("query"));   //Es5 and 6.x can only use the child nodes of query
             dslCacher.put("_allDsl", allDsl);
             return dslCacher;
         }
@@ -378,7 +374,7 @@ public class Elasticsearch6Client
                 if (batchHitIterator.hasNext()) {
                     return true;
                 }
-                //---- 获取一批新的 es5.x以上首次Scroll是有数据的 此处需要先判空 ----
+                //---- For the first time above es5.x, Scroll has data. ----
                 final SearchResponse scrollResp = client.prepareSearchScroll(firstScrollResp.getScrollId())
                         .setScroll(new TimeValue(split.getTimeValue()))
                         .execute().actionGet();
@@ -414,9 +410,8 @@ public class Elasticsearch6Client
         if (response.getIndices() == null || response.getIndices().length == 0) {
             return null;
         }
-        //TODO: es中运行index名访问时可以使用*进行匹配,所以可能会返回多个index的mapping, 因此下面需要进行mapping merge  test table = test1"*"
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = response.getMappings();
 
+        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = response.getMappings();
         List<IndexResolution> resolutions;
         if (mappings.size() > 0) {
             resolutions = new ArrayList<>(mappings.size());
@@ -427,7 +422,8 @@ public class Elasticsearch6Client
         else {
             resolutions = emptyList();
         }
-
+        // In the es index name can be used to match *, may return multiple index mapping,
+        // so the following need to merge merge demo: table = test1 "*"
         IndexResolution indexWithMerged = merge(resolutions, indexWildcard);
         return new ElasticsearchTable(typeManager, tableName.getSchemaName(), tableName.getTableName(), indexWithMerged.get());
     }

@@ -24,14 +24,14 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 
 /**
- * 输入bitmap 输出该bitmap的值
+ * elasticsearch matchQuery(varchar) and matchPhrase(varchar)
  */
 public final class MatchQueryFunction
 {
     public static final String MATCH_COLUMN_SEP = "__%s@#$%^&*()_+~";
 
     @ScalarFunction("match_query")
-    @Description("es match_query")
+    @Description("es match_query(varchar)")
     @SqlType(StandardTypes.VARCHAR)
     @SqlNullable
     public Slice matchQuery(
@@ -47,7 +47,7 @@ public final class MatchQueryFunction
     }
 
     @ScalarFunction("match_phrase")
-    @Description("es match_phrase")
+    @Description("es match_phrase(varchar)")
     @SqlType(StandardTypes.VARCHAR)
     @SqlNullable
     public Slice matchPhrase(

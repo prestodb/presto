@@ -43,10 +43,6 @@ public class Elasticsearch2Module
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
         binder.bind(BaseClient.class).to(Elasticsearch2Client.class);
-
-//        binder.bind(ElasticsearchTableProperties.class).in(Scopes.SINGLETON);
-//        binder.bind(ElasticsearchSessionProperties.class).in(Scopes.SINGLETON);
-
         binder.bind(Client.class).toProvider(ConnectionProvider.class);
     }
 

@@ -65,7 +65,7 @@ public class ElasticsearchTable
                 columnHandleBuilder.add(new ElasticsearchColumnHandle(
                         "_" + esField.getName(),
                         type,
-                        "_扩展字段 用于match_query",
+                        "_Expansion use match_query",
                         true,
                         true));
             }

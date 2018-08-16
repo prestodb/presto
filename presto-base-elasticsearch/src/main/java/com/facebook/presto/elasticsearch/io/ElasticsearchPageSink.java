@@ -225,6 +225,5 @@ public class ElasticsearchPageSink
     @Override
     public void abort()
     {
-        //MoreFutures.getFutureValue(finish());
     }
 }

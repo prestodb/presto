@@ -25,7 +25,6 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
@@ -51,13 +50,11 @@ public class ElasticsearchConnector
     private final ElasticsearchPageSourceProvider pageSourceProvider;
     private final ElasticsearchPageSinkProvider pageSinkProvider;
     private final ElasticsearchSessionProperties sessionProperties;
-//    private final ElasticsearchTableProperties tableProperties;
 
     @Inject
     public ElasticsearchConnector(
             ElasticsearchConnectorId connectorId,
             BaseClient client,
-            LifeCycleManager lifeCycleManager,
             ElasticsearchSplitManager splitManager,
             ElasticsearchPageSourceProvider pageSourceProvider,
             ElasticsearchPageSinkProvider pageSinkProvider,
@@ -69,7 +66,6 @@ public class ElasticsearchConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
-//        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
     @Override
