@@ -39,6 +39,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -301,6 +302,11 @@ public class ActualProperties
 
         private Global(Optional<Partitioning> nodePartitioning, Optional<Partitioning> streamPartitioning, boolean nullsAndAnyReplicated)
         {
+            checkArgument(!nodePartitioning.isPresent()
+                            || !streamPartitioning.isPresent()
+                            || nodePartitioning.get().getColumns().containsAll(streamPartitioning.get().getColumns())
+                            || streamPartitioning.get().getColumns().containsAll(nodePartitioning.get().getColumns()),
+                    "Global stream partitioning columns should match node partitioning columns");
             this.nodePartitioning = requireNonNull(nodePartitioning, "nodePartitioning is null");
             this.streamPartitioning = requireNonNull(streamPartitioning, "streamPartitioning is null");
             this.nullsAndAnyReplicated = nullsAndAnyReplicated;
