@@ -313,6 +313,10 @@ Aggregations
     Returns the minimum convex geometry that encloses all input geometries.
     This function doesn't support geometry collections.
 
+.. function:: geometry_union_agg(Geometry) -> Geometry
+
+    Returns a geometry that represents the point set union of all input geometries.
+
 Bing Tiles
 ----------
 
