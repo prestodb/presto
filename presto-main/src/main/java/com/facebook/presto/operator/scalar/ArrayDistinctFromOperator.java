@@ -14,6 +14,7 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.Convention;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -24,6 +25,8 @@ import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static com.facebook.presto.spi.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
@@ -37,7 +40,11 @@ public final class ArrayDistinctFromOperator
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle function,
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    returnType = StandardTypes.BOOLEAN,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {NULL_FLAG, NULL_FLAG}, result = FAIL_ON_NULL)) MethodHandle function,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block left,
             @IsNull boolean leftNull,

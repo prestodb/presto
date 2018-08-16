@@ -163,20 +163,15 @@ groupBy
     ;
 
 groupingElement
-    : groupingExpressions                                               #singleGroupingSet
-    | ROLLUP '(' (qualifiedName (',' qualifiedName)*)? ')'              #rollup
-    | CUBE '(' (qualifiedName (',' qualifiedName)*)? ')'                #cube
-    | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'              #multipleGroupingSets
-    ;
-
-groupingExpressions
-    : '(' (expression (',' expression)*)? ')'
-    | expression
+    : groupingSet                                            #singleGroupingSet
+    | ROLLUP '(' (expression (',' expression)*)? ')'         #rollup
+    | CUBE '(' (expression (',' expression)*)? ')'           #cube
+    | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
     ;
 
 groupingSet
-    : '(' (qualifiedName (',' qualifiedName)*)? ')'
-    | qualifiedName
+    : '(' (expression (',' expression)*)? ')'
+    | expression
     ;
 
 namedQuery
@@ -403,8 +398,8 @@ frameBound
 
 
 explainOption
-    : FORMAT value=(TEXT | GRAPHVIZ)                   #explainFormat
-    | TYPE value=(LOGICAL | DISTRIBUTED | VALIDATE)    #explainType
+    : FORMAT value=(TEXT | GRAPHVIZ | JSON)                 #explainFormat
+    | TYPE value=(LOGICAL | DISTRIBUTED | VALIDATE | IO)    #explainType
     ;
 
 transactionMode
@@ -465,7 +460,8 @@ nonReserved
     | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRANT | GRANTS | GRAPHVIZ
     | HOUR
-    | IF | INCLUDING | INPUT | INTERVAL | ISOLATION
+    | IF | INCLUDING | INPUT | INTERVAL | IO | ISOLATION
+    | JSON
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MINUTE | MONTH
     | NFC | NFD | NFKC | NFKD | NO | NULLIF | NULLS
@@ -559,8 +555,10 @@ INSERT: 'INSERT';
 INTERSECT: 'INTERSECT';
 INTERVAL: 'INTERVAL';
 INTO: 'INTO';
+IO: 'IO';
 IS: 'IS';
 ISOLATION: 'ISOLATION';
+JSON: 'JSON';
 JOIN: 'JOIN';
 LAST: 'LAST';
 LATERAL: 'LATERAL';

@@ -66,19 +66,19 @@ public class BenchmarkGroupedTypedHistogram
     @State(Scope.Thread)
     public static class Data
     {
-        @Param({"10000"}) // larger groups => worse perf for NEW as it's more costly to track a group than with LEGACY. Tweak based on what you want to measure
+        @Param("10000") // larger groups => worse perf for NEW as it's more costly to track a group than with LEGACY. Tweak based on what you want to measure
         private int numGroups;
-        @Param({"5000"}) // makes sure legacy impl isn't doing trivial work
+        @Param("5000") // makes sure legacy impl isn't doing trivial work
         private int rowCount;
         //        @Param({"0.0", "0.1", ".25", "0.50", ".75", "1.0"})
-        @Param({"0.1"}) // somewhat arbitrary guess, we don't know this
+        @Param("0.1") // somewhat arbitrary guess, we don't know this
         private float distinctFraction;
         //        @Param({"1", "5", "50"})
-        @Param({"32"}) // size of entries--we have no idea here, could be 8 long (common in anecdotal) or l onger strings
+        @Param("32") // size of entries--we have no idea here, could be 8 long (common in anecdotal) or longer strings
         private int rowSize;
-        @Param({"0.5f"}) // found slight benefit over 0.75, the canonical starting point
+        @Param("0.5f") // found slight benefit over 0.75, the canonical starting point
         private float mainFillRatio;
-        @Param({"0.5f"}) // found slight benefit over 0.75, the canonical starting point
+        @Param("0.5f") // found slight benefit over 0.75, the canonical starting point
         private float valueStoreFillRatio;
 // these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
         //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})

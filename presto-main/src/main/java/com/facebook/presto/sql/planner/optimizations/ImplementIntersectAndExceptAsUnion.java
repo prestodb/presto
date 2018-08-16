@@ -54,6 +54,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -242,7 +243,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new AggregationNode(idAllocator.getNextId(),
                     sourceNode,
                     aggregations.build(),
-                    ImmutableList.of(originalColumns),
+                    singleGroupingSet(originalColumns),
                     ImmutableList.of(),
                     Step.SINGLE,
                     Optional.empty(),

@@ -40,7 +40,7 @@ public final class RepeatFunction
 
     @SqlType("array(unknown)")
     public static Block repeat(
-            @SqlNullable @SqlType("unknown") Void element,
+            @SqlNullable @SqlType("unknown") Boolean element,
             @SqlType(StandardTypes.INTEGER) long count)
     {
         checkCondition(element == null, INVALID_FUNCTION_ARGUMENT, "expect null values");

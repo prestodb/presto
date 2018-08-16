@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
+import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -66,7 +68,7 @@ public class StatisticsAggregationPlanner
                 .collect(toImmutableList());
 
         for (int i = 0; i < groupingSymbols.size(); i++) {
-            descriptor.addGrouping(groupingSymbols.get(i), groupingColumns.get(i));
+            descriptor.addGrouping(groupingColumns.get(i), groupingSymbols.get(i));
         }
 
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
@@ -82,7 +84,7 @@ public class StatisticsAggregationPlanner
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
-            descriptor.addTableStatistic(symbol, ROW_COUNT);
+            descriptor.addTableStatistic(ROW_COUNT, symbol);
         }
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
@@ -95,7 +97,7 @@ public class StatisticsAggregationPlanner
             ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
             Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
-            descriptor.addColumnStatistic(symbol, columnStatisticMetadata);
+            descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
 
         StatisticAggregations aggregation = new StatisticAggregations(aggregations.build(), groupingSymbols);
@@ -115,6 +117,10 @@ public class StatisticsAggregationPlanner
                 return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_TRUE_VALUES:
                 return createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
+            case TOTAL_SIZE_IN_BYTES:
+                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+            case MAX_VALUE_SIZE_IN_BYTES:
+                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
             default:
                 throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
         }

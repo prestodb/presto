@@ -29,13 +29,6 @@ public interface MemoryPoolListener
      */
     static MemoryPoolListener onMemoryReserved(Consumer<? super MemoryPool> action)
     {
-        return new MemoryPoolListener()
-        {
-            @Override
-            public void onMemoryReserved(MemoryPool memoryPool)
-            {
-                action.accept(memoryPool);
-            }
-        };
+        return action::accept;
     }
 }

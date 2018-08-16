@@ -27,7 +27,7 @@ Security Changes
 * Fix sending authentication challenge when at least two of the
   ``KERBEROS``, ``PASSWORD``, or ``JWT`` authentication types are configured.
 * Allow using PEM encoded (PKCS #8) keystore and truststore with the HTTP server
-  and the HTTP client used for internal communciation. This was already supported
+  and the HTTP client used for internal communication. This was already supported
   for the CLI and JDBC driver.
 
 Server RPM Changes

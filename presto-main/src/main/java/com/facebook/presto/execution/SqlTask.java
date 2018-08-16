@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -52,6 +53,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.TaskState.ABORTED;
+import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -90,7 +93,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             final Function<SqlTask, ?> onDone,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            CounterStat failedTasks)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -120,6 +124,11 @@ public class SqlTask
                     return;
                 }
 
+                // Update failed tasks counter
+                if (newState == FAILED) {
+                    failedTasks.update(1);
+                }
+
                 // store final task info
                 while (true) {
                     TaskHolder taskHolder = taskHolderReference.get();
@@ -134,7 +143,7 @@ public class SqlTask
                 }
 
                 // make sure buffers are cleaned up
-                if (newState == TaskState.FAILED || newState == TaskState.ABORTED) {
+                if (newState == FAILED || newState == ABORTED) {
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     outputBuffer.fail();
@@ -200,7 +209,7 @@ public class SqlTask
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
-        if (state == TaskState.FAILED) {
+        if (state == FAILED) {
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 

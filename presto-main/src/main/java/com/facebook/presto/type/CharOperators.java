@@ -38,7 +38,7 @@ public final class CharOperators
 {
     private CharOperators() {}
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean equal(@SqlType("char(x)") Slice left, @SqlType("char(x)") Slice right)
@@ -46,7 +46,7 @@ public final class CharOperators
         return left.equals(right);
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean notEqual(@SqlType("char(x)") Slice left, @SqlType("char(x)") Slice right)
@@ -54,7 +54,7 @@ public final class CharOperators
         return !left.equals(right);
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(LESS_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(@SqlType("char(x)") Slice left, @SqlType("char(x)") Slice right)
@@ -62,7 +62,7 @@ public final class CharOperators
         return compareChars(left, right) < 0;
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(LESS_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(@SqlType("char(x)") Slice left, @SqlType("char(x)") Slice right)
@@ -70,7 +70,7 @@ public final class CharOperators
         return compareChars(left, right) <= 0;
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(GREATER_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(@SqlType("char(x)") Slice left, @SqlType("char(x)") Slice right)
@@ -78,7 +78,7 @@ public final class CharOperators
         return compareChars(left, right) > 0;
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType("char(x)") Slice left, @SqlType("char(x)") Slice right)
@@ -86,7 +86,7 @@ public final class CharOperators
         return compareChars(left, right) >= 0;
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(BETWEEN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(@SqlType("char(x)") Slice value, @SqlType("char(x)") Slice min, @SqlType("char(x)") Slice max)
@@ -110,7 +110,7 @@ public final class CharOperators
         return XxHash64.hash(slice);
     }
 
-    @LiteralParameters({"x"})
+    @LiteralParameters("x")
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(

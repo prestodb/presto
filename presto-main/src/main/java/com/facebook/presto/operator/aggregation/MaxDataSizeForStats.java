@@ -30,9 +30,11 @@ import com.facebook.presto.spi.type.StandardTypes;
 
 import static java.lang.Math.max;
 
-@AggregationFunction(value = "$internal$max_data_size_for_stats", hidden = true)
+@AggregationFunction(value = MaxDataSizeForStats.NAME, hidden = true)
 public final class MaxDataSizeForStats
 {
+    public static final String NAME = "$internal$max_data_size_for_stats";
+
     private MaxDataSizeForStats() {}
 
     @InputFunction

@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -170,9 +171,7 @@ public class PlanNodeDecorrelator
                     idAllocator.getNextId(),
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    ImmutableList.of(ImmutableList.<Symbol>builder()
-                            .addAll(decorrelatedChildNode.getOutputSymbols())
-                            .build()),
+                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()),
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
@@ -211,34 +210,29 @@ public class PlanNodeDecorrelator
             AggregationNode decorrelatedAggregation = childDecorrelationResult.getCorrelatedSymbolMapper()
                     .map(node, childDecorrelationResult.node);
 
-            ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
-            for (List<Symbol> groupingSet : decorrelatedAggregation.getGroupingSets()) {
-                Set<Symbol> set = ImmutableSet.copyOf(groupingSet);
-                List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
-                        .filter(symbol -> !set.contains(symbol))
-                        .collect(toImmutableList());
+            Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
+            List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
+                    .filter(symbol -> !groupingKeys.contains(symbol))
+                    .collect(toImmutableList());
 
-                if (!constantSymbols.containsAll(symbolsToAdd)) {
-                    return Optional.empty();
-                }
-
-                newGroupingSets.add(ImmutableList.<Symbol>builder()
-                        .addAll(groupingSet)
-                        .addAll(symbolsToAdd)
-                        .build());
+            if (!constantSymbols.containsAll(symbolsToAdd)) {
+                return Optional.empty();
             }
 
             AggregationNode newAggregation = new AggregationNode(
                     decorrelatedAggregation.getId(),
                     decorrelatedAggregation.getSource(),
                     decorrelatedAggregation.getAggregations(),
-                    newGroupingSets.build(),
+                    AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
+                            .addAll(node.getGroupingKeys())
+                            .addAll(symbolsToAdd)
+                            .build()),
                     ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashSymbol(),
                     decorrelatedAggregation.getGroupIdSymbol());
 
-            boolean atMostSingleRow = newAggregation.getGroupingSets().size() == 1
+            boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
                     && constantSymbols.containsAll(newAggregation.getGroupingKeys());
 
             return Optional.of(new DecorrelationResult(

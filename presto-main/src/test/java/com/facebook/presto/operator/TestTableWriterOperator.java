@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -182,6 +183,7 @@ public class TestTableWriterOperator
 
     @Test
     public void testStatisticsAggregation()
+            throws Exception
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
         pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
@@ -215,6 +217,27 @@ public class TestTableWriterOperator
         assertTrue(operator.isBlocked().isDone());
         assertFalse(operator.needsInput());
         assertTrue(operator.isFinished());
+
+        operator.close();
+        assertMemoryIsReleased(operator);
+    }
+
+    private void assertMemoryIsReleased(TableWriterOperator tableWriterOperator)
+    {
+        OperatorContext tableWriterOperatorOperatorContext = tableWriterOperator.getOperatorContext();
+        MemoryTrackingContext tableWriterMemoryContext = tableWriterOperatorOperatorContext.getOperatorMemoryContext();
+        assertEquals(tableWriterMemoryContext.getSystemMemory(), 0);
+        assertEquals(tableWriterMemoryContext.getUserMemory(), 0);
+        assertEquals(tableWriterMemoryContext.getRevocableMemory(), 0);
+
+        Operator statisticAggregationOperator = tableWriterOperator.getStatisticAggregationOperator();
+        assertTrue(statisticAggregationOperator instanceof AggregationOperator);
+        AggregationOperator aggregationOperator = (AggregationOperator) statisticAggregationOperator;
+        OperatorContext aggregationOperatorOperatorContext = aggregationOperator.getOperatorContext();
+        MemoryTrackingContext aggregationOperatorMemoryContext = aggregationOperatorOperatorContext.getOperatorMemoryContext();
+        assertEquals(aggregationOperatorMemoryContext.getSystemMemory(), 0);
+        assertEquals(aggregationOperatorMemoryContext.getUserMemory(), 0);
+        assertEquals(aggregationOperatorMemoryContext.getRevocableMemory(), 0);
     }
 
     private Operator createTableWriterOperator(BlockingPageSink blockingPageSink)

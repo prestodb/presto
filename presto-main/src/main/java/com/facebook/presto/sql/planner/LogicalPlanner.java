@@ -338,12 +338,6 @@ public class LogicalPlanner
                     outputLayout));
         }
 
-        List<Symbol> writerOutputs = ImmutableList.of(
-                symbolAllocator.newSymbol("partialrows", BIGINT),
-                symbolAllocator.newSymbol("fragment", VARBINARY));
-
-        List<Symbol> commitOutputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
-
         if (!statisticsMetadata.isEmpty()) {
             verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
             Map<String, Symbol> columnToSymbolMap = zip(columnNames.stream(), symbols.stream(), SimpleImmutableEntry::new)
@@ -358,19 +352,15 @@ public class LogicalPlanner
             // final aggregation is run within the TableFinishOperator to summarize collected statistics
             // by the partial aggregation from all of the writer nodes
             StatisticAggregations partialAggregation = aggregations.getPartialAggregation();
-            List<Symbol> writerOutputSymbols = ImmutableList.<Symbol>builder()
-                    .addAll(writerOutputs)
-                    .addAll(partialAggregation.getGroupingSymbols())
-                    .addAll(partialAggregation.getAggregations().keySet())
-                    .build();
 
             PlanNode writerNode = new TableWriterNode(
                     idAllocator.getNextId(),
                     source,
                     target,
+                    symbolAllocator.newSymbol("partialrows", BIGINT),
+                    symbolAllocator.newSymbol("fragment", VARBINARY),
                     symbols,
                     columnNames,
-                    writerOutputSymbols,
                     partitioningScheme,
                     Optional.of(partialAggregation),
                     Optional.of(result.getDescriptor().map(aggregations.getMappings()::get)));
@@ -379,11 +369,11 @@ public class LogicalPlanner
                     idAllocator.getNextId(),
                     writerNode,
                     target,
-                    commitOutputs,
+                    symbolAllocator.newSymbol("rows", BIGINT),
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
-            return new RelationPlan(commitNode, analysis.getRootScope(), commitOutputs);
+            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
         }
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -392,17 +382,18 @@ public class LogicalPlanner
                         idAllocator.getNextId(),
                         source,
                         target,
+                        symbolAllocator.newSymbol("partialrows", BIGINT),
+                        symbolAllocator.newSymbol("fragment", VARBINARY),
                         symbols,
                         columnNames,
-                        writerOutputs,
                         partitioningScheme,
                         Optional.empty(),
                         Optional.empty()),
                 target,
-                commitOutputs,
+                symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitOutputs);
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
@@ -410,12 +401,11 @@ public class LogicalPlanner
         DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
                 .plan(node);
 
-        List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 deleteNode,
                 deleteNode.getTarget(),
-                outputs,
+                symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
 

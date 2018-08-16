@@ -114,7 +114,7 @@ public class LambdaCaptureDesugaringRewriter
     private static class Context
     {
         // Use linked hash set to guarantee deterministic iteration order
-        LinkedHashSet<Symbol> referencedSymbols;
+        final LinkedHashSet<Symbol> referencedSymbols;
 
         public Context()
         {

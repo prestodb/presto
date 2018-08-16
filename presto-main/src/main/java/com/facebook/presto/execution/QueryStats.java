@@ -515,7 +515,7 @@ public class QueryStats
     {
         return operatorSummaries.stream()
                 .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                .mapToLong(stats -> stats.getInputPositions())
+                .mapToLong(OperatorStats::getInputPositions)
                 .sum();
     }
 

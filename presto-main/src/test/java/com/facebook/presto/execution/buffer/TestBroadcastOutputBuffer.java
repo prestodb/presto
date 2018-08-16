@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -1063,13 +1062,13 @@ public class TestBroadcastOutputBuffer
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(Optional<String> allocationTag, long delta)
+        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
         {
             return blockedFuture;
         }
 
         @Override
-        public boolean tryReserveMemory(Optional<String> allocationTag, long delta)
+        public boolean tryReserveMemory(String allocationTag, long delta)
         {
             return true;
         }
@@ -1136,8 +1135,7 @@ public class TestBroadcastOutputBuffer
         assertTrue(memoryManager.getBufferedBytes() > 0);
         buffer.forceFreeMemory();
         assertEquals(memoryManager.getBufferedBytes(), 0);
-        // adding another page after buffer.forceFreeMemory()
-        // should have no effect in terms of memory usage
+        // adding a page after forceFreeMemory() should be NOOP
         addPage(buffer, createPage(1));
         assertEquals(memoryManager.getBufferedBytes(), 0);
     }

@@ -54,7 +54,7 @@ public class IndexSnapshotBuilder
     private final List<Page> pages = new ArrayList<>();
     private long memoryInBytes;
 
-    private PageBuilder missingKeysPageBuilder;
+    private final PageBuilder missingKeysPageBuilder;
 
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,

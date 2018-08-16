@@ -117,6 +117,11 @@ public class SourcePartitionedScheduler
         this.autoDropCompletedLifespans = autoDropCompletedLifespans;
     }
 
+    public PlanNodeId getPlanNodeId()
+    {
+        return partitionedNode;
+    }
+
     /**
      * Obtains an instance of {@code SourcePartitionedScheduler} suitable for use as a
      * stage scheduler.

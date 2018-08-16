@@ -28,6 +28,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -46,7 +47,7 @@ public class TestPruneAggregationColumns
                         strictProject(
                                 ImmutableMap.of("b", expression("b")),
                                 aggregation(
-                                        ImmutableList.of(ImmutableList.of("key")),
+                                        singleGroupingSet("key"),
                                         ImmutableMap.of(
                                                 Optional.of("b"),
                                                 functionCall("count", false, ImmutableList.of())),
@@ -73,7 +74,7 @@ public class TestPruneAggregationColumns
                 Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
-                        .addGroupingSet(key)
+                        .singleGroupingSet(key)
                         .addAggregation(a, planBuilder.expression("count()"), ImmutableList.of())
                         .addAggregation(b, planBuilder.expression("count()"), ImmutableList.of())));
     }

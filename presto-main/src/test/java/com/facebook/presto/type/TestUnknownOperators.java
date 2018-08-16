@@ -39,7 +39,7 @@ public class TestUnknownOperators
     @ScalarFunction(value = "null_function", deterministic = false)
     @SqlNullable
     @SqlType("unknown")
-    public static Void nullFunction()
+    public static Boolean nullFunction()
     {
         return null;
     }

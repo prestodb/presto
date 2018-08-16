@@ -127,7 +127,7 @@ public class TestSystemMemoryBlocking
         }
 
         // free up some memory
-        memoryPool.free(QUERY_ID, memoryPool.getReservedBytes());
+        memoryPool.free(QUERY_ID, "test", memoryPool.getReservedBytes());
 
         // the operator should be unblocked
         assertTrue(source.getOperatorContext().isWaitingForMemory().isDone());

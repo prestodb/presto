@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -98,9 +97,7 @@ public final class BytecodeUtils
 
         isNull.pushJavaDefault(returnType);
         String loadDefaultComment = null;
-        if (returnType != void.class) {
-            loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
-        }
+        loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
 
         isNull.gotoLabel(label);
 
@@ -230,9 +227,6 @@ public final class BytecodeUtils
                                 block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                                 break;
                             case USE_NULL_FLAG:
-                                if (type == Void.class) {
-                                    block.append(boxPrimitiveIfNecessary(scope, type));
-                                }
                                 block.append(arguments.get(realParameterIndex));
                                 block.append(scope.getVariable("wasNull"));
                                 block.append(scope.getVariable("wasNull").set(constantFalse()));
@@ -281,11 +275,7 @@ public final class BytecodeUtils
         Class<?> unboxedType = Primitives.unwrap(boxedType);
         Variable wasNull = scope.getVariable("wasNull");
 
-        if (unboxedType == void.class) {
-            block.pop(boxedType)
-                    .append(wasNull.set(constantTrue()));
-        }
-        else if (unboxedType.isPrimitive()) {
+        if (unboxedType.isPrimitive()) {
             LabelNode notNull = new LabelNode("notNull");
             block.dup(boxedType)
                     .ifNotNullGoto(notNull)
@@ -327,11 +317,6 @@ public final class BytecodeUtils
             notNull.invokeStatic(Boolean.class, "valueOf", Boolean.class, boolean.class);
             expectedCurrentStackType = boolean.class;
         }
-        else if (type == Void.class) {
-            notNull.pushNull()
-                    .checkCast(Void.class);
-            return notNull;
-        }
         else {
             throw new UnsupportedOperationException("not yet implemented: " + type);
         }
@@ -361,12 +346,6 @@ public final class BytecodeUtils
 
     public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
     {
-        if (type.getJavaType() == void.class) {
-            return new BytecodeBlock().comment("output.appendNull();")
-                    .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
-                    .pop();
-        }
-
         Class<?> valueJavaType = type.getJavaType();
         if (!valueJavaType.isPrimitive() && valueJavaType != Slice.class) {
             valueJavaType = Object.class;

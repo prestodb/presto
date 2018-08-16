@@ -43,6 +43,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -104,6 +105,8 @@ public class SqlTaskManager
     @GuardedBy("this")
     private String coordinatorId;
 
+    private final CounterStat failedTasks = new CounterStat();
+
     @Inject
     public SqlTaskManager(
             LocalExecutionPlanner planner,
@@ -154,7 +157,8 @@ public class SqlTaskManager
                             finishedTaskStats.merge(sqlTask.getIoStats());
                             return null;
                         },
-                        maxBufferSize)));
+                        maxBufferSize,
+                        failedTasks)));
     }
 
     private QueryContext createQueryContext(
@@ -272,6 +276,13 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Failed tasks counter")
+    @Nested
+    public CounterStat getFailedTasks()
+    {
+        return failedTasks;
     }
 
     public List<SqlTask> getAllTasks()

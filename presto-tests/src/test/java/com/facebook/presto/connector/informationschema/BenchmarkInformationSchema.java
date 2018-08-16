@@ -75,11 +75,11 @@ public class BenchmarkInformationSchema
 
         @Param({"FULL_SCAN", "LIKE_PREDICATE", "MIXED_PREDICATE"})
         private String queryId = "LIKE_PREDICATE";
-        @Param({"200"})
+        @Param("200")
         private String schemasCount = "200";
-        @Param({"200"})
+        @Param("200")
         private String tablesCount = "200";
-        @Param({"100"})
+        @Param("100")
         private String columnsCount = "100";
 
         private QueryRunner queryRunner;
@@ -126,7 +126,7 @@ public class BenchmarkInformationSchema
                             .boxed()
                             .map(i -> "column_" + i)
                             .collect(toImmutableMap(column -> column, column -> new TpchColumnHandle(column, createUnboundedVarcharType()) {}));
-                    return ImmutableList.of(new MockConnectorFactory(listSchemaNames, listTables, getColumnHandles));
+                    return ImmutableList.of(new MockConnectorFactory(listSchemaNames, listTables, (session, prefix) -> ImmutableMap.of(), getColumnHandles));
                 }
             });
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());

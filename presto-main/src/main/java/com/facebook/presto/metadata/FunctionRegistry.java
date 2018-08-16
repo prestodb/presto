@@ -363,6 +363,7 @@ public class FunctionRegistry
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
+    private final FunctionInvokerProvider functionInvokerProvider;
 
     public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
@@ -631,6 +632,13 @@ public class FunctionRegistry
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionRegistry(this);
         }
+
+        functionInvokerProvider = new FunctionInvokerProvider(this);
+    }
+
+    public FunctionInvokerProvider getFunctionInvokerProvider()
+    {
+        return functionInvokerProvider;
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)

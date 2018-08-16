@@ -30,7 +30,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -114,7 +113,7 @@ public class LegacyQueryContext
         maxMemory = memoryPool.getMaxBytes();
     }
 
-    private synchronized ListenableFuture<?> updateUserMemory(Optional<String> allocationTag, long delta)
+    private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
             if (queryMemoryContext.getUserMemory() + delta > maxMemory) {
@@ -127,7 +126,7 @@ public class LegacyQueryContext
     }
 
     //TODO Add tagging support for revocable memory reservations if needed
-    private synchronized ListenableFuture<?> updateRevocableMemory(Optional<String> allocationTag, long delta)
+    private synchronized ListenableFuture<?> updateRevocableMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
             return memoryPool.reserveRevocable(queryId, delta);
@@ -136,7 +135,7 @@ public class LegacyQueryContext
         return NOT_BLOCKED;
     }
 
-    private synchronized ListenableFuture<?> updateSystemMemory(Optional<String> allocationTag, long delta)
+    private synchronized ListenableFuture<?> updateSystemMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
             systemMemoryPool.reserve(queryId, allocationTag, delta);
@@ -161,7 +160,7 @@ public class LegacyQueryContext
         return future;
     }
 
-    private synchronized boolean tryUpdateUserMemory(Optional<String> allocationTag, long delta)
+    private synchronized boolean tryUpdateUserMemory(String allocationTag, long delta)
     {
         if (delta <= 0) {
             ListenableFuture<?> future = updateUserMemory(allocationTag, delta);
@@ -183,7 +182,7 @@ public class LegacyQueryContext
     }
 
     @Override
-    public synchronized void setMemoryPool(MemoryPool pool)
+    public synchronized void setMemoryPool(MemoryPool newMemoryPool)
     {
         // This method first acquires the monitor of this instance.
         // After that in this method if we acquire the monitors of the
@@ -197,19 +196,13 @@ public class LegacyQueryContext
         // That's why instead of calling methods on queryMemoryContext to get the
         // user/revocable memory reservations, we call the MemoryPool to get the same
         // information.
-        requireNonNull(pool, "pool is null");
-        if (memoryPool == pool) {
+        requireNonNull(newMemoryPool, "newMemoryPool is null");
+        if (memoryPool == newMemoryPool) {
             // Don't unblock our tasks and thrash the pools, if this is a no-op
             return;
         }
-        MemoryPool originalPool = memoryPool;
-        long originalReserved = originalPool.getQueryMemoryReservation(queryId);
-        long originalRevocableReserved = originalPool.getQueryRevocableMemoryReservation(queryId);
-        memoryPool = pool;
-        ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
-        originalPool.free(queryId, originalReserved);
-        pool.reserveRevocable(queryId, originalRevocableReserved);
-        originalPool.freeRevocable(queryId, originalRevocableReserved);
+        ListenableFuture<?> future = memoryPool.moveQuery(queryId, newMemoryPool);
+        memoryPool = newMemoryPool;
         future.addListener(() -> {
             // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
             taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
@@ -266,31 +259,31 @@ public class LegacyQueryContext
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {
-        private final BiFunction<Optional<String>, Long, ListenableFuture<?>> reserveMemoryFunction;
-        private final BiPredicate<Optional<String>, Long> tryReserveMemoryFunction;
+        private final BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction;
+        private final BiPredicate<String, Long> tryReserveMemoryFunction;
 
         public QueryMemoryReservationHandler(
-                BiFunction<Optional<String>, Long, ListenableFuture<?>> reserveMemoryFunction,
-                BiPredicate<Optional<String>, Long> tryReserveMemoryFunction)
+                BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction,
+                BiPredicate<String, Long> tryReserveMemoryFunction)
         {
             this.reserveMemoryFunction = requireNonNull(reserveMemoryFunction, "reserveMemoryFunction is null");
             this.tryReserveMemoryFunction = requireNonNull(tryReserveMemoryFunction, "tryReserveMemoryFunction is null");
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(Optional<String> allocationTag, long delta)
+        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
         {
             return reserveMemoryFunction.apply(allocationTag, delta);
         }
 
         @Override
-        public boolean tryReserveMemory(Optional<String> allocationTag, long delta)
+        public boolean tryReserveMemory(String allocationTag, long delta)
         {
             return tryReserveMemoryFunction.test(allocationTag, delta);
         }
     }
 
-    private boolean tryReserveMemoryNotSupported(Optional<String> allocationTag, long bytes)
+    private boolean tryReserveMemoryNotSupported(String allocationTag, long bytes)
     {
         throw new UnsupportedOperationException("tryReserveMemory is not supported");
     }

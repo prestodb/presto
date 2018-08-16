@@ -29,7 +29,10 @@ public final class UnknownType
 
     private UnknownType()
     {
-        super(new TypeSignature(NAME), void.class, 0);
+        // We never access the native container for UNKNOWN because its null check is always true.
+        // The actual native container type does not matter here.
+        // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
+        super(new TypeSignature(NAME), boolean.class, 1);
     }
 
     @Override
@@ -81,6 +84,25 @@ public final class UnknownType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
+        blockBuilder.appendNull();
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
+    {
+        // Ideally, this function should never be invoked for unknown type.
+        // However, some logic rely on having a default value before the null check.
+        checkArgument(block.isNull(position));
+        return false;
+    }
+
+    @Deprecated
+    @Override
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
+    {
+        // Ideally, this function should never be invoked for unknown type.
+        // However, some logic (e.g. AbstractMinMaxBy) rely on writing a default value before the null check.
+        checkArgument(!value);
         blockBuilder.appendNull();
     }
 }

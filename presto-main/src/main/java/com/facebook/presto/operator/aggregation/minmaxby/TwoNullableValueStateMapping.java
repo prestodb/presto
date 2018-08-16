@@ -40,37 +40,26 @@ public final class TwoNullableValueStateMapping
                 .put(ImmutableList.of(boolean.class, double.class), BooleanDoubleState.class)
                 .put(ImmutableList.of(boolean.class, long.class), BooleanLongState.class)
                 .put(ImmutableList.of(boolean.class, Slice.class), BooleanAndBlockPositionValueState.class)
-                .put(ImmutableList.of(boolean.class, void.class), BooleanUnknownState.class)
                 .put(ImmutableList.of(double.class, boolean.class), DoubleBooleanState.class)
                 .put(ImmutableList.of(double.class, Block.class), DoubleAndBlockPositionValueState.class)
                 .put(ImmutableList.of(double.class, double.class), DoubleDoubleState.class)
                 .put(ImmutableList.of(double.class, long.class), DoubleLongState.class)
                 .put(ImmutableList.of(double.class, Slice.class), DoubleAndBlockPositionValueState.class)
-                .put(ImmutableList.of(double.class, void.class), DoubleUnknownState.class)
                 .put(ImmutableList.of(long.class, Block.class), LongAndBlockPositionValueState.class)
                 .put(ImmutableList.of(long.class, boolean.class), LongBooleanState.class)
                 .put(ImmutableList.of(long.class, double.class), LongDoubleState.class)
                 .put(ImmutableList.of(long.class, long.class), LongLongState.class)
                 .put(ImmutableList.of(long.class, Slice.class), LongAndBlockPositionValueState.class)
-                .put(ImmutableList.of(long.class, void.class), LongUnknownState.class)
                 .put(ImmutableList.of(Slice.class, boolean.class), SliceBooleanState.class)
                 .put(ImmutableList.of(Slice.class, Block.class), SliceAndBlockPositionValueState.class)
                 .put(ImmutableList.of(Slice.class, double.class), SliceDoubleState.class)
                 .put(ImmutableList.of(Slice.class, long.class), SliceLongState.class)
                 .put(ImmutableList.of(Slice.class, Slice.class), SliceAndBlockPositionValueState.class)
-                .put(ImmutableList.of(Slice.class, void.class), SliceUnknownState.class)
                 .put(ImmutableList.of(Block.class, boolean.class), BlockBooleanState.class)
                 .put(ImmutableList.of(Block.class, Block.class), BlockAndBlockPositionValueState.class)
                 .put(ImmutableList.of(Block.class, double.class), BlockDoubleState.class)
                 .put(ImmutableList.of(Block.class, long.class), BlockLongState.class)
                 .put(ImmutableList.of(Block.class, Slice.class), BlockAndBlockPositionValueState.class)
-                .put(ImmutableList.of(Block.class, void.class), BlockUnknownState.class)
-                .put(ImmutableList.of(void.class, void.class), TwoNullableValueState.class)
-                .put(ImmutableList.of(void.class, Block.class), KeyAndBlockPositionValueState.class)  // no need to specify the first field if it is unknown
-                .put(ImmutableList.of(void.class, boolean.class), UnknownBooleanState.class)
-                .put(ImmutableList.of(void.class, double.class), UnknownDoubleState.class)
-                .put(ImmutableList.of(void.class, long.class), UnknownLongState.class)
-                .put(ImmutableList.of(void.class, Slice.class), KeyAndBlockPositionValueState.class)  // no need to specify the first field if it is unknown
                 .build();
     }
 
@@ -104,9 +93,6 @@ public final class TwoNullableValueStateMapping
         }
         if (firstJavaType == Block.class) {
             return new BlockAndBlockPositionStateSerializer(firstType, secondType);
-        }
-        if (firstJavaType == void.class) {
-            return new UnknownAndBlockPositionStateSerializer(firstType, secondType);
         }
         throw new IllegalArgumentException(format("Unsupported state type combination: (%s, %s)", firstJavaType.getName(), secondJavaType.getName()));
     }

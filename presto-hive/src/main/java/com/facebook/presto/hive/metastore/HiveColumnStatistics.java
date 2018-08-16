@@ -38,8 +38,8 @@ public class HiveColumnStatistics
     private final Optional<DecimalStatistics> decimalStatistics;
     private final Optional<DateStatistics> dateStatistics;
     private final Optional<BooleanStatistics> booleanStatistics;
-    private final OptionalLong maxColumnLength;
-    private final OptionalDouble averageColumnLength;
+    private final OptionalLong maxValueSizeInBytes;
+    private final OptionalLong totalSizeInBytes;
     private final OptionalLong nullsCount;
     private final OptionalLong distinctValuesCount;
 
@@ -55,8 +55,8 @@ public class HiveColumnStatistics
             @JsonProperty("decimalStatistics") Optional<DecimalStatistics> decimalStatistics,
             @JsonProperty("dateStatistics") Optional<DateStatistics> dateStatistics,
             @JsonProperty("booleanStatistics") Optional<BooleanStatistics> booleanStatistics,
-            @JsonProperty("maxColumnLength") OptionalLong maxColumnLength,
-            @JsonProperty("averageColumnLength") OptionalDouble averageColumnLength,
+            @JsonProperty("maxValueSizeInBytes") OptionalLong maxValueSizeInBytes,
+            @JsonProperty("totalSizeInBytes") OptionalLong totalSizeInBytes,
             @JsonProperty("nullsCount") OptionalLong nullsCount,
             @JsonProperty("distinctValuesCount") OptionalLong distinctValuesCount)
     {
@@ -65,8 +65,8 @@ public class HiveColumnStatistics
         this.decimalStatistics = requireNonNull(decimalStatistics, "decimalStatistics is null");
         this.dateStatistics = requireNonNull(dateStatistics, "dateStatistics is null");
         this.booleanStatistics = requireNonNull(booleanStatistics, "booleanStatistics is null");
-        this.maxColumnLength = requireNonNull(maxColumnLength, "maxColumnLength is null");
-        this.averageColumnLength = requireNonNull(averageColumnLength, "averageColumnLength is null");
+        this.maxValueSizeInBytes = requireNonNull(maxValueSizeInBytes, "maxValueSizeInBytes is null");
+        this.totalSizeInBytes = requireNonNull(totalSizeInBytes, "totalSizeInBytes is null");
         this.nullsCount = requireNonNull(nullsCount, "nullsCount is null");
         this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
 
@@ -110,15 +110,15 @@ public class HiveColumnStatistics
     }
 
     @JsonProperty
-    public OptionalLong getMaxColumnLength()
+    public OptionalLong getMaxValueSizeInBytes()
     {
-        return maxColumnLength;
+        return maxValueSizeInBytes;
     }
 
     @JsonProperty
-    public OptionalDouble getAverageColumnLength()
+    public OptionalLong getTotalSizeInBytes()
     {
-        return averageColumnLength;
+        return totalSizeInBytes;
     }
 
     @JsonProperty
@@ -148,8 +148,8 @@ public class HiveColumnStatistics
                 Objects.equals(decimalStatistics, that.decimalStatistics) &&
                 Objects.equals(dateStatistics, that.dateStatistics) &&
                 Objects.equals(booleanStatistics, that.booleanStatistics) &&
-                Objects.equals(maxColumnLength, that.maxColumnLength) &&
-                Objects.equals(averageColumnLength, that.averageColumnLength) &&
+                Objects.equals(maxValueSizeInBytes, that.maxValueSizeInBytes) &&
+                Objects.equals(totalSizeInBytes, that.totalSizeInBytes) &&
                 Objects.equals(nullsCount, that.nullsCount) &&
                 Objects.equals(distinctValuesCount, that.distinctValuesCount);
     }
@@ -163,8 +163,8 @@ public class HiveColumnStatistics
                 decimalStatistics,
                 dateStatistics,
                 booleanStatistics,
-                maxColumnLength,
-                averageColumnLength,
+                maxValueSizeInBytes,
+                totalSizeInBytes,
                 nullsCount,
                 distinctValuesCount);
     }
@@ -178,8 +178,8 @@ public class HiveColumnStatistics
                 .add("decimalStatistics", decimalStatistics)
                 .add("dateStatistics", dateStatistics)
                 .add("booleanStatistics", booleanStatistics)
-                .add("maxColumnLength", maxColumnLength)
-                .add("averageColumnLength", averageColumnLength)
+                .add("maxValueSizeInBytes", maxValueSizeInBytes)
+                .add("totalSizeInBytes", totalSizeInBytes)
                 .add("nullsCount", nullsCount)
                 .add("distinctValuesCount", distinctValuesCount)
                 .toString();
@@ -229,21 +229,25 @@ public class HiveColumnStatistics
                 .build();
     }
 
-    public static HiveColumnStatistics createStringColumnStatistics(OptionalLong maxColumnLength, OptionalDouble averageColumnLength, OptionalLong nullsCount, OptionalLong distinctValuesCount)
+    public static HiveColumnStatistics createStringColumnStatistics(
+            OptionalLong maxValueSizeInBytes,
+            OptionalLong totalSizeInBytes,
+            OptionalLong nullsCount,
+            OptionalLong distinctValuesCount)
     {
         return builder()
-                .setMaxColumnLength(maxColumnLength)
-                .setAverageColumnLength(averageColumnLength)
+                .setMaxValueSizeInBytes(maxValueSizeInBytes)
+                .setTotalSizeInBytes(totalSizeInBytes)
                 .setNullsCount(nullsCount)
                 .setDistinctValuesCount(distinctValuesCount)
                 .build();
     }
 
-    public static HiveColumnStatistics createBinaryColumnStatistics(OptionalLong maxColumnLength, OptionalDouble averageColumnLength, OptionalLong nullsCount)
+    public static HiveColumnStatistics createBinaryColumnStatistics(OptionalLong maxValueSizeInBytes, OptionalLong totalSizeInBytes, OptionalLong nullsCount)
     {
         return builder()
-                .setMaxColumnLength(maxColumnLength)
-                .setAverageColumnLength(averageColumnLength)
+                .setMaxValueSizeInBytes(maxValueSizeInBytes)
+                .setTotalSizeInBytes(totalSizeInBytes)
                 .setNullsCount(nullsCount)
                 .build();
     }
@@ -265,8 +269,8 @@ public class HiveColumnStatistics
         private Optional<DecimalStatistics> decimalStatistics = Optional.empty();
         private Optional<DateStatistics> dateStatistics = Optional.empty();
         private Optional<BooleanStatistics> booleanStatistics = Optional.empty();
-        private OptionalLong maxColumnLength = OptionalLong.empty();
-        private OptionalDouble averageColumnLength = OptionalDouble.empty();
+        private OptionalLong maxValueSizeInBytes = OptionalLong.empty();
+        private OptionalLong totalSizeInBytes = OptionalLong.empty();
         private OptionalLong nullsCount = OptionalLong.empty();
         private OptionalLong distinctValuesCount = OptionalLong.empty();
 
@@ -279,8 +283,8 @@ public class HiveColumnStatistics
             this.decimalStatistics = other.getDecimalStatistics();
             this.dateStatistics = other.getDateStatistics();
             this.booleanStatistics = other.getBooleanStatistics();
-            this.maxColumnLength = other.getMaxColumnLength();
-            this.averageColumnLength = other.getAverageColumnLength();
+            this.maxValueSizeInBytes = other.getMaxValueSizeInBytes();
+            this.totalSizeInBytes = other.getTotalSizeInBytes();
             this.nullsCount = other.getNullsCount();
             this.distinctValuesCount = other.getDistinctValuesCount();
         }
@@ -345,27 +349,27 @@ public class HiveColumnStatistics
             return this;
         }
 
-        public Builder setMaxColumnLength(OptionalLong maxColumnLength)
+        public Builder setMaxValueSizeInBytes(long maxValueSizeInBytes)
         {
-            this.maxColumnLength = maxColumnLength;
+            this.maxValueSizeInBytes = OptionalLong.of(maxValueSizeInBytes);
             return this;
         }
 
-        public Builder setMaxColumnLength(long maxColumnLength)
+        public Builder setMaxValueSizeInBytes(OptionalLong maxValueSizeInBytes)
         {
-            this.maxColumnLength = OptionalLong.of(maxColumnLength);
+            this.maxValueSizeInBytes = maxValueSizeInBytes;
             return this;
         }
 
-        public Builder setAverageColumnLength(OptionalDouble averageColumnLength)
+        public Builder setTotalSizeInBytes(long totalSizeInBytes)
         {
-            this.averageColumnLength = averageColumnLength;
+            this.totalSizeInBytes = OptionalLong.of(totalSizeInBytes);
             return this;
         }
 
-        public Builder setAverageColumnLength(double averageColumnLength)
+        public Builder setTotalSizeInBytes(OptionalLong totalSizeInBytes)
         {
-            this.averageColumnLength = OptionalDouble.of(averageColumnLength);
+            this.totalSizeInBytes = totalSizeInBytes;
             return this;
         }
 
@@ -401,8 +405,8 @@ public class HiveColumnStatistics
                     decimalStatistics,
                     dateStatistics,
                     booleanStatistics,
-                    maxColumnLength,
-                    averageColumnLength,
+                    maxValueSizeInBytes,
+                    totalSizeInBytes,
                     nullsCount,
                     distinctValuesCount);
         }
