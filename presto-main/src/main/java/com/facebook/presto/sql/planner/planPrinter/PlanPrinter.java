@@ -150,6 +150,7 @@ public class PlanPrinter
     private PlanPrinter(
             PlanNode plan,
             TypeProvider types,
+            Optional<StageExecutionStrategy> stageExecutionStrategy,
             FunctionRegistry functionRegistry,
             StatsProvider statsProvider,
             CostProvider costProvider,
@@ -168,7 +169,7 @@ public class PlanPrinter
         this.stats = stats;
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(statsProvider, costProvider, types, session);
+        Visitor visitor = new Visitor(stageExecutionStrategy, statsProvider, costProvider, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -180,19 +181,19 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, functionRegistry, statsProvider, costProvider, session, Optional.empty(), indent, false).toString();
+        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, statsProvider, costProvider, session, Optional.empty(), indent, false).toString();
     }
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
     {
-        return textLogicalPlan(plan, types, functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), indent, verbose);
+        return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), indent, verbose);
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, Optional<StageExecutionStrategy> stageExecutionStrategy, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
     {
         CachingStatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CachingCostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-        return new PlanPrinter(plan, types, functionRegistry, statsProvider, costProvider, session, stats, indent, verbose).toString();
+        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, statsProvider, costProvider, session, stats, indent, verbose).toString();
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, boolean verbose)
@@ -274,11 +275,11 @@ public class PlanPrinter
         builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionStrategy().isAnyScanGroupedExecution()));
 
         if (stageInfo.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, Optional.of(planNodeStats.get()), 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, statsCalculator, costCalculator, session, Optional.of(planNodeStats.get()), 1, verbose))
                     .append("\n");
         }
         else {
-            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), 1, verbose))
                     .append("\n");
         }
 
@@ -505,13 +506,15 @@ public class PlanPrinter
     private class Visitor
             extends PlanVisitor<Void, Integer>
     {
+        private final Optional<StageExecutionStrategy> stageExecutionStrategy;
         private final TypeProvider types;
         private final StatsProvider statsProvider;
         private final CostProvider costProvider;
         private final Session session;
 
-        public Visitor(StatsProvider statsProvider, CostProvider costProvider, TypeProvider types, Session session)
+        public Visitor(Optional<StageExecutionStrategy> stageExecutionStrategy, StatsProvider statsProvider, CostProvider costProvider, TypeProvider types, Session session)
         {
+            this.stageExecutionStrategy = stageExecutionStrategy;
             this.types = types;
             this.statsProvider = statsProvider;
             this.costProvider = costProvider;
@@ -814,7 +817,19 @@ public class PlanPrinter
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
             TableHandle table = node.getTable();
-            print(indent, "- TableScan[%s, originalConstraint = %s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
+            if (stageExecutionStrategy.isPresent()) {
+                print(indent, "- TableScan[%s, grouped = %s, originalConstraint = %s] => [%s]",
+                        table,
+                        stageExecutionStrategy.get().isGroupedExecution(node.getId()),
+                        node.getOriginalConstraint(),
+                        formatOutputs(node.getOutputSymbols()));
+            }
+            else {
+                print(indent, "- TableScan[%s, originalConstraint = %s] => [%s]",
+                        table,
+                        node.getOriginalConstraint(),
+                        formatOutputs(node.getOutputSymbols()));
+            }
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             printTableScanInfo(node, indent);
@@ -880,22 +895,27 @@ public class PlanPrinter
 
             if (scanNode.isPresent()) {
                 operatorName += "Scan";
-                format += "table = %s, originalConstraint = %s";
-                if (filterNode.isPresent()) {
-                    format += ", ";
-                }
+                format += "table = %s, ";
                 TableHandle table = scanNode.get().getTable();
                 arguments.add(table);
+                if (stageExecutionStrategy.isPresent()) {
+                    format += "grouped = %s, ";
+                    arguments.add(stageExecutionStrategy.get().isGroupedExecution(scanNode.get().getId()));
+                }
+                format += "originalConstraint = %s, ";
                 arguments.add(scanNode.get().getOriginalConstraint());
             }
 
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
-                format += "filterPredicate = %s";
+                format += "filterPredicate = %s, ";
                 arguments.add(filterNode.get().getPredicate());
             }
 
-            format += "] => [%s]";
+            if (format.length() > 1) {
+                format = format.substring(0, format.length() - 2) + "] => [%s]";
+            }
+
             if (projectNode.isPresent()) {
                 operatorName += "Project";
                 arguments.add(formatOutputs(projectNode.get().getOutputSymbols()));
