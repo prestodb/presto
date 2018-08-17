@@ -2347,6 +2347,27 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATime, crossJoin, expectedCrossJoinQuery);
 
             //
+            // Bucketed and unbucketed HASH JOIN mixed
+            // =======================================
+            @Language("SQL") String bucketedAndUnbucketedJoin =
+                    "SELECT key1, value1, keyN, valueN, key2, value2, key3, value3\n" +
+                            "FROM\n" +
+                            "  test_grouped_join1\n" +
+                            "JOIN (\n" +
+                            "  SELECT *\n" +
+                            "  FROM test_grouped_joinN\n" +
+                            "  JOIN test_grouped_join2\n" +
+                            "  ON keyN = key2\n" +
+                            ")\n" +
+                            "ON key1 = keyN\n" +
+                            "JOIN test_grouped_join3\n" +
+                            "ON key1 = key3";
+            @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment from orders";
+            assertQuery(notColocated, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(colocatedAllGroupsAtOnce, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(colocatedOneGroupAtATime, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+
+            //
             // UNION ALL / GROUP BY
             // ====================
 
@@ -2496,8 +2517,8 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped);
 
             //
-            // Outer JOIN
-            // ==========
+            // Outer JOIN (that involves LookupOuterOperator)
+            // ==============================================
 
             // Chain on the probe side to test duplicating OperatorFactory
             @Language("SQL") String chainedOuterJoin =

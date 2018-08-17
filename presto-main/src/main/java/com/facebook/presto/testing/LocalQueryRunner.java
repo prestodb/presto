@@ -83,7 +83,7 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.NoOpSessionSupplier;
@@ -182,7 +182,6 @@ import java.util.function.Function;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -696,10 +695,10 @@ public class LocalQueryRunner
                 new OrderingCompiler());
 
         // plan query
-        PipelineExecutionStrategy pipelineExecutionStrategy = subplan.getFragment().getPipelineExecutionStrategy();
+        StageExecutionStrategy stageExecutionStrategy = subplan.getFragment().getStageExecutionStrategy();
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 taskContext,
-                pipelineExecutionStrategy == GROUPED_EXECUTION,
+                stageExecutionStrategy,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
@@ -715,7 +714,7 @@ public class LocalQueryRunner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     layout,
-                    pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionStrategy.isGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {

@@ -29,6 +29,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
@@ -122,7 +123,6 @@ import java.util.stream.Stream;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
@@ -352,7 +352,7 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     formatHash(partitioningScheme.getHashColumn())));
         }
-        builder.append(indentString(1)).append(format("Execution Flow: %s\n", fragment.getPipelineExecutionStrategy()));
+        builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionStrategy().isAnyScanGroupedExecution()));
 
         if (stageInfo.isPresent()) {
             builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, planNodeStats.get(), 1, verbose))
@@ -375,7 +375,7 @@ public class PlanPrinter
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
-                UNGROUPED_EXECUTION);
+                StageExecutionStrategy.ungroupedExecution());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 

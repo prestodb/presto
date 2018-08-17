@@ -18,7 +18,7 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.split.SplitSource;
@@ -49,7 +49,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -73,7 +72,7 @@ public class FixedSourcePartitionedScheduler
     public FixedSourcePartitionedScheduler(
             SqlStageExecution stage,
             Map<PlanNodeId, SplitSource> splitSources,
-            PipelineExecutionStrategy pipelineExecutionStrategy,
+            StageExecutionStrategy stageExecutionStrategy,
             List<PlanNodeId> schedulingOrder,
             NodePartitionMap partitioning,
             int splitBatchSize,
@@ -96,8 +95,8 @@ public class FixedSourcePartitionedScheduler
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
         checkArgument(
-                partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) == (pipelineExecutionStrategy == UNGROUPED_EXECUTION),
-                "PartitionHandles should be [NOT_PARTITIONED] if and only if the execution strategy is UNGROUPED_EXECUTION");
+                partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionStrategy.isAnyScanGroupedExecution(),
+                "PartitionHandles should be [NOT_PARTITIONED] if and only if all scan nodes use ungrouped execution strategy");
         int effectiveConcurrentLifespans;
         if (!concurrentLifespans.isPresent() || concurrentLifespans.getAsInt() > partitionHandles.size()) {
             effectiveConcurrentLifespans = partitionHandles.size();
@@ -116,24 +115,24 @@ public class FixedSourcePartitionedScheduler
                     splitSource,
                     splitPlacementPolicy,
                     Math.max(splitBatchSize / effectiveConcurrentLifespans, 1));
+
+            if (stageExecutionStrategy.isAnyScanGroupedExecution() && !stageExecutionStrategy.isGroupedExecution(planNodeId)) {
+                sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
+            }
             sourceSchedulers.add(sourceScheduler);
 
             if (firstPlanNode) {
                 firstPlanNode = false;
-                switch (pipelineExecutionStrategy) {
-                    case UNGROUPED_EXECUTION:
-                        sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-                        break;
-                    case GROUPED_EXECUTION:
-                        LifespanScheduler lifespanScheduler = new LifespanScheduler(partitioning, partitionHandles);
-                        // Schedule the first few lifespans
-                        lifespanScheduler.scheduleInitial(sourceScheduler);
-                        // Schedule new lifespans for finished ones
-                        stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanFinished);
-                        groupedLifespanScheduler = Optional.of(lifespanScheduler);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unknown pipelineExecutionStrategy");
+                if (!stageExecutionStrategy.isAnyScanGroupedExecution()) {
+                    sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+                }
+                else {
+                    LifespanScheduler lifespanScheduler = new LifespanScheduler(partitioning, partitionHandles);
+                    // Schedule the first few lifespans
+                    lifespanScheduler.scheduleInitial(sourceScheduler);
+                    // Schedule new lifespans for finished ones
+                    stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanFinished);
+                    groupedLifespanScheduler = Optional.of(lifespanScheduler);
                 }
             }
         }
@@ -344,6 +343,66 @@ public class FixedSourcePartitionedScheduler
             }
 
             return newDriverGroupReady;
+        }
+    }
+
+    private static class AsGroupedSourceScheduler
+            implements SourceScheduler
+    {
+        private final SourceScheduler sourceScheduler;
+        private boolean started;
+        private boolean completed;
+        private final List<Lifespan> pendingCompleted;
+
+        public AsGroupedSourceScheduler(SourceScheduler sourceScheduler)
+        {
+            this.sourceScheduler = requireNonNull(sourceScheduler, "sourceScheduler is null");
+            pendingCompleted = new ArrayList<>();
+        }
+
+        @Override
+        public ScheduleResult schedule()
+        {
+            return sourceScheduler.schedule();
+        }
+
+        @Override
+        public void close()
+        {
+            sourceScheduler.close();
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return sourceScheduler.getPlanNodeId();
+        }
+
+        @Override
+        public void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
+        {
+            pendingCompleted.add(lifespan);
+            if (started) {
+                return;
+            }
+            started = true;
+            sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+        }
+
+        @Override
+        public List<Lifespan> drainCompletedLifespans()
+        {
+            if (!completed) {
+                List<Lifespan> lifespans = sourceScheduler.drainCompletedLifespans();
+                if (lifespans.isEmpty()) {
+                    return ImmutableList.of();
+                }
+                checkState(ImmutableList.of(Lifespan.taskWide()).equals(lifespans));
+                completed = true;
+            }
+            List<Lifespan> result = ImmutableList.copyOf(pendingCompleted);
+            pendingCompleted.clear();
+            return result;
         }
     }
 }
