@@ -373,17 +373,33 @@ public class SqlTaskExecution
     {
         mergeIntoPendingSplits(sourceUpdate.getPlanNodeId(), sourceUpdate.getSplits(), sourceUpdate.getNoMoreSplitsForLifespan(), sourceUpdate.isNoMoreSplits());
 
+        // SchedulingLifespanManager tracks how far each Lifespan has been scheduled. Here is an example.
+        // Let's say there are 4 source pipelines/nodes: A, B, C, and D, in scheduling order.
+        // And we're processing 3 concurrent lifespans at a time. In this case, we could have
+        //
+        // * Lifespan 10:  A   B  [C]  D; i.e. Pipeline A and B has finished scheduling (but not necessarily finished running).
+        // * Lifespan 20: [A]  B   C   D
+        // * Lifespan 30:  A  [B]  C   D
+        //
+        // To recap, SchedulingLifespanManager records the next scheduling source node for each lifespan.
+
         Iterator<SchedulingLifespan> activeLifespans = schedulingLifespanManager.getActiveLifespans();
 
         while (activeLifespans.hasNext()) {
             SchedulingLifespan schedulingLifespan = activeLifespans.next();
             Lifespan lifespan = schedulingLifespan.getLifespan();
 
-            // Schedule the currently scheduling plan node for each driver group.
-            // If the currently scheduling plan node does not match sourceUpdate.getPlanNodeId(),
-            // the while-loop below will be a no-op.
-            // However, it is possible that the currently scheduling plan node finishes due to the sourceUpdate.
-            // In such cases, subsequent plan nodes may get scheduled with previously-provided pending splits.
+            // Continue using the example from above. Let's say the sourceUpdate adds some new splits for source node B.
+            //
+            // For lifespan 30, it could start new drivers and assign a pending split to each.
+            // Pending splits could include both pre-existing pending splits, and the new ones from sourceUpdate.
+            // If there is enough driver slots to deplete pending splits, one of the below would happen.
+            // * If it is marked that all splits for node B in lifespan 30 has been received, SchedulingLifespanManager
+            //   will be updated so that lifespan 30 now processes source node C. It will immediately start processing them.
+            // * Otherwise, processing of lifespan 30 will be shelved for now.
+            //
+            // It is possible that the following loop would be a no-op for a particular lifespan.
+            // It is also possible that a single lifespan can proceed through multiple source nodes in one run.
             while (true) {
                 PlanNodeId schedulingPlanNode = schedulingLifespan.getSchedulingPlanNode();
                 DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
@@ -391,7 +407,7 @@ public class SqlTaskExecution
                 PendingSplits pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode).getLifespan(lifespan);
 
                 // Enqueue driver runners with driver group lifecycle for this driver life cycle, if not already enqueued.
-                if (!schedulingLifespan.getAndSetUnpartitionedDriversScheduled()) {
+                if (!schedulingLifespan.getAndSetDriversForDriverGroupLifeCycleScheduled()) {
                     scheduleDriversForDriverGroupLifeCycle(lifespan);
                 }
 
@@ -805,7 +821,7 @@ public class SqlTaskExecution
             return schedulingPlanNodeOrdinal >= planNodeSchedulingOrder.size();
         }
 
-        public boolean getAndSetUnpartitionedDriversScheduled()
+        public boolean getAndSetDriversForDriverGroupLifeCycleScheduled()
         {
             if (unpartitionedDriversScheduled) {
                 return true;
