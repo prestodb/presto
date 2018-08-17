@@ -127,23 +127,25 @@ public class SourcePartitionedScheduler
      * This returns an ungrouped {@code SourcePartitionedScheduler} that requires
      * minimal management from the caller, which is ideal for use as a stage scheduler.
      */
-    public static SourcePartitionedScheduler simpleSourcePartitionedScheduler(
+    public static StageScheduler newSourcePartitionedSchedulerAsStageScheduler(
             SqlStageExecution stage,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize)
     {
+        // TODO: SourcePartitionedScheduler should be in two parts.
+        // The first part fulfills the responsibility of SourceScheduler.
+        // The second part wraps it to provide a StageScheduler.
         SourcePartitionedScheduler result = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, true);
         result.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
         return result;
     }
 
     /**
-     * Obtains an instance of {@code SourcePartitionedScheduler} suitable for use
-     * in FixedSourcePartitionedScheduler.
+     * Obtains a {@code SourceScheduler} suitable for use in FixedSourcePartitionedScheduler.
      * <p>
-     * This returns a {@code SourcePartitionedScheduler} that can be used for a pipeline
+     * This returns a {@code SourceScheduler} that can be used for a pipeline
      * that is either ungrouped or grouped. However, the caller is responsible initializing
      * the driver groups in this scheduler accordingly.
      * <p>
@@ -151,17 +153,49 @@ public class SourcePartitionedScheduler
      * in addition to {@link #schedule()} on the returned object. Otherwise, lifecycle
      * transitioning of the object will not work properly.
      */
-    public static SourcePartitionedScheduler managedSourcePartitionedScheduler(
+    public static SourceScheduler newSourcePartitionedSchedulerAsSourceScheduler(
             SqlStageExecution stage,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize)
     {
-        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        return new SourceScheduler()
+        {
+            @Override
+            public ScheduleResult schedule()
+            {
+                return sourcePartitionedScheduler.schedule();
+            }
+
+            @Override
+            public void close()
+            {
+                sourcePartitionedScheduler.close();
+            }
+
+            @Override
+            public PlanNodeId getPlanNodeId()
+            {
+                return sourcePartitionedScheduler.getPlanNodeId();
+            }
+
+            @Override
+            public void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
+            {
+                sourcePartitionedScheduler.startLifespan(lifespan, partitionHandle);
+            }
+
+            @Override
+            public List<Lifespan> drainCompletedLifespans()
+            {
+                return sourcePartitionedScheduler.drainCompletedLifespans();
+            }
+        };
     }
 
-    public synchronized void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
+    private synchronized void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
     {
         checkState(state == State.INITIALIZED || state == State.SPLITS_ADDED);
         scheduleGroups.put(lifespan, new ScheduleGroup(partitionHandle));
@@ -364,7 +398,7 @@ public class SourcePartitionedScheduler
         splitSource.close();
     }
 
-    public synchronized List<Lifespan> drainCompletedLifespans()
+    private synchronized List<Lifespan> drainCompletedLifespans()
     {
         if (scheduleGroups.isEmpty()) {
             // Invoking splitSource.isFinished would fail if it was already closed, which is possible if scheduleGroups is empty.
