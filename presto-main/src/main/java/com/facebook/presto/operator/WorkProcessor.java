@@ -127,6 +127,32 @@ public interface WorkProcessor<T>
 
     interface Transformation<T, R>
     {
+        /**
+         * Processes input elements and returns current transformation state.
+         *
+         * @param elementOptional an element to be transformed. Will be empty
+         * when there are no more elements. In such case transformation should
+         * finish processing and flush any remaining data.
+         * @return a current transformation state.
+         * <ul>
+         * <li>if state is {@link ProcessorState#finished()} then transformation has finished
+         * and the process method won't be called again;</li>
+         * <li>if state is {@link ProcessorState#needsMoreData()} then transformation requires
+         * more data in order to continue. The process method will be called with
+         * a new input element or with {@link Optional#empty()} if there are no more elements;</li>
+         * <li>if state is {@link ProcessorState#yield()} then transformation has yielded.
+         * The process method will be called again with the same input element;</li>
+         * <li>if state is {@link ProcessorState#blocked(ListenableFuture)} then transformation is blocked.
+         * The process method will be called again with the same input element after blocked
+         * future is done;</li>
+         * <li>if state is {@link ProcessorState#ofResult(Object, boolean)} then the transformation
+         * has produced a result. If <code>needsMoreData</code> {@link ProcessorState#ofResult(Object, boolean)}
+         * parameter is <code>true</code> then the process method will be called again with a new element
+         * (or with {@link Optional#empty()} if there are no more elements).
+         * If <code>needsMoreData</code> parameter is <code>false</code> then the process method
+         * will be called again with the same input element.
+         * </ul>
+         */
         ProcessorState<R> process(Optional<T> elementOptional);
     }
 
