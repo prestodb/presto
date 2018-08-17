@@ -45,9 +45,7 @@ import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReas
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -391,22 +389,6 @@ public class SourcePartitionedScheduler
         }
 
         return result.build();
-    }
-
-    private ScheduleResult scheduleEmptySplit()
-    {
-        state = State.SPLITS_ADDED;
-
-        List<Node> nodes = splitPlacementPolicy.allNodes();
-        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
-        Node node = nodes.iterator().next();
-
-        Split emptySplit = new Split(
-                splitSource.getConnectorId(),
-                splitSource.getTransactionHandle(),
-                new EmptySplit(splitSource.getConnectorId()));
-        Set<RemoteTask> emptyTask = assignSplits(ImmutableMultimap.of(node, emptySplit), ImmutableMultimap.of());
-        return new ScheduleResult(false, emptyTask, 1);
     }
 
     private Set<RemoteTask> assignSplits(Multimap<Node, Split> splitAssignment, Multimap<Node, Lifespan> noMoreSplitsNotification)
