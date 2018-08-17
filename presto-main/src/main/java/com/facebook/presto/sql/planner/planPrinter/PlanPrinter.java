@@ -147,45 +147,6 @@ public class PlanPrinter
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
     private final boolean verbose;
 
-    private PlanPrinter(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
-    {
-        this(plan, types, functionRegistry, statsCalculator, costCalculator, session, 0, false);
-    }
-
-    private PlanPrinter(
-            PlanNode plan,
-            TypeProvider types,
-            FunctionRegistry functionRegistry,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            Session session,
-            int indent,
-            boolean verbose)
-    {
-        this(plan, types, functionRegistry, new CachingStatsProvider(statsCalculator, session, types), costCalculator, session, indent, verbose);
-    }
-
-    private PlanPrinter(
-            PlanNode plan,
-            TypeProvider types,
-            FunctionRegistry functionRegistry,
-            StatsProvider statsProvider,
-            CostCalculator costCalculator,
-            Session session,
-            int indent,
-            boolean verbose)
-    {
-        this(
-                plan,
-                types,
-                functionRegistry,
-                statsProvider,
-                new CachingCostProvider(costCalculator, statsProvider, session, types),
-                session,
-                indent,
-                verbose);
-    }
-
     private PlanPrinter(
             PlanNode plan,
             TypeProvider types,
@@ -193,6 +154,7 @@ public class PlanPrinter
             StatsProvider statsProvider,
             CostProvider costProvider,
             Session session,
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
             int indent,
             boolean verbose)
     {
@@ -200,37 +162,12 @@ public class PlanPrinter
         requireNonNull(types, "types is null");
         requireNonNull(functionRegistry, "functionRegistry is null");
         requireNonNull(statsProvider, "statsProvider is null");
+        requireNonNull(costProvider, "costProvider is null");
 
         this.functionRegistry = functionRegistry;
-        this.stats = Optional.empty();
+        this.stats = stats;
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(statsProvider, costProvider, types, session);
-        plan.accept(visitor, indent);
-    }
-
-    private PlanPrinter(
-            PlanNode plan,
-            TypeProvider types,
-            FunctionRegistry functionRegistry,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            Session session,
-            Map<PlanNodeId, PlanNodeStats> stats,
-            int indent,
-            boolean verbose)
-    {
-        requireNonNull(plan, "plan is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(functionRegistry, "functionRegistry is null");
-        requireNonNull(statsCalculator, "statsCalculator is null");
-
-        this.functionRegistry = functionRegistry;
-        this.stats = Optional.of(stats);
-        this.verbose = verbose;
-
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
         Visitor visitor = new Visitor(statsProvider, costProvider, types, session);
         plan.accept(visitor, indent);
     }
@@ -241,29 +178,21 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
-    {
-        return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session).toString();
-    }
-
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent)
-    {
-        return textLogicalPlan(plan, types, functionRegistry, statsCalculator, costCalculator, session, indent, false);
-    }
-
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, functionRegistry, statsProvider, costProvider, session, indent, false).toString();
+        return new PlanPrinter(plan, types, functionRegistry, statsProvider, costProvider, session, Optional.empty(), indent, false).toString();
     }
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
     {
-        return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session, indent, verbose).toString();
+        return textLogicalPlan(plan, types, functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), indent, verbose);
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
     {
-        return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session, stats, indent, verbose).toString();
+        CachingStatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        CachingCostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
+        return new PlanPrinter(plan, types, functionRegistry, statsProvider, costProvider, session, stats, indent, verbose).toString();
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, boolean verbose)
@@ -278,11 +207,6 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
-    {
-        return textDistributedPlan(plan, functionRegistry, statsCalculator, costCalculator, session, false);
-    }
-
     public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
@@ -291,11 +215,6 @@ public class PlanPrinter
         }
 
         return builder.toString();
-    }
-
-    public static String textPlanFragment(PlanFragment fragment, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
-    {
-        return formatFragment(functionRegistry, statsCalculator, costCalculator, session, fragment, Optional.empty(), Optional.empty(), false);
     }
 
     private static String formatFragment(FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
@@ -355,11 +274,11 @@ public class PlanPrinter
         builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionStrategy().isAnyScanGroupedExecution()));
 
         if (stageInfo.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, planNodeStats.get(), 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, Optional.of(planNodeStats.get()), 1, verbose))
                     .append("\n");
         }
         else {
-            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), TypeProvider.copyOf(fragment.getSymbols()), functionRegistry, statsCalculator, costCalculator, session, Optional.empty(), 1, verbose))
                     .append("\n");
         }
 
