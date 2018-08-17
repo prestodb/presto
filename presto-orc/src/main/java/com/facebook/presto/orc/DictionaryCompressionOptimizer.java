@@ -30,7 +30,6 @@ import static java.util.stream.Collectors.toSet;
 public class DictionaryCompressionOptimizer
 {
     private static final double DICTIONARY_MIN_COMPRESSION_RATIO = 1.25;
-    private static final double DICTIONARY_ALWAYS_KEEP_COMPRESSION_RATIO = 3.0;
 
     // Instead of waiting for the dictionary to fill completely, which would force a column into
     // direct mode, close the stripe early assuming it has hit the minimum row count.
@@ -131,16 +130,13 @@ public class DictionaryCompressionOptimizer
             nonDictionaryBufferedBytes -= dictionaryWriter.getBufferedBytes();
         }
 
-        // convert dictionary columns to direct until we are blow the high memory limit
+        // convert dictionary columns to direct until we are below the high memory limit
         while (dictionaryMemoryBytes > dictionaryMemoryMaxBytesHigh) {
             DictionaryCompressionProjection projection = selectDictionaryColumnToConvert(nonDictionaryBufferedBytes, stripeRowCount);
-            if (projection.getColumnToConvert().getCompressionRatio() >= DICTIONARY_ALWAYS_KEEP_COMPRESSION_RATIO) {
-                return;
-            }
             nonDictionaryBufferedBytes += convertToDirect(projection.getColumnToConvert());
         }
 
-        // if the stripe is larger then the minimum row count, we are not required to convert any more dictionary columns to direct
+        // if the stripe is larger then the minimum stripe size, we are not required to convert any more dictionary columns to direct
         if (nonDictionaryBufferedBytes + dictionaryMemoryBytes >= stripeMinBytes) {
             // check if we can get better compression by converting a dictionary column to direct.  This can happen when then there are multiple
             // dictionary columns and one does not compress well, so if we convert it to direct we can continue to use the existing dictionaries
