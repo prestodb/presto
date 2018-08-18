@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -68,6 +69,11 @@ public class QualifiedObjectName
     public String getObjectName()
     {
         return objectName;
+    }
+
+    public CatalogSchemaName getCatalogSchemaName()
+    {
+        return new CatalogSchemaName(catalogName, schemaName);
     }
 
     public SchemaTableName getSchemaTableName()
