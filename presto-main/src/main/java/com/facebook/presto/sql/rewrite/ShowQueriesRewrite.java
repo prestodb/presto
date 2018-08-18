@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -138,7 +137,7 @@ final class ShowQueriesRewrite
             List<Expression> parameters,
             AccessControl accessControl)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl).process(node, null);
     }
 
     private static class Visitor
@@ -149,16 +148,14 @@ final class ShowQueriesRewrite
         private final SqlParser sqlParser;
         final List<Expression> parameters;
         private final AccessControl accessControl;
-        private final Optional<QueryExplainer> queryExplainer;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         }
 
         @Override
@@ -575,15 +572,6 @@ final class ShowQueriesRewrite
         private static Relation from(String catalog, SchemaTableName table)
         {
             return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
-        }
-
-        private static Optional<OrderBy> orderBy(List<SortItem> sortItems)
-        {
-            requireNonNull(sortItems, "sortItems is null");
-            if (sortItems.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(new OrderBy(sortItems));
         }
 
         @Override
