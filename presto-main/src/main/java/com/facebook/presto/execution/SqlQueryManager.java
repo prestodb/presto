@@ -26,6 +26,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -290,12 +291,12 @@ public class SqlQueryManager
     }
 
     @Override
-    public List<QueryInfo> getAllQueryInfo()
+    public List<BasicQueryInfo> getQueries()
     {
         return queries.values().stream()
                 .map(queryExecution -> {
                     try {
-                        return queryExecution.getQueryInfo();
+                        return queryExecution.getBasicQueryInfo();
                     }
                     catch (RuntimeException ignored) {
                         return null;
@@ -330,7 +331,13 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(QueryId queryId)
+    public BasicQueryInfo getQueryInfo(QueryId queryId)
+    {
+        return getQuery(queryId).getBasicQueryInfo();
+    }
+
+    @Override
+    public QueryInfo getFullQueryInfo(QueryId queryId)
     {
         return getQuery(queryId).getQueryInfo();
     }
@@ -598,7 +605,7 @@ public class SqlQueryManager
         List<QueryExecution> runningQueries = queries.values().stream()
                 .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList());
-        memoryManager.process(runningQueries, this::getAllQueryInfo);
+        memoryManager.process(runningQueries, this::getQueries);
     }
 
     /**

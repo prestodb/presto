@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -29,6 +30,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -75,7 +77,7 @@ public class TestMemoryAwareExecution
     private void afterMethod()
             throws Exception
     {
-        for (QueryInfo info : queryManager.getAllQueryInfo()) {
+        for (BasicQueryInfo info : queryManager.getQueries()) {
             if (!info.getState().isDone()) {
                 queryManager.cancelQuery(info.getQueryId());
                 waitForState(info.getQueryId(), FAILED);
@@ -155,7 +157,7 @@ public class TestMemoryAwareExecution
     {
         QueryState actualState;
         do {
-            actualState = queryManager.getQueryInfo(queryId).getState();
+            actualState = queryManager.getQueryState(queryId).orElseThrow(NoSuchElementException::new);
             if (actualState.isDone() || actualState == state) {
                 return actualState;
             }

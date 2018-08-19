@@ -14,9 +14,8 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.testing.QueryRunner;
@@ -38,7 +37,6 @@ import java.util.concurrent.Future;
 
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
@@ -137,7 +135,7 @@ public class TestMemoryManager
             // Wait for one of the queries to die
             boolean queryDone = false;
             while (!queryDone) {
-                for (QueryInfo info : queryRunner.getCoordinator().getQueryManager().getAllQueryInfo()) {
+                for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
                     if (info.getState().isDone()) {
                         assertNotNull(info.getErrorCode());
                         assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
@@ -180,8 +178,7 @@ public class TestMemoryManager
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             executor.submit(() -> queryRunner.execute(query)).get();
 
-            List<QueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
-            for (QueryInfo info : queryInfos) {
+            for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
                 assertEquals(info.getState(), FINISHED);
             }
 
@@ -232,18 +229,18 @@ public class TestMemoryManager
             }
 
             // Make sure the queries are blocked
-            List<QueryInfo> currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
-            for (QueryInfo info : currentQueryInfos) {
+            List<BasicQueryInfo> currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
+            for (BasicQueryInfo info : currentQueryInfos) {
                 assertFalse(info.getState().isDone());
             }
             assertEquals(currentQueryInfos.size(), 2);
             // Check that the pool information propagated to the query objects
             assertNotEquals(currentQueryInfos.get(0).getMemoryPool(), currentQueryInfos.get(1).getMemoryPool());
 
-            while (!allQueriesBlocked(currentQueryInfos)) {
+            while (!currentQueryInfos.stream().allMatch(TestMemoryManager::isBlockedWaitingForMemory)) {
                 MILLISECONDS.sleep(10);
-                currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
-                for (QueryInfo info : currentQueryInfos) {
+                currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
+                for (BasicQueryInfo info : currentQueryInfos) {
                     assertFalse(info.getState().isDone());
                 }
             }
@@ -262,8 +259,7 @@ public class TestMemoryManager
                 query.get();
             }
 
-            List<QueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
-            for (QueryInfo info : queryInfos) {
+            for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
                 assertEquals(info.getState(), FINISHED);
             }
 
@@ -279,25 +275,16 @@ public class TestMemoryManager
         }
     }
 
-    private static boolean allQueriesBlocked(List<QueryInfo> current)
+    private static boolean isBlockedWaitingForMemory(BasicQueryInfo info)
     {
-        boolean allDriversBlocked = current.stream()
-                .flatMap(query -> getAllStages(query.getOutputStage()).stream())
-                .flatMap(stage -> stage.getTasks().stream())
-                .flatMap(task -> task.getStats().getPipelines().stream())
-                .flatMap(pipeline -> pipeline.getDrivers().stream())
-                .allMatch(DriverStats::isFullyBlocked);
-        boolean waitingForMemory = current.stream().allMatch(TestMemoryManager::atLeastOneOperatorWaitingForMemory);
+        BasicQueryStats stats = info.getQueryStats();
+        boolean isWaitingForMemory = stats.getBlockedReasons().contains(WAITING_FOR_MEMORY);
+        if (!isWaitingForMemory) {
+            return false;
+        }
 
-        return allDriversBlocked && waitingForMemory;
-    }
-
-    private static boolean atLeastOneOperatorWaitingForMemory(QueryInfo query)
-    {
-        return getAllStages(query.getOutputStage()).stream()
-                .flatMap(stage -> stage.getTasks().stream())
-                .map(TaskInfo::getStats)
-                .anyMatch(task -> task.getBlockedReasons().contains(WAITING_FOR_MEMORY));
+        // queries are not marked as fully blocked if there are no running drivers
+        return stats.isFullyBlocked() || stats.getRunningDrivers() == 0;
     }
 
     @DataProvider(name = "legacy_system_pool_enabled")

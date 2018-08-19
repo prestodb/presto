@@ -173,7 +173,7 @@ class Query
 
             result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
                 if (state.isDone()) {
-                    QueryInfo queryInfo = queryManager.getQueryInfo(result.getQueryId());
+                    QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
                     result.closeExchangeClientIfNecessary(queryInfo);
                 }
             });
@@ -333,7 +333,6 @@ class Query
         if (requestedPath.equals(lastResultPath)) {
             if (submissionFuture.isDone()) {
                 // tell query manager we are still interested in the query
-                queryManager.getQueryInfo(queryId);
                 queryManager.recordHeartbeat(queryId);
             }
             return Optional.of(lastResult);
@@ -391,7 +390,7 @@ class Query
         }
 
         if (session == null) {
-            session = queryManager.getQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
+            session = queryManager.getFullQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
             serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
         }
 
@@ -427,7 +426,7 @@ class Query
 
         // get the query info before returning
         // force update if query manager is closed
-        QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
         // TODO: figure out a better way to do this
