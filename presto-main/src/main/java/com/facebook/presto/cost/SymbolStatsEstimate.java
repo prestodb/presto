@@ -14,7 +14,7 @@
 package com.facebook.presto.cost;
 
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.function.DoubleUnaryOperator;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -106,24 +106,24 @@ public class SymbolStatsEstimate
         return distinctValuesCount;
     }
 
-    public SymbolStatsEstimate mapLowValue(Function<Double, Double> mappingFunction)
+    public SymbolStatsEstimate mapLowValue(DoubleUnaryOperator mappingFunction)
     {
-        return buildFrom(this).setLowValue(mappingFunction.apply(lowValue)).build();
+        return buildFrom(this).setLowValue(mappingFunction.applyAsDouble(lowValue)).build();
     }
 
-    public SymbolStatsEstimate mapHighValue(Function<Double, Double> mappingFunction)
+    public SymbolStatsEstimate mapHighValue(DoubleUnaryOperator mappingFunction)
     {
-        return buildFrom(this).setHighValue(mappingFunction.apply(highValue)).build();
+        return buildFrom(this).setHighValue(mappingFunction.applyAsDouble(highValue)).build();
     }
 
-    public SymbolStatsEstimate mapNullsFraction(Function<Double, Double> mappingFunction)
+    public SymbolStatsEstimate mapNullsFraction(DoubleUnaryOperator mappingFunction)
     {
-        return buildFrom(this).setNullsFraction(mappingFunction.apply(nullsFraction)).build();
+        return buildFrom(this).setNullsFraction(mappingFunction.applyAsDouble(nullsFraction)).build();
     }
 
-    public SymbolStatsEstimate mapDistinctValuesCount(Function<Double, Double> mappingFunction)
+    public SymbolStatsEstimate mapDistinctValuesCount(DoubleUnaryOperator mappingFunction)
     {
-        return buildFrom(this).setDistinctValuesCount(mappingFunction.apply(distinctValuesCount)).build();
+        return buildFrom(this).setDistinctValuesCount(mappingFunction.applyAsDouble(distinctValuesCount)).build();
     }
 
     @Override

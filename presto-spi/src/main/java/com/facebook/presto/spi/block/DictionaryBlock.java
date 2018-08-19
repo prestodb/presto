@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
@@ -256,7 +256,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
         consumer.accept(ids, sizeOf(ids));
