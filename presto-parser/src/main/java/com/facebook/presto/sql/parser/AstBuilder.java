@@ -197,6 +197,12 @@ class AstBuilder
         return visit(context.expression());
     }
 
+    @Override
+    public Node visitStandalonePathSpecification(SqlBaseParser.StandalonePathSpecificationContext context)
+    {
+        return visit(context.pathSpecification());
+    }
+
     // ******************* statements **********************
 
     @Override

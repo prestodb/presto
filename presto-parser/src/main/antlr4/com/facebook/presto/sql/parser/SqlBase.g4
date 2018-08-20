@@ -26,6 +26,10 @@ standaloneExpression
     : expression EOF
     ;
 
+standalonePathSpecification
+    : pathSpecification EOF
+    ;
+
 statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
