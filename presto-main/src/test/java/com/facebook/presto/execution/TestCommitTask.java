@@ -29,6 +29,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
@@ -70,8 +71,8 @@ public class TestCommitTask
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
         getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
@@ -93,8 +94,8 @@ public class TestCommitTask
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_IN_TRANSACTION.toErrorCode());
         }
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
@@ -117,8 +118,8 @@ public class TestCommitTask
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), UNKNOWN_TRANSACTION.toErrorCode());
         }
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId()); // Still issue clear signal
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }

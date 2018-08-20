@@ -29,6 +29,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
@@ -69,8 +70,8 @@ public class TestRollbackTask
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
         getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
@@ -92,8 +93,8 @@ public class TestRollbackTask
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_IN_TRANSACTION.toErrorCode());
         }
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
@@ -110,8 +111,8 @@ public class TestRollbackTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
 
         getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId()); // Still issue clear signal
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
