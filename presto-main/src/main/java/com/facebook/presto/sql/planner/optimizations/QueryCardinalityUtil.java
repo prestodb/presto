@@ -134,6 +134,7 @@ public final class QueryCardinalityUtil
             return Range.atLeast(0L);
         }
 
+        @Override
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
             return Range.singleton((long) node.getRows().size());

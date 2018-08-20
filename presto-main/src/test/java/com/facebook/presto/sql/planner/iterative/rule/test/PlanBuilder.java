@@ -92,6 +92,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.util.MoreLists.nElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -163,7 +164,15 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, Symbol... columns)
     {
-        return values(id, ImmutableList.copyOf(columns), ImmutableList.of());
+        return values(id, 0, columns);
+    }
+
+    public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
+    {
+        return values(
+                id,
+                ImmutableList.copyOf(columns),
+                nElements(rows, row -> nElements(columns.length, cell -> (Expression) new NullLiteral())));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
