@@ -319,11 +319,10 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x IS NULL")
                 .outputRowsCount(250.0)
-                .symbolStats(new Symbol("x"), symbolStats -> {
-                    symbolStats.distinctValuesCount(0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats(new Symbol("x"), symbolStats ->
+                        symbolStats.distinctValuesCount(0)
+                                .emptyRange()
+                                .nullsFraction(1.0));
 
         assertExpression("emptyRange IS NULL")
                 .outputRowsCount(1000.0)
@@ -335,12 +334,11 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x IS NOT NULL")
                 .outputRowsCount(750.0)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(40.0)
-                            .lowValue(-10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(40.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .nullsFraction(0.0));
 
         assertExpression("emptyRange IS NOT NULL")
                 .outputRowsCount(0.0)
@@ -353,70 +351,63 @@ public class TestFilterStatsCalculator
         // Only right side cut
         assertExpression("x BETWEEN 7.5e0 AND 12e0")
                 .outputRowsCount(93.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(5.0)
-                            .lowValue(7.5)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(5.0)
+                                .lowValue(7.5)
+                                .highValue(10.0)
+                                .nullsFraction(0.0));
 
         // Only left side cut
         assertExpression("x BETWEEN DOUBLE '-12' AND DOUBLE '-7.5'")
                 .outputRowsCount(93.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(5.0)
-                            .lowValue(-10)
-                            .highValue(-7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(5.0)
+                                .lowValue(-10)
+                                .highValue(-7.5)
+                                .nullsFraction(0.0));
         assertExpression("x BETWEEN -12e0 AND -7.5e0")
                 .outputRowsCount(93.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(5.0)
-                            .lowValue(-10)
-                            .highValue(-7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(5.0)
+                                .lowValue(-10)
+                                .highValue(-7.5)
+                                .nullsFraction(0.0));
 
         // Both sides cut
         assertExpression("x BETWEEN DOUBLE '-2.5' AND 2.5e0")
                 .outputRowsCount(187.5)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(10.0)
-                            .lowValue(-2.5)
-                            .highValue(2.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(10.0)
+                                .lowValue(-2.5)
+                                .highValue(2.5)
+                                .nullsFraction(0.0));
 
         // Both sides cut unknownRange
         assertExpression("unknownRange BETWEEN 2.72e0 AND 3.14e0")
                 .outputRowsCount(112.5)
-                .symbolStats("unknownRange", symbolStats -> {
-                    symbolStats.distinctValuesCount(6.25)
-                            .lowValue(2.72)
-                            .highValue(3.14)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("unknownRange", symbolStats ->
+                        symbolStats.distinctValuesCount(6.25)
+                                .lowValue(2.72)
+                                .highValue(3.14)
+                                .nullsFraction(0.0));
 
         // Left side open, cut on open side
         assertExpression("leftOpen BETWEEN DOUBLE '-10' AND 10e0")
                 .outputRowsCount(180.0)
-                .symbolStats("leftOpen", symbolStats -> {
-                    symbolStats.distinctValuesCount(10.0)
-                            .lowValue(-10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("leftOpen", symbolStats ->
+                        symbolStats.distinctValuesCount(10.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .nullsFraction(0.0));
 
         // Right side open, cut on open side
         assertExpression("rightOpen BETWEEN DOUBLE '-10' AND 10e0")
                 .outputRowsCount(180.0)
-                .symbolStats("rightOpen", symbolStats -> {
-                    symbolStats.distinctValuesCount(10.0)
-                            .lowValue(-10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("rightOpen", symbolStats ->
+                        symbolStats.distinctValuesCount(10.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .nullsFraction(0.0));
 
         // Filter all
         assertExpression("y BETWEEN 27.5e0 AND 107e0")
@@ -426,22 +417,20 @@ public class TestFilterStatsCalculator
         // Filter nothing
         assertExpression("y BETWEEN DOUBLE '-100' AND 100e0")
                 .outputRowsCount(500.0)
-                .symbolStats("y", symbolStats -> {
-                    symbolStats.distinctValuesCount(20.0)
-                            .lowValue(0.0)
-                            .highValue(5.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("y", symbolStats ->
+                        symbolStats.distinctValuesCount(20.0)
+                                .lowValue(0.0)
+                                .highValue(5.0)
+                                .nullsFraction(0.0));
 
         // Filter non exact match
         assertExpression("z BETWEEN DOUBLE '-100' AND 100e0")
                 .outputRowsCount(900.0)
-                .symbolStats("z", symbolStats -> {
-                    symbolStats.distinctValuesCount(5.0)
-                            .lowValue(-100.0)
-                            .highValue(100.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("z", symbolStats ->
+                        symbolStats.distinctValuesCount(5.0)
+                                .lowValue(-100.0)
+                                .highValue(100.0)
+                                .nullsFraction(0.0));
     }
 
     @Test
@@ -449,14 +438,13 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x = x")
                 .outputRowsCount(750)
-                .symbolStats("x", symbolStats -> {
-                    SymbolStatsEstimate.builder()
-                            .setAverageRowSize(4.0)
-                            .setDistinctValuesCount(40.0)
-                            .setLowValue(-10.0)
-                            .setHighValue(10.0)
-                            .build();
-                });
+                .symbolStats("x", symbolStats ->
+                        SymbolStatsEstimate.builder()
+                                .setAverageRowSize(4.0)
+                                .setDistinctValuesCount(40.0)
+                                .setLowValue(-10.0)
+                                .setHighValue(10.0)
+                                .build());
     }
 
     @Test
@@ -465,88 +453,78 @@ public class TestFilterStatsCalculator
         // One value in range
         assertExpression("x IN (7.5e0)")
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(1.0)
-                            .lowValue(7.5)
-                            .highValue(7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(1.0)
+                                .lowValue(7.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0));
         assertExpression("x IN (DOUBLE '-7.5')")
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(1.0)
-                            .lowValue(-7.5)
-                            .highValue(-7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(1.0)
+                                .lowValue(-7.5)
+                                .highValue(-7.5)
+                                .nullsFraction(0.0));
         assertExpression("x IN (BIGINT '2' + 5.5e0)")
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(1.0)
-                            .lowValue(7.5)
-                            .highValue(7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(1.0)
+                                .lowValue(7.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0));
         assertExpression("x IN (-7.5e0)")
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(1.0)
-                            .lowValue(-7.5)
-                            .highValue(-7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(1.0)
+                                .lowValue(-7.5)
+                                .highValue(-7.5)
+                                .nullsFraction(0.0));
 
         // Multiple values in range
         assertExpression("x IN (1.5e0, 2.5e0, 7.5e0)")
                 .outputRowsCount(56.25)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(3.0)
-                            .lowValue(1.5)
-                            .highValue(7.5)
-                            .nullsFraction(0.0);
-                })
-                .symbolStats("y", symbolStats -> {
-                    // Symbol not involved in the comparison should have stats basically unchanged
-                    symbolStats.distinctValuesCount(20.0)
-                            .lowValue(0.0)
-                            .highValue(5)
-                            .nullsFraction(0.5);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(3.0)
+                                .lowValue(1.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0))
+                .symbolStats("y", symbolStats ->
+                        // Symbol not involved in the comparison should have stats basically unchanged
+                        symbolStats.distinctValuesCount(20.0)
+                                .lowValue(0.0)
+                                .highValue(5)
+                                .nullsFraction(0.5));
 
         // Multiple values some in some out of range
         assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(56.25)
-                .symbolStats("x", symbolStats -> {
-                    symbolStats.distinctValuesCount(3.0)
-                            .lowValue(1.5)
-                            .highValue(7.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(3.0)
+                                .lowValue(1.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0));
 
         // Multiple values in unknown range
         assertExpression("unknownRange IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(90.0)
-                .symbolStats("unknownRange", symbolStats -> {
-                    symbolStats.distinctValuesCount(5.0)
-                            .lowValue(-42.0)
-                            .highValue(314.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("unknownRange", symbolStats ->
+                        symbolStats.distinctValuesCount(5.0)
+                                .lowValue(-42.0)
+                                .highValue(314.0)
+                                .nullsFraction(0.0));
 
         // Casted literals as value
         assertExpression(format("mediumVarchar IN (CAST('abc' AS %s))", MEDIUM_VARCHAR_TYPE.toString()))
                 .outputRowsCount(4)
-                .symbolStats("mediumVarchar", symbolStats -> {
-                    symbolStats.distinctValuesCount(1)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("mediumVarchar", symbolStats ->
+                        symbolStats.distinctValuesCount(1)
+                                .nullsFraction(0.0));
 
         assertExpression(format("mediumVarchar IN (CAST('abc' AS %1$s), CAST('def' AS %1$s))", MEDIUM_VARCHAR_TYPE.toString()))
                 .outputRowsCount(8)
-                .symbolStats("mediumVarchar", symbolStats -> {
-                    symbolStats.distinctValuesCount(2)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("mediumVarchar", symbolStats ->
+                        symbolStats.distinctValuesCount(2)
+                                .nullsFraction(0.0));
 
         // No value in range
         assertExpression("y IN (DOUBLE '-42', 6e0, 31.1341e0, DOUBLE '-0.000000002', 314e0)")
@@ -556,22 +534,20 @@ public class TestFilterStatsCalculator
         // More values in range than distinct values
         assertExpression("z IN (DOUBLE '-1', 3.14e0, 0e0, 1e0, 2e0, 3e0, 4e0, 5e0, 6e0, 7e0, 8e0, DOUBLE '-2')")
                 .outputRowsCount(900.0)
-                .symbolStats("z", symbolStats -> {
-                    symbolStats.distinctValuesCount(5.0)
-                            .lowValue(-2.0)
-                            .highValue(8.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("z", symbolStats ->
+                        symbolStats.distinctValuesCount(5.0)
+                                .lowValue(-2.0)
+                                .highValue(8.0)
+                                .nullsFraction(0.0));
 
         // Values in weird order
         assertExpression("z IN (DOUBLE '-1', 1e0, 0e0)")
                 .outputRowsCount(540.0)
-                .symbolStats("z", symbolStats -> {
-                    symbolStats.distinctValuesCount(3.0)
-                            .lowValue(-1.0)
-                            .highValue(1.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("z", symbolStats ->
+                        symbolStats.distinctValuesCount(3.0)
+                                .lowValue(-1.0)
+                                .highValue(1.0)
+                                .nullsFraction(0.0));
     }
 
     private PlanNodeStatsAssertion assertExpression(String expression)
