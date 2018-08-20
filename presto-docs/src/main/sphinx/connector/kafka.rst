@@ -240,7 +240,7 @@ Field           Required  Type      Description
 ``name``        required  string    Name of the column in the Presto table.
 ``type``        required  string    Presto type of the column.
 ``dataFormat``  optional  string    Selects the column decoder for this field. Defaults to the default decoder for this row data format and column type.
-``dataSchema``  optional  string    The path or URL where the AVRO schema resides. Used only for AVRO decoder.
+``dataSchema``  optional  string    The path or URL where the Avro schema resides. Used only for Avro decoder.
 ``mapping``     optional  string    Mapping information for the column. This is decoder specific, see below.
 ``formatHint``  optional  string    Sets a column specific format hint to the column decoder.
 ``hidden``      optional  boolean   Hides the column from ``DESCRIBE <table name>`` and ``SELECT *``. Defaults to ``false``.
@@ -259,7 +259,7 @@ The Kafka connector contains the following decoders:
 * ``raw`` - Kafka message is not interpreted, ranges of raw message bytes are mapped to table columns
 * ``csv`` - Kafka message is interpreted as comma separated message, and fields are mapped to table columns
 * ``json`` - Kafka message is parsed as JSON and JSON fields are mapped to table columns
-* ``avro`` - Kafka message is parsed based on an AVRO schema and AVRO fields are mapped to table columns
+* ``avro`` - Kafka message is parsed based on an Avro schema and Avro fields are mapped to table columns
 
 .. note::
 
