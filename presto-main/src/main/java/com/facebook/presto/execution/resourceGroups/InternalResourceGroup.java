@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -995,6 +996,20 @@ public class InternalResourceGroup
             if (elapsedSeconds > 0) {
                 internalGenerateCpuQuota(elapsedSeconds);
             }
+        }
+
+        public synchronized List<ResourceGroupInfo> getAllResourceGroupInfo()
+        {
+            ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
+            builder.add(super.getSummaryInfo());
+            LinkedList<InternalResourceGroup> queue = new LinkedList<>();
+            queue.addAll(super.subGroups());
+            while (!queue.isEmpty()) {
+                InternalResourceGroup group = queue.poll();
+                builder.add(group.getSummaryInfo());
+                queue.addAll(group.subGroups());
+            }
+            return builder.build();
         }
     }
 }

@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.connector.system;
 
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
+import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableList;
@@ -32,62 +36,42 @@ import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.testing.Assertions.assertLessThan;
-import static io.airlift.units.Duration.nanosSince;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestResourceGroupIntegration
+public class TestResourceGroupInfoSystemTable
 {
+    private static final String RESOURCE_GROUP_INFO_QUERY = "SELECT" +
+            "  resource_group_id," +
+            "  resource_group_state," +
+            "  scheduling_policy," +
+            "  scheduling_weight," +
+            "  soft_memory_limit_bytes," +
+            "  soft_concurrency_limit," +
+            "  hard_concurrency_limit," +
+            "  max_queued_queries," +
+            "  running_time_limit," +
+            "  queued_time_limit," +
+            "  CAST(0 AS BIGINT) as memory_usage_bytes," + // Set to 0 otherwise result is non-deterministic
+            "  queued_queries," +
+            "  CAST(0 AS BIGINT) as running_queries," + // Set to 0 otherwise result is non-deterministic
+            "  eligible_subgroups" +
+            "  FROM system.runtime.resource_group_info";
+
     @Test
-    public void testMemoryFraction()
+    public void testResourceGroupInfoSystemTable()
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
-                    "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
-
-            queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-            waitForGlobalResourceGroup(queryRunner);
-        }
-    }
-
-    @Test
-    public void testPathToRoot()
-            throws Exception
-    {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
+            InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
             manager.setConfigurationManager("file", ImmutableMap.of(
-                    "resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
-
-            queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-            List<ResourceGroupInfo> path = manager.getPathToRoot(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user"));
-            assertEquals(path.size(), 3);
-            assertTrue(path.get(1).getSubGroups() != null);
-            assertEquals(path.get(2).getId(), new ResourceGroupId("global"));
-            assertEquals(path.get(2).getHardConcurrencyLimit(), 100);
-            assertEquals(path.get(2).getRunningQueries(), null);
-        }
-    }
-
-    @Test
-    public void testGetResourceGroupInfos()
-            throws Exception
-    {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
-            manager.setConfigurationManager("file", ImmutableMap.of(
-                    "resource-groups.config-file", getResourceFilePath("resource_group_config_all_parameters.json")));
+                    "resource-groups.config-file", this.getClass().getClassLoader().getResource("resource_group_config_all_parameters.json").getPath()));
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*) FROM nation");
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("adhoc-foo").build(), "SELECT COUNT(*) FROM nation");
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("test").build(), "SELECT COUNT(*) FROM nation");
-            Set<ResourceGroupInfo> resourceGroupInfos = ImmutableSet.copyOf(manager.getAllResourceGroupInfos());
+            List<MaterializedRow> rows = queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("test").build(), RESOURCE_GROUP_INFO_QUERY).getMaterializedRows();
             Set<ResourceGroupInfo> expected = ImmutableSet.<ResourceGroupInfo>builder()
                     .add(new ResourceGroupInfo(
                             new ResourceGroupId("global"),
@@ -175,32 +159,29 @@ public class TestResourceGroupIntegration
                             null,
                             null))
                     .build();
-            assertEquals(resourceGroupInfos, expected);
-        }
-    }
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
-    }
+            ImmutableSet.Builder<ResourceGroupInfo> builder = ImmutableSet.builder();
 
-    @Test(enabled = false)
-    public static void waitForGlobalResourceGroup(DistributedQueryRunner queryRunner)
-            throws InterruptedException
-    {
-        long startTime = System.nanoTime();
-        while (true) {
-            SECONDS.sleep(1);
-            ResourceGroupInfo global = getResourceGroupManager(queryRunner).getResourceGroupInfo(new ResourceGroupId("global"));
-            if (global.getSoftMemoryLimit().toBytes() > 0) {
-                break;
+            for (MaterializedRow row : rows) {
+                builder.add(
+                        new ResourceGroupInfo(
+                                new ResourceGroupId((List<String>) row.getField(0)),
+                                ResourceGroupState.valueOf(row.getField(1).toString()),
+                                SchedulingPolicy.valueOf(row.getField(2).toString()),
+                                toIntExact((Long) row.getField(3)),
+                                row.getField(4) == null ? null : DataSize.succinctBytes((long) row.getField(4)),
+                                toIntExact((Long) row.getField(5)),
+                                toIntExact((Long) row.getField(6)),
+                                toIntExact((Long) row.getField(7)),
+                                row.getField(8) == null ? null : Duration.succinctNanos(1_000_000L * (Long) row.getField(8)),
+                                row.getField(9) == null ? null : Duration.succinctNanos(1_000_000L * (Long) row.getField(9)),
+                                row.getField(10) == null ? null : DataSize.succinctBytes((long) row.getField(10)),
+                                toIntExact((Long) row.getField(11)),
+                                toIntExact((Long) row.getField(12)),
+                                toIntExact((Long) row.getField(13)),
+                                null,
+                                null));
             }
-            assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);
+            assertEquals(builder.build(), expected);
         }
-    }
-
-    private static InternalResourceGroupManager<?> getResourceGroupManager(DistributedQueryRunner queryRunner)
-    {
-        return queryRunner.getCoordinator().getResourceGroupManager()
-                .orElseThrow(() -> new IllegalArgumentException("no resource group manager"));
     }
 }

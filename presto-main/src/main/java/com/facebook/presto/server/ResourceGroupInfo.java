@@ -23,7 +23,9 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /*
@@ -211,5 +213,76 @@ public class ResourceGroupInfo
     public List<ResourceGroupInfo> getSubGroups()
     {
         return subGroups;
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof ResourceGroupInfo)) {
+            return false;
+        }
+        ResourceGroupInfo that = (ResourceGroupInfo) other;
+        return id.equals(that.id) &&
+                state == that.state &&
+                schedulingPolicy == that.schedulingPolicy &&
+                schedulingWeight == that.schedulingWeight &&
+                softMemoryLimit.toBytes() == that.softMemoryLimit.toBytes() &&
+                softConcurrencyLimit == that.softConcurrencyLimit &&
+                hardConcurrencyLimit == that.hardConcurrencyLimit &&
+                maxQueuedQueries == that.maxQueuedQueries &&
+                runningTimeLimit.toMillis() == that.runningTimeLimit.toMillis() &&
+                queuedTimeLimit.toMillis() == that.queuedTimeLimit.toMillis() &&
+                memoryUsage.toBytes() == that.memoryUsage.toBytes() &&
+                numQueuedQueries == that.numQueuedQueries &&
+                numRunningQueries == that.numRunningQueries &&
+                numEligibleSubGroups == that.numEligibleSubGroups &&
+                (subGroups == null ? that.subGroups == null : subGroups.equals(that.subGroups)) &&
+                (runningQueries == null ? that.runningQueries == null : runningQueries.equals(that.runningQueries));
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(id,
+                state,
+                schedulingPolicy,
+                schedulingWeight,
+                softMemoryLimit.toBytes(),
+                softConcurrencyLimit,
+                hardConcurrencyLimit,
+                maxQueuedQueries,
+                runningTimeLimit.toMillis(),
+                queuedTimeLimit.toMillis(),
+                memoryUsage.toBytes(),
+                numQueuedQueries,
+                numRunningQueries,
+                numEligibleSubGroups,
+                subGroups,
+                runningQueries);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("id", id)
+                .add("state", state)
+                .add("schedulingPolicy", schedulingPolicy)
+                .add("softMemoryLimit", softMemoryLimit)
+                .add("softConcurrencyLimit", softConcurrencyLimit)
+                .add("hardConcurrencyLimit", hardConcurrencyLimit)
+                .add("maxQueuedQueries", maxQueuedQueries)
+                .add("runningTimeLimit", runningTimeLimit)
+                .add("queuedTimeLimit", queuedTimeLimit)
+                .add("memoryUsage", memoryUsage)
+                .add("numQueuedQueries", numQueuedQueries)
+                .add("numRunningQueries", numRunningQueries)
+                .add("numEligibleSubGroups", numEligibleSubGroups)
+                .add("subGroups", subGroups)
+                .add("runningQueries", runningQueries)
+                .toString();
     }
 }

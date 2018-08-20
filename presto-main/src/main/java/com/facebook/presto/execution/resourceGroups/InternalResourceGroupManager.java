@@ -58,6 +58,7 @@ import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -97,6 +98,14 @@ public final class InternalResourceGroupManager<C>
     {
         checkArgument(groups.containsKey(id), "Group %s does not exist", id);
         return groups.get(id).getFullInfo();
+    }
+
+    @Override
+    public List<ResourceGroupInfo> getAllResourceGroupInfos()
+    {
+        return rootGroups.stream()
+                .flatMap(rootGroup -> rootGroup.getAllResourceGroupInfo().stream())
+                .collect(toImmutableList());
     }
 
     @Override

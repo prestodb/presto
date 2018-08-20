@@ -56,6 +56,7 @@ system| runtime| queries| user| varchar| YES| null| null|
 system| runtime| queries| source| varchar| YES| null| null|
 system| runtime| queries| query| varchar| YES| null| null|
 system| runtime| queries| resource_group_id| array(varchar)| YES| null| null|
+system| runtime| queries| session_properties| map(varchar, varchar)| YES| null| null|
 system| runtime| queries| queued_time_ms| bigint| YES| null| null|
 system| runtime| queries| analysis_time_ms| bigint| YES| null| null|
 system| runtime| queries| distributed_planning_time_ms| bigint| YES| null| null|
@@ -63,6 +64,20 @@ system| runtime| queries| created| timestamp| YES| null| null|
 system| runtime| queries| started| timestamp| YES| null| null|
 system| runtime| queries| last_heartbeat| timestamp| YES| null| null|
 system| runtime| queries| end| timestamp| YES| null| null|
+system| runtime| resource_group_info| resource_group_id| array(varchar)| YES| null| null|
+system| runtime| resource_group_info| resource_group_state| varchar| YES| null| null|
+system| runtime| resource_group_info| scheduling_policy| varchar| YES| null| null|
+system| runtime| resource_group_info| scheduling_weight| bigint| YES| null| null|
+system| runtime| resource_group_info| soft_memory_limit_bytes| bigint| YES| null| null|
+system| runtime| resource_group_info| soft_concurrency_limit| bigint| YES| null| null|
+system| runtime| resource_group_info| hard_concurrency_limit| bigint| YES| null| null|
+system| runtime| resource_group_info| max_queued_queries| bigint| YES| null| null|
+system| runtime| resource_group_info| running_time_limit| bigint| YES| null| null|
+system| runtime| resource_group_info| queued_time_limit| bigint| YES| null| null|
+system| runtime| resource_group_info| memory_usage_bytes| bigint| YES| null| null|
+system| runtime| resource_group_info| queued_queries| bigint| YES| null| null|
+system| runtime| resource_group_info| running_queries| bigint| YES| null| null|
+system| runtime| resource_group_info| eligible_subgroups| bigint| YES| null| null|
 system| runtime| tasks| node_id| varchar| YES| null| null|
 system| runtime| tasks| task_id| varchar| YES| null| null|
 system| runtime| tasks| stage_id| varchar| YES| null| null|

@@ -1,5 +1,6 @@
 -- delimiter: |; ignoreOrder: true;
 nodes|
 queries|
+resource_group_info|
 tasks|
 transactions|

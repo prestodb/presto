@@ -39,6 +39,8 @@ public interface ResourceGroupManager<C>
 
     ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
 
+    List<ResourceGroupInfo> getAllResourceGroupInfos();
+
     List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id);
 
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
