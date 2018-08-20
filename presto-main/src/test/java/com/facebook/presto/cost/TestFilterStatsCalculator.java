@@ -45,7 +45,6 @@ public class TestFilterStatsCalculator
     private SymbolStatsEstimate unknownRangeStats;
     private SymbolStatsEstimate emptyRangeStats;
     private SymbolStatsEstimate mediumVarcharStats;
-
     private FilterStatsCalculator statsCalculator;
     private PlanNodeStatsEstimate standardInputStatistics;
     private TypeProvider standardTypes;
@@ -291,7 +290,8 @@ public class TestFilterStatsCalculator
                                 .lowValue(0.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
-                                .nullsFraction(0.4)); // FIXME - nulls shouldn't be restored
+                                .nullsFraction(0.4)) // FIXME - nulls shouldn't be restored
+                .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
         assertExpression("NOT(json_array_contains(JSON '[]', x))")
                 .outputRowsCount(900)
@@ -300,7 +300,8 @@ public class TestFilterStatsCalculator
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(40.0)
-                                .nullsFraction(0.25));
+                                .nullsFraction(0.25))
+                .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
         assertExpression("NOT(x IS NULL)")
                 .outputRowsCount(750)
@@ -309,7 +310,8 @@ public class TestFilterStatsCalculator
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(40.0)
-                                .nullsFraction(0));
+                                .nullsFraction(0))
+                .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
     }
 
     @Test
