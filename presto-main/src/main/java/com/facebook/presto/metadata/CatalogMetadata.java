@@ -106,7 +106,7 @@ public class CatalogMetadata
             return informationSchemaId;
         }
 
-        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), table.asSchemaTableName()) != null) {
+        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), table.getSchemaTableName()) != null) {
             return systemTablesId;
         }
 

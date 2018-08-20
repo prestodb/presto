@@ -70,7 +70,7 @@ public class QualifiedObjectName
         return objectName;
     }
 
-    public SchemaTableName asSchemaTableName()
+    public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, objectName);
     }
