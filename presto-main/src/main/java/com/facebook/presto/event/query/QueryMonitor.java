@@ -15,6 +15,8 @@ package com.facebook.presto.event.query;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -66,8 +68,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -88,6 +88,8 @@ public class QueryMonitor
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionRegistry functionRegistry;
     private final int maxJsonLimit;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     @Inject
     public QueryMonitor(
@@ -98,7 +100,9 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config)
+            QueryMonitorConfig config,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -109,6 +113,8 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -199,12 +205,11 @@ public class QueryMonitor
             Optional<String> plan = Optional.empty();
             try {
                 if (queryInfo.getOutputStage().isPresent()) {
-                    // Stats and costs are suppress, since transaction is already completed
                     plan = Optional.of(textDistributedPlan(
                             queryInfo.getOutputStage().get(),
                             functionRegistry,
-                            (node, sourceStats, lookup, session, types) -> UNKNOWN_STATS,
-                            (node, stats, lookup, session, types) -> UNKNOWN_COST,
+                            statsCalculator,
+                            costCalculator,
                             queryInfo.getSession().toSession(sessionPropertyManager),
                             false));
                 }
