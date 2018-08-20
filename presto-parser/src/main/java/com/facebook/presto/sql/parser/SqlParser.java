@@ -104,7 +104,7 @@ public class SqlParser
 
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::singleExpression, parsingOptions);
+        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
     }
 
     public PathSpecification createPathSpecification(String expression)

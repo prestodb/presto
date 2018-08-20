@@ -22,7 +22,7 @@ singleStatement
     : statement EOF
     ;
 
-singleExpression
+standaloneExpression
     : expression EOF
     ;
 
