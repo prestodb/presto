@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.BasicStageStats;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryState;
@@ -72,6 +73,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
+import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
@@ -371,6 +373,15 @@ public class SqlQueryScheduler
         }
 
         return stages.build();
+    }
+
+    public BasicStageStats getBasicStageStats()
+    {
+        List<BasicStageStats> stageStats = stages.values().stream()
+                .map(SqlStageExecution::getBasicStageStats)
+                .collect(toImmutableList());
+
+        return aggregateBasicStageStats(stageStats);
     }
 
     public StageInfo getStageInfo()

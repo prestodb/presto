@@ -124,7 +124,9 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
-        return new BasicQueryInfo(getQueryInfo());
+        return stateMachine.getFinalQueryInfo()
+                .map(BasicQueryInfo::new)
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty()));
     }
 
     @Override

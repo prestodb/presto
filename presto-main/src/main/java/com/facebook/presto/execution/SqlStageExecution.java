@@ -233,6 +233,14 @@ public final class SqlStageExecution
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
 
+    public BasicStageStats getBasicStageStats()
+    {
+        return stateMachine.getBasicStageStats(
+                () -> getAllTasks().stream()
+                        .map(RemoteTask::getTaskInfo)
+                        .collect(toImmutableList()));
+    }
+
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(

@@ -257,7 +257,9 @@ public class SqlQueryExecution
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
-        return new BasicQueryInfo(getQueryInfo());
+        return stateMachine.getFinalQueryInfo()
+                .map(BasicQueryInfo::new)
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQueryScheduler::getBasicStageStats)));
     }
 
     public void startWaitingForResources()
