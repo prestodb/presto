@@ -74,10 +74,19 @@ public class PlanNodeStatsEstimateMath
         double totalSizeRight = (rightRowCount - nullsCountRight) * rightStats.getAverageRowSize();
         double newNullsFraction = Math.max(nullsCountLeft - nullsCountRight, 0.0) / newRowCount;
         double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
-        StatisticRange range = strategy.range(leftRange, rightRange);
+
+        StatisticRange range = leftRange;
+        double newDistinctValuesCount = leftStats.getDistinctValuesCount();
+        double leftValuesPerDistinctValue = leftRowCount * (1.0 - leftStats.getNullsFraction()) / leftStats.getDistinctValuesCount();
+        double rightValuesPerDistinctValue = rightRowCount * (1.0 - rightStats.getNullsFraction()) / rightStats.getDistinctValuesCount();
+        if (leftValuesPerDistinctValue <= rightValuesPerDistinctValue) {
+            // right values cover all left values for corresponding distinct values
+            range = strategy.range(leftRange, rightRange);
+            newDistinctValuesCount = leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount();
+        }
 
         return SymbolStatsEstimate.builder()
-                .setDistinctValuesCount(leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount())
+                .setDistinctValuesCount(newDistinctValuesCount)
                 .setHighValue(range.getHigh())
                 .setLowValue(range.getLow())
                 .setAverageRowSize((totalSizeLeft - totalSizeRight) / newNonNullsRowCount)
