@@ -57,6 +57,7 @@ public class PlanNodeStatsEstimateMath
         return statsBuilder.setOutputRowCount(newRowCount).build();
     }
 
+    @Deprecated
     private static SymbolStatsEstimate subtractColumnStats(
             SymbolStatsEstimate leftStats,
             double leftRowCount,
