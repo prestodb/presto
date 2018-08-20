@@ -452,7 +452,7 @@ public class LogicalPlanner
                 metadata,
                 parameters);
 
-        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, comment);
+        return new ConnectorTableMetadata(table.getSchemaTableName(), columns, properties, comment);
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)

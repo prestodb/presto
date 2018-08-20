@@ -308,7 +308,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), table.asSchemaTableName());
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), table.getSchemaTableName());
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(connectorId, tableHandle));
             }
@@ -330,7 +330,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId();
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            return metadata.getSystemTable(session.toConnectorSession(connectorId), tableName.asSchemaTableName());
+            return metadata.getSystemTable(session.toConnectorSession(connectorId), tableName.getSchemaTableName());
         }
         return Optional.empty();
     }
@@ -532,7 +532,7 @@ public class MetadataManager
         }
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
+        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), newTableName.getSchemaTableName());
     }
 
     @Override
@@ -792,8 +792,8 @@ public class MetadataManager
 
             Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
                     session.toConnectorSession(connectorId),
-                    viewName.asSchemaTableName().toSchemaTablePrefix());
-            ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
+                    viewName.getSchemaTableName().toSchemaTablePrefix());
+            ConnectorViewDefinition view = views.get(viewName.getSchemaTableName());
             if (view != null) {
                 ViewDefinition definition = deserializeView(view.getViewData());
                 if (view.getOwner().isPresent()) {
@@ -812,7 +812,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(connectorId), viewName.asSchemaTableName(), viewData, replace);
+        metadata.createView(session.toConnectorSession(connectorId), viewName.getSchemaTableName(), viewData, replace);
     }
 
     @Override
@@ -822,7 +822,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropView(session.toConnectorSession(connectorId), viewName.asSchemaTableName());
+        metadata.dropView(session.toConnectorSession(connectorId), viewName.getSchemaTableName());
     }
 
     @Override
@@ -844,7 +844,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), tableName.getSchemaTableName(), privileges, grantee, grantOption);
     }
 
     @Override
@@ -854,7 +854,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), tableName.getSchemaTableName(), privileges, grantee, grantOption);
     }
 
     @Override

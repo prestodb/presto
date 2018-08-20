@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -68,6 +67,7 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
@@ -117,6 +117,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -135,7 +136,7 @@ final class ShowQueriesRewrite
             List<Expression> parameters,
             AccessControl accessControl)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl).process(node, null);
     }
 
     private static class Visitor
@@ -146,16 +147,14 @@ final class ShowQueriesRewrite
         private final SqlParser sqlParser;
         final List<Expression> parameters;
         private final AccessControl accessControl;
-        private final Optional<QueryExplainer> queryExplainer;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         }
 
         @Override
@@ -177,11 +176,11 @@ final class ShowQueriesRewrite
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
 
-            if (!metadata.catalogExists(session, schema.getCatalogName())) {
+            if (!isCatalogAccessible(schema.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
             }
 
-            if (!metadata.schemaExists(session, schema)) {
+            if (!isSchemaAccessible(schema)) {
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
@@ -213,8 +212,7 @@ final class ShowQueriesRewrite
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
-                if (!metadata.getView(session, qualifiedTableName).isPresent() &&
-                        !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
+                if (!isViewAccessible(qualifiedTableName) && !isTableAccessible(qualifiedTableName)) {
                     throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
                 }
 
@@ -258,6 +256,9 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
+            if (!isCatalogAccessible(catalog)) {
+                throw new SemanticException(MISSING_SCHEMA, node, "Catalog '%s' does not exist", catalog);
+            }
             accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -300,11 +301,7 @@ final class ShowQueriesRewrite
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
-
-            if (!metadata.getView(session, tableName).isPresent() &&
-                    !metadata.getTableHandle(session, tableName).isPresent()) {
-                throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
-            }
+            checkObjectAccessible(showColumns, tableName);
 
             return simpleQuery(
                     selectList(
@@ -360,9 +357,11 @@ final class ShowQueriesRewrite
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
             Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
+            checkObjectAccessible(node, objectName);
+
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {
-                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                    if (isTableAccessible(objectName)) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
                     throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
@@ -378,10 +377,12 @@ final class ShowQueriesRewrite
                     throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 
-                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
-                if (!tableHandle.isPresent()) {
+                if (!isTableAccessible(objectName)) {
                     throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
                 }
+
+                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+                verify(tableHandle.isPresent(), "No table found");
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
@@ -509,7 +510,6 @@ final class ShowQueriesRewrite
         }
 
         @Override
-
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
@@ -548,6 +548,64 @@ final class ShowQueriesRewrite
                     identifier("include"));
         }
 
+        private void checkObjectAccessible(Node node, QualifiedObjectName objectName)
+        {
+            if (!isCatalogAccessible(objectName.getCatalogName())) {
+                throw new SemanticException(MISSING_SCHEMA, node, "Catalog '%s' does not exist", objectName.getCatalogName());
+            }
+
+            if (!isSchemaAccessible(objectName.getCatalogSchemaName())) {
+                throw new SemanticException(MISSING_SCHEMA, node, "Schema '%s' does not exist", objectName.getSchemaName());
+            }
+
+            if (!isRelationAccessible(objectName)) {
+                throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
+            }
+        }
+
+        private boolean isRelationAccessible(QualifiedObjectName objectName)
+        {
+            return isViewAccessible(objectName) || isTableAccessible(objectName);
+        }
+
+        private boolean isCatalogAccessible(String catalogName)
+        {
+            return metadata.catalogExists(session, catalogName)
+                    && accessControl.filterCatalogs(session.getIdentity(), ImmutableSet.of(catalogName)).contains(catalogName);
+        }
+
+        private boolean isSchemaAccessible(CatalogSchemaName schema)
+        {
+            return metadata.schemaExists(session, schema)
+                    && filterSchemas(schema.getCatalogName(), ImmutableSet.of(schema.getSchemaName())).contains(schema.getSchemaName());
+        }
+
+        private boolean isTableAccessible(QualifiedObjectName tableName)
+        {
+            return isTableOrViewVisibleToUser(tableName) && metadata.getTableHandle(session, tableName).isPresent();
+        }
+
+        private boolean isViewAccessible(QualifiedObjectName viewName)
+        {
+            return isTableOrViewVisibleToUser(viewName) && metadata.getView(session, viewName).isPresent();
+        }
+
+        private boolean isTableOrViewVisibleToUser(QualifiedObjectName tableName)
+        {
+            return filterTables(tableName.getCatalogName(), ImmutableSet.of(tableName.getSchemaTableName()))
+                    .contains(tableName.getSchemaTableName());
+        }
+
+        private Set<String> filterSchemas(String catalogName, Set<String> schemas)
+        {
+            return accessControl.filterSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalogName, schemas);
+        }
+
+        private Set<SchemaTableName> filterTables(String catalogName, Set<SchemaTableName> tableNames)
+        {
+            return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), catalogName, tableNames);
+        }
+
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
@@ -562,15 +620,6 @@ final class ShowQueriesRewrite
         private static Relation from(String catalog, SchemaTableName table)
         {
             return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
-        }
-
-        private static Optional<OrderBy> orderBy(List<SortItem> sortItems)
-        {
-            requireNonNull(sortItems, "sortItems is null");
-            if (sortItems.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(new OrderBy(sortItems));
         }
 
         @Override
