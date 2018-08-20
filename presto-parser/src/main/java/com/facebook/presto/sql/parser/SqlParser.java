@@ -109,7 +109,7 @@ public class SqlParser
 
     public PathSpecification createPathSpecification(String expression)
     {
-        return (PathSpecification) invokeParser("pathSpec", expression, SqlBaseParser::pathSpecification, new ParsingOptions());
+        return (PathSpecification) invokeParser("pathSpecification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
