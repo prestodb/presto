@@ -100,7 +100,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public Optional<ErrorCode> getErrorCode()
     {
-        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
     }
 
     @Override

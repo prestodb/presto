@@ -902,6 +902,14 @@ public class QueryStateMachine
                 .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
     }
 
+    public Optional<ExecutionFailureInfo> getFailureInfo()
+    {
+        if (queryState.get() != FAILED) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(this.failureCause.get());
+    }
+
     public Optional<QueryInfo> getFinalQueryInfo()
     {
         return finalQueryInfo.get();

@@ -115,7 +115,7 @@ public class MemoryAwareQueryExecution
     @Override
     public Optional<ErrorCode> getErrorCode()
     {
-        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+        return delegate.getErrorCode();
     }
 
     @Override
