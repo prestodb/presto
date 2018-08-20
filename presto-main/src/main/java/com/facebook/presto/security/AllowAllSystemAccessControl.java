@@ -185,4 +185,9 @@ public class AllowAllSystemAccessControl
     public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String revokee, boolean grantOptionFor)
     {
     }
+
+    @Override
+    public void checkCanShowCreateTable(Identity identity, CatalogSchemaTableName tableName)
+    {
+    }
 }

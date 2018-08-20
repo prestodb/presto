@@ -360,6 +360,8 @@ final class ShowQueriesRewrite
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
             Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
+            accessControl.checkCanShowCreateTable(session.getRequiredTransactionId(), session.getIdentity(), objectName);
+
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {

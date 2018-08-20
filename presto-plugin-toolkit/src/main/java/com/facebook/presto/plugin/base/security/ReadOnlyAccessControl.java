@@ -148,4 +148,10 @@ public class ReadOnlyAccessControl
     {
         denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        // allow
+    }
 }

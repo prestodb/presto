@@ -179,4 +179,10 @@ public class PartitionsAwareAccessControl
     {
         delegate.checkCanRevokeTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
     }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        delegate.checkCanShowCreateTable(transactionHandle, identity, tableName);
+    }
 }

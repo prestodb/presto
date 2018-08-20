@@ -279,6 +279,7 @@ public class SqlStandardAccessControl
     }
 
     private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName())
@@ -302,5 +303,10 @@ public class SqlStandardAccessControl
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME);
+    }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
     }
 }

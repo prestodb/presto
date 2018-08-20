@@ -75,6 +75,13 @@ public interface AccessControl
     void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName);
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
+
+    /**
      * Filter the list of schemas in a catalog to those visible to the identity.
      */
     Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames);
