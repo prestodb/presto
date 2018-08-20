@@ -2334,7 +2334,7 @@ public abstract class AbstractTestHiveClient
 
             // verify there are no temporary files
             for (String file : listAllDataFiles(context, stagingPathRoot)) {
-                assertThat(file).doesNotStartWith(".tmp-sort.");
+                assertThat(file).doesNotContain(".tmp-sort.");
             }
 
             // finish creating table

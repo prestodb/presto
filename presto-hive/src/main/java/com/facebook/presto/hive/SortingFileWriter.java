@@ -134,16 +134,8 @@ public class SortingFileWriter
         try {
             writeSorted();
             outputWriter.commit();
-
-            for (TempFile tempFile : tempFiles) {
-                Path file = tempFile.getPath();
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
-                    throw new IOException("Failed to delete temporary file: " + file);
-                }
-            }
         }
-        catch (IOException | UncheckedIOException e) {
+        catch (UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
     }
@@ -221,6 +213,14 @@ public class SortingFileWriter
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders)
                     .forEachRemaining(consumer);
+
+            for (TempFile tempFile : files) {
+                Path file = tempFile.getPath();
+                fileSystem.delete(file, false);
+                if (fileSystem.exists(file)) {
+                    throw new IOException("Failed to delete temporary file: " + file);
+                }
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
