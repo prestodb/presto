@@ -14,18 +14,38 @@
 package com.facebook.presto.sql.query;
 
 import com.facebook.presto.Session;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 
-import static com.facebook.presto.SystemSessionProperties.USE_MARK_DISTINCT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestDistinctAggregationsNoMarkDistinct
-        extends TestDistinctAggregations
+public abstract class BaseQueryAssertionsTest
 {
-    @Override
+    private QueryAssertions assertions;
+
+    @BeforeClass
+    public void init()
+    {
+        assertions = new QueryAssertions(getDefaultSession());
+    }
+
     protected Session getDefaultSession()
     {
         return testSessionBuilder()
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
+                .setCatalog("local")
+                .setSchema("default")
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
+    protected QueryAssertions assertions()
+    {
+        return assertions;
     }
 }

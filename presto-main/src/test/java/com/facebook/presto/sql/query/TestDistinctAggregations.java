@@ -13,36 +13,20 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class TestDistinctAggregations
+        extends BaseQueryAssertionsTest
 {
-    protected QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
     public void testGroupAllSingleDistinct()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x) FROM " +
                         "(VALUES 1, 1, 2, 3) t(x)",
                 "VALUES BIGINT '3'");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x), sum(DISTINCT x) FROM " +
                         "(VALUES 1, 1, 2, 3) t(x)",
                 "VALUES (BIGINT '3', BIGINT '6')");
@@ -51,7 +35,7 @@ public class TestDistinctAggregations
     @Test
     public void testGroupBySingleDistinct()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT k, count(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -69,7 +53,7 @@ public class TestDistinctAggregations
                         "(1, BIGINT '3'), " +
                         "(2, BIGINT '4')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT k, count(DISTINCT x), sum(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -91,7 +75,7 @@ public class TestDistinctAggregations
     @Test
     public void testGroupingSetsSingleDistinct()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT k, count(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -110,7 +94,7 @@ public class TestDistinctAggregations
                         "(2, BIGINT '4'), " +
                         "(CAST(NULL AS INTEGER), BIGINT '6')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT k, count(DISTINCT x), sum(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -133,12 +117,12 @@ public class TestDistinctAggregations
     @Test
     public void testGroupAllMixedDistinct()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x), count(*) FROM " +
                         "(VALUES 1, 1, 2, 3) t(x)",
                 "VALUES (BIGINT '3', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x), count(DISTINCT y) FROM " +
                         "(VALUES " +
                         "   (1, 10), " +
@@ -147,7 +131,7 @@ public class TestDistinctAggregations
                         "   (2, 30)) t(x, y)",
                 "VALUES (BIGINT '2', BIGINT '3')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT k, count(DISTINCT x), count(DISTINCT y) FROM " +
                         "(VALUES " +
                         "   (1, 1, 100), " +
@@ -170,7 +154,7 @@ public class TestDistinctAggregations
     @Test
     public void testMultipleInputs()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT corr(DISTINCT x, y) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
@@ -180,7 +164,7 @@ public class TestDistinctAggregations
                         ") t(x, y)",
                 "VALUES (REAL '1.0')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
@@ -190,7 +174,7 @@ public class TestDistinctAggregations
                         ") t(x, y)",
                 "VALUES (REAL '1.0', REAL '1.0')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(*) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
@@ -200,7 +184,7 @@ public class TestDistinctAggregations
                         ") t(x, y)",
                 "VALUES (REAL '1.0', REAL '1.0', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
@@ -214,7 +198,7 @@ public class TestDistinctAggregations
     @Test
     public void testMixedDistinctAndNonDistinct()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT sum(DISTINCT x), sum(DISTINCT y), sum(z) FROM " +
                         "(VALUES " +
                         "   (1, 10, 100), " +
@@ -227,33 +211,33 @@ public class TestDistinctAggregations
     @Test
     public void testMixedDistinctWithFilter()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT " +
                         "     count(DISTINCT x) FILTER (WHERE x > 0), " +
                         "     sum(x) " +
                         "FROM (VALUES 0, 1, 1, 2) t(x)",
                 "VALUES (BIGINT '2', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x) FILTER (where y = 1)" +
                         "FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)",
                 "VALUES (BIGINT '2')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT " +
                         "     count(DISTINCT x), " +
                         "     sum(x) FILTER (WHERE x > 0) " +
                         "FROM (VALUES 0, 1, 1, 2) t(x)",
                 "VALUES (BIGINT '3', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT" +
                         "     sum(DISTINCT x) FILTER (WHERE y > 3)," +
                         "     sum(DISTINCT y) FILTER (WHERE x > 1)" +
                         "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
                 "VALUES (BIGINT '6', BIGINT '9')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT" +
                         "     sum(x) FILTER (WHERE x > 1) AS x," +
                         "     sum(DISTINCT x)" +
@@ -261,11 +245,11 @@ public class TestDistinctAggregations
                 "VALUES (BIGINT '8', BIGINT '7')");
 
         // filter out all rows
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT sum(DISTINCT x) FILTER (WHERE y > 5)" +
                         "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
                 "VALUES (CAST(NULL AS BIGINT))");
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT" +
                         "     count(DISTINCT y) FILTER (WHERE x > 4)," +
                         "     sum(DISTINCT x) FILTER (WHERE y > 5)" +

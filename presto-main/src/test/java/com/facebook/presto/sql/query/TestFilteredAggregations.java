@@ -13,41 +13,25 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class TestFilteredAggregations
+        extends BaseQueryAssertionsTest
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
     public void testGroupAll()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x) FILTER (WHERE x > 1) " +
                         "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)",
                 "VALUES BIGINT '2'");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
                         "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)",
                 "VALUES (BIGINT '2', BIGINT '6')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT y) FILTER (WHERE x < 3)" +
                         "FROM (VALUES " +
                         "(1, 10)," +
@@ -57,7 +41,7 @@ public class TestFilteredAggregations
                         "(3, 30)) t(x, y)",
                 "VALUES (BIGINT '2', BIGINT '30')");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT count(x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
                         "FROM (VALUES 1, 2, 3, 3) t(x)",
                 "VALUES (BIGINT '3', BIGINT '6')");
@@ -66,7 +50,7 @@ public class TestFilteredAggregations
     @Test
     public void testGroupingSets()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT k, count(DISTINCT x) FILTER (WHERE y = 100), count(DISTINCT x) FILTER (WHERE y = 200) FROM " +
                         "(VALUES " +
                         "   (1, 1, 100)," +

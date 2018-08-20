@@ -23,14 +23,13 @@ import java.util.Optional;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestSessionFunctions
+        extends BaseQueryAssertionsTest
 {
     @Test
     public void testCurrentUser()
     {
         Session session = testSessionBuilder().setIdentity(new Identity("test_current_user", Optional.empty())).build();
-        try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
-            queryAssertions.assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
-        }
+        assertions().assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
     }
 
     @Test
@@ -40,16 +39,12 @@ public class TestSessionFunctions
                 .setPath(new SqlPath(Optional.of("testPath")))
                 .build();
 
-        try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
-            queryAssertions.assertQuery("SELECT CURRENT_PATH", "SELECT CAST('" + session.getPath().toString() + "' AS VARCHAR)");
-        }
+        assertions().assertQuery("SELECT CURRENT_PATH", "SELECT CAST('" + session.getPath().toString() + "' AS VARCHAR)");
 
         Session emptyPathSession = testSessionBuilder()
                 .setPath(new SqlPath(Optional.of("\"\"")))
                 .build();
 
-        try (QueryAssertions queryAssertions = new QueryAssertions(emptyPathSession)) {
-            queryAssertions.assertQuery("SELECT CURRENT_PATH", "SELECT CAST('" + emptyPathSession.getPath().toString() + "' AS VARCHAR)");
-        }
+        assertions().assertQuery("SELECT CURRENT_PATH", "SELECT CAST('" + emptyPathSession.getPath().toString() + "' AS VARCHAR)");
     }
 }

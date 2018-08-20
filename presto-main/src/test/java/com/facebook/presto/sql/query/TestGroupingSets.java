@@ -13,31 +13,15 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class TestGroupingSets
+        extends BaseQueryAssertionsTest
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
     public void testPredicateOverGroupingKeysWithEmptyGroupingSet()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "WITH t AS (" +
                         "    SELECT a" +
                         "    FROM (" +

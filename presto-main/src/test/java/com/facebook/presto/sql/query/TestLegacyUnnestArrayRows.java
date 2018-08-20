@@ -15,18 +15,14 @@ package com.facebook.presto.sql.query;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-
 public class TestLegacyUnnestArrayRows
+        extends BaseQueryAssertionsTest
 {
     @Test
     public void testLegacyUnnestArrayRows()
     {
-        try (QueryAssertions assertions = new QueryAssertions(testSessionBuilder().setSystemProperty(LEGACY_UNNEST, "true").build())) {
-            assertions.assertQuery(
-                    "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[ROW('a', true), ROW('b', false)])",
-                    "VALUES ((1, 1.1), ('a', true)), ((3, 3.3), ('b', false))");
-        }
+        assertions().assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[ROW('a', true), ROW('b', false)])",
+                "VALUES ((1, 1.1), ('a', true)), ((3, 3.3), ('b', false))");
     }
 }

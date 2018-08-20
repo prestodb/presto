@@ -13,36 +13,20 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class TestGrouping
+        extends BaseQueryAssertionsTest
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
     public void testImplicitCoercions()
     {
         // GROUPING + implicit coercions (issue #8738)
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT GROUPING(k), SUM(v) + 1e0 FROM (VALUES (1, 1)) AS t(k,v) GROUP BY k",
                 "VALUES (0, 2e0)");
 
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT\n" +
                         "    1e0 * count(*), " +
                         "    grouping(x) " +
@@ -54,7 +38,7 @@ public class TestGrouping
     @Test
     public void testFilter()
     {
-        assertions.assertQuery(
+        assertions().assertQuery(
                 "SELECT a, b, grouping(a, b) " +
                         "FROM (VALUES ('x0', 'y0'), ('x1', 'y1') ) AS t (a, b) " +
                         "GROUP BY CUBE (a, b)" +

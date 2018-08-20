@@ -27,7 +27,6 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -38,14 +37,6 @@ class QueryAssertions
         implements Closeable
 {
     private final QueryRunner runner;
-
-    public QueryAssertions()
-    {
-        this(testSessionBuilder()
-                .setCatalog("local")
-                .setSchema("default")
-                .build());
-    }
 
     public QueryAssertions(Session session)
     {
