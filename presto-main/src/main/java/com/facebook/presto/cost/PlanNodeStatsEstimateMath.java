@@ -72,7 +72,7 @@ public class PlanNodeStatsEstimateMath
         double nullsCountRight = rightStats.getNullsFraction() * rightRowCount;
         double totalSizeLeft = (leftRowCount - nullsCountLeft) * leftStats.getAverageRowSize();
         double totalSizeRight = (rightRowCount - nullsCountRight) * rightStats.getAverageRowSize();
-        double newNullsFraction = (nullsCountLeft - nullsCountRight) / newRowCount;
+        double newNullsFraction = Math.max(nullsCountLeft - nullsCountRight, 0.0) / newRowCount;
         double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
         StatisticRange range = strategy.range(leftRange, rightRange);
 
