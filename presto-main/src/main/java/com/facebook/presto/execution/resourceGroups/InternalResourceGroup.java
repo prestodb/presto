@@ -529,9 +529,10 @@ public class InternalResourceGroup
                 default:
                     throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
             }
+            schedulingPolicy = policy;
             while (!eligibleSubGroups.isEmpty()) {
                 InternalResourceGroup group = eligibleSubGroups.poll();
-                addOrUpdateSubGroup(group);
+                addOrUpdateSubGroup(queue, group);
             }
             eligibleSubGroups = queue;
             while (!queuedQueries.isEmpty()) {
@@ -539,7 +540,6 @@ public class InternalResourceGroup
                 queryQueue.addOrUpdate(query, getQueryPriority(query.getSession()));
             }
             queuedQueries = queryQueue;
-            schedulingPolicy = policy;
         }
     }
 
@@ -780,14 +780,19 @@ public class InternalResourceGroup
         }
     }
 
-    private void addOrUpdateSubGroup(InternalResourceGroup group)
+    private void addOrUpdateSubGroup(Queue<InternalResourceGroup> queue, InternalResourceGroup group)
     {
         if (schedulingPolicy == WEIGHTED_FAIR) {
-            ((WeightedFairQueue<InternalResourceGroup>) eligibleSubGroups).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
+            ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
         }
         else {
-            ((UpdateablePriorityQueue<InternalResourceGroup>) eligibleSubGroups).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
+            ((UpdateablePriorityQueue<InternalResourceGroup>) queue).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
         }
+    }
+
+    private void addOrUpdateSubGroup(InternalResourceGroup group)
+    {
+        addOrUpdateSubGroup(eligibleSubGroups, group);
     }
 
     private static long getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
