@@ -176,7 +176,7 @@ public final class WorkProcessorUtils
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(transformation, "transformation is null");
-        return flatten(processor.transform(transformation));
+        return processor.transform(transformation).transformProcessor(WorkProcessorUtils::flatten);
     }
 
     static <T> WorkProcessor<T> flatten(WorkProcessor<WorkProcessor<T>> processor)

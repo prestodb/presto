@@ -86,6 +86,11 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.transform(this, transformation);
     }
 
+    default <R> WorkProcessor<R> transformProcessor(Function<WorkProcessor<T>, WorkProcessor<R>> transformation)
+    {
+        return transformation.apply(this);
+    }
+
     /**
      * Converts {@link WorkProcessor} into an {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
      * yields or becomes blocked. {@link WorkProcessor} instance will be dereferenced immediately after iterator is finished.
