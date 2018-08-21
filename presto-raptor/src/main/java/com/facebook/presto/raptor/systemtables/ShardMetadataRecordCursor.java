@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -56,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -328,6 +330,19 @@ public class ShardMetadataRecordCursor
         return builder.build();
     }
 
+    private static void buildPredicatesAndValues(Domain nameDomain, List<String> values, List<String> predicates, String predicatePrefix)
+    {
+        List<String> names = nameDomain.getValues().getRanges().getOrderedRanges().stream()
+                .filter(Range::isSingleValue)
+                .map(range -> getStringValue(range.getSingleValue()))
+                .collect(toList());
+        if (!names.isEmpty()) {
+            values.addAll(names);
+            String inClause = Joiner.on(",").join(nCopies(names.size(), "?"));
+            predicates.add(format("%s IN (%s)", predicatePrefix, inClause));
+        }
+    }
+
     @VisibleForTesting
     static Iterator<Long> getTableIds(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
@@ -340,13 +355,11 @@ public class ShardMetadataRecordCursor
         if (schemaNameDomain != null || tableNameDomain != null) {
             sql.append("WHERE ");
             List<String> predicates = new ArrayList<>();
-            if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
-                predicates.add("table_name = ?");
-                values.add(getStringValue(tableNameDomain.getSingleValue()));
+            if (schemaNameDomain != null) {
+                buildPredicatesAndValues(schemaNameDomain, values, predicates, "schema_name");
             }
-            if (schemaNameDomain != null && schemaNameDomain.isSingleValue()) {
-                predicates.add("schema_name = ?");
-                values.add(getStringValue(schemaNameDomain.getSingleValue()));
+            if (tableNameDomain != null) {
+                buildPredicatesAndValues(tableNameDomain, values, predicates, "table_name");
             }
             sql.append(Joiner.on(" AND ").join(predicates));
         }

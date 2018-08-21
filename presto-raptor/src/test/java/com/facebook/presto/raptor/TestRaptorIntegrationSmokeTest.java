@@ -311,6 +311,26 @@ public class TestRaptorIntegrationSmokeTest
                         "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
                         "UNION ALL\n" +
                         "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+
+        assertQuery("" +
+                        "SELECT table_name, sum(row_count)\n" +
+                        "FROM system.shards\n" +
+                        "WHERE table_name IN ('orders', 'lineitem')\n" +
+                        "GROUP BY table_name",
+                "" +
+                        "SELECT 'orders', (SELECT count(*) FROM orders)\n" +
+                        "UNION ALL\n" +
+                        "SELECT 'lineitem', (SELECT count(*) FROM lineitem)");
+
+        assertQuery("" +
+                        "SELECT table_name, sum(row_count)\n" +
+                        "FROM system.shards\n" +
+                        "WHERE table_name = 'orders' or table_name = 'lineitem'\n" +
+                        "GROUP BY table_name",
+                "" +
+                        "SELECT 'orders', (SELECT count(*) FROM orders)\n" +
+                        "UNION ALL\n" +
+                        "SELECT 'lineitem', (SELECT count(*) FROM lineitem)");
     }
 
     @Test
