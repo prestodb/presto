@@ -16,9 +16,7 @@ package com.facebook.presto.plugin.base.security;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
-
-import static java.lang.String.format;
+import static com.facebook.presto.plugin.base.testing.InterfaceTestUtils.checkEverythingImplemented;
 
 public class TestAllowAllAccessControl
 {
@@ -27,19 +25,5 @@ public class TestAllowAllAccessControl
             throws ReflectiveOperationException
     {
         checkEverythingImplemented(ConnectorAccessControl.class, AllowAllAccessControl.class);
-    }
-
-    static <I> void checkEverythingImplemented(Class<I> interfaceClass, Class<? extends I> implementationClass)
-            throws ReflectiveOperationException
-    {
-        for (Method interfaceMethod : interfaceClass.getMethods()) {
-            Method implementationMethod = implementationClass.getMethod(interfaceMethod.getName(), interfaceMethod.getParameterTypes());
-            if (interfaceMethod.equals(implementationMethod) && interfaceMethod.getAnnotation(Deprecated.class) == null) {
-                throw new AssertionError(format(
-                        "Method should be overridden in %s: %s",
-                        implementationClass,
-                        interfaceMethod));
-            }
-        }
     }
 }

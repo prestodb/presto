@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.plugin.base.security.TestAllowAllAccessControl.checkEverythingImplemented;
+import static com.facebook.presto.plugin.base.testing.InterfaceTestUtils.checkEverythingImplemented;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertThrows;
 

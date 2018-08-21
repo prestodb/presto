@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.testing;
+package com.facebook.presto.plugin.base.testing;
 
 import java.lang.reflect.Method;
 
@@ -22,7 +22,7 @@ public final class InterfaceTestUtils
 {
     private InterfaceTestUtils() {}
 
-    // Note: this should be in sync with com.facebook.presto.plugin.base.testing.InterfaceTestUtils#checkEverythingImplemented
+    // Note: this should be in sync with com.facebook.presto.testing.InterfaceTestUtils#checkEverythingImplemented
     public static <I> void checkEverythingImplemented(Class<I> interfaceClass, Class<? extends I> implementationClass)
             throws ReflectiveOperationException
     {
