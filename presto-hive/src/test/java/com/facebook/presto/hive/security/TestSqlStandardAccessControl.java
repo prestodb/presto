@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.security;
 
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -18,12 +19,12 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.InterfaceTestUtils.checkEverythingImplemented;
 
-public class TestPartitionsAwareAccessControl
+public class TestSqlStandardAccessControl
 {
     @Test
-    public void testEverythingDelegated()
+    public void testEverythingImplemented()
             throws ReflectiveOperationException
     {
-        checkEverythingImplemented(ConnectorAccessControl.class, PartitionsAwareAccessControl.class);
+        checkEverythingImplemented(ConnectorAccessControl.class, SqlStandardAccessControl.class);
     }
 }

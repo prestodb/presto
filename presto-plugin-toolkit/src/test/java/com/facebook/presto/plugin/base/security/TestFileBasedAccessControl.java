@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.presto.testing.InterfaceTestUtils.checkEverythingImplemented;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertThrows;
 
@@ -84,6 +85,13 @@ public class TestFileBasedAccessControl
     {
         assertThatThrownBy(() -> createAccessControl("invalid.json"))
                 .hasMessageContaining("Invalid JSON");
+    }
+
+    @Test
+    public void testEverythingImplemented()
+            throws ReflectiveOperationException
+    {
+        checkEverythingImplemented(ConnectorAccessControl.class, FileBasedAccessControl.class);
     }
 
     private static Identity user(String name)
