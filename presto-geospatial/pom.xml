@@ -94,6 +94,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto.hadoop</groupId>
+            <artifactId>hadoop-apache2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
             <scope>test</scope>

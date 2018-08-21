@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -44,6 +45,7 @@ import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.IntUnaryOperator;
@@ -458,13 +460,15 @@ public class PagesIndex
             Session session,
             int geometryChannel,
             Optional<Integer> radiusChannel,
+            Optional<Integer> partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            List<Integer> outputChannels)
+            List<Integer> outputChannels,
+            Map<Integer, Rectangle> partitions)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

@@ -16,9 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 
+import java.util.Optional;
+
 public interface PagesSpatialIndex
 {
-    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel);
+    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel);
 
     boolean isJoinPositionEligible(int joinPosition, int probePosition, Page probe);
 
@@ -29,7 +31,7 @@ public interface PagesSpatialIndex
         private final int[] emptyAddresses = new int[0];
 
         @Override
-        public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel)
+        public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
         {
             return emptyAddresses;
         }
