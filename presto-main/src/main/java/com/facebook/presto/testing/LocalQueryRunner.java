@@ -797,6 +797,8 @@ public class LocalQueryRunner
                 featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
+                splitManager,
+                pageSourceManager,
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,

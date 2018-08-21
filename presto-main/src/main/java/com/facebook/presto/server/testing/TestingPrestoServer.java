@@ -38,6 +38,7 @@ import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -117,6 +118,7 @@ public class TestingPrestoServer
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
+    private final PageSourceManager pageSourceManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -269,6 +271,7 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
+        pageSourceManager = injector.getInstance(PageSourceManager.class);
         if (coordinator) {
             resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
@@ -401,6 +404,11 @@ public class TestingPrestoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    public PageSourceManager getPageSourceManager()
+    {
+        return pageSourceManager;
     }
 
     public Optional<InternalResourceGroupManager> getResourceGroupManager()
