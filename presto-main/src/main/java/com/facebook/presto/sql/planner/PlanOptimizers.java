@@ -83,6 +83,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
@@ -272,7 +273,8 @@ public class PlanOptimizers
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(),
-                                        new PruneOrderByInAggregation(metadata.getFunctionRegistry())))
+                                        new PruneOrderByInAggregation(metadata.getFunctionRegistry()),
+                                        new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
