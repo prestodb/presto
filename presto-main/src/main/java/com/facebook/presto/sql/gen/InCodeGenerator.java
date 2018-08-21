@@ -52,6 +52,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -108,8 +109,6 @@ public class InCodeGenerator
     @Override
     public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        BytecodeNode value = generatorContext.generate(arguments.get(0));
-
         List<RowExpression> values = arguments.subList(1, arguments.size());
 
         Type type = arguments.get(0).getType();
@@ -162,6 +161,7 @@ public class InCodeGenerator
         LabelNode defaultLabel = new LabelNode("default");
 
         Scope scope = generatorContext.getScope();
+        Variable value = scope.createTempVariable(javaType);
 
         BytecodeNode switchBlock;
         Variable expression = scope.createTempVariable(int.class);
@@ -177,22 +177,17 @@ public class InCodeGenerator
                 switchBuilder.defaultCase(jump(defaultLabel));
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(<stackValue>))")
-                        .dup(javaType)
                         .append(new IfStatement()
-                                .condition(new BytecodeBlock()
-                                        .dup(javaType)
-                                        .invokeStatic(InCodeGenerator.class, "isInteger", boolean.class, long.class))
+                                .condition(invokeStatic(InCodeGenerator.class, "isInteger", boolean.class, value))
                                 .ifFalse(new BytecodeBlock()
-                                        .pop(javaType)
                                         .gotoLabel(defaultLabel)))
-                        .longToInt()
-                        .putVariable(expression)
+                        .append(expression.set(value.cast(int.class)))
                         .append(switchBuilder.build());
                 break;
             case HASH_SWITCH:
                 for (Map.Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                     Collection<BytecodeNode> testValues = bucket.getValue();
-                    BytecodeBlock caseBlock = buildInCase(generatorContext, scope, type, match, defaultLabel, testValues, false);
+                    BytecodeBlock caseBlock = buildInCase(generatorContext, scope, type, match, defaultLabel, value, testValues, false);
                     switchBuilder.addCase(bucket.getKey(), caseBlock);
                 }
                 switchBuilder.defaultCase(jump(defaultLabel));
@@ -201,7 +196,7 @@ public class InCodeGenerator
                         .bind(hashCodeFunction);
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
-                        .dup(javaType)
+                        .getVariable(value)
                         .append(invoke(hashCodeBinding, hashCodeSignature))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
@@ -216,7 +211,7 @@ public class InCodeGenerator
                         .append(new IfStatement()
                                 .condition(new BytecodeBlock()
                                         .comment("value")
-                                        .dup(javaType)
+                                        .getVariable(value)
                                         .comment("set")
                                         .append(loadConstant(constant))
                                         // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
@@ -227,12 +222,13 @@ public class InCodeGenerator
                 throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
         }
 
-        BytecodeBlock defaultCaseBlock = buildInCase(generatorContext, scope, type, match, noMatch, defaultBucket.build(), true).setDescription("default");
+        BytecodeBlock defaultCaseBlock = buildInCase(generatorContext, scope, type, match, noMatch, value, defaultBucket.build(), true).setDescription("default");
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
-                .append(value)
+                .append(generatorContext.generate(arguments.get(0)))
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
+                .putVariable(value)
                 .append(switchBlock)
                 .visitLabel(defaultLabel)
                 .append(defaultCaseBlock);
@@ -240,7 +236,6 @@ public class InCodeGenerator
         BytecodeBlock matchBlock = new BytecodeBlock()
                 .setDescription("match")
                 .visitLabel(match)
-                .pop(javaType)
                 .append(generatorContext.wasNull().set(constantFalse()))
                 .push(true)
                 .gotoLabel(end);
@@ -249,7 +244,6 @@ public class InCodeGenerator
         BytecodeBlock noMatchBlock = new BytecodeBlock()
                 .setDescription("noMatch")
                 .visitLabel(noMatch)
-                .pop(javaType)
                 .push(false)
                 .gotoLabel(end);
         block.append(noMatchBlock);
@@ -264,11 +258,13 @@ public class InCodeGenerator
         return value == (int) value;
     }
 
-    private static BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
+    private static BytecodeBlock buildInCase(
+            BytecodeGeneratorContext generatorContext,
             Scope scope,
             Type type,
             LabelNode matchLabel,
             LabelNode noMatchLabel,
+            Variable value,
             Collection<BytecodeNode> testValues,
             boolean checkForNulls)
     {
@@ -307,7 +303,7 @@ public class InCodeGenerator
 
             test.condition()
                     .visitLabel(testLabel)
-                    .dup(type.getJavaType())
+                    .getVariable(value)
                     .append(testNode);
 
             if (checkForNulls) {
