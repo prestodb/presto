@@ -747,19 +747,31 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSpatialJoin(SpatialJoinNode node, PreferredProperties preferredProperties)
         {
+            SpatialJoinNode.DistributionType distributionType = node.getDistributionType();
+
             PlanWithProperties left = node.getLeft().accept(this, PreferredProperties.any());
             PlanWithProperties right = node.getRight().accept(this, PreferredProperties.any());
 
-            if (left.getProperties().isSingleNode()) {
-                if (!right.getProperties().isSingleNode()) {
+            if (distributionType == SpatialJoinNode.DistributionType.REPLICATED) {
+                if (left.getProperties().isSingleNode()) {
+                    if (!right.getProperties().isSingleNode()) {
+                        right = withDerivedProperties(
+                                gatheringExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
+                                right.getProperties());
+                    }
+                }
+                else {
                     right = withDerivedProperties(
-                            gatheringExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
+                            replicatedExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
                             right.getProperties());
                 }
             }
             else {
+                left = withDerivedProperties(
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, node.getLeft(), ImmutableList.of(node.getLeftPartitionSymbol().get()), Optional.empty()),
+                        left.getProperties());
                 right = withDerivedProperties(
-                        replicatedExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), ImmutableList.of(node.getRightPartitionSymbol().get()), Optional.empty()),
                         right.getProperties());
             }
 
