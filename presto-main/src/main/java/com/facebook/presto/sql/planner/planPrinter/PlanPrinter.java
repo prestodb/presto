@@ -913,8 +913,9 @@ public class PlanPrinter
             }
 
             if (format.length() > 1) {
-                format = format.substring(0, format.length() - 2) + "] => [%s]";
+                format = format.substring(0, format.length() - 2);
             }
+            format += "] => [%s]";
 
             if (projectNode.isPresent()) {
                 operatorName += "Project";
