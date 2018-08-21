@@ -35,6 +35,8 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
+import com.facebook.presto.geospatial.KdbTree;
+import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.geospatial.serde.GeometrySerde;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
 import com.facebook.presto.geospatial.serde.JtsGeometrySerde;
@@ -45,7 +47,9 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -124,6 +128,7 @@ public final class GeoFunctions
             .put(OGCDisconnectedInterior, "Disconnected interior")
             .build();
     private static final int NUMBER_OF_DIMENSIONS = 3;
+    private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
 
     private GeoFunctions() {}
 
@@ -1086,6 +1091,79 @@ public final class GeoFunctions
     public static Slice stGeometryType(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         return GeometrySerde.getGeometryType(input).standardName();
+    }
+
+    @ScalarFunction
+    @SqlNullable
+    @Description("Returns an array of spatial partition IDs for a given geometry")
+    @SqlType("array(int)")
+    public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry)
+    {
+        Envelope envelope = deserializeEnvelope(geometry);
+        if (envelope == null) {
+            // Empty geometry
+            return null;
+        }
+
+        return spatialPartitions((KdbTree) kdbTree, new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
+    }
+
+    @ScalarFunction
+    @SqlNullable
+    @Description("Returns an array of spatial partition IDs for a geometry representing a set of points within specified distance from the input geometry")
+    @SqlType("array(int)")
+    public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry, @SqlType(DOUBLE) double distance)
+    {
+        if (isNaN(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
+        }
+
+        if (isInfinite(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is infinite");
+        }
+
+        if (distance < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
+        }
+
+        Envelope envelope = deserializeEnvelope(geometry);
+        if (envelope == null) {
+            return null;
+        }
+
+        Rectangle expandedEnvelope2D = new Rectangle(envelope.getXMin() - distance, envelope.getYMin() - distance, envelope.getXMax() + distance, envelope.getYMax() + distance);
+        return spatialPartitions((KdbTree) kdbTree, expandedEnvelope2D);
+    }
+
+    private static Block spatialPartitions(KdbTree kdbTree, Rectangle envelope)
+    {
+        Map<Integer, Rectangle> partitions = kdbTree.findIntersectingLeaves(envelope);
+        if (partitions.isEmpty()) {
+            return EMPTY_ARRAY_OF_INTS;
+        }
+
+        // For input rectangles that represent a single point, return at most one partition
+        // by excluding right and upper sides of partition rectangles. The logic that builds
+        // KDB tree needs to make sure to add some padding to the right and upper sides of the
+        // overall extent of the tree to avoid missing right-most and top-most points.
+        boolean point = (envelope.getWidth() == 0 && envelope.getHeight() == 0);
+        if (point) {
+            for (Map.Entry<Integer, Rectangle> partition : partitions.entrySet()) {
+                if (envelope.getXMin() < partition.getValue().getXMax() && envelope.getYMin() < partition.getValue().getYMax()) {
+                    BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
+                    blockBuilder.writeInt(partition.getKey());
+                    return blockBuilder.build();
+                }
+            }
+            throw new VerifyException(format("Cannot find half-open partition extent for a point: (%s, %s)", envelope.getXMin(), envelope.getYMin()));
+        }
+
+        BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(partitions.size());
+        for (int id : partitions.keySet()) {
+            blockBuilder.writeInt(id);
+        }
+
+        return blockBuilder.build();
     }
 
     @ScalarFunction

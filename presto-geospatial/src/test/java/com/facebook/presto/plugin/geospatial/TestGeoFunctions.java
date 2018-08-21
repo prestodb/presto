@@ -15,18 +15,19 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCPoint;
+import com.facebook.presto.geospatial.KdbTreeUtils;
+import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -45,10 +46,64 @@ public class TestGeoFunctions
     protected void registerFunctions()
     {
         GeoPlugin plugin = new GeoPlugin();
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
+        registerTypes(plugin);
+        registerFunctions(plugin);
+    }
+
+    @Test
+    public void testSpatialPartitions()
+    {
+        String kdbTreeJson = makeKdbTreeJson();
+
+        assertSpatialPartitions(kdbTreeJson, "POINT EMPTY", null);
+        // points inside partitions
+        assertSpatialPartitions(kdbTreeJson, "POINT (0 0)", ImmutableList.of(0));
+        assertSpatialPartitions(kdbTreeJson, "POINT (3 1)", ImmutableList.of(2));
+        // point on the border between two partitions
+        assertSpatialPartitions(kdbTreeJson, "POINT (1 2.5)", ImmutableList.of(1));
+        // point at the corner of three partitions
+        assertSpatialPartitions(kdbTreeJson, "POINT (4.5 2.5)", ImmutableList.of(4));
+        // points outside
+        assertSpatialPartitions(kdbTreeJson, "POINT (2 6)", ImmutableList.of());
+        assertSpatialPartitions(kdbTreeJson, "POINT (3 -1)", ImmutableList.of());
+        assertSpatialPartitions(kdbTreeJson, "POINT (10 3)", ImmutableList.of());
+
+        // geometry within a partition
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", ImmutableList.of(3));
+        // geometries spanning multiple partitions
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 5.5 3, 6 2)", ImmutableList.of(3, 4));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (3 2, 8 3)", ImmutableList.of(2, 3, 4, 5));
+        // geometry outside
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", ImmutableList.of());
+
+        // with distance
+        assertSpatialPartitions(kdbTreeJson, "POINT EMPTY", 1.2, null);
+        assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 1.2, ImmutableList.of(0));
+        assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 2.3, ImmutableList.of(0, 1, 2));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 0.2, ImmutableList.of(3));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 1.2, ImmutableList.of(2, 3, 4));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", 1.2, ImmutableList.of());
+    }
+
+    private static String makeKdbTreeJson()
+    {
+        ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
+        for (double x = 0; x < 10; x += 1) {
+            for (double y = 0; y < 5; y += 1) {
+                rectangles.add(new Rectangle(x, y, x + 1, y + 2));
+            }
         }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
+    }
+
+    private void assertSpatialPartitions(String kdbTreeJson, String wkt, List<Integer> expectedPartitions)
+    {
+        assertFunction(format("spatial_partitions(cast('%s' as KdbTree), ST_GeometryFromText('%s'))", kdbTreeJson, wkt), new ArrayType(INTEGER), expectedPartitions);
+    }
+
+    private void assertSpatialPartitions(String kdbTreeJson, String wkt, double distance, List<Integer> expectedPartitions)
+    {
+        assertFunction(format("spatial_partitions(cast('%s' as KdbTree), ST_GeometryFromText('%s'), %s)", kdbTreeJson, wkt, distance), new ArrayType(INTEGER), expectedPartitions);
     }
 
     @Test
