@@ -47,6 +47,8 @@ public class GeoPlugin
                 .add(ConvexHullAggregation.class)
                 .add(GeometryUnionAgg.class)
                 .add(KdbTreeCasts.class)
+                .add(SpatialPartitioningAggregateFunction.class)
+                .add(SpatialPartitioningInternalAggregateFunction.class)
                 .build();
     }
 }
