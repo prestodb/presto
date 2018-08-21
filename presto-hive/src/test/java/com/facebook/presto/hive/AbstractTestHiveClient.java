@@ -2275,6 +2275,7 @@ public abstract class AbstractTestHiveClient
             throws IOException
     {
         int bucketCount = 3;
+        int expectedRowCount = 0;
 
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
@@ -2316,6 +2317,7 @@ public abstract class AbstractTestHiveClient
                             "test" + random.nextInt(100),
                             random.nextLong(100_000),
                             "2018-04-01");
+                    expectedRowCount++;
                 }
                 sink.appendPage(builder.build().toPage());
             }
@@ -2352,6 +2354,7 @@ public abstract class AbstractTestHiveClient
             List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
             assertThat(splits).hasSize(bucketCount);
 
+            int actualRowCount = 0;
             for (ConnectorSplit split : splits) {
                 try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
                     String lastValueAsc = null;
@@ -2383,10 +2386,12 @@ public abstract class AbstractTestHiveClient
                                 }
                             }
                             lastValueAsc = valueAsc;
+                            actualRowCount++;
                         }
                     }
                 }
             }
+            assertThat(actualRowCount).isEqualTo(expectedRowCount);
         }
     }
 
