@@ -221,6 +221,6 @@ public class TestExtractSpatialLeftJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new ExtractSpatialLeftJoin(tester().getMetadata()));
+        return tester().assertThat(new ExtractSpatialLeftJoin(tester().getMetadata(), tester().getSplitManager(), tester().getPageSourceManager()));
     }
 }

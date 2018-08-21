@@ -40,9 +40,23 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Re-writes spatial_partitioning(geometry) aggregations into spatial_partitioning(envelope, partition_count)
+ * on top of ST_Envelope(geometry) projection, e.g.
+ *
+ * - Aggregation: spatial_partitioning(geometry)
+ *    - source
+ *
+ * becomes
+ *
+ * - Aggregation: spatial_partitioning(envelope, partition_count)
+ *    - Project: envelope := ST_Envelope(geometry)
+ *        - source
+ *
+ * , where partition_count is the value of session property hash_partition_count
+ */
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
@@ -110,7 +124,7 @@ public class RewriteSpatialPartitioningAggregation
                                 node.getSource(),
                                 Assignments.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
-                                        .put(partitionCountSymbol, new LongLiteral(format("%s", getHashPartitionCount(context.getSession()))))
+                                        .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
                     aggregations.build(),

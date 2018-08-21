@@ -327,6 +327,8 @@ public abstract class AbstractTestQueryFramework
                 featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
+                queryRunner.getSplitManager(),
+                queryRunner.getPageSourceManager(),
                 queryRunner.getStatsCalculator(),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner::getNodeCount),

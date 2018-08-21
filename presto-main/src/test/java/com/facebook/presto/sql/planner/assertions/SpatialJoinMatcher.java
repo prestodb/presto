@@ -21,6 +21,8 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type;
 import com.facebook.presto.sql.tree.Expression;
 
+import java.util.Optional;
+
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -32,11 +34,13 @@ public class SpatialJoinMatcher
 {
     private final Type type;
     private final Expression filter;
+    private final Optional<String> kdbTree;
 
-    public SpatialJoinMatcher(Type type, Expression filter)
+    public SpatialJoinMatcher(Type type, Expression filter, Optional<String> kdbTree)
     {
         this.type = type;
         this.filter = requireNonNull(filter, "filter can not be null");
+        this.kdbTree = requireNonNull(kdbTree, "kdbTree can not be null");
     }
 
     @Override
@@ -57,6 +61,9 @@ public class SpatialJoinMatcher
 
         SpatialJoinNode joinNode = (SpatialJoinNode) node;
         if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter(), filter)) {
+            return NO_MATCH;
+        }
+        if (!joinNode.getKdbTree().equals(kdbTree)) {
             return NO_MATCH;
         }
         return match();

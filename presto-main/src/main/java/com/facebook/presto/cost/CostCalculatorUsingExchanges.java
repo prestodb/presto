@@ -222,7 +222,11 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
         {
-            return calculateJoinCost(node, node.getLeft(), node.getRight(), true);
+            return calculateJoinCost(
+                    node,
+                    node.getLeft(),
+                    node.getRight(),
+                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)));
         }
 
         @Override
