@@ -43,6 +43,7 @@ public final class MapGenericEquality
         SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
         SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
 
+        boolean indeterminate = false;
         for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
             Object key = readNativeValue(keyType, leftBlock, position);
             int leftPosition = position + 1;
@@ -54,7 +55,7 @@ public final class MapGenericEquality
             try {
                 Boolean result = predicate.equals(leftPosition, rightPosition);
                 if (result == null) {
-                    return null;
+                    indeterminate = true;
                 }
                 else if (!result) {
                     return false;
@@ -63,6 +64,10 @@ public final class MapGenericEquality
             catch (Throwable t) {
                 throw internalError(t);
             }
+        }
+
+        if (indeterminate) {
+            return null;
         }
         return true;
     }
