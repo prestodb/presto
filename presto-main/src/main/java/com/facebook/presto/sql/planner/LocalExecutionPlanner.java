@@ -1801,7 +1801,10 @@ public class LocalExecutionPlanner
                     .filter(symbol -> probeNode.getOutputSymbols().contains(symbol))
                     .collect(toImmutableList());
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
-            Integer probeChannel = channelGetter(probeSource).apply(probeSymbol);
+            Function<Symbol, Integer> probeChannelGetter = channelGetter(probeSource);
+            int probeChannel = probeChannelGetter.apply(probeSymbol);
+
+            Optional<Integer> partitionChannel = node.getLeftPartitionSymbol().map(probeChannelGetter::apply);
 
             return new SpatialJoinOperatorFactory(
                     context.getNextOperatorId(),
@@ -1810,6 +1813,7 @@ public class LocalExecutionPlanner
                     probeTypes,
                     probeOutputChannels,
                     probeChannel,
+                    partitionChannel,
                     pagesSpatialIndexFactory);
         }
 
@@ -1842,6 +1846,8 @@ public class LocalExecutionPlanner
                             context.getTypes(),
                             context.getSession()));
 
+            Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter::apply);
+
             SpatialIndexBuilderOperatorFactory builderOperatorFactory = new SpatialIndexBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -1849,7 +1855,9 @@ public class LocalExecutionPlanner
                     buildOutputChannels,
                     buildChannel,
                     radiusChannel,
+                    partitionChannel,
                     spatialRelationshipTest,
+                    node.getKdbTree(),
                     filterFunctionFactory,
                     10_000,
                     pagesIndexFactory);
