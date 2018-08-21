@@ -39,6 +39,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FAIR;
@@ -128,6 +129,48 @@ public class TestResourceGroups
         root.processQueuedQueries();
         assertEquals(query1b.getState(), RUNNING);
         assertEquals(query2b.getState(), QUEUED);
+    }
+
+    @Test
+    public void testSetSchedulingPolicy()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(1);
+        InternalResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(4);
+        group1.setHardConcurrencyLimit(2);
+        InternalResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(4);
+        group2.setHardConcurrencyLimit(2);
+        MockQueryExecution query1a = new MockQueryExecution(0);
+        group1.run(query1a);
+        assertEquals(query1a.getState(), RUNNING);
+        MockQueryExecution query1b = new MockQueryExecution(0);
+        group1.run(query1b);
+        assertEquals(query1b.getState(), QUEUED);
+        MockQueryExecution query1c = new MockQueryExecution(0);
+        group1.run(query1c);
+        assertEquals(query1c.getState(), QUEUED);
+        MockQueryExecution query2a = new MockQueryExecution(0);
+        group2.run(query2a);
+        assertEquals(query2a.getState(), QUEUED);
+
+        assertEquals(root.getInfo().getNumEligibleSubGroups(), 2);
+        assertEquals(root.getOrCreateSubGroup("1").getQueuedQueries(), 2);
+        assertEquals(root.getOrCreateSubGroup("2").getQueuedQueries(), 1);
+        assertEquals(root.getSchedulingPolicy(), FAIR);
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        assertEquals(root.getInfo().getNumEligibleSubGroups(), 2);
+        assertEquals(root.getOrCreateSubGroup("1").getQueuedQueries(), 2);
+        assertEquals(root.getOrCreateSubGroup("2").getQueuedQueries(), 1);
+
+        assertEquals(root.getSchedulingPolicy(), QUERY_PRIORITY);
+        assertEquals(root.getOrCreateSubGroup("1").getSchedulingPolicy(), QUERY_PRIORITY);
+        assertEquals(root.getOrCreateSubGroup("2").getSchedulingPolicy(), QUERY_PRIORITY);
     }
 
     @Test(timeOut = 10_000)
