@@ -37,6 +37,15 @@ public class TestFilterStatsCalculator
 {
     private static final VarcharType MEDIUM_VARCHAR_TYPE = VarcharType.createVarcharType(100);
 
+    private SymbolStatsEstimate xStats;
+    private SymbolStatsEstimate yStats;
+    private SymbolStatsEstimate zStats;
+    private SymbolStatsEstimate leftOpenStats;
+    private SymbolStatsEstimate rightOpenStats;
+    private SymbolStatsEstimate unknownRangeStats;
+    private SymbolStatsEstimate emptyRangeStats;
+    private SymbolStatsEstimate mediumVarcharStats;
+
     private FilterStatsCalculator statsCalculator;
     private PlanNodeStatsEstimate standardInputStatistics;
     private TypeProvider standardTypes;
@@ -46,56 +55,56 @@ public class TestFilterStatsCalculator
     public void setUp()
             throws Exception
     {
-        SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+        xStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(40.0)
                 .setLowValue(-10.0)
                 .setHighValue(10.0)
                 .setNullsFraction(0.25)
                 .build();
-        SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+        yStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(20.0)
                 .setLowValue(0.0)
                 .setHighValue(5.0)
                 .setNullsFraction(0.5)
                 .build();
-        SymbolStatsEstimate zStats = SymbolStatsEstimate.builder()
+        zStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(5.0)
                 .setLowValue(-100.0)
                 .setHighValue(100.0)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate leftOpenStats = SymbolStatsEstimate.builder()
+        leftOpenStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(NEGATIVE_INFINITY)
                 .setHighValue(15.0)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate rightOpenStats = SymbolStatsEstimate.builder()
+        rightOpenStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(-15.0)
                 .setHighValue(POSITIVE_INFINITY)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate unknownRangeStats = SymbolStatsEstimate.builder()
+        unknownRangeStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(NEGATIVE_INFINITY)
                 .setHighValue(POSITIVE_INFINITY)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
+        emptyRangeStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(0.0)
                 .setDistinctValuesCount(0.0)
                 .setLowValue(NaN)
                 .setHighValue(NaN)
                 .setNullsFraction(NaN)
                 .build();
-        SymbolStatsEstimate mediumVarcharStats = SymbolStatsEstimate.builder()
+        mediumVarcharStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(85.0)
                 .setDistinctValuesCount(165)
                 .setLowValue(NEGATIVE_INFINITY)
