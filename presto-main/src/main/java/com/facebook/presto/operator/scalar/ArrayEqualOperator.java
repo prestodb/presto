@@ -26,9 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(EQUAL)
@@ -48,19 +46,31 @@ public final class ArrayEqualOperator
         if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
             return false;
         }
+
+        boolean indeterminate = false;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                indeterminate = true;
+                continue;
+            }
             Object leftElement = readNativeValue(type, leftArray, i);
             Object rightElement = readNativeValue(type, rightArray, i);
             try {
-                if (!(boolean) equalsFunction.invoke(leftElement, rightElement)) {
+                Boolean result = (Boolean) equalsFunction.invoke(leftElement, rightElement);
+                if (result == null) {
+                    indeterminate = true;
+                }
+                else if (!result) {
                     return false;
                 }
             }
             catch (Throwable t) {
                 throw internalError(t);
             }
+        }
+
+        if (indeterminate) {
+            return null;
         }
         return true;
     }
@@ -79,19 +89,30 @@ public final class ArrayEqualOperator
             return false;
         }
 
+        boolean indeterminate = false;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                indeterminate = true;
+                continue;
+            }
             long leftElement = type.getLong(leftArray, i);
             long rightElement = type.getLong(rightArray, i);
             try {
-                if (!(boolean) equalsFunction.invokeExact(leftElement, rightElement)) {
+                Boolean result = (Boolean) equalsFunction.invokeExact(leftElement, rightElement);
+                if (result == null) {
+                    indeterminate = true;
+                }
+                else if (!result) {
                     return false;
                 }
             }
             catch (Throwable t) {
                 throw internalError(t);
             }
+        }
+
+        if (indeterminate) {
+            return null;
         }
         return true;
     }
@@ -110,19 +131,30 @@ public final class ArrayEqualOperator
             return false;
         }
 
+        boolean indeterminate = false;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                indeterminate = true;
+                continue;
+            }
             double leftElement = type.getDouble(leftArray, i);
             double rightElement = type.getDouble(rightArray, i);
             try {
-                if (!(boolean) equalsFunction.invokeExact(leftElement, rightElement)) {
+                Boolean result = (Boolean) equalsFunction.invokeExact(leftElement, rightElement);
+                if (result == null) {
+                    indeterminate = true;
+                }
+                else if (!result) {
                     return false;
                 }
             }
             catch (Throwable t) {
                 throw internalError(t);
             }
+        }
+
+        if (indeterminate) {
+            return null;
         }
         return true;
     }

@@ -41,6 +41,10 @@ public final class ArrayNotEqualOperator
             @SqlType("array(E)") Block left,
             @SqlType("array(E)") Block right)
     {
-        return !ArrayEqualOperator.equals(equalsFunction, type, left, right);
+        Boolean result = ArrayEqualOperator.equals(equalsFunction, type, left, right);
+        if (result == null) {
+            return null;
+        }
+        return !result;
     }
 }
