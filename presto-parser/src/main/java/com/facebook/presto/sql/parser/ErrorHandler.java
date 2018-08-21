@@ -159,7 +159,12 @@ class ErrorHandler
 
                 if (parsingState.state instanceof RuleStopState) {
                     if (next != null) {
-                        process(((RuleTransition) atn.states.get(next.invokingState).transition(0)).followState, parsingState.tokenIndex, next.parent);
+                        if (next.invokingState == -1) {
+                            candidates.putAll(tokenIndex, getTokenNames(IntervalSet.of(Token.EOF)));
+                        }
+                        else {
+                            process(((RuleTransition) atn.states.get(next.invokingState).transition(0)).followState, parsingState.tokenIndex, next.parent);
+                        }
                     }
                     continue;
                 }
