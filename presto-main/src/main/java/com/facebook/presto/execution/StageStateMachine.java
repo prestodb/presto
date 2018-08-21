@@ -41,6 +41,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -77,6 +78,7 @@ public class StageStateMachine
     private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
+    private final StateMachine<Boolean> finalStatusReady;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
@@ -104,6 +106,8 @@ public class StageStateMachine
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
+
+        finalStatusReady = new StateMachine<>("final stage " + stageId, executor, false, ImmutableList.of(true));
     }
 
     public StageId getStageId()
@@ -185,6 +189,31 @@ public class StageStateMachine
             log.debug(throwable, "Failure after stage %s finished", stageId);
         }
         return failed;
+    }
+
+    public void addFinalStatusListener(StateChangeListener<?> finalStatusListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<Boolean> fireOnceStateChangeListener = isReady -> {
+            if (isReady && done.compareAndSet(false, true)) {
+                finalStatusListener.stateChanged(null);
+            }
+        };
+        finalStatusReady.addStateChangeListener(fireOnceStateChangeListener);
+        if (finalStatusReady.get()) {
+            fireOnceStateChangeListener.stateChanged(null);
+        }
+    }
+
+    public void setAllTasksFinal()
+    {
+        StateChangeListener<StageState> stateChangeListener = state -> {
+            if (state.isDone()) {
+                finalStatusReady.set(true);
+            }
+        };
+        stageState.addStateChangeListener(stateChangeListener);
+        stateChangeListener.stateChanged(getState());
     }
 
     public long getUserMemoryReservation()

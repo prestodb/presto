@@ -210,6 +210,16 @@ public class SqlQueryScheduler
                 }
             });
         }
+
+        // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
+        queryStateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
+            }
+        });
+        for (SqlStageExecution stage : stages) {
+            stage.addFinalStatusListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
+        }
     }
 
     private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
