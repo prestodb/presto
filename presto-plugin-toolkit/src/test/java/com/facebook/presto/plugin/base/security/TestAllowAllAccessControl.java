@@ -16,7 +16,7 @@ package com.facebook.presto.plugin.base.security;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.base.testing.InterfaceTestUtils.checkEverythingImplemented;
+import static com.facebook.presto.testing.InterfaceTestUtils.checkEverythingImplemented;
 
 public class TestAllowAllAccessControl
 {
