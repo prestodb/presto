@@ -555,7 +555,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>bytecode</artifactId>
-                <version>1.0</version>
+                <version>1.1</version>
             </dependency>
 
             <dependency>
@@ -627,7 +627,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>6.1.1</version>
+                <version>6.2.1</version>
             </dependency>
 
             <dependency>

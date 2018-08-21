@@ -313,6 +313,10 @@ Aggregations
     Returns the minimum convex geometry that encloses all input geometries.
     This function doesn't support geometry collections.
 
+.. function:: geometry_union_agg(Geometry) -> Geometry
+
+    Returns a geometry that represents the point set union of all input geometries.
+
 Bing Tiles
 ----------
 
@@ -338,6 +342,11 @@ These functions convert between geometries and
 
     Returns a collection of Bing tiles that surround the point specified
     by the latitude and longitude arguments at a given zoom level.
+
+.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array<BingTile>
+
+    Returns a minimum set of Bing tiles at specified zoom level that cover a circle of specified
+    radius in km around a specified (latitude, longitude) point.
 
 .. function:: bing_tile_coordinates(tile) -> row<x, y>
 

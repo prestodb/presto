@@ -998,8 +998,9 @@ public class PredicatePushDown
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Expression> context)
         {
-            if (node.getGroupingKeys().isEmpty()) {
-                // cannot push predicates down through aggregations without any grouping columns
+            if (node.hasEmptyGroupingSet()) {
+                // TODO: in case of grouping sets, we should be able to push the filters over grouping keys below the aggregation
+                // and also preserve the filter above the aggregation if it has an empty grouping set
                 return visitPlan(node, context);
             }
 

@@ -303,7 +303,7 @@ Supported Presto SQL statements
 |                                          | range partitions`_            |
 +------------------------------------------+-------------------------------+
 
-Not supported are ``SHOW PARTITIONS FROM ...``, ``ALTER SCHEMA ... RENAME``
+``ALTER SCHEMA ... RENAME TO ...`` is not supported.
 
 
 Create Table

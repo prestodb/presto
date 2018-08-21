@@ -115,14 +115,6 @@ public class TestStatementBuilder
         printStatement("show tables like '%'");
         printStatement("show tables from information_schema like '%'");
 
-        printStatement("show partitions from foo");
-        printStatement("show partitions from foo where name = 'foo'");
-        printStatement("show partitions from foo order by x");
-        printStatement("show partitions from foo limit 10");
-        printStatement("show partitions from foo limit all");
-        printStatement("show partitions from foo order by x desc limit 10");
-        printStatement("show partitions from foo order by x desc limit all");
-
         printStatement("show functions");
 
         printStatement("select cast('123' as bigint), try_cast('foo' as bigint)");

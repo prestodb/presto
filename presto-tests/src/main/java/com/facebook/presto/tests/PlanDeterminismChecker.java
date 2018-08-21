@@ -68,7 +68,9 @@ public class PlanDeterminismChecker
                     localQueryRunner.getMetadata().getFunctionRegistry(),
                     localQueryRunner.getStatsCalculator(),
                     localQueryRunner.getCostCalculator(),
-                    transactionSession);
+                    transactionSession,
+                    0,
+                    false);
         });
     }
 }

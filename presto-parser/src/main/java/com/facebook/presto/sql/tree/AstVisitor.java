@@ -147,11 +147,6 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
-    protected R visitShowPartitions(ShowPartitions node, C context)
-    {
-        return visitStatement(node, context);
-    }
-
     protected R visitShowCreate(ShowCreate node, C context)
     {
         return visitStatement(node, context);

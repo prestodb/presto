@@ -582,20 +582,6 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitShowPartitions(ShowPartitions node, C context)
-    {
-        if (node.getWhere().isPresent()) {
-            process(node.getWhere().get(), context);
-        }
-
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem, context);
-        }
-
-        return null;
-    }
-
-    @Override
     protected R visitStartTransaction(StartTransaction node, C context)
     {
         for (TransactionMode transactionMode : node.getTransactionModes()) {

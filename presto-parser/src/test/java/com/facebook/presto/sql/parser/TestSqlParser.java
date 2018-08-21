@@ -105,7 +105,6 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowGrants;
-import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowStats;
@@ -693,42 +692,6 @@ public class TestSqlParser
         assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b")));
         assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table")));
         assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table")));
-    }
-
-    @Test
-    public void testShowPartitions()
-    {
-        assertStatement("SHOW PARTITIONS FROM t", new ShowPartitions(QualifiedName.of("t"), Optional.empty(), ImmutableList.of(), Optional.empty()));
-        assertStatement("SHOW PARTITIONS FROM \"awesome table\"",
-                new ShowPartitions(QualifiedName.of("awesome table"), Optional.empty(), ImmutableList.of(), Optional.empty()));
-
-        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
-                new ShowPartitions(
-                        QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(),
-                        Optional.empty()));
-
-        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y",
-                new ShowPartitions(
-                        QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
-                        Optional.empty()));
-
-        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
-                new ShowPartitions(
-                        QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
-                        Optional.of("10")));
-
-        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
-                new ShowPartitions(
-                        QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
-                        Optional.of("ALL")));
     }
 
     @Test

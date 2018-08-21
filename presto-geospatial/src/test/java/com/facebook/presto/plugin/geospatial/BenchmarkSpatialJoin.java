@@ -11,10 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.benchmark;
+package com.facebook.presto.plugin.geospatial;
 
-import com.facebook.presto.plugin.geospatial.GeoPlugin;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -36,13 +41,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
+import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Thread)
@@ -56,12 +63,12 @@ public class BenchmarkSpatialJoin
     @State(Thread)
     public static class Context
     {
-        private MemoryLocalQueryRunner queryRunner;
+        private LocalQueryRunner queryRunner;
 
         @Param({"10", "100", "1000", "10000"})
         private int pointCount;
 
-        public MemoryLocalQueryRunner getQueryRunner()
+        public LocalQueryRunner getQueryRunner()
         {
             return queryRunner;
         }
@@ -70,8 +77,12 @@ public class BenchmarkSpatialJoin
         public void setUp()
                 throws IOException
         {
-            queryRunner = new MemoryLocalQueryRunner();
+            queryRunner = new LocalQueryRunner(testSessionBuilder()
+                    .setCatalog("memory")
+                    .setSchema("default")
+                    .build());
             queryRunner.installPlugin(new GeoPlugin());
+            queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
 
             Path path = Paths.get(BenchmarkSpatialJoin.class.getClassLoader().getResource("us-states.tsv").getPath());
             String polygonValues = Files.lines(path)
@@ -95,7 +106,13 @@ public class BenchmarkSpatialJoin
         @TearDown(Level.Invocation)
         public void dropPointsTable()
         {
-            queryRunner.dropTable("memory.default.points");
+            queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
+                Metadata metadata = queryRunner.getMetadata();
+                Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, QualifiedObjectName.valueOf("memory.default.points"));
+                assertTrue(tableHandle.isPresent(), "Table memory.default.points does not exist");
+                metadata.dropTable(transactionSession, tableHandle.get());
+                return null;
+            });
         }
 
         @TearDown
@@ -107,14 +124,14 @@ public class BenchmarkSpatialJoin
     }
 
     @Benchmark
-    public List<Page> benchmarkJoin(Context context)
+    public MaterializedResult benchmarkJoin(Context context)
     {
         return context.getQueryRunner()
                 .execute("SELECT count(*) FROM points, polygons WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(latitude, longitude))");
     }
 
     @Benchmark
-    public List<Page> benchmarkUserOptimizedJoin(Context context)
+    public MaterializedResult benchmarkUserOptimizedJoin(Context context)
     {
         return context.getQueryRunner()
                 .execute("SELECT count(*) FROM (SELECT ST_Point(latitude, longitude) as point FROM points) t1, (SELECT ST_GeometryFromText(wkt) as geometry FROM polygons) t2 WHERE ST_Contains(geometry, point)");

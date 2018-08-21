@@ -91,7 +91,6 @@ public final class SystemSessionProperties
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
-    public static final String ENABLE_NEW_STATS_CALCULATOR = "enable_new_stats_calculator";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
@@ -413,11 +412,6 @@ public final class SystemSessionProperties
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
                 booleanProperty(
-                        ENABLE_NEW_STATS_CALCULATOR,
-                        "Use new experimental statistics calculator",
-                        featuresConfig.isEnableNewStatsCalculator(),
-                        true),
-                booleanProperty(
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
@@ -730,11 +724,6 @@ public final class SystemSessionProperties
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
-    }
-
-    public static boolean isEnableNewStatsCalculator(Session session)
-    {
-        return session.getSystemProperty(ENABLE_NEW_STATS_CALCULATOR, Boolean.class);
     }
 
     public static boolean isExchangeCompressionEnabled(Session session)

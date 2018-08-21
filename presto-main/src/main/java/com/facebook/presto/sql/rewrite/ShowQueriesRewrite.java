@@ -57,7 +57,6 @@ import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
-import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
@@ -72,7 +71,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +89,6 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static com.facebook.presto.sql.ExpressionFormatter.formatQualifiedName;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -355,16 +352,6 @@ final class ShowQueriesRewrite
             }
 
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Failed to convert object of type %s to expression: %s", value.getClass().getName(), value));
-        }
-
-        @Override
-        protected Node visitShowPartitions(ShowPartitions showPartitions, Void context)
-        {
-            List<String> parts = new ArrayList<>(showPartitions.getTable().getParts());
-            int last = parts.size() - 1;
-            parts.set(last, parts.get(last) + "$partitions");
-            QualifiedName table = QualifiedName.of(parts);
-            throw new SemanticException(NOT_SUPPORTED, showPartitions, "SHOW PARTITIONS no longer exists. Use this instead: SELECT * FROM %s", formatQualifiedName(table));
         }
 
         @Override
