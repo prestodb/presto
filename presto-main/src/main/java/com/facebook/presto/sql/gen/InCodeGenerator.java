@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
@@ -42,10 +43,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
@@ -290,35 +289,33 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        ScalarFunctionImplementation operator = generatorContext.getRegistry().getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type)));
-
-        Binding equalsFunction = generatorContext
-                .getCallSiteBinder()
-                .bind(operator.getMethodHandle());
+        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsSignature);
 
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
             IfStatement test = new IfStatement();
 
+            BytecodeNode equalsCall = generatorContext.generateCall(
+                    equalsSignature.getName(),
+                    equalsFunction,
+                    ImmutableList.of(value, testNode));
+
             test.condition()
                     .visitLabel(testLabel)
-                    .getVariable(value)
-                    .append(testNode);
+                    .append(equalsCall);
 
             if (checkForNulls) {
-                IfStatement wasNullCheck = new IfStatement("if wasNull, set caseWasNull to true, clear wasNull, pop 2 values of type, and goto next test value");
+                IfStatement wasNullCheck = new IfStatement("if wasNull, set caseWasNull to true, clear wasNull, pop boolean, and goto next test value");
                 wasNullCheck.condition(wasNull);
                 wasNullCheck.ifTrue(new BytecodeBlock()
                         .append(caseWasNull.set(constantTrue()))
                         .append(wasNull.set(constantFalse()))
-                        .pop(type.getJavaType())
-                        .pop(type.getJavaType())
+                        .pop(boolean.class)
                         .gotoLabel(elseLabel));
                 test.condition().append(wasNullCheck);
             }
-            test.condition()
-                    .append(invoke(equalsFunction, EQUAL.name()));
 
             test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);

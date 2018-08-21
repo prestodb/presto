@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -33,7 +34,8 @@ public final class ArrayNotEqualOperator
 
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(
+    @SqlNullable
+    public static Boolean notEqual(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block left,

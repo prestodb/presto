@@ -55,12 +55,12 @@ public class DecimalInequalityOperators
     private static final MethodHandle IS_RESULT_GREATER_THAN = methodHandle(DecimalInequalityOperators.class, "isResultGreaterThan", int.class);
     private static final MethodHandle IS_RESULT_GREATER_THAN_OR_EQUAL = methodHandle(DecimalInequalityOperators.class, "isResultGreaterThanOrEqual", int.class);
 
-    public static final SqlScalarFunction DECIMAL_EQUAL_OPERATOR = binaryOperator(EQUAL, IS_RESULT_EQUAL);
-    public static final SqlScalarFunction DECIMAL_NOT_EQUAL_OPERATOR = binaryOperator(NOT_EQUAL, IS_RESULT_NOT_EQUAL);
-    public static final SqlScalarFunction DECIMAL_LESS_THAN_OPERATOR = binaryOperator(LESS_THAN, IS_RESULT_LESS_THAN);
-    public static final SqlScalarFunction DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR = binaryOperator(LESS_THAN_OR_EQUAL, IS_RESULT_LESS_THAN_OR_EQUAL);
-    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = binaryOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
-    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = binaryOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
+    public static final SqlScalarFunction DECIMAL_EQUAL_OPERATOR = equalityOperator(EQUAL, IS_RESULT_EQUAL);
+    public static final SqlScalarFunction DECIMAL_NOT_EQUAL_OPERATOR = equalityOperator(NOT_EQUAL, IS_RESULT_NOT_EQUAL);
+    public static final SqlScalarFunction DECIMAL_LESS_THAN_OPERATOR = comparisonOperator(LESS_THAN, IS_RESULT_LESS_THAN);
+    public static final SqlScalarFunction DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR = comparisonOperator(LESS_THAN_OR_EQUAL, IS_RESULT_LESS_THAN_OR_EQUAL);
+    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = comparisonOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
+    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = comparisonOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
     public static final SqlScalarFunction DECIMAL_BETWEEN_OPERATOR = betweenOperator();
     public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = distinctOperator();
 
@@ -115,23 +115,47 @@ public class DecimalInequalityOperators
                 .deterministic(true);
     }
 
-    private static SqlScalarFunction binaryOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
+    private static SqlScalarFunction equalityOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
+    {
+        return makeBinaryOperatorFunctionBuilder(operatorType)
+                .nullableResult(true)
+                .implementation(b -> b
+                        .methods("boxedShortShort", "boxedLongLong")
+                        .withExtraParameters(constant(getResultMethodHandle)))
+                .build();
+    }
+
+    private static SqlScalarFunction comparisonOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
     {
         return makeBinaryOperatorFunctionBuilder(operatorType)
                 .implementation(b -> b
-                        .methods("opShortShort", "opLongLong")
+                        .methods("primitiveShortShort", "primitiveLongLong")
                         .withExtraParameters(constant(getResultMethodHandle)))
                 .build();
     }
 
     @UsedByGeneratedCode
-    public static boolean opShortShort(long a, long b, MethodHandle getResultMethodHandle)
+    public static Boolean boxedShortShort(long a, long b, MethodHandle getResultMethodHandle)
     {
         return invokeGetResult(getResultMethodHandle, Long.compare(a, b));
     }
 
     @UsedByGeneratedCode
-    public static boolean opLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
+    public static Boolean boxedLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
+    {
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
+    }
+
+    @UsedByGeneratedCode
+    //TODO: remove when introducing nullable comparisons (<=, <, >, >=)
+    public static boolean primitiveShortShort(long a, long b, MethodHandle getResultMethodHandle)
+    {
+        return invokeGetResult(getResultMethodHandle, Long.compare(a, b));
+    }
+
+    @UsedByGeneratedCode
+    //TODO: remove when introducing nullable comparisons (<=, <, >, >=)
+    public static boolean primitiveLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
     {
         return invokeGetResult(getResultMethodHandle, compare(left, right));
     }
@@ -156,7 +180,7 @@ public class DecimalInequalityOperators
         if (leftNull) {
             return false;
         }
-        return opShortShort(left, right, IS_RESULT_NOT_EQUAL);
+        return primitiveShortShort(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     @UsedByGeneratedCode
@@ -168,7 +192,7 @@ public class DecimalInequalityOperators
         if (leftNull) {
             return false;
         }
-        return opLongLong(left, right, IS_RESULT_NOT_EQUAL);
+        return primitiveLongLong(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     private static boolean invokeGetResult(MethodHandle getResultMethodHandle, int comparisonResult)

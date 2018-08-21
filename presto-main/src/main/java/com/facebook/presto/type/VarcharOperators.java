@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -46,7 +47,8 @@ public final class VarcharOperators
     @LiteralParameters("x")
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
+    @SqlNullable
+    public static Boolean equal(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
     {
         return left.equals(right);
     }
@@ -54,7 +56,8 @@ public final class VarcharOperators
     @LiteralParameters("x")
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
     {
         return !left.equals(right);
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -29,6 +30,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
@@ -92,7 +94,15 @@ public final class ArrayRemoveFunction
             Object element = readNativeValue(type, array, i);
 
             try {
-                if (element == null || !(boolean) equalsFunction.invoke(element, value)) {
+                if (element == null) {
+                    positions.add(i);
+                    continue;
+                }
+                Boolean result = (Boolean) equalsFunction.invoke(element, value);
+                if (result == null) {
+                    throw new PrestoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
+                }
+                if (!result) {
                     positions.add(i);
                 }
             }

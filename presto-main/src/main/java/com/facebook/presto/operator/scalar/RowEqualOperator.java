@@ -52,7 +52,7 @@ public class RowEqualOperator
     {
         Type type = boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
-                false,
+                true,
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
@@ -60,7 +60,7 @@ public class RowEqualOperator
                 isDeterministic());
     }
 
-    public static boolean equals(Type rowType, Block leftRow, Block rightRow)
+    public static Boolean equals(Type rowType, Block leftRow, Block rightRow)
     {
         // TODO: Fix this. It feels very inefficient and unnecessary to wrap and unwrap with Block
         BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(null, 1);

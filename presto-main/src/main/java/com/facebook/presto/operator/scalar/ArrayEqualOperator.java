@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
@@ -37,7 +38,8 @@ public final class ArrayEqualOperator
 
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equals(
+    @SqlNullable
+    public static Boolean equals(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
@@ -66,7 +68,8 @@ public final class ArrayEqualOperator
     @TypeParameter("E")
     @TypeParameterSpecialization(name = "E", nativeContainerType = long.class)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equalsLong(
+    @SqlNullable
+    public static Boolean equalsLong(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
@@ -96,7 +99,8 @@ public final class ArrayEqualOperator
     @TypeParameter("E")
     @TypeParameterSpecialization(name = "E", nativeContainerType = double.class)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equalsDouble(
+    @SqlNullable
+    public static Boolean equalsDouble(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,

@@ -376,14 +376,16 @@ public final class JsonOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(BOOLEAN)
-    public static boolean equals(@SqlType(JSON) Slice leftJson, @SqlType(JSON) Slice rightJson)
+    @SqlNullable
+    public static Boolean equals(@SqlType(JSON) Slice leftJson, @SqlType(JSON) Slice rightJson)
     {
         return leftJson.equals(rightJson);
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(BOOLEAN)
-    public static boolean notEqual(@SqlType(JSON) Slice leftJson, @SqlType(JSON) Slice rightJson)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(JSON) Slice leftJson, @SqlType(JSON) Slice rightJson)
     {
         return !leftJson.equals(rightJson);
     }

@@ -31,6 +31,7 @@ import java.util.Set;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -172,19 +173,19 @@ public class FieldSetFilteringRecordSet
             Class<?> javaType = cursor.getType(field1.getField()).getJavaType();
             try {
                 if (javaType == long.class) {
-                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getLong(field1.getField()), cursor.getLong(field2.getField()));
+                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getLong(field1.getField()), cursor.getLong(field2.getField())));
                 }
                 else if (javaType == double.class) {
-                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getDouble(field1.getField()), cursor.getDouble(field2.getField()));
+                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getDouble(field1.getField()), cursor.getDouble(field2.getField())));
                 }
                 else if (javaType == boolean.class) {
-                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getBoolean(field1.getField()), cursor.getBoolean(field2.getField()));
+                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getBoolean(field1.getField()), cursor.getBoolean(field2.getField())));
                 }
                 else if (javaType == Slice.class) {
-                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getSlice(field1.getField()), cursor.getSlice(field2.getField()));
+                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getSlice(field1.getField()), cursor.getSlice(field2.getField())));
                 }
                 else {
-                    return (boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField()));
+                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField())));
                 }
             }
             catch (Throwable t) {

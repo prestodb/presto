@@ -52,7 +52,7 @@ public class RowNotEqualOperator
     {
         Type type = boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
-                false,
+                true,
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
@@ -61,8 +61,12 @@ public class RowNotEqualOperator
     }
 
     @UsedByGeneratedCode
-    public static boolean notEqual(Type rowType, Block leftRow, Block rightRow)
+    public static Boolean notEqual(Type rowType, Block leftRow, Block rightRow)
     {
-        return !RowEqualOperator.equals(rowType, leftRow, rightRow);
+        Boolean result = RowEqualOperator.equals(rowType, leftRow, rightRow);
+        if (result == null) {
+            return null;
+        }
+        return !result;
     }
 }

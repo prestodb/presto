@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
@@ -25,6 +26,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.util.Failures.internalError;
 
@@ -47,7 +49,9 @@ public final class ArrayPositionFunction
             if (!array.isNull(i)) {
                 boolean arrayValue = type.getBoolean(array, i);
                 try {
-                    if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
+                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
+                    checkNotIndeterminate(result);
+                    if (result) {
                         return i + 1; // result is 1-based (instead of 0)
                     }
                 }
@@ -72,7 +76,9 @@ public final class ArrayPositionFunction
             if (!array.isNull(i)) {
                 long arrayValue = type.getLong(array, i);
                 try {
-                    if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
+                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
+                    checkNotIndeterminate(result);
+                    if (result) {
                         return i + 1; // result is 1-based (instead of 0)
                     }
                 }
@@ -97,7 +103,9 @@ public final class ArrayPositionFunction
             if (!array.isNull(i)) {
                 double arrayValue = type.getDouble(array, i);
                 try {
-                    if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
+                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
+                    checkNotIndeterminate(result);
+                    if (result) {
                         return i + 1; // result is 1-based (instead of 0)
                     }
                 }
@@ -122,7 +130,9 @@ public final class ArrayPositionFunction
             if (!array.isNull(i)) {
                 Slice arrayValue = type.getSlice(array, i);
                 try {
-                    if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
+                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
+                    checkNotIndeterminate(result);
+                    if (result) {
                         return i + 1; // result is 1-based (instead of 0)
                     }
                 }
@@ -147,7 +157,9 @@ public final class ArrayPositionFunction
             if (!array.isNull(i)) {
                 Object arrayValue = type.getObject(array, i);
                 try {
-                    if ((boolean) equalMethodHandle.invoke(arrayValue, element)) {
+                    Boolean result = (Boolean) equalMethodHandle.invoke(arrayValue, element);
+                    checkNotIndeterminate(result);
+                    if (result) {
                         return i + 1; // result is 1-based (instead of 0)
                     }
                 }
@@ -157,5 +169,12 @@ public final class ArrayPositionFunction
             }
         }
         return 0;
+    }
+
+    private static void checkNotIndeterminate(Boolean equalsResult)
+    {
+        if (equalsResult == null) {
+            throw new PrestoException(NOT_SUPPORTED, "array_position does not support arrays with elements that are null or contain null");
+        }
     }
 }
