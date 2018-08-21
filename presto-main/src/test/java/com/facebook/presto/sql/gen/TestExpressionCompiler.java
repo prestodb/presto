@@ -1277,6 +1277,55 @@ public class TestExpressionCompiler
     }
 
     @Test
+    public void testInComplexTypes()
+    {
+        assertExecute("ARRAY[1] IN (ARRAY[1])", BOOLEAN, true);
+        assertExecute("ARRAY[1] IN (ARRAY[2])", BOOLEAN, false);
+        assertExecute("ARRAY[1] IN (ARRAY[2], ARRAY[1])", BOOLEAN, true);
+        assertExecute("ARRAY[1] IN (null)", BOOLEAN, null);
+        assertExecute("ARRAY[1] IN (null, ARRAY[1])", BOOLEAN, true);
+        assertExecute("ARRAY[1, 2, null] IN (ARRAY[2, null], ARRAY[1, null])", BOOLEAN, false);
+        assertExecute("ARRAY[1, null] IN (ARRAY[2, null], null)", BOOLEAN, null);
+        assertExecute("ARRAY[null] IN (ARRAY[null])", BOOLEAN, null);
+        assertExecute("ARRAY[1] IN (ARRAY[null])", BOOLEAN, null);
+        assertExecute("ARRAY[null] IN (ARRAY[1])", BOOLEAN, null);
+        assertExecute("ARRAY[1, null] IN (ARRAY[1, null])", BOOLEAN, null);
+        assertExecute("ARRAY[1, null] IN (ARRAY[2, null])", BOOLEAN, false);
+        assertExecute("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null])", BOOLEAN, null);
+        assertExecute("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])", BOOLEAN, null);
+
+        assertExecute("ROW(1) IN (ROW(1))", BOOLEAN, true);
+        assertExecute("ROW(1) IN (ROW(2))", BOOLEAN, false);
+        assertExecute("ROW(1) IN (ROW(2), ROW(1), ROW(2))", BOOLEAN, true);
+        assertExecute("ROW(1) IN (null)", BOOLEAN, null);
+        assertExecute("ROW(1) IN (null, ROW(1))", BOOLEAN, true);
+        assertExecute("ROW(1, null) IN (ROW(2, null), null)", BOOLEAN, null);
+        assertExecute("ROW(null) IN (ROW(null))", BOOLEAN, null);
+        assertExecute("ROW(1) IN (ROW(null))", BOOLEAN, null);
+        assertExecute("ROW(null) IN (ROW(1))", BOOLEAN, null);
+        assertExecute("ROW(1, null) IN (ROW(1, null))", BOOLEAN, null);
+        assertExecute("ROW(1, null) IN (ROW(2, null))", BOOLEAN, false);
+        assertExecute("ROW(1, null) IN (ROW(1, null), ROW(2, null))", BOOLEAN, null);
+        assertExecute("ROW(1, null) IN (ROW(1, null), ROW(2, null), ROW(1, null))", BOOLEAN, null);
+
+        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[1]))", BOOLEAN, true);
+        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (null)", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (null, MAP(ARRAY[1], ARRAY[1]))", BOOLEAN, true);
+        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, false);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", BOOLEAN, false);
+        assertExecute("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[null]))", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[null]))", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[1]))", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", BOOLEAN, false);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]))", BOOLEAN, false);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))", BOOLEAN, null);
+        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, null);
+    }
+
+    @Test
     public void testFunctionCall()
             throws Exception
     {
