@@ -330,7 +330,10 @@ public class ExtractSpatialJoins
                 newLeftNode,
                 newRightNode,
                 outputSymbols,
-                newFilter));
+                newFilter,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)

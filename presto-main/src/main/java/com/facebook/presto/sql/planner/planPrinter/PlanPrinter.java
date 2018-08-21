@@ -560,6 +560,7 @@ public class PlanPrinter
                     node.getFilter(),
                     formatOutputs(node.getOutputSymbols()));
 
+            print(indent + 2, "Distribution: %s", node.getDistributionType());
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);

@@ -264,15 +264,21 @@ public class PruneUnreferencedOutputs
                     .addAll(context.get())
                     .build();
 
-            PlanNode left = context.rewrite(node.getLeft(), requiredInputs);
-            PlanNode right = context.rewrite(node.getRight(), requiredInputs);
+            ImmutableSet.Builder<Symbol> leftInputs = ImmutableSet.builder();
+            node.getLeftPartitionSymbol().map(leftInputs::add);
+
+            ImmutableSet.Builder<Symbol> rightInputs = ImmutableSet.builder();
+            node.getRightPartitionSymbol().map(rightInputs::add);
+
+            PlanNode left = context.rewrite(node.getLeft(), leftInputs.addAll(requiredInputs).build());
+            PlanNode right = context.rewrite(node.getRight(), rightInputs.addAll(requiredInputs).build());
 
             List<Symbol> outputSymbols = node.getOutputSymbols().stream()
                     .filter(context.get()::contains)
                     .distinct()
                     .collect(toImmutableList());
 
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputSymbols, node.getFilter());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputSymbols, node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
         }
 
         @Override
