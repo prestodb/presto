@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -93,6 +94,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -984,6 +986,10 @@ public class TestExpressionCompiler
             }
         }
 
+        assertExecute("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "matched");
+        assertExecute("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
+        assertExecute("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
+
         Futures.allAsList(futures).get();
     }
 
@@ -1039,6 +1045,10 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        assertExecute("case when ARRAY[CAST(1 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "matched");
+        assertExecute("case when ARRAY[CAST(2 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
+        assertExecute("case when ARRAY[CAST(null AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
 
         Futures.allAsList(futures).get();
     }
@@ -1519,6 +1529,9 @@ public class TestExpressionCompiler
         assertExecute("nullif(NULL, 2)", UNKNOWN, null);
         assertExecute("nullif(2, NULL)", INTEGER, 2);
         assertExecute("nullif(BIGINT '2', NULL)", BIGINT, 2L);
+        assertExecute("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)])", new ArrayType(BIGINT), null);
+        assertExecute("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)])", new ArrayType(BIGINT), ImmutableList.of(1L));
+        assertExecute("nullif(ARRAY[CAST(NULL AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)])", new ArrayType(BIGINT), singletonList(null));
 
         // Test coercion in which the CAST function takes ConnectorSession (e.g. MapToMapCast)
         assertExecute("nullif(" +

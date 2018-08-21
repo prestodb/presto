@@ -276,6 +276,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("nullif(9876543210.9874561203, 9876543210.9874561203)", "null");
         assertOptimizedEquals("nullif(bound_decimal_short, 123.45)", "null");
         assertOptimizedEquals("nullif(bound_decimal_long, 12345678901234567890.123)", "null");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)]) IS NULL", "true");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
+        assertOptimizedEquals("nullif(ARRAY[CAST(NULL AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
     }
 
     @Test
@@ -829,6 +832,10 @@ public class TestExpressionInterpreter
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+
+        assertOptimizedEquals("case when ARRAY[CAST(1 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
+        assertOptimizedEquals("case when ARRAY[CAST(2 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("case when ARRAY[CAST(null AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
     @Test
@@ -1061,6 +1068,10 @@ public class TestExpressionInterpreter
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+
+        assertOptimizedEquals("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
+        assertOptimizedEquals("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
     @Test

@@ -533,6 +533,10 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [2.2, 1.1], 0000000000001.100)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [2.2, 001.20], 1.2)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [3.3, 4.300])", BOOLEAN, true);
+        assertFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [1.3, null])", BOOLEAN, false);
+
+        assertInvalidFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [1.1, null])", NOT_SUPPORTED);
+        assertInvalidFunction("CONTAINS(ARRAY [ARRAY [1.1, null], ARRAY [3.3, 4.3]], ARRAY [1.1, null])", NOT_SUPPORTED);
     }
 
     @Test
@@ -678,6 +682,10 @@ public class TestArrayOperators
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 000000000000000000000003.000)", BIGINT, 3L);
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 3)", BIGINT, 3L);
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3, 4.0], 4.0)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY [ARRAY[1]], ARRAY[1])", BIGINT, 1L);
+
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[1])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[null])", NOT_SUPPORTED);
     }
 
     @Test
@@ -1169,6 +1177,19 @@ public class TestArrayOperators
                 "!= ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543]", BOOLEAN, false);
         assertFunction("ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543] " +
                 "!= ARRAY [1234567890.1234567890, 9876543210.9876543210, 0]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2, null] = ARRAY [1, null]", BOOLEAN, false);
+        assertFunction("ARRAY ['1', '2', null] = ARRAY ['1', null]", BOOLEAN, false);
+        assertFunction("ARRAY [1.0, 2.0, null] = ARRAY [1.0, null]", BOOLEAN, false);
+        assertFunction("ARRAY [1.0E0, 2.0E0, null] = ARRAY [1.0E0, null]", BOOLEAN, false);
+        assertFunction("ARRAY [1, 2, null] = ARRAY [1, 2, null]", BOOLEAN, null);
+        assertFunction("ARRAY ['1', '2', null] = ARRAY ['1', '2', null]", BOOLEAN, null);
+        assertFunction("ARRAY [1.0, 2.0, null] = ARRAY [1.0, 2.0, null]", BOOLEAN, null);
+        assertFunction("ARRAY [1.0E0, 2.0E0, null] = ARRAY [1.0E0, 2.0E0, null]", BOOLEAN, null);
+        assertFunction("ARRAY [1, 3, null] = ARRAY [1, 2, null]", BOOLEAN, false);
+        assertFunction("ARRAY [1E0, 3E0, null] = ARRAY [1E0, 2E0, null]", BOOLEAN, false);
+        assertFunction("ARRAY ['1', '3', null] = ARRAY ['1', '2', null]", BOOLEAN, false);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[2]] = ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, false);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[3]] = ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, null);
 
         assertFunction("ARRAY [10, 20, 30] != ARRAY [5]", BOOLEAN, true);
         assertFunction("ARRAY [10, 20, 30] = ARRAY [5]", BOOLEAN, false);
@@ -1196,6 +1217,11 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] = ARRAY [ARRAY [1, 2, 3], ARRAY [4, 5]]", BOOLEAN, false);
         assertFunction("ARRAY [1.0, 2.0, 3.0] = ARRAY [1.0, 2.0]", BOOLEAN, false);
         assertFunction("ARRAY [1.0, 2.0, 3.0] != ARRAY [1.0, 2.0]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2, null] != ARRAY [1, 2, null]", BOOLEAN, null);
+        assertFunction("ARRAY [1, 2, null] != ARRAY [1, null]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 3, null] != ARRAY [1, 2, null]", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[2]] != ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[3]] != ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, null);
 
         assertFunction("ARRAY [10, 20, 30] < ARRAY [10, 20, 40, 50]", BOOLEAN, true);
         assertFunction("ARRAY [10, 20, 30] >= ARRAY [10, 20, 40, 50]", BOOLEAN, false);
@@ -1318,8 +1344,6 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] >= ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, false);
-
-        assertInvalidFunction("ARRAY [1, NULL] = ARRAY [1, 2]", NOT_SUPPORTED.toErrorCode());
     }
 
     @Test
@@ -1387,6 +1411,10 @@ public class TestArrayOperators
                 new ArrayType(createDecimalType(22, 10)),
                 ImmutableList.of(decimal("1234567890.1234567890"), decimal("9876543210.9876543210"), decimal("123123123456.6549876543")));
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')");
+
+        assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(1 AS BIGINT)])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(null AS BIGINT)])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(1 AS BIGINT)]], ARRAY[CAST(null AS BIGINT)])", NOT_SUPPORTED);
     }
 
     @Test
