@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,7 +65,7 @@ public class KafkaTableDescriptionSupplier
     @Override
     public Map<SchemaTableName, KafkaTopicDescription> get()
     {
-        ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> tableDefinitionBuilder = ImmutableMap.builder();
 
         log.debug("Loading kafka table definitions from %s", tableDescriptionDir.getAbsolutePath());
 
@@ -73,43 +74,31 @@ public class KafkaTableDescriptionSupplier
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     KafkaTopicDescription table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
                     String schemaName = table.getSchemaName().orElse(defaultSchema);
-                    log.debug("Kafka table %s.%s: %s", schemaName, table.getTableName(), table);
-                    builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
+                    log.debug("Found Kafka Table definition for %s.%s: %s", schemaName, table.getTableName(), table);
+                    tableDefinitionBuilder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }
             }
-
-            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.build();
-
+            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = tableDefinitionBuilder.build();
             log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
 
-            builder = ImmutableMap.builder();
-            for (String definedTable : tableNames) {
-                SchemaTableName tableName;
-                try {
-                    tableName = parseTableName(definedTable);
-                }
-                catch (IllegalArgumentException iae) {
-                    tableName = new SchemaTableName(defaultSchema, definedTable);
-                }
+            Map<SchemaTableName, KafkaTopicDescription> builder = new HashMap<>();
 
-                if (tableDefinitions.containsKey(tableName)) {
-                    KafkaTopicDescription kafkaTable = tableDefinitions.get(tableName);
-                    log.debug("Found Table definition for %s: %s", tableName, kafkaTable);
-                    builder.put(tableName, kafkaTable);
-                }
-                else {
-                    // A dummy table definition only supports the internal columns.
-                    log.debug("Created dummy Table definition for %s", tableName);
-                    builder.put(tableName, new KafkaTopicDescription(
-                            tableName.getTableName(),
-                            Optional.ofNullable(tableName.getSchemaName()),
-                            definedTable,
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of())),
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of()))));
-                }
+            // A dummy table definition only supports the internal columns.
+            for (String definedTable : tableNames) {
+                SchemaTableName tableName = parseTableName(definedTable);
+
+                log.debug("Created dummy Table definition for %s", tableName);
+                builder.put(tableName, new KafkaTopicDescription(
+                        tableName.getTableName(),
+                        Optional.ofNullable(tableName.getSchemaName()),
+                        definedTable,
+                        Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of())),
+                        Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of()))));
             }
 
-            return builder.build();
+            //Add tables from json definition schemas
+            builder.putAll(tableDefinitions);
+            return builder;
         }
         catch (IOException e) {
             log.warn(e, "Error: ");
@@ -129,11 +118,16 @@ public class KafkaTableDescriptionSupplier
         return ImmutableList.of();
     }
 
-    private static SchemaTableName parseTableName(String schemaTableName)
+    private SchemaTableName parseTableName(String schemaTableName)
     {
-        checkArgument(!isNullOrEmpty(schemaTableName), "schemaTableName is null or is empty");
-        List<String> parts = Splitter.on('.').splitToList(schemaTableName);
-        checkArgument(parts.size() == 2, "Invalid schemaTableName: %s", schemaTableName);
-        return new SchemaTableName(parts.get(0), parts.get(1));
+        try {
+            checkArgument(!isNullOrEmpty(schemaTableName), "schemaTableName is null or is empty");
+            List<String> parts = Splitter.on('.').splitToList(schemaTableName);
+            checkArgument(parts.size() == 2, "Invalid schemaTableName: %s", schemaTableName);
+            return new SchemaTableName(parts.get(0), parts.get(1));
+        }
+        catch (IllegalArgumentException ignored) {
+            return new SchemaTableName(defaultSchema, schemaTableName);
+        }
     }
 }
