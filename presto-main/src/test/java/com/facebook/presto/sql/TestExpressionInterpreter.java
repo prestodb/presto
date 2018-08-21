@@ -453,6 +453,56 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testInComplexTypes()
+    {
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2])", "false");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2], ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1] IN (null)", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (null, ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1, 2, null] IN (ARRAY[2, null], ARRAY[1, null])", "false");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null], null)", "null");
+        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[null])", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[null])", "null");
+        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[1])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null])", "false");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])", "null");
+        assertEvaluatedEquals("ARRAY[ARRAY[1, 2], ARRAY[3, 4]] in (ARRAY[ARRAY[1, 2], ARRAY[3, NULL]])", "null");
+
+        assertEvaluatedEquals("ROW(1) IN (ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1) IN (ROW(2))", "false");
+        assertEvaluatedEquals("ROW(1) IN (ROW(2), ROW(1), ROW(2))", "true");
+        assertEvaluatedEquals("ROW(1) IN (null)", "null");
+        assertEvaluatedEquals("ROW(1) IN (null, ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null), null)", "null");
+        assertEvaluatedEquals("ROW(null) IN (ROW(null))", "null");
+        assertEvaluatedEquals("ROW(1) IN (ROW(null))", "null");
+        assertEvaluatedEquals("ROW(null) IN (ROW(1))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null))", "false");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null), ROW(1, null))", "null");
+
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null)", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null, MAP(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[1]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+    }
+
+    @Test
     public void testCurrentTimestamp()
     {
         double current = TEST_SESSION.getStartTime() / 1000.0;
@@ -1421,6 +1471,11 @@ public class TestExpressionInterpreter
 
             return symbol.toSymbolReference();
         });
+    }
+
+    private static void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertEquals(evaluate(actual), evaluate(expected));
     }
 
     private static Object evaluate(String expression)
