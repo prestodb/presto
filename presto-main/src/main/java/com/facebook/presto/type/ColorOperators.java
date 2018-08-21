@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
@@ -32,14 +33,16 @@ public final class ColorOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(ColorType.NAME) long left, @SqlType(ColorType.NAME) long right)
+    @SqlNullable
+    public static Boolean equal(@SqlType(ColorType.NAME) long left, @SqlType(ColorType.NAME) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(ColorType.NAME) long left, @SqlType(ColorType.NAME) long right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(ColorType.NAME) long left, @SqlType(ColorType.NAME) long right)
     {
         return left != right;
     }

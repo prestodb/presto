@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -23,6 +24,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -456,15 +458,20 @@ public class MapBlockBuilder
                     break;
                 }
 
-                boolean isDuplicateKey;
+                Boolean isDuplicateKey;
                 try {
-                    isDuplicateKey = (boolean) keyBlockEquals.invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + outputHashTable[hashTableOffset + hash]);
+                    // assuming maps with indeterminate keys are not supported
+                    isDuplicateKey = (Boolean) keyBlockEquals.invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + outputHashTable[hashTableOffset + hash]);
                 }
                 catch (RuntimeException e) {
                     throw e;
                 }
                 catch (Throwable throwable) {
                     throw new RuntimeException(throwable);
+                }
+
+                if (isDuplicateKey == null) {
+                    throw new PrestoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
                 }
 
                 if (isDuplicateKey) {

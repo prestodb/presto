@@ -530,7 +530,7 @@ public class ExpressionInterpreter
 
         private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
         {
-            return (Boolean) invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2));
+            return Boolean.TRUE.equals(invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2)));
         }
 
         private Type type(Expression expression)
@@ -618,9 +618,15 @@ public class ExpressionInterpreter
                 if (inValue == null) {
                     hasNullValue = true;
                 }
-                else if (!found && (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getValue(), expression), ImmutableList.of(value, inValue))) {
-                    // in does not short-circuit so we must evaluate all value in the list
-                    found = true;
+                else {
+                    Boolean result = (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getValue(), expression), ImmutableList.of(value, inValue));
+                    if (result == null) {
+                        hasNullValue = true;
+                    }
+                    else if (!found && result) {
+                        // in does not short-circuit so we must evaluate all value in the list
+                        found = true;
+                    }
                 }
             }
             if (found) {
@@ -797,12 +803,12 @@ public class ExpressionInterpreter
             Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
-            boolean equal = (Boolean) invokeOperator(
+            boolean equal = Boolean.TRUE.equals(invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
                             functionInvoker.invoke(firstCast, session, ImmutableList.of(first)),
-                            functionInvoker.invoke(secondCast, session, ImmutableList.of(second))));
+                            functionInvoker.invoke(secondCast, session, ImmutableList.of(second)))));
 
             if (equal) {
                 return null;
