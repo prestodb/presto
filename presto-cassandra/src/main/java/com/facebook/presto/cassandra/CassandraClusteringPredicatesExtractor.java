@@ -34,13 +34,11 @@ import static java.util.Objects.requireNonNull;
 
 public class CassandraClusteringPredicatesExtractor
 {
-    private final List<CassandraColumnHandle> clusteringColumns;
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
     public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
     {
-        this.clusteringColumns = ImmutableList.copyOf(clusteringColumns);
         this.predicates = requireNonNull(predicates, "predicates is null");
         this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
     }
