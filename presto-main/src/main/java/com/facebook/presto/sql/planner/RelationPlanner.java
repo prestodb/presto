@@ -724,6 +724,7 @@ class RelationPlanner
                     targetColumnTypes[i],
                     oldField.isHidden(),
                     oldField.getOriginTable(),
+                    oldField.getOriginColumnName(),
                     oldField.isAliased());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());

@@ -762,6 +762,7 @@ class StatementAnalyzer
                                     inputField.getType(),
                                     false,
                                     inputField.getOriginTable(),
+                                    inputField.getOriginColumnName(),
                                     inputField.isAliased()));
 
                             field++;
@@ -777,6 +778,7 @@ class StatementAnalyzer
                                         field.getType(),
                                         field.isHidden(),
                                         field.getOriginTable(),
+                                        field.getOriginColumnName(),
                                         field.isAliased()))
                                 .collect(toImmutableList());
                     }
@@ -825,6 +827,7 @@ class StatementAnalyzer
                                 column.getType(),
                                 false,
                                 Optional.of(name),
+                                Optional.of(column.getName()),
                                 false))
                         .collect(toImmutableList());
 
@@ -855,6 +858,7 @@ class StatementAnalyzer
                         column.getType(),
                         column.isHidden(),
                         Optional.of(name),
+                        Optional.of(column.getName()),
                         false);
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
@@ -1043,6 +1047,7 @@ class StatementAnalyzer
                         outputFieldTypes[i],
                         oldField.isHidden(),
                         oldField.getOriginTable(),
+                        oldField.getOriginColumnName(),
                         oldField.isAliased());
             }
 
@@ -1589,7 +1594,7 @@ class StatementAnalyzer
                     Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                     for (Field field : sourceScope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
-                        outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), false));
+                        outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
                     }
                 }
                 else if (item instanceof SingleColumn) {
@@ -1599,6 +1604,7 @@ class StatementAnalyzer
                     Optional<Identifier> field = column.getAlias();
 
                     Optional<QualifiedObjectName> originTable = Optional.empty();
+                    Optional<String> originColumn = Optional.empty();
                     QualifiedName name = null;
 
                     if (expression instanceof Identifier) {
@@ -1612,6 +1618,7 @@ class StatementAnalyzer
                         List<Field> matchingFields = sourceScope.getRelationType().resolveFields(name);
                         if (!matchingFields.isEmpty()) {
                             originTable = matchingFields.get(0).getOriginTable();
+                            originColumn = matchingFields.get(0).getOriginColumnName();
                         }
                     }
 
@@ -1621,7 +1628,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
