@@ -15,9 +15,11 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -45,5 +47,13 @@ public class CassandraPartitionResult
     public boolean isUnpartitioned()
     {
         return partitions.size() == 1 && getOnlyElement(partitions).isUnpartitioned();
+    }
+
+    public TupleDomain<ColumnHandle> getPredicate()
+    {
+        ImmutableList<TupleDomain<ColumnHandle>> tupleDomains = partitions.stream()
+                .map(CassandraPartition::getTupleDomain)
+                .collect(toImmutableList());
+        return TupleDomain.columnWiseUnion(tupleDomains);
     }
 }

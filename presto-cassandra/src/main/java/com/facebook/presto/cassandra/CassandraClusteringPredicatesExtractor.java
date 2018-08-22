@@ -48,6 +48,11 @@ public class CassandraClusteringPredicatesExtractor
         return clusteringPushDownResult.getDomainQuery();
     }
 
+    public TupleDomain<ColumnHandle> getPredicate()
+    {
+        return TupleDomain.withColumnDomains(clusteringPushDownResult.getDomains());
+    }
+
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
         Map<ColumnHandle, Domain> pushedDown = clusteringPushDownResult.getDomains();

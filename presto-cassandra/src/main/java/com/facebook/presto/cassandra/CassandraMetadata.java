@@ -59,6 +59,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -205,6 +206,7 @@ public class CassandraMetadata
         CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
 
         String clusteringKeyPredicates = "";
+        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         TupleDomain<ColumnHandle> unenforcedConstraint;
         if (partitionResult.isUnpartitioned()) {
             unenforcedConstraint = partitionResult.getUnenforcedConstraint();
@@ -215,12 +217,14 @@ public class CassandraMetadata
                     partitionResult.getUnenforcedConstraint(),
                     cassandraSession.getCassandraVersion());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
+            predicate = clusteringPredicatesExtractor.getPredicate().intersect(partitionResult.getPredicate());
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
         }
 
         ConnectorTableLayout layout = getTableLayout(session, new CassandraTableLayoutHandle(
                 handle,
                 partitionResult.getPartitions(),
+                predicate,
                 clusteringKeyPredicates));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
     }
@@ -228,7 +232,13 @@ public class CassandraMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout(handle);
+        return new ConnectorTableLayout(handle,
+                Optional.empty(),
+                ((CassandraTableLayoutHandle) handle).getPredicate(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                emptyList());
     }
 
     @Override

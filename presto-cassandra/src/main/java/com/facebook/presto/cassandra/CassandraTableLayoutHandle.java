@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,18 +30,20 @@ public final class CassandraTableLayoutHandle
 {
     private final CassandraTableHandle table;
     private final List<CassandraPartition> partitions;
+    private final TupleDomain<ColumnHandle> predicate;
     private final String clusteringPredicates;
 
     @JsonCreator
     public CassandraTableLayoutHandle(@JsonProperty("table") CassandraTableHandle table)
     {
-        this(table, ImmutableList.of(), "");
+        this(table, ImmutableList.of(), TupleDomain.all(), "");
     }
 
-    public CassandraTableLayoutHandle(CassandraTableHandle table, List<CassandraPartition> partitions, String clusteringPredicates)
+    public CassandraTableLayoutHandle(CassandraTableHandle table, List<CassandraPartition> partitions, TupleDomain<ColumnHandle> predicate, String clusteringPredicates)
     {
         this.table = requireNonNull(table, "table is null");
         this.partitions = ImmutableList.copyOf(requireNonNull(partitions, "partition is null"));
+        this.predicate = requireNonNull(predicate, "predicate is null");
         this.clusteringPredicates = requireNonNull(clusteringPredicates, "clusteringPredicates is null");
     }
 
@@ -59,6 +63,12 @@ public final class CassandraTableLayoutHandle
     public String getClusteringPredicates()
     {
         return clusteringPredicates;
+    }
+
+    @JsonIgnore
+    public TupleDomain<ColumnHandle> getPredicate()
+    {
+        return predicate;
     }
 
     @Override
