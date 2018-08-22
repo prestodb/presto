@@ -49,8 +49,8 @@ public class TestSqlParserErrorHandling
                 {"select * from 'oops",
                  "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select *\nfrom x\nfrom",
-                 "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', " +
-                         "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>, <identifier>"},
+                 "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', " +
+                         "'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>, <identifier>"},
                 {"select *\nfrom x\nwhere from",
                  "line 3:7: mismatched input 'from'. Expecting: <expression>"},
                 {"select * from",
@@ -112,8 +112,8 @@ public class TestSqlParserErrorHandling
                 {"SELECT foo(*) filter (",
                  "line 1:23: mismatched input '<EOF>'. Expecting: 'WHERE'"},
                 {"SELECT * FROM t t x",
-                 "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', 'RIGHT', " +
-                         "'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
+                 "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', " +
+                         "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
                  "line 1:31: mismatched input '<EOF>'. Expecting: <query>"}};
     }
