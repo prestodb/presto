@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.NoViableAltException;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
@@ -69,11 +70,29 @@ class ErrorHandler
             Parser parser = (Parser) recognizer;
 
             ATN atn = parser.getATN();
-            ATNState currentState = atn.states.get(parser.getState());
+
+            ATNState currentState;
+            Token currentToken;
+            RuleContext context;
+
+            if (e != null) {
+                currentState = atn.states.get(e.getOffendingState());
+                currentToken = e.getOffendingToken();
+                context = e.getCtx();
+
+                if (e instanceof NoViableAltException) {
+                    currentToken = ((NoViableAltException) e).getStartToken();
+                }
+            }
+            else {
+                currentState = atn.states.get(parser.getState());
+                currentToken = parser.getCurrentToken();
+                context = parser.getContext();
+            }
 
             Multimap<Integer, String> candidates = HashMultimap.create();
             Analyzer analyzer = new Analyzer(atn, parser.getVocabulary(), specialRules, specialTokens, ignoredRules, parser.getTokenStream(), candidates);
-            analyzer.process(currentState, parser.getCurrentToken().getTokenIndex(), parser.getContext());
+            analyzer.process(currentState, currentToken.getTokenIndex(), context);
 
             // pick the candidate tokens associated largest token index processed (i.e., the path that consumed the most input)
             String expected = candidates.asMap().entrySet().stream()
