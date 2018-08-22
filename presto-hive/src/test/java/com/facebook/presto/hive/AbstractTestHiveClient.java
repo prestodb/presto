@@ -798,7 +798,7 @@ public abstract class AbstractTestHiveClient
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, metadataFactory.create());
+        return new HiveTransaction(transactionManager, metadataFactory.get());
     }
 
     interface Transaction
