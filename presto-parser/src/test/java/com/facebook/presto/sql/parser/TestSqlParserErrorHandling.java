@@ -86,7 +86,7 @@ public class TestSqlParserErrorHandling
                 {"CREATE TABLE foo (*) AS (VALUES 1)",
                  "line 1:19: mismatched input '*'. Expecting: 'OR', 'SCHEMA', 'TABLE', 'VIEW'"},
                 {"SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2",
-                 "line 1:18: mismatched input '+'. Expecting: ')', ',', '.'"},
+                 "line 1:18: mismatched input '+'. Expecting: ')', ','"},
                 {"SELECT x() over (ROWS select) FROM t",
                  "line 1:23: mismatched input 'select'. Expecting: 'BETWEEN', 'CURRENT', 'UNBOUNDED', <expression>"},
                 {"SELECT X() OVER (ROWS UNBOUNDED) FROM T",
@@ -115,7 +115,7 @@ public class TestSqlParserErrorHandling
                  "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', 'RIGHT', " +
                          "'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
-                 "line 1:31: mismatched input '<EOF>'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'"}};
+                 "line 1:31: mismatched input '<EOF>'. Expecting: <query>"}};
     }
 
     @Test(dataProvider = "statements")
