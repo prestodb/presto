@@ -69,7 +69,7 @@ public class TestHiveClientConfig
                 .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
                 .setS3FileSystemType(S3FileSystemType.PRESTO)
-                .setResourceConfigFiles((String) null)
+                .setResourceConfigFiles("")
                 .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)

@@ -93,9 +93,6 @@ public class HdfsConfigurationUpdater
     private static Configuration readConfiguration(List<String> resourcePaths)
     {
         Configuration result = new Configuration(false);
-        if (resourcePaths == null) {
-            return result;
-        }
 
         for (String resourcePath : resourcePaths) {
             Configuration resourceProperties = new Configuration(false);
