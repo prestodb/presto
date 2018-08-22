@@ -32,7 +32,6 @@ import java.util.Set;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter
@@ -64,8 +63,7 @@ public final class GroupingOperationRewriter
                     .collect(toImmutableList());
 
             List<Expression> groupingResults = groupingSets.stream()
-                    .map(groupingSets::indexOf)
-                    .map(groupId -> String.valueOf(calculateGrouping(groupId, columns, groupingSets)))
+                    .map(groupingSet -> String.valueOf(calculateGrouping(groupingSet, columns)))
                     .map(LongLiteral::new)
                     .collect(toImmutableList());
 
@@ -98,25 +96,18 @@ public final class GroupingOperationRewriter
      * grouping and 1 otherwise. For an example, see the SQL documentation for the
      * function.
      *
-     * @param groupId An ordinal indicating which grouping is currently being processed.
-     *        Each grouping is assigned a unique monotonically increasing integer.
      * @param columns The column arguments with which the function was
      *        invoked converted to ordinals with respect to the base table column
      *        ordering.
-     * @param groupingSetDescriptors A collection of ordinal lists where the index of
-     *        the list is the groupId and the list itself contains the ordinals of the
-     *        columns present in the grouping. For example: [[0, 2], [2], [0, 1, 2]]
-     *        means the the 0th list contains the set of columns that are present in
-     *        the 0th grouping.
+     * @param groupingSet A collection containing the ordinals of the
+     *        columns present in the grouping.
      * @return A bit set converted to decimal indicating which columns are present in
      *         the grouping. If a column is NOT present in the grouping its corresponding
      *         bit is set to 1 and to 0 if the column is present in the grouping.
      */
-    static long calculateGrouping(long groupId, List<Integer> columns, List<Set<Integer>> groupingSetDescriptors)
+    static long calculateGrouping(Set<Integer> groupingSet, List<Integer> columns)
     {
         long grouping = (1L << columns.size()) - 1;
-
-        Set<Integer> groupingSet = groupingSetDescriptors.get(toIntExact(groupId));
 
         for (int index = 0; index < columns.size(); index++) {
             int column = columns.get(index);
