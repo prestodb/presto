@@ -38,7 +38,6 @@ public class DesugarAtTimeZone
                 projectExpressionRewrite(),
                 aggregationExpressionRewrite(),
                 filterExpressionRewrite(),
-                tableScanExpressionRewrite(),
                 joinExpressionRewrite(),
                 valuesExpressionRewrite());
     }

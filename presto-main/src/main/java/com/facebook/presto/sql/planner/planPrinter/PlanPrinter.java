@@ -818,16 +818,14 @@ public class PlanPrinter
         {
             TableHandle table = node.getTable();
             if (stageExecutionStrategy.isPresent()) {
-                print(indent, "- TableScan[%s, grouped = %s, originalConstraint = %s] => [%s]",
+                print(indent, "- TableScan[%s, grouped = %s] => [%s]",
                         table,
                         stageExecutionStrategy.get().isGroupedExecution(node.getId()),
-                        node.getOriginalConstraint(),
                         formatOutputs(node.getOutputSymbols()));
             }
             else {
-                print(indent, "- TableScan[%s, originalConstraint = %s] => [%s]",
+                print(indent, "- TableScan[%s] => [%s]",
                         table,
-                        node.getOriginalConstraint(),
                         formatOutputs(node.getOutputSymbols()));
             }
             printPlanNodesStatsAndCost(indent + 2, node);
@@ -902,8 +900,6 @@ public class PlanPrinter
                     format += "grouped = %s, ";
                     arguments.add(stageExecutionStrategy.get().isGroupedExecution(scanNode.get().getId()));
                 }
-                format += "originalConstraint = %s, ";
-                arguments.add(scanNode.get().getOriginalConstraint());
             }
 
             if (filterNode.isPresent()) {
