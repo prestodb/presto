@@ -33,6 +33,7 @@ import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -45,7 +46,7 @@ public class HiveConnector
     private static final Logger log = Logger.get(HiveConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
-    private final HiveMetadataFactory metadataFactory;
+    private final Supplier<TransactionalMetadata> metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -61,7 +62,7 @@ public class HiveConnector
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
-            HiveMetadataFactory metadataFactory,
+            Supplier<TransactionalMetadata> metadataFactory,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -163,7 +164,7 @@ public class HiveConnector
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.create());
+            transactionManager.put(transaction, metadataFactory.get());
         }
         return transaction;
     }
@@ -171,7 +172,7 @@ public class HiveConnector
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        HiveMetadata metadata = (HiveMetadata) transactionManager.remove(transaction);
+        TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             metadata.commit();
@@ -181,7 +182,7 @@ public class HiveConnector
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        HiveMetadata metadata = (HiveMetadata) transactionManager.remove(transaction);
+        TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             metadata.rollback();
