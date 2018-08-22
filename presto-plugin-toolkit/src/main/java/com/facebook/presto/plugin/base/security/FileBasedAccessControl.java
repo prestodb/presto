@@ -73,6 +73,21 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
     {
     }

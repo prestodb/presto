@@ -6,11 +6,19 @@ See the [User Manual](https://prestodb.io/docs/current/) for deployment instruct
 
 ## Checkr modifications
 
+### Schema operation permission
+
+We change file based permission to allow creation and dropping schema.  
+`presto/presto-plugin-toolkit/src/main/java/com/facebook/presto/plugin/base/security/FileBasedAccessControl.java`  
+1. Build `presto-plugin-toolkit` module:
+```
+mvn clean install -pl presto-plugin-toolkit -DskipTests
+```
 ### JSON log
 We changed Presto log to be JSON to work with ElasticSearch.
 1. Install `log-manager` module. From project root:
 ```
-mvn install:install-file -Dfile=dependencies/log-manager-5.0.jar -DgroupId=io.airlift -DartifactId=log-manager -Dversion=1.0 -Dpackaging=jar
+mvn install:install-file -Dfile=dependencies/log-manager-5.1.jar -DgroupId=io.airlift -DartifactId=log-manager -Dversion=1.0 -Dpackaging=jar
 ```
 2. Build `presto-server` module:
 ```
