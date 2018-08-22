@@ -146,6 +146,10 @@ public class PickTableLayout
             }
 
             TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
+            if (!tableScan.getLayout().isPresent() && rewrittenTableScan.getLayout().isPresent()) {
+                return false;
+            }
+
             return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint());
         }
     }
@@ -220,7 +224,7 @@ public class PickTableLayout
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 Optional.of(layout.getLayout().getHandle()),
-                simplifiedConstraint.intersect(layout.getLayout().getPredicate()));
+                layout.getLayout().getPredicate());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = combineConjuncts(

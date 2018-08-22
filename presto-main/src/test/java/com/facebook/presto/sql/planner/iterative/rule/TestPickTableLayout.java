@@ -17,7 +17,6 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -31,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
@@ -98,12 +96,7 @@ public class TestPickTableLayout
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                 Optional.of(nationTableLayoutHandle))))
-                .matches(
-                        filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout(
-                                        "nation",
-                                        ImmutableMap.of("nationkey", singleValue(BIGINT, 44L)),
-                                        ImmutableMap.of("nationkey", "nationkey"))));
+                .doesNotFire();
     }
 
     @Test
@@ -150,9 +143,6 @@ public class TestPickTableLayout
     @Test
     public void ruleAddedTableLayoutToFilterTableScan()
     {
-        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
-                .put("nationkey", singleValue(BIGINT, 44L))
-                .build();
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
@@ -161,7 +151,7 @@ public class TestPickTableLayout
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))
                 .matches(
                         filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout("nation", filterConstraint, ImmutableMap.of("nationkey", "nationkey"))));
+                                constrainedTableScanWithTableLayout("nation", ImmutableMap.of(), ImmutableMap.of("nationkey", "nationkey"))));
     }
 
     @Test
@@ -174,12 +164,7 @@ public class TestPickTableLayout
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                 Optional.of(nationTableLayoutHandle))))
-                .matches(
-                        filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout(
-                                        "nation",
-                                        ImmutableMap.of("nationkey", singleValue(BIGINT, 44L)),
-                                        ImmutableMap.of("nationkey", "nationkey"))));
+                .doesNotFire();
     }
 
     @Test

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -42,7 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -52,9 +50,6 @@ import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTP
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
-import static com.facebook.presto.spi.predicate.Domain.singleValue;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -96,7 +91,6 @@ import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -277,21 +271,17 @@ public class TestLogicalPlanner
     @Test
     public void testPushDownJoinConditionConjunctsToInnerSideBasedOnInheritedPredicate()
     {
-        Map<String, Domain> tableScanConstraint = ImmutableMap.<String, Domain>builder()
-                .put("name", singleValue(createVarcharType(25), utf8Slice("blah")))
-                .build();
-
         assertPlan(
                 "SELECT nationkey FROM nation LEFT OUTER JOIN region " +
                         "ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'",
                 anyTree(
                         join(LEFT, ImmutableList.of(equiJoinClause("NATION_NAME", "REGION_NAME"), equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
                                 anyTree(
-                                        constrainedTableScan("nation", tableScanConstraint, ImmutableMap.of(
+                                        constrainedTableScan("nation", ImmutableMap.of(), ImmutableMap.of(
                                                 "NATION_NAME", "name",
                                                 "NATION_REGIONKEY", "regionkey"))),
                                 anyTree(
-                                        constrainedTableScan("region", tableScanConstraint, ImmutableMap.of(
+                                        constrainedTableScan("region", ImmutableMap.of(), ImmutableMap.of(
                                                 "REGION_NAME", "name",
                                                 "REGION_REGIONKEY", "regionkey"))))));
     }
@@ -627,14 +617,11 @@ public class TestLogicalPlanner
     @Test
     public void testPickTableLayoutWithFilter()
     {
-        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
-                .put("orderkey", singleValue(BIGINT, 5L))
-                .build();
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderkey=5",
                 output(
                         filter("orderkey = BIGINT '5'",
-                                constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderkey", "orderkey")))));
+                                constrainedTableScanWithTableLayout("orders", ImmutableMap.of(), ImmutableMap.of("orderkey", "orderkey")))));
     }
 
     @Test
