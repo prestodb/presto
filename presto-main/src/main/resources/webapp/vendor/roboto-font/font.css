@@ -1,3 +1,10 @@
+/*
+ * CSS downloaded from https://fonts.googleapis.com/css?family=Roboto:400,500,700
+ *
+ * Font files downloaded from https://fonts.google.com/specimen/Roboto
+ * and then url references in the CSS updated accordingly to point to the locale
+ * files.
+ */
 /* cyrillic-ext */
 @font-face {
   font-family: 'Roboto';
