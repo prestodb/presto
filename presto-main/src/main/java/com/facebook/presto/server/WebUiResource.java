@@ -14,9 +14,14 @@
 package com.facebook.presto.server;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static javax.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
 import static javax.ws.rs.core.UriBuilder.fromPath;
 
@@ -24,10 +29,16 @@ import static javax.ws.rs.core.UriBuilder.fromPath;
 public class WebUiResource
 {
     @GET
-    public Response redirectIndexHtml()
+    public Response redirectIndexHtml(
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @Context UriInfo uriInfo)
     {
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
+
         return Response.status(MOVED_PERMANENTLY)
-                .location(fromPath("/ui/").build())
+                .location(fromPath("/ui/").scheme(proto).build())
                 .build();
     }
 }

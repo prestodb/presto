@@ -77,14 +77,23 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.flatTransform(this, transformation);
     }
 
+    /**
+     * Transforms {@link WorkProcessor} using {@link Transformation}. {@link Transformation} instance will be dereferenced immediately after
+     * {@link WorkProcessor} is exhausted.
+     */
     default <R> WorkProcessor<R> transform(Transformation<T, R> transformation)
     {
         return WorkProcessorUtils.transform(this, transformation);
     }
 
+    default <R> WorkProcessor<R> transformProcessor(Function<WorkProcessor<T>, WorkProcessor<R>> transformation)
+    {
+        return transformation.apply(this);
+    }
+
     /**
      * Converts {@link WorkProcessor} into an {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
-     * yields or becomes blocked.
+     * yields or becomes blocked. {@link WorkProcessor} instance will be dereferenced immediately after iterator is finished.
      */
     default Iterator<T> iterator()
     {
@@ -93,11 +102,16 @@ public interface WorkProcessor<T>
 
     /**
      * Converts {@link WorkProcessor} into an yielding {@link Iterator}. The iterator will throw {@link IllegalStateException} when underlying {@link WorkProcessor}
-     * becomes blocked.
+     * becomes blocked. {@link WorkProcessor} instance will be dereferenced immediately after iterator is exhausted.
      */
     default Iterator<Optional<T>> yieldingIterator()
     {
         return WorkProcessorUtils.yieldingIteratorFrom(this);
+    }
+
+    static <T> WorkProcessor<T> flatten(WorkProcessor<WorkProcessor<T>> processor)
+    {
+        return WorkProcessorUtils.flatten(processor);
     }
 
     static <T> WorkProcessor<T> fromIterable(Iterable<T> iterable)
@@ -110,6 +124,9 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.fromIterator(iterator);
     }
 
+    /**
+     * Creates {@link WorkProcessor} from {@link Process}. {@link Process} instance will be dereferenced immediately after {@link WorkProcessor} is finished.
+     */
     static <T> WorkProcessor<T> create(Process<T> process)
     {
         return WorkProcessorUtils.create(process);
@@ -122,6 +139,32 @@ public interface WorkProcessor<T>
 
     interface Transformation<T, R>
     {
+        /**
+         * Processes input elements and returns current transformation state.
+         *
+         * @param elementOptional an element to be transformed. Will be empty
+         * when there are no more elements. In such case transformation should
+         * finish processing and flush any remaining data.
+         * @return a current transformation state.
+         * <ul>
+         * <li>if state is {@link ProcessorState#finished()} then transformation has finished
+         * and the process method won't be called again;</li>
+         * <li>if state is {@link ProcessorState#needsMoreData()} then transformation requires
+         * more data in order to continue. The process method will be called with
+         * a new input element or with {@link Optional#empty()} if there are no more elements;</li>
+         * <li>if state is {@link ProcessorState#yield()} then transformation has yielded.
+         * The process method will be called again with the same input element;</li>
+         * <li>if state is {@link ProcessorState#blocked(ListenableFuture)} then transformation is blocked.
+         * The process method will be called again with the same input element after blocked
+         * future is done;</li>
+         * <li>if state is {@link ProcessorState#ofResult(Object, boolean)} then the transformation
+         * has produced a result. If <code>needsMoreData</code> {@link ProcessorState#ofResult(Object, boolean)}
+         * parameter is <code>true</code> then the process method will be called again with a new element
+         * (or with {@link Optional#empty()} if there are no more elements).
+         * If <code>needsMoreData</code> parameter is <code>false</code> then the process method
+         * will be called again with the same input element.
+         * </ul>
+         */
         ProcessorState<R> process(Optional<T> elementOptional);
     }
 

@@ -16,30 +16,13 @@ package com.facebook.presto.hive.security;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
-
-import static java.lang.String.format;
+import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestPartitionsAwareAccessControl
 {
     @Test
     public void testEverythingDelegated()
-            throws Exception
     {
-        checkEverythingImplemented(ConnectorAccessControl.class, PartitionsAwareAccessControl.class);
-    }
-
-    private static <I> void checkEverythingImplemented(Class<I> interfaceClass, Class<? extends I> implementationClass)
-            throws ReflectiveOperationException
-    {
-        for (Method interfaceMethod : interfaceClass.getMethods()) {
-            Method implementationMethod = implementationClass.getMethod(interfaceMethod.getName(), interfaceMethod.getParameterTypes());
-            if (interfaceMethod.equals(implementationMethod) && interfaceMethod.getAnnotation(Deprecated.class) == null) {
-                throw new AssertionError(format(
-                        "Method should be overridden in %s: %s",
-                        implementationClass,
-                        interfaceMethod));
-            }
-        }
+        assertAllMethodsOverridden(ConnectorAccessControl.class, PartitionsAwareAccessControl.class);
     }
 }

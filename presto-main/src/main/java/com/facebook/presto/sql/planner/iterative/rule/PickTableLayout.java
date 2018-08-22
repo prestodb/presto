@@ -220,8 +220,7 @@ public class PickTableLayout
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 Optional.of(layout.getLayout().getHandle()),
-                simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
-                Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
+                simplifiedConstraint.intersect(layout.getLayout().getPredicate()));
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = combineConjuncts(

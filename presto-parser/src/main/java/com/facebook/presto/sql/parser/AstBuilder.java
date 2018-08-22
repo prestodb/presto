@@ -126,7 +126,6 @@ import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
-import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowStats;
@@ -768,17 +767,6 @@ class AstBuilder
         QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
         Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
         return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
-    }
-
-    @Override
-    public Node visitShowPartitions(SqlBaseParser.ShowPartitionsContext context)
-    {
-        return new ShowPartitions(
-                getLocation(context),
-                getQualifiedName(context.qualifiedName()),
-                visitIfPresent(context.booleanExpression(), Expression.class),
-                visit(context.sortItem(), SortItem.class),
-                getTextIfPresent(context.limit));
     }
 
     @Override

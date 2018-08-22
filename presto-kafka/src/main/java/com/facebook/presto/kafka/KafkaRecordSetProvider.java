@@ -22,14 +22,16 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertSplit;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,7 +61,7 @@ public class KafkaRecordSetProvider
 
         RowDecoder keyDecoder = decoderFactory.create(
                 kafkaSplit.getKeyDataFormat(),
-                emptyMap(),
+                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(KafkaColumnHandle::isKeyDecoder)
@@ -67,12 +69,19 @@ public class KafkaRecordSetProvider
 
         RowDecoder messageDecoder = decoderFactory.create(
                 kafkaSplit.getMessageDataFormat(),
-                emptyMap(),
+                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyDecoder())
                         .collect(toImmutableSet()));
 
         return new KafkaRecordSet(kafkaSplit, consumerManager, kafkaColumns, keyDecoder, messageDecoder);
+    }
+
+    private Map<String, String> getDecoderParameters(Optional<String> dataSchema)
+    {
+        ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+        dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
+        return parameters.build();
     }
 }

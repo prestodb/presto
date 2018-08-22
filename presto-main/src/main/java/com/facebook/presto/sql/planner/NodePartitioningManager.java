@@ -24,6 +24,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.EmptySplit;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -154,6 +155,13 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
-        return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, split -> splitBucketFunction.applyAsInt(split.getConnectorSplit()));
+        return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, split -> {
+            // Assign EmptySplit to bucket 0.
+            // More details about EmptySplit can be found in SourcePartitionedScheduler.
+            if (split.getConnectorSplit() instanceof EmptySplit) {
+                return 0;
+            }
+            return splitBucketFunction.applyAsInt(split.getConnectorSplit());
+        });
     }
 }

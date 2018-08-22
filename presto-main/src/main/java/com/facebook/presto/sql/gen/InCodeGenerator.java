@@ -32,7 +32,7 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.airlift.bytecode.control.LookupSwitch;
+import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
 
 import java.lang.invoke.MethodHandle;
@@ -50,7 +50,6 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
-import static io.airlift.bytecode.control.LookupSwitch.lookupSwitchBuilder;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
@@ -165,16 +164,17 @@ public class InCodeGenerator
         Scope scope = generatorContext.getScope();
 
         BytecodeNode switchBlock;
-        BytecodeBlock switchCaseBlocks = new BytecodeBlock();
-        LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
+        Variable expression = scope.createTempVariable(int.class);
+        SwitchBuilder switchBuilder = new SwitchBuilder().expression(expression);
+
         switch (switchGenerationCase) {
             case DIRECT_SWITCH:
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
                 // For these types, it's safe to not use presto HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
-                    switchBuilder.addCase(toIntExact((Long) constantValue), match);
+                    switchBuilder.addCase(toIntExact((Long) constantValue), jump(match));
                 }
-                switchBuilder.defaultCase(defaultLabel);
+                switchBuilder.defaultCase(jump(defaultLabel));
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(<stackValue>))")
                         .dup(javaType)
@@ -186,18 +186,16 @@ public class InCodeGenerator
                                         .pop(javaType)
                                         .gotoLabel(defaultLabel)))
                         .longToInt()
+                        .putVariable(expression)
                         .append(switchBuilder.build());
                 break;
             case HASH_SWITCH:
                 for (Map.Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
-                    LabelNode label = new LabelNode("inHash" + bucket.getKey());
-                    switchBuilder.addCase(bucket.getKey(), label);
                     Collection<BytecodeNode> testValues = bucket.getValue();
-
-                    BytecodeBlock caseBlock = buildInCase(generatorContext, scope, type, label, match, defaultLabel, testValues, false);
-                    switchCaseBlocks.append(caseBlock.setDescription("case " + bucket.getKey()));
+                    BytecodeBlock caseBlock = buildInCase(generatorContext, scope, type, match, defaultLabel, testValues, false);
+                    switchBuilder.addCase(bucket.getKey(), caseBlock);
                 }
-                switchBuilder.defaultCase(defaultLabel);
+                switchBuilder.defaultCase(jump(defaultLabel));
                 Binding hashCodeBinding = generatorContext
                         .getCallSiteBinder()
                         .bind(hashCodeFunction);
@@ -206,8 +204,8 @@ public class InCodeGenerator
                         .dup(javaType)
                         .append(invoke(hashCodeBinding, hashCodeSignature))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
-                        .append(switchBuilder.build())
-                        .append(switchCaseBlocks);
+                        .putVariable(expression)
+                        .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
                 Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, registry);
@@ -229,13 +227,14 @@ public class InCodeGenerator
                 throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
         }
 
-        BytecodeBlock defaultCaseBlock = buildInCase(generatorContext, scope, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
+        BytecodeBlock defaultCaseBlock = buildInCase(generatorContext, scope, type, match, noMatch, defaultBucket.build(), true).setDescription("default");
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
                 .append(value)
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .append(switchBlock)
+                .visitLabel(defaultLabel)
                 .append(defaultCaseBlock);
 
         BytecodeBlock matchBlock = new BytecodeBlock()
@@ -268,7 +267,6 @@ public class InCodeGenerator
     private static BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
             Scope scope,
             Type type,
-            LabelNode caseLabel,
             LabelNode matchLabel,
             LabelNode noMatchLabel,
             Collection<BytecodeNode> testValues,
@@ -279,8 +277,7 @@ public class InCodeGenerator
             caseWasNull = scope.createTempVariable(boolean.class);
         }
 
-        BytecodeBlock caseBlock = new BytecodeBlock()
-                .visitLabel(caseLabel);
+        BytecodeBlock caseBlock = new BytecodeBlock();
 
         if (checkForNulls) {
             caseBlock.putVariable(caseWasNull, false);

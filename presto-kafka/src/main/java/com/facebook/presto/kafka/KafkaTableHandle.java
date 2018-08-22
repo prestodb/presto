@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -52,6 +53,8 @@ public final class KafkaTableHandle
 
     private final String keyDataFormat;
     private final String messageDataFormat;
+    private final Optional<String> keyDataSchemaLocation;
+    private final Optional<String> messageDataSchemaLocation;
 
     @JsonCreator
     public KafkaTableHandle(
@@ -60,7 +63,9 @@ public final class KafkaTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("topicName") String topicName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
-            @JsonProperty("messageDataFormat") String messageDataFormat)
+            @JsonProperty("messageDataFormat") String messageDataFormat,
+            @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
+            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -68,6 +73,8 @@ public final class KafkaTableHandle
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
+        this.keyDataSchemaLocation = keyDataSchemaLocation;
+        this.messageDataSchemaLocation = messageDataSchemaLocation;
     }
 
     @JsonProperty
@@ -106,6 +113,18 @@ public final class KafkaTableHandle
         return messageDataFormat;
     }
 
+    @JsonProperty
+    public Optional<String> getMessageDataSchemaLocation()
+    {
+        return messageDataSchemaLocation;
+    }
+
+    @JsonProperty
+    public Optional<String> getKeyDataSchemaLocation()
+    {
+        return keyDataSchemaLocation;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -114,7 +133,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat);
+        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation);
     }
 
     @Override
@@ -133,7 +152,9 @@ public final class KafkaTableHandle
                 && Objects.equals(this.tableName, other.tableName)
                 && Objects.equals(this.topicName, other.topicName)
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
-                && Objects.equals(this.messageDataFormat, other.messageDataFormat);
+                && Objects.equals(this.messageDataFormat, other.messageDataFormat)
+                && Objects.equals(this.keyDataSchemaLocation, other.keyDataSchemaLocation)
+                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation);
     }
 
     @Override
@@ -146,6 +167,8 @@ public final class KafkaTableHandle
                 .add("topicName", topicName)
                 .add("keyDataFormat", keyDataFormat)
                 .add("messageDataFormat", messageDataFormat)
+                .add("keyDataSchemaLocation", keyDataSchemaLocation)
+                .add("messageDataSchemaLocation", messageDataSchemaLocation)
                 .toString();
     }
 }

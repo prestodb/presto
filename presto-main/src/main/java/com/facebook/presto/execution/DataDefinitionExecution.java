@@ -19,6 +19,8 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
@@ -28,6 +30,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -38,13 +41,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
@@ -88,27 +92,39 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public long getUserMemoryReservation()
+    public Session getSession()
     {
-        return 0;
+        return stateMachine.getSession();
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public Optional<ErrorCode> getErrorCode()
     {
-        return 0;
+        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+    }
+
+    @Override
+    public DataSize getUserMemoryReservation()
+    {
+        return new DataSize(0, BYTE);
+    }
+
+    @Override
+    public DataSize getTotalMemoryReservation()
+    {
+        return new DataSize(0, BYTE);
     }
 
     @Override
     public Duration getTotalCpuTime()
     {
-        return new Duration(0, TimeUnit.SECONDS);
+        return new Duration(0, NANOSECONDS);
     }
 
     @Override
-    public Session getSession()
+    public BasicQueryInfo getBasicQueryInfo()
     {
-        return stateMachine.getSession();
+        return new BasicQueryInfo(getQueryInfo());
     }
 
     @Override
@@ -171,6 +187,12 @@ public class DataDefinitionExecution<T extends Statement>
     public void fail(Throwable cause)
     {
         stateMachine.transitionToFailed(cause);
+    }
+
+    @Override
+    public boolean isDone()
+    {
+        return getState().isDone();
     }
 
     @Override

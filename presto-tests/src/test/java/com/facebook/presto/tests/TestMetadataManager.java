@@ -59,15 +59,17 @@ public class TestMetadataManager
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return ImmutableList.of(new MockConnectorFactory(
-                        session -> ImmutableList.of("UPPER_CASE_SCHEMA"),
-                        (session, schemaNameOrNull) -> {
+                MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                        .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
+                        .withListTables((session, schemaNameOrNull) -> {
                             throw new UnsupportedOperationException();
-                        },
-                        (session, prefix) -> ImmutableMap.of(),
-                        (session, tableHandle) -> {
+                        })
+                        .withGetViews((session, prefix) -> ImmutableMap.of())
+                        .withGetColumnHandles((session, tableHandle) -> {
                             throw new UnsupportedOperationException();
-                        }));
+                        })
+                        .build();
+                return ImmutableList.of(connectorFactory);
             }
         });
         queryRunner.createCatalog("upper_case_schema_catalog", "mock");

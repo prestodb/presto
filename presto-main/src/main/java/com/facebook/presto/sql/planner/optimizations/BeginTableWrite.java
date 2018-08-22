@@ -188,8 +188,7 @@ public class BeginTableWrite
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
                         Optional.of(layout),
-                        scan.getCurrentConstraint(),
-                        scan.getOriginalConstraint());
+                        scan.getCurrentConstraint());
             }
 
             if (node instanceof FilterNode) {

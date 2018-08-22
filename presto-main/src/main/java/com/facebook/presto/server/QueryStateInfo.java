@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -74,12 +73,12 @@ public class QueryStateInfo
         this.progress = requireNonNull(progress, "progress is null");
     }
 
-    public static QueryStateInfo createQueuedQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> group, Optional<List<ResourceGroupInfo>> pathToRoot)
+    public static QueryStateInfo createQueuedQueryStateInfo(BasicQueryInfo queryInfo, Optional<ResourceGroupId> group, Optional<List<ResourceGroupInfo>> pathToRoot)
     {
         return createQueryStateInfo(queryInfo, group, pathToRoot, Optional.empty());
     }
 
-    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> group)
+    public static QueryStateInfo createQueryStateInfo(BasicQueryInfo queryInfo, Optional<ResourceGroupId> group)
     {
         Optional<QueryProgressStats> progress = Optional.empty();
         if (!queryInfo.getState().isDone() && queryInfo.getState() != QUEUED) {
@@ -89,7 +88,7 @@ public class QueryStateInfo
     }
 
     private static QueryStateInfo createQueryStateInfo(
-            QueryInfo queryInfo,
+            BasicQueryInfo queryInfo,
             Optional<ResourceGroupId> groupId,
             Optional<List<ResourceGroupInfo>> pathToRoot,
             Optional<QueryProgressStats> progress)

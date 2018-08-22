@@ -15,6 +15,8 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.decoder.DispatchingRowDecoderFactory;
 import com.facebook.presto.decoder.RowDecoderFactory;
+import com.facebook.presto.decoder.avro.AvroRowDecoder;
+import com.facebook.presto.decoder.avro.AvroRowDecoderFactory;
 import com.facebook.presto.decoder.csv.CsvRowDecoder;
 import com.facebook.presto.decoder.csv.CsvRowDecoderFactory;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
@@ -49,6 +51,7 @@ public class RedisDecoderModule
         decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(ZsetRedisRowDecoder.NAME).to(ZsetRedisRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(HashRedisRowDecoder.NAME).to(HashRedisRowDecoderFactory.class).in(SINGLETON);
+        decoderFactoriesByName.addBinding(AvroRowDecoder.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }

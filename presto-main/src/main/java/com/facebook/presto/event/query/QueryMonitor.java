@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.event.query;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
@@ -149,7 +149,7 @@ public class QueryMonitor
             Optional<QueryFailureInfo> queryFailureInfo = Optional.empty();
 
             if (queryInfo.getFailureInfo() != null) {
-                FailureInfo failureInfo = queryInfo.getFailureInfo();
+                ExecutionFailureInfo failureInfo = queryInfo.getFailureInfo();
                 Optional<TaskInfo> failedTask = queryInfo.getOutputStage().flatMap(QueryMonitor::findFailedTask);
 
                 queryFailureInfo = Optional.of(new QueryFailureInfo(

@@ -191,11 +191,16 @@ public final class SqlStageExecution
         }
 
         for (PlanNodeId partitionedSource : stateMachine.getFragment().getPartitionedSources()) {
-            for (RemoteTask task : getAllTasks()) {
-                task.noMoreSplits(partitionedSource);
-            }
-            completeSources.add(partitionedSource);
+            schedulingComplete(partitionedSource);
         }
+    }
+
+    public synchronized void schedulingComplete(PlanNodeId partitionedSource)
+    {
+        for (RemoteTask task : getAllTasks()) {
+            task.noMoreSplits(partitionedSource);
+        }
+        completeSources.add(partitionedSource);
     }
 
     public synchronized void cancel()

@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
@@ -83,13 +84,13 @@ public final class TestUtils
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
-                new KafkaTopicDescription(schemaTableName.getTableName(), schemaTableName.getSchemaName(), topicName, tpchTemplate.getKey(), tpchTemplate.getMessage()));
+                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, tpchTemplate.getKey(), tpchTemplate.getMessage()));
     }
 
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> createEmptyTopicDescription(String topicName, SchemaTableName schemaTableName)
     {
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
-                new KafkaTopicDescription(schemaTableName.getTableName(), schemaTableName.getSchemaName(), topicName, null, null));
+                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), Optional.empty()));
     }
 }
