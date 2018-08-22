@@ -99,6 +99,7 @@ import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -351,9 +352,17 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
 
+        layouts.stream()
+                .forEach(layout -> checkState(layoutMatchesConstraint(constraint, layout), "Returned layout does not match the constraint"));
+
         return layouts.stream()
                 .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
                 .collect(toImmutableList());
+    }
+
+    private boolean layoutMatchesConstraint(Constraint<ColumnHandle> constraint, ConnectorTableLayoutResult layout)
+    {
+        return constraint.getSummary().contains(layout.getTableLayout().getPredicate().intersect(layout.getUnenforcedConstraint()));
     }
 
     @Override
