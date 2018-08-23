@@ -512,7 +512,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>log-manager</artifactId>
-                <version>1.0</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
