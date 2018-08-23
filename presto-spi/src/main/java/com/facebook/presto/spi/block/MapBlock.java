@@ -256,6 +256,12 @@ public class MapBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;

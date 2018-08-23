@@ -76,6 +76,12 @@ public class ByteArrayBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         return (Byte.BYTES + Byte.BYTES) * (long) length;

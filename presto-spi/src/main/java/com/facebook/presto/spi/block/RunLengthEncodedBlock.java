@@ -82,6 +82,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return positionCount * getSizeInBytes();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + value.getRetainedSizeInBytes();

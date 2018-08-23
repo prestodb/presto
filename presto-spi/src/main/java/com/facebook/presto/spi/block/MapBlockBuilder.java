@@ -154,6 +154,12 @@ public class MapBlockBuilder
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);

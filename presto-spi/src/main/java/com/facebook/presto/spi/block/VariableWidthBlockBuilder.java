@@ -108,6 +108,12 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int positionOffset, int length)
     {
         int positionCount = getPositionCount();

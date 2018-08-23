@@ -141,6 +141,12 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         return (Short.BYTES + Byte.BYTES) * (long) length;

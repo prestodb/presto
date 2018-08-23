@@ -141,6 +141,12 @@ public class IntArrayBlockBuilder
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         return (Integer.BYTES + Byte.BYTES) * (long) length;

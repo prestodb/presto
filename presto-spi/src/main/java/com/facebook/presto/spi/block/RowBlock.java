@@ -154,6 +154,12 @@ public class RowBlock
         return sizeInBytes;
     }
 
+    @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
     private void calculateSize()
     {
         int startFieldBlockOffset = fieldBlockOffsets[startOffset];

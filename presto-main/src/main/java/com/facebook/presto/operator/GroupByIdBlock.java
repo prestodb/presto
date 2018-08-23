@@ -176,6 +176,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();

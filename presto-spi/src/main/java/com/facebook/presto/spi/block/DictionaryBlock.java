@@ -41,6 +41,7 @@ public class DictionaryBlock
     private final int[] ids;
     private final long retainedSizeInBytes;
     private volatile long sizeInBytes = -1;
+    private volatile long unoptimizedSizeInBytes = -1;
     private volatile int uniqueIds = -1;
     private final DictionaryId dictionarySourceId;
 
@@ -217,6 +218,30 @@ public class DictionaryBlock
         }
         this.sizeInBytes = sizeInBytes + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
+    }
+
+    @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        // Calculation of unoptimized size can be performed as part of calculateCompactSize() with minor modifications.
+        // Keeping this calculation separate as this is a little more expensive and may not be called as often.
+        if (unoptimizedSizeInBytes >= 0) {
+            return unoptimizedSizeInBytes;
+        }
+        unoptimizedSizeInBytes = 0;
+
+        long[] seenSizes = new long[dictionary.getPositionCount()];
+        Arrays.fill(seenSizes, -1L);
+        for (int i = 0; i < getPositionCount(); i++) {
+            int position = getId(i);
+            if (!dictionary.isNull(position)) {
+                if (seenSizes[position] < 0) {
+                    seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
+                }
+                unoptimizedSizeInBytes += seenSizes[position];
+            }
+        }
+        return unoptimizedSizeInBytes;
     }
 
     @Override

@@ -171,6 +171,12 @@ public class LazyBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         assureLoaded();

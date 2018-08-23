@@ -61,6 +61,12 @@ public class SingleRowBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         long retainedSizeInBytes = INSTANCE_SIZE;

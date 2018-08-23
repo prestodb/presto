@@ -40,6 +40,7 @@ public class Page
     private final int positionCount;
     private final AtomicLong sizeInBytes = new AtomicLong(-1);
     private final AtomicLong retainedSizeInBytes = new AtomicLong(-1);
+    private final AtomicLong unoptimizedSizeInBytes = new AtomicLong(-1);
 
     public Page(Block... blocks)
     {
@@ -74,6 +75,19 @@ public class Page
             this.sizeInBytes.set(sizeInBytes);
         }
         return sizeInBytes;
+    }
+
+    public long getUnoptimizedSizeInBytes()
+    {
+        long unoptimizedSizeInBytes = this.unoptimizedSizeInBytes.get();
+        if (unoptimizedSizeInBytes < 0) {
+            unoptimizedSizeInBytes = 0;
+            for (Block block : blocks) {
+                unoptimizedSizeInBytes += block.getUnoptimizedSizeInBytes();
+            }
+            this.unoptimizedSizeInBytes.set(unoptimizedSizeInBytes);
+        }
+        return unoptimizedSizeInBytes;
     }
 
     public long getRetainedSizeInBytes()

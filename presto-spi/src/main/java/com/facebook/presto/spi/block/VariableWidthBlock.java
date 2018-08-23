@@ -112,6 +112,12 @@ public class VariableWidthBlock
     }
 
     @Override
+    public long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         return sizeInBytes;
