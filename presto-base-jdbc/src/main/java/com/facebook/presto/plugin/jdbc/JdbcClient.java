@@ -67,6 +67,8 @@ public interface JdbcClient
 
     void finishInsertTable(JdbcOutputTableHandle handle);
 
+    JdbcPageSink getPageSink(JdbcOutputTableHandle tableHandle);
+
     void dropTable(JdbcTableHandle jdbcTableHandle);
 
     void rollbackCreateTable(JdbcOutputTableHandle handle);

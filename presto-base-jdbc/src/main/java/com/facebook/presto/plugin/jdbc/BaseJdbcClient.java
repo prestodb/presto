@@ -299,6 +299,9 @@ public class BaseJdbcClient
             String catalog = connection.getCatalog();
 
             String temporaryName = generateTemporaryTableName();
+            if (uppercase) {
+                temporaryName = temporaryName.toUpperCase();
+            }
             StringBuilder sql = new StringBuilder()
                     .append("CREATE TABLE ")
                     .append(quoted(catalog, schema, temporaryName))
@@ -381,6 +384,12 @@ public class BaseJdbcClient
         catch (SQLException e) {
             log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
         }
+    }
+
+    @Override
+    public JdbcPageSink getPageSink(JdbcOutputTableHandle tableHandle)
+    {
+        return new JdbcPageSink(tableHandle, this);
     }
 
     @Override

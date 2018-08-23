@@ -17,25 +17,18 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
-import com.facebook.presto.spi.type.TinyintType;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -45,10 +38,26 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.nCopies;
@@ -57,6 +66,14 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.joining;
 import static org.joda.time.DateTimeZone.UTC;
 
+// TODO: Put the setter methods in another class to keep the API clean
+// - It could be a new class or inner class; this is easiest.
+// - It could be a class that shares code with JdbcPageSink; this is best.
+//
+// Consider the relaton between this and JdbcPageSink. They don't get their data
+// directly from the same source, they both use PreparedStatement setters, and
+// similar considerations must be taken between them.
+// They also should support identical types, but this class supports more by default.
 public class QueryBuilder
 {
     // not all databases support booleans, so use 1=1 and 1=0 instead
@@ -65,7 +82,7 @@ public class QueryBuilder
 
     private final String quote;
 
-    private static class TypeAndValue
+    protected static class TypeAndValue
     {
         private final Type type;
         private final Object value;
@@ -92,7 +109,14 @@ public class QueryBuilder
         this.quote = requireNonNull(quote, "quote is null");
     }
 
-    public PreparedStatement buildSql(JdbcClient client, Connection connection, String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public PreparedStatement buildSql(
+            JdbcClient client,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -126,73 +150,90 @@ public class QueryBuilder
         }
 
         PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
-
-        for (int i = 0; i < accumulator.size(); i++) {
-            TypeAndValue typeAndValue = accumulator.get(i);
-            if (typeAndValue.getType().equals(BigintType.BIGINT)) {
-                statement.setLong(i + 1, (long) typeAndValue.getValue());
-            }
-            else if (typeAndValue.getType().equals(IntegerType.INTEGER)) {
-                statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
-            }
-            else if (typeAndValue.getType().equals(SmallintType.SMALLINT)) {
-                statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
-            }
-            else if (typeAndValue.getType().equals(TinyintType.TINYINT)) {
-                statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
-            }
-            else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
-                statement.setDouble(i + 1, (double) typeAndValue.getValue());
-            }
-            else if (typeAndValue.getType().equals(RealType.REAL)) {
-                statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
-            }
-            else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
-                statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
-            }
-            else if (typeAndValue.getType().equals(DateType.DATE)) {
-                long millis = DAYS.toMillis((long) typeAndValue.getValue());
-                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
-            }
-            else if (typeAndValue.getType().equals(TimeType.TIME)) {
-                statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
-            }
-            else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
-                statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
-            }
-            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
-                statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
-            }
-            else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
-                statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
-            }
-            else if (typeAndValue.getType() instanceof VarcharType) {
-                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
-            }
-            else {
-                throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
-            }
-        }
-
+        setStatementParameters(statement, accumulator);
         return statement;
     }
 
-    private static boolean isAcceptedType(Type type)
+    private void setStatementParameters(PreparedStatement statement, List<TypeAndValue> accumulator)
+            throws SQLException
     {
-        Type validType = requireNonNull(type, "type is null");
-        return validType.equals(BigintType.BIGINT) ||
-                validType.equals(TinyintType.TINYINT) ||
-                validType.equals(SmallintType.SMALLINT) ||
-                validType.equals(IntegerType.INTEGER) ||
-                validType.equals(DoubleType.DOUBLE) ||
-                validType.equals(RealType.REAL) ||
-                validType.equals(BooleanType.BOOLEAN) ||
-                validType.equals(DateType.DATE) ||
-                validType.equals(TimeType.TIME) ||
-                validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
-                validType.equals(TimestampType.TIMESTAMP) ||
-                validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
-                validType instanceof VarcharType;
+        for (int i = 0; i < accumulator.size(); i++) {
+            TypeAndValue typeAndValue = accumulator.get(i);
+            int index = i + 1;
+            if (isType(typeAndValue, BIGINT)) {
+                setBigint(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, INTEGER)) {
+                setInteger(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, SMALLINT)) {
+                setSmallint(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, TINYINT)) {
+                setTinyint(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, DOUBLE)) {
+                setDouble(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, REAL)) {
+                setReal(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, BOOLEAN)) {
+                setBoolean(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, DATE)) {
+                setDate(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, TIME)) {
+                setTime(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, TIME_WITH_TIME_ZONE)) {
+                setTimeWithTimeZone(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, TIMESTAMP)) {
+                setTimestamp(statement, index, typeAndValue);
+            }
+            else if (isType(typeAndValue, TIMESTAMP_WITH_TIME_ZONE)) {
+                setTimestampWithTimeZone(statement, index, typeAndValue);
+            }
+            else if (isVarcharType(typeAndValue.getType())) {
+                setVarchar(statement, index, typeAndValue);
+            }
+            else if (isCharType(typeAndValue.getType())) {
+                setChar(statement, index, typeAndValue);
+            }
+            else if (typeAndValue.getType() instanceof DecimalType) {
+                setDecimal(statement, index, typeAndValue);
+            }
+            else {
+                throw unsupportedType(typeAndValue.getType());
+            }
+        }
+    }
+
+    private static boolean isType(TypeAndValue typeval, Type type)
+    {
+        return type.equals(typeval.getType());
+    }
+
+    protected boolean isAcceptedType(Type type)
+    {
+        requireNonNull(type, "type is null");
+        return type.equals(BIGINT) ||
+                type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(DOUBLE) ||
+                type.equals(REAL) ||
+                type.equals(BOOLEAN) ||
+                type.equals(DATE) ||
+                type.equals(TIME) ||
+                type.equals(TIME_WITH_TIME_ZONE) ||
+                type.equals(TIMESTAMP) ||
+                type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
+                isVarcharType(type) ||
+                isCharType(type) ||
+                type instanceof DecimalType;
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
@@ -292,15 +333,127 @@ public class QueryBuilder
         return quote(columnName) + " " + operator + " ?";
     }
 
-    private String quote(String name)
+    protected String quote(String name)
     {
         name = name.replace(quote, quote + quote);
         return quote + name + quote;
     }
 
-    private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
+    private void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
     {
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
         accumulator.add(new TypeAndValue(type, value));
+    }
+
+    protected RuntimeException unsupportedType(Type type)
+    {
+        return new UnsupportedOperationException("Can't handle type: " + type);
+    }
+
+    protected void setBigint(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setLong(index, (long) typeAndValue.getValue());
+    }
+
+    protected void setInteger(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setInt(index, ((Number) typeAndValue.getValue()).intValue());
+    }
+
+    protected void setSmallint(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setShort(index, ((Number) typeAndValue.getValue()).shortValue());
+    }
+
+    protected void setTinyint(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setByte(index, ((Number) typeAndValue.getValue()).byteValue());
+    }
+
+    protected void setDouble(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setDouble(index, (double) typeAndValue.getValue());
+    }
+
+    protected void setReal(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setFloat(index, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
+    }
+
+    protected void setBoolean(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setBoolean(index, (boolean) typeAndValue.getValue());
+    }
+
+    protected void setDate(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        long millis = DAYS.toMillis((long) typeAndValue.getValue());
+        statement.setDate(index, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+    }
+
+    protected void setTime(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTime(index, new Time((long) typeAndValue.getValue()));
+    }
+
+    protected void setTimeWithTimeZone(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTime(index, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+    }
+
+    protected void setTimestamp(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTimestamp(index, new Timestamp((long) typeAndValue.getValue()));
+    }
+
+    protected void setTimestampWithTimeZone(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setTimestamp(index, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+    }
+
+    protected void setVarchar(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        statement.setString(index, ((Slice) typeAndValue.getValue()).toStringUtf8());
+    }
+
+    protected void setChar(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        String base = ((Slice) typeAndValue.getValue()).toStringUtf8();
+        int size = ((CharType) typeAndValue.getType()).getLength();
+        statement.setString(index, padEnd(base, size, ' '));
+    }
+
+    protected void setDecimal(PreparedStatement statement, int index, TypeAndValue typeAndValue)
+            throws SQLException
+    {
+        DecimalType type = (DecimalType) typeAndValue.getType();
+
+        BigInteger unscaledValue = type.isShort()
+                ? BigInteger.valueOf((Long) typeAndValue.getValue())
+                : decodeUnscaledValue((Slice) typeAndValue.getValue());
+
+        // TODO: Is the MathContext necessary?
+        // The rounding mode doesn't seem to do anything, because Presto
+        // converts everything to the right scale/precision before it gets here.
+        // If Presto didn't do that, I think we'd want to go without precision,
+        // so numbers could be compared to numbers with different precision.
+        BigDecimal value = new BigDecimal(unscaledValue, type.getScale(),
+                new MathContext(type.getPrecision(), RoundingMode.UNNECESSARY));
+
+        statement.setBigDecimal(index, value);
     }
 }
