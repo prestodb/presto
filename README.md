@@ -14,11 +14,25 @@ We change file based permission to allow creation and dropping schema.
 ```
 mvn clean install -pl presto-plugin-toolkit -DskipTests
 ```
+2. Build modules depending on `presto-plugin-toolkit`:
+```
+mvn clean install -pl presto-atop -DskipTests
+mvn clean install -pl presto-hive -DskipTests
+mvn clean install -pl presto-raptor -DskipTests
+mvn clean install -pl presto-hive-hadoop2 -DskipTests
+```
+
 ### JSON log
 We changed Presto log to be JSON to work with ElasticSearch.
-1. Install `log-manager` module. From project root:
+1. Install `log-manager` module. If `log-manager` version no longer matches, it needs to be rebuilt from `Airlift` project.  
+If you are rebuilding, modify following lines from `log-manager/src/main/java/io/airlift/log/StaticFormatter.java`:
 ```
-mvn install:install-file -Dfile=dependencies/log-manager-5.1.jar -DgroupId=io.airlift -DartifactId=log-manager -Dversion=1.0 -Dpackaging=jar
+         StringWriter stringWriter = new StringWriter()
+                 .append(record.getMessage());
+```
+From project root:
+```
+mvn install:install-file -Dfile=dependencies/log-manager-0.198.jar -DgroupId=io.airlift -DartifactId=log-manager -Dversion=0.198 -Dpackaging=jar
 ```
 2. Build `presto-server` module:
 ```
