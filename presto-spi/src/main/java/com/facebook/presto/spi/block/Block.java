@@ -170,7 +170,10 @@ public interface Block
     /**
      * Returns the content size of a block if no optimizations were applied to it (e.g RLE, Dictionary).
      */
-    long getUnoptimizedSizeInBytes();
+    default long getUnoptimizedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
 
     /**
      * Returns the logical size of {@code block.getRegion(position, length)} in memory.

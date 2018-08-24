@@ -95,12 +95,6 @@ public class FixedWidthBlock
     }
 
     @Override
-    public long getUnoptimizedSizeInBytes()
-    {
-        return getSizeInBytes();
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + getRawSlice().getRetainedSize() + (valueIsNull == null ? 0 : valueIsNull.getRetainedSize());

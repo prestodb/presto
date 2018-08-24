@@ -77,12 +77,6 @@ public class LongArrayBlock
     }
 
     @Override
-    public long getUnoptimizedSizeInBytes()
-    {
-        return getSizeInBytes();
-    }
-
-    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         return (Long.BYTES + Byte.BYTES) * (long) length;
