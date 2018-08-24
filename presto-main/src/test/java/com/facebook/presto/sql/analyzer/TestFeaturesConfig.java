@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.testing.ConfigAssertions;
@@ -99,6 +100,7 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
+                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
@@ -159,6 +161,7 @@ public class TestFeaturesConfig
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implementation", "LEGACY")
                 .put("arrayagg.implementation", "LEGACY")
+                .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("distributed-sort", "false")
@@ -220,6 +223,7 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
+                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setLegacyUnnestArrayRows(true)

@@ -17,8 +17,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation.LEGACY;
-import static com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation.NEW;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static java.lang.String.format;
 
