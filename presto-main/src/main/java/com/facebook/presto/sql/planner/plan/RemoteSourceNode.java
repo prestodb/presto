@@ -34,13 +34,15 @@ public class RemoteSourceNode
     private final List<PlanFragmentId> sourceFragmentIds;
     private final List<Symbol> outputs;
     private final Optional<OrderingScheme> orderingScheme;
+    private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
 
     @JsonCreator
     public RemoteSourceNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputs") List<Symbol> outputs,
-            @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
+            @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
+            @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
     {
         super(id);
 
@@ -49,11 +51,12 @@ public class RemoteSourceNode
         this.sourceFragmentIds = sourceFragmentIds;
         this.outputs = ImmutableList.copyOf(outputs);
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
+        this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
     }
 
-    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, Optional<OrderingScheme> orderingScheme)
+    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, Optional<OrderingScheme> orderingScheme, ExchangeNode.Type exchangeType)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme);
+        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme, exchangeType);
     }
 
     @Override
@@ -79,6 +82,12 @@ public class RemoteSourceNode
     public Optional<OrderingScheme> getOrderingScheme()
     {
         return orderingScheme;
+    }
+
+    @JsonProperty("exchangeType")
+    public ExchangeNode.Type getExchangeType()
+    {
+        return exchangeType;
     }
 
     @Override
