@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.arrayagg;
+package com.facebook.presto.operator.aggregation.multimapagg;
 
 import com.facebook.presto.operator.aggregation.AbstractGroupCollectionAggregationState;
 import com.facebook.presto.spi.PageBuilder;
@@ -19,28 +19,30 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-public final class GroupArrayAggregationState
-        extends AbstractGroupCollectionAggregationState<ArrayAggregationStateConsumer>
-        implements ArrayAggregationState
+public final class GroupedMultimapAggregationState
+        extends AbstractGroupCollectionAggregationState<MultimapAggregationStateConsumer>
+        implements MultimapAggregationState
 {
     private static final int MAX_BLOCK_SIZE = 1024 * 1024;
-    private static final int VALUE_CHANNEL = 0;
+    static final int VALUE_CHANNEL = 0;
+    static final int KEY_CHANNEL = 1;
 
-    GroupArrayAggregationState(Type valueType)
+    public GroupedMultimapAggregationState(Type keyType, Type valueType)
     {
-        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(valueType)));
+        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(valueType, keyType)));
     }
 
     @Override
-    public final void add(Block block, int position)
+    public final void add(Block keyBlock, Block valueBlock, int position)
     {
         prepareAdd();
-        appendAtChannel(VALUE_CHANNEL, block, position);
+        appendAtChannel(VALUE_CHANNEL, valueBlock, position);
+        appendAtChannel(KEY_CHANNEL, keyBlock, position);
     }
 
     @Override
-    protected final void accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    protected final void accept(MultimapAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
-        consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
+        consumer.accept(pageBuilder.getBlockBuilder(KEY_CHANNEL), pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
     }
 }
