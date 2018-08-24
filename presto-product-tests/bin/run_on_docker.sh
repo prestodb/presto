@@ -26,12 +26,6 @@ function hadoop_master_container(){
   environment_compose ps -q hadoop-master
 }
 
-function check_hadoop() {
-  HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
-    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
-}
-
 function run_in_application_runner_container() {
   local CONTAINER_NAME=$(environment_compose run -d application-runner "$@")
   echo "Showing logs from $CONTAINER_NAME:"
