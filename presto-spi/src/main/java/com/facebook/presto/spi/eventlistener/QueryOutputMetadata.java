@@ -21,16 +21,16 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryOutputMetadata
 {
-    private final String connectorId;
+    private final String catalogName;
     private final String schema;
     private final String table;
 
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    public QueryOutputMetadata(String connectorId, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
+    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
@@ -38,9 +38,9 @@ public class QueryOutputMetadata
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public String getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty

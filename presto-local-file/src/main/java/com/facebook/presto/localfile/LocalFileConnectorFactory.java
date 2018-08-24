@@ -42,14 +42,14 @@ public class LocalFileConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 
         try {
             Bootstrap app = new Bootstrap(
                     binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
-                    new LocalFileModule(connectorId));
+                    new LocalFileModule(catalogName));
 
             Injector injector = app
                     .strictConfig()

@@ -87,7 +87,7 @@ public class MockConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles);
     }
