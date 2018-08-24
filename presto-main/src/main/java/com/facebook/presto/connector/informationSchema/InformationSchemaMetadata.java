@@ -221,7 +221,7 @@ public class InformationSchemaMetadata
 
         Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate());
+            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate(), MAX_PREFIXES_COUNT + 1);
             // in case of high number of prefixes it is better to populate all data and then filter
             if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
                 prefixes = tablePrefixes;
@@ -260,11 +260,12 @@ public class InformationSchemaMetadata
                 .collect(toImmutableSet());
     }
 
-    public Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
+    private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
             TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
+            int maxResults)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
@@ -275,6 +276,7 @@ public class InformationSchemaMetadata
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    .limit(maxResults)
                     .collect(toImmutableSet());
         }
 
@@ -284,6 +286,7 @@ public class InformationSchemaMetadata
                         metadata.listViews(session, prefix).stream()))
                 .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
+                .limit(maxResults)
                 .collect(toImmutableSet());
     }
 
