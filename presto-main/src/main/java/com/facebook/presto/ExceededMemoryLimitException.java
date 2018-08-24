@@ -14,44 +14,38 @@
 package com.facebook.presto;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.units.DataSize;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededMemoryLimitException
         extends PrestoException
 {
-    private final DataSize maxMemory;
-
     public static ExceededMemoryLimitException exceededGlobalUserLimit(DataSize maxMemory)
     {
-        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded max user memory size of %s", maxMemory));
+        return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed user memory limit of %s", maxMemory));
     }
 
     public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory)
     {
-        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded max total memory size of %s", maxMemory));
+        return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed total memory limit of %s", maxMemory));
     }
 
     public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory)
     {
-        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded local user memory limit of %s", maxMemory));
+        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT, format("Query exceeded per-node user memory limit of %s", maxMemory));
     }
 
     public static ExceededMemoryLimitException exceededLocalTotalMemoryLimit(DataSize maxMemory)
     {
-        return new ExceededMemoryLimitException(maxMemory, format("Query exceeded local total memory limit of %s", maxMemory));
+        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT, format("Query exceeded per-node total memory limit of %s", maxMemory));
     }
 
-    private ExceededMemoryLimitException(DataSize maxMemory, String message)
+    private ExceededMemoryLimitException(StandardErrorCode errorCode, String message)
     {
-        super(EXCEEDED_MEMORY_LIMIT, message);
-        this.maxMemory = maxMemory;
-    }
-
-    public DataSize getMaxMemory()
-    {
-        return maxMemory;
+        super(errorCode, message);
     }
 }

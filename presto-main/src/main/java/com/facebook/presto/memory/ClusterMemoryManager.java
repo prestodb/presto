@@ -73,7 +73,7 @@ import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -348,7 +348,7 @@ public class ClusterMemoryManager
     public synchronized boolean preAllocateQueryMemory(QueryId queryId, long requiredBytes)
     {
         if (requiredBytes > maxQueryMemory.toBytes()) {
-            throw new PrestoException(EXCEEDED_MEMORY_LIMIT, format("Cannot pre-allocate memory, exceeds maximum limit %s", maxQueryMemory));
+            throw new PrestoException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Cannot pre-allocate user memory, exceeds maximum limit %s", maxQueryMemory));
         }
 
         ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
