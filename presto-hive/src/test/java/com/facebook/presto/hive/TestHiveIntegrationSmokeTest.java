@@ -928,7 +928,7 @@ public class TestHiveIntegrationSmokeTest
 
     public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table";
+        String tableName = "test_insert_empty_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -936,7 +936,7 @@ public class TestHiveIntegrationSmokeTest
             String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
             assertUpdate(sql);
             assertQuery(
-                    "SELECT count(*) FROM \"test_insert_partitioned_bucketed_table$partitions\"",
+                    format("SELECT count(*) FROM \"%s$partitions\"", tableName),
                     "SELECT " + (i + 1));
 
             assertQueryFails(sql, "Partition already exists.*");
