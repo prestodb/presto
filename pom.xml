@@ -110,6 +110,7 @@
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
+        <module>presto-ranger-toolkit</module>
         <module>presto-resource-group-managers</module>
         <module>presto-password-authenticators</module>
         <module>presto-benchto-benchmarks</module>
@@ -167,6 +168,13 @@
                 <artifactId>presto-plugin-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-ranger-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
