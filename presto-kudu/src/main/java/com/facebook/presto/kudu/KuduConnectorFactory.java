@@ -45,13 +45,13 @@ public class KuduConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 
         try {
             Bootstrap app = new Bootstrap(new JsonModule(),
-                    new KuduModule(connectorId, context.getTypeManager()));
+                    new KuduModule(catalogName, context.getTypeManager()));
 
             Injector injector =
                     app.strictConfig().doNotInitializeLogging().setRequiredConfigurationProperties(config)

@@ -58,7 +58,7 @@ public class CassandraConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 
@@ -66,7 +66,7 @@ public class CassandraConnectorFactory
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new JsonModule(),
-                    new CassandraClientModule(connectorId),
+                    new CassandraClientModule(catalogName),
                     new Module()
                     {
                         @Override

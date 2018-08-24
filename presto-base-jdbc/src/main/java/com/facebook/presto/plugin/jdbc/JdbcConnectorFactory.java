@@ -57,12 +57,12 @@ public class JdbcConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(new JdbcModule(connectorId), module);
+            Bootstrap app = new Bootstrap(new JdbcModule(catalogName), module);
 
             Injector injector = app
                     .strictConfig()

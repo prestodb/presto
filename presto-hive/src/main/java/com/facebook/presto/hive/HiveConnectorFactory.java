@@ -88,7 +88,7 @@ public class HiveConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 
@@ -97,9 +97,9 @@ public class HiveConnectorFactory
                     new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId),
-                    new HiveS3Module(connectorId),
-                    new HiveMetastoreModule(connectorId, Optional.ofNullable(metastore)),
+                    new HiveClientModule(catalogName),
+                    new HiveS3Module(catalogName),
+                    new HiveMetastoreModule(catalogName, Optional.ofNullable(metastore)),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),

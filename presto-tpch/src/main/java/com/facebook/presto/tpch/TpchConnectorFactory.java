@@ -66,7 +66,7 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
@@ -83,7 +83,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId, columnNaming, predicatePushdownEnabled);
+                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled);
             }
 
             @Override
