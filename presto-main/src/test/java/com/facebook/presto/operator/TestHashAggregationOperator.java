@@ -682,7 +682,7 @@ public class TestHashAggregationOperator
         return ((InMemoryHashAggregationBuilder) aggregationBuilder).getCapacity();
     }
 
-    private static class DummySpillerFactory
+    public static class DummySpillerFactory
             implements SpillerFactory
     {
         private long spillsCount;
@@ -713,6 +713,7 @@ public class TestHashAggregationOperator
                 @Override
                 public void close()
                 {
+                    spills.clear();
                 }
             };
         }
