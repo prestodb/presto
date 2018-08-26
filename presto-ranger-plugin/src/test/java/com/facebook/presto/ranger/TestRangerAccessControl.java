@@ -11,15 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.ranger.security.ranger;
+package com.facebook.presto.ranger;
 
-import org.apache.ranger.plugin.service.RangerBasePlugin;
-
-public class RangerPrestoPlugin
-        extends RangerBasePlugin
+public class TestRangerAccessControl
 {
-    public RangerPrestoPlugin(String serviceType, String appId)
-    {
-        super(serviceType, appId);
-    }
+
 }

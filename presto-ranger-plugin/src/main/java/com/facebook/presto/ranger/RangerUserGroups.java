@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.ranger.security.ranger;
+package com.facebook.presto.ranger;
 
 import org.codehaus.jackson.annotate.JsonAutoDetect;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
@@ -21,44 +21,24 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlRootElement;
 
+import java.util.List;
+
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.FIELD)
-public class RangerGroup
+public class RangerUserGroups
 {
-    Integer id;
-    String name;
-    Integer groupType;
+    private List<RangerGroup> vXGroups;
 
-    public Integer getId()
+    public List<RangerGroup> getvXGroups()
     {
-        return id;
+        return vXGroups;
     }
 
-    public void setId(Integer id)
+    public void setvXGroups(List<RangerGroup> vXGroups)
     {
-        this.id = id;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public void setName(String name)
-    {
-        this.name = name;
-    }
-
-    public Integer getGroupType()
-    {
-        return groupType;
-    }
-
-    public void setGroupType(Integer groupType)
-    {
-        this.groupType = groupType;
+        this.vXGroups = vXGroups;
     }
 }
