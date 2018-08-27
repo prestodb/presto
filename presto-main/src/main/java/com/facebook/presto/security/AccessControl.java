@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 public interface AccessControl
@@ -30,7 +31,7 @@ public interface AccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Principal principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.
