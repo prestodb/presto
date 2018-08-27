@@ -334,7 +334,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local user memory limit of 1kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node user memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
             throws Exception
     {
