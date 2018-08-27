@@ -227,7 +227,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
         if (!canSetSessionProperty(identity, propertyName)) {
             denySetSessionProperty(propertyName);

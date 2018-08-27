@@ -71,13 +71,13 @@ public class TestFileBasedAccessControl
             throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("session_property.json");
-        accessControl.checkCanSetCatalogSessionProperty(user("admin"), "dangerous");
-        accessControl.checkCanSetCatalogSessionProperty(user("alice"), "safe");
-        accessControl.checkCanSetCatalogSessionProperty(user("alice"), "unsafe");
-        accessControl.checkCanSetCatalogSessionProperty(user("bob"), "safe");
-        assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(user("bob"), "unsafe"));
-        assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(user("alice"), "dangerous"));
-        assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(user("charlie"), "safe"));
+        accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("admin"), "dangerous");
+        accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("alice"), "safe");
+        accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("alice"), "unsafe");
+        accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("bob"), "safe");
+        assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("bob"), "unsafe"));
+        assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("alice"), "dangerous"));
+        assertDenied(() -> accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("charlie"), "safe"));
     }
 
     @Test

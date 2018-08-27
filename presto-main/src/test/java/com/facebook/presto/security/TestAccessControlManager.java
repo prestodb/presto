@@ -378,7 +378,7 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+        public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
         {
             throw new UnsupportedOperationException();
         }
