@@ -242,7 +242,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    default void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
     }

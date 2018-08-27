@@ -15,7 +15,6 @@ package com.facebook.presto.hive.security;
 
 import com.facebook.presto.hive.HiveConnectorId;
 import com.facebook.presto.hive.HiveTransactionHandle;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.SchemaTableName;
@@ -64,21 +63,15 @@ public class SqlStandardAccessControl
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final String connectorId;
-    // Two metastores (one transaction-aware, the other not) are available in this class
-    // so that an appropriate one can be chosen based on whether transaction handle is available.
-    // Transaction handle is not available for checkCanSetCatalogSessionProperty.
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
-    private final ExtendedHiveMetastore metastore;
 
     @Inject
     public SqlStandardAccessControl(
             HiveConnectorId connectorId,
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
-            ExtendedHiveMetastore metastore)
+            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
@@ -229,10 +222,9 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transaction, Identity identity, String propertyName)
     {
-        // TODO: when this is updated to have a transaction, use isAdmin()
-        if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
+        if (!isAdmin(transaction, identity)) {
             denySetCatalogSessionProperty(connectorId, propertyName);
         }
     }
