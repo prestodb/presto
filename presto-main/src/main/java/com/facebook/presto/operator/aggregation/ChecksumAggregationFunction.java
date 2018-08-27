@@ -88,9 +88,10 @@ public class ChecksumAggregationFunction
                 INPUT_FUNCTION.bindTo(type),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                NullableLongState.class,
-                StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
-                StateCompiler.generateStateFactory(NullableLongState.class, classLoader),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        NullableLongState.class,
+                        StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
+                        StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
                 VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

@@ -13,49 +13,139 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.DynamicClassLoader;
 
+import java.lang.invoke.MethodHandle;
+import java.util.List;
+
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static java.lang.Float.floatToRawIntBits;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 
-@AggregationFunction("avg")
-public final class RealAverageAggregation
+public class RealAverageAggregation
+        extends SqlAggregationFunction
 {
-    private RealAverageAggregation() {}
+    public static final RealAverageAggregation REAL_AVERAGE_AGGREGATION = new RealAverageAggregation();
+    private static final String NAME = "avg";
 
-    @InputFunction
-    public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.REAL) long value)
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "input", NullableLongState.class, NullableDoubleState.class, long.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(RealAverageAggregation.class, "combine", NullableLongState.class, NullableDoubleState.class, NullableLongState.class, NullableDoubleState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "output", NullableLongState.class, NullableDoubleState.class, BlockBuilder.class);
+
+    protected RealAverageAggregation()
     {
-        state.setLong(state.getLong() + 1);
-        state.setDouble(state.getDouble() + intBitsToFloat((int) value));
+        super(NAME,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.REAL),
+                ImmutableList.of(parseTypeSignature(StandardTypes.REAL)));
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongAndDoubleState state, LongAndDoubleState otherState)
+    @Override
+    public String getDescription()
     {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() + otherState.getDouble());
+        return "Returns the average value of the argument";
     }
 
-    @OutputFunction(StandardTypes.REAL)
-    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    @Override
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        long count = state.getLong();
-        if (count == 0) {
+        DynamicClassLoader classLoader = new DynamicClassLoader(AverageAggregations.class.getClassLoader());
+        Class<? extends AccumulatorState> longStateInterface = NullableLongState.class;
+        Class<? extends AccumulatorState> doubleStateInterface = NullableDoubleState.class;
+        AccumulatorStateSerializer<?> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface, classLoader);
+        AccumulatorStateSerializer<?> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
+
+        AggregationMetadata metadata = new AggregationMetadata(
+                generateAggregationName(NAME, parseTypeSignature(StandardTypes.REAL), ImmutableList.of(parseTypeSignature(StandardTypes.REAL))),
+                ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
+                INPUT_FUNCTION,
+                COMBINE_FUNCTION,
+                OUTPUT_FUNCTION,
+                ImmutableList.of(
+                    new AggregationMetadata.AccumulatorStateInfo(
+                            longStateInterface,
+                            longStateSerializer,
+                            StateCompiler.generateStateFactory(longStateInterface, classLoader)),
+                    new AggregationMetadata.AccumulatorStateInfo(
+                            doubleStateInterface,
+                            doubleStateSerializer,
+                            StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),
+                REAL);
+
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new InternalAggregationFunction(
+                NAME,
+                ImmutableList.of(REAL),
+                ImmutableList.of(
+                        longStateSerializer.getSerializedType(),
+                        doubleStateSerializer.getSerializedType()),
+                REAL,
+                true,
+                false,
+                factory);
+    }
+
+    private static List<ParameterMetadata> createInputParameterMetadata(Type value)
+    {
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
+    }
+
+    public static void input(NullableLongState count, NullableDoubleState sum, long value)
+    {
+        if (count.isNull()) {
+            count.setNull(false);
+            count.setLong(1);
+            sum.setNull(false);
+            sum.setDouble(intBitsToFloat((int) value));
+            return;
+        }
+
+        count.setLong(count.getLong() + 1);
+        sum.setDouble(sum.getDouble() + intBitsToFloat((int) value));
+    }
+
+    public static void combine(NullableLongState count, NullableDoubleState sum, NullableLongState otherCount, NullableDoubleState otherSum)
+    {
+        if (count.isNull()) {
+            count.setNull(false);
+            count.setLong(otherCount.getLong());
+            sum.setDouble(otherSum.getDouble());
+            return;
+        }
+
+        count.setLong(count.getLong() + otherCount.getLong());
+        sum.setDouble(sum.getDouble() + otherSum.getDouble());
+    }
+
+    public static void output(NullableLongState count, NullableDoubleState sum, BlockBuilder out)
+    {
+        if (count.isNull() || count.getLong() == 0) {
             out.appendNull();
         }
         else {
-            double average = state.getDouble() / count;
-            REAL.writeLong(out, floatToRawIntBits((float) average));
+            REAL.writeLong(out, floatToIntBits((float) (sum.getDouble() / count.getLong())));
         }
     }
 }

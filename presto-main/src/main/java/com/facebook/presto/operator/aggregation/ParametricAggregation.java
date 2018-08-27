@@ -102,9 +102,10 @@ public class ParametricAggregation
                 inputHandle,
                 combineHandle,
                 outputHandle,
-                stateClass,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        stateClass,
+                        stateSerializer,
+                        stateFactory)),
                 outputType);
 
         // Create specialized InternalAggregregationFunction for Presto

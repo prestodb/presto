@@ -104,9 +104,10 @@ public class ArrayAggregationFunction
                 inputFunction,
                 combineFunction,
                 outputFunction,
-                stateInterface,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        stateInterface,
+                        stateSerializer,
+                        stateFactory)),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

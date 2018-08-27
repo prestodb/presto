@@ -86,9 +86,10 @@ public class MapUnionAggregation
                 INPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                KeyValuePairsState.class,
-                stateSerializer,
-                new KeyValuePairsStateFactory(keyType, valueType),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        KeyValuePairsState.class,
+                        stateSerializer,
+                        new KeyValuePairsStateFactory(keyType, valueType))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

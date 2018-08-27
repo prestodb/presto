@@ -92,9 +92,10 @@ public class MultimapAggregationFunction
                 INPUT_FUNCTION,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                MultiKeyValuePairsState.class,
-                stateSerializer,
-                new MultiKeyValuePairsStateFactory(keyType, valueType),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        MultiKeyValuePairsState.class,
+                        stateSerializer,
+                        new MultiKeyValuePairsStateFactory(keyType, valueType))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
