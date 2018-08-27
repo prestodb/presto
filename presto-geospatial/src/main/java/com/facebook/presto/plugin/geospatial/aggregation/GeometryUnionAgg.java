@@ -39,36 +39,28 @@ public class GeometryUnionAgg
     private GeometryUnionAgg() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state, @SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static void input(@AggregationState GeometryOperatorState.GeometryUnionOperatorState state, @SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = GeometrySerde.deserialize(input);
-        if (state.getGeometry() == null) {
-            state.setGeometry(geometry);
-        }
-        else if (!geometry.isEmpty()) {
-            state.setGeometry(state.getGeometry().union(geometry));
-        }
+        state.add(geometry);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState GeometryState state, @AggregationState GeometryState otherState)
+    public static void combine(@AggregationState GeometryOperatorState.GeometryUnionOperatorState state, @AggregationState GeometryOperatorState.GeometryUnionOperatorState otherState)
     {
-        if (state.getGeometry() == null) {
-            state.setGeometry(otherState.getGeometry());
-        }
-        else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(state.getGeometry().union(otherState.getGeometry()));
-        }
+        OGCGeometry geometry = otherState.getGeometry();
+        state.add(geometry);
     }
 
     @OutputFunction(GEOMETRY_TYPE_NAME)
-    public static void output(@AggregationState GeometryState state, BlockBuilder out)
+    public static void output(@AggregationState GeometryOperatorState.GeometryUnionOperatorState state, BlockBuilder out)
     {
-        if (state.getGeometry() == null) {
+        OGCGeometry geometry = state.getGeometry();
+        if (geometry == null) {
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, GeometrySerde.serialize(geometry));
         }
     }
 }

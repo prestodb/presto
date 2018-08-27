@@ -54,40 +54,31 @@ public class ConvexHullAggregation
     private ConvexHullAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state,
+    public static void input(@AggregationState GeometryOperatorState.GeometryConvexHullOperatorState state,
             @SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = GeometrySerde.deserialize(input);
         // There is a bug when the input is of GEOMETRY_COLLECTION. see https://github.com/Esri/geometry-api-java/issues/194
         validateType("convex_hull_agg", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
-        if (state.getGeometry() == null) {
-            state.setGeometry(geometry.convexHull());
-        }
-        else if (!geometry.isEmpty()) {
-            state.setGeometry(state.getGeometry().union(geometry).convexHull());
-        }
+        state.add(geometry);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState GeometryState state,
-            @AggregationState GeometryState otherState)
+    public static void combine(@AggregationState GeometryOperatorState.GeometryConvexHullOperatorState state,
+            @AggregationState GeometryOperatorState.GeometryConvexHullOperatorState otherState)
     {
-        if (state.getGeometry() == null) {
-            state.setGeometry(otherState.getGeometry());
-        }
-        else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(state.getGeometry().union(otherState.getGeometry()).convexHull());
-        }
+        state.add(otherState.getGeometry());
     }
 
     @OutputFunction(GEOMETRY_TYPE_NAME)
-    public static void output(@AggregationState GeometryState state, BlockBuilder out)
+    public static void output(@AggregationState GeometryOperatorState.GeometryConvexHullOperatorState state, BlockBuilder out)
     {
-        if (state.getGeometry() == null) {
+        OGCGeometry geometry = state.getGeometry();
+        if (geometry == null) {
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, GeometrySerde.serialize(geometry));
         }
     }
 
