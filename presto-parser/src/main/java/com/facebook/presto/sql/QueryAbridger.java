@@ -35,34 +35,49 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
-import static com.facebook.presto.sql.AbbreviatorUtil.isAllowedToBePruned;
+import static com.facebook.presto.sql.QueryAbridgerUtil.isAllowedToBePruned;
 import static com.facebook.presto.sql.SqlFormatter.SqlFormatterType.PRUNE_AWARE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public final class QueryAbbreviator
+public final class QueryAbridger
 {
-    private static Logger log = Logger.get(QueryAbbreviator.class);
+    private static Logger log = Logger.get(QueryAbridger.class);
     private static final String PRUNED_MARKER = "...";
 
-    private QueryAbbreviator() {}
+    private QueryAbridger() {}
 
-    public static String abbreviate(String query, Node root, Optional<List<Expression>> parameters, int threshold)
+    public static String abridge(String query, Node root, Optional<List<Expression>> parameters, int threshold)
     {
         requireNonNull(root, "root is null");
         checkArgument(threshold >= 0, "threshold is < 0");
 
-        // Don't try pruning if threshold is smaller than the shortest possible string after abbreviation
+        // Don't try pruning if threshold is smaller than the shortest possible string after abridgement
         if (threshold < PRUNED_MARKER.length()) {
             return PRUNED_MARKER.substring(0, threshold);
         }
 
+        if (threshold >= query.length())
+        {
+            System.out.println("Not invoked");
+            return query;
+        }
+
         // Compute priorities and generate an order of candidates to prune
+//        long startTime = System.nanoTime();
         Queue<NodeInfo> pruningOrder = generatePruningOrder(root);
+//        long endTime = System.nanoTime();
+//        double durationms = (endTime - startTime) / 1000000.0;
+//        System.out.println("Pruning order generation: " +  durationms + "ms");
 
         // Prune the query tree.
         try {
+            // Compute priorities and generate an order of candidates to prune
+//            long startTime2 = System.nanoTime();
             pruneQueryTree(root, parameters, pruningOrder, threshold);
+//            long endTime2 = System.nanoTime();
+//            double durationms2 = (endTime2 - startTime2) / 1000000.0;
+//            System.out.println("Pruning Tree: " +  durationms2 + "ms");
         }
         catch (Exception e) {
             log.warn("Couldn't prune the query: " + query);
@@ -70,7 +85,13 @@ public final class QueryAbbreviator
         }
 
         // construct and return formatted string for pruned tree. Truncate if still not done
+
+//        long startTime3 = System.nanoTime();
         String prunedTreeSql = SqlFormatter.formatSql(root, parameters, PRUNE_AWARE);
+//        long endTime3 = System.nanoTime();
+//        double durationms3 = (endTime3 - startTime3) / 1000000.0;
+//        System.out.println("Creating formatted Sql: " +  durationms3 + "ms");
+
         if (prunedTreeSql.length() > threshold) {
             return prunedTreeSql.substring(0, threshold);
         }
@@ -94,11 +115,11 @@ public final class QueryAbbreviator
         // Sort the list to order nodes according to priority
         List<NodeInfo> pruningCandidatesUnordered = pruningContext.getNodesToPrune();
         pruningCandidatesUnordered.sort((o1, o2) -> {
-            if (o1.cpVal < o2.cpVal) {
+            if (o1.childPriorityVal < o2.childPriorityVal) {
                 return -1;
             }
 
-            if (o1.cpVal == o2.cpVal) {
+            if (o1.childPriorityVal == o2.childPriorityVal) {
                 if (o1.level > o2.level) {
                     return -1;
                 }
@@ -113,11 +134,7 @@ public final class QueryAbbreviator
         });
 
         // Create a queue of nodes from the sorted list
-        Queue<NodeInfo> pruningOrder = new LinkedList<>();
-        for (int i = 0; i < pruningCandidatesUnordered.size(); i++) {
-            pruningOrder.add(pruningCandidatesUnordered.get(i));
-        }
-
+        Queue<NodeInfo> pruningOrder = new LinkedList<>(pruningCandidatesUnordered);
         return pruningOrder;
     }
 
@@ -130,7 +147,7 @@ public final class QueryAbbreviator
      *
      * @param root - root of the query tree
      * @param pruningOrder - queue of candidate nodes to prune, ordered according to their priorities.
-     * @param threshold - target length for abbreviation
+     * @param threshold - target length for abridgement
      */
     private static void pruneQueryTree(Node root, Optional<List<Expression>> parameters, Queue<NodeInfo> pruningOrder, int threshold)
     {
@@ -180,7 +197,45 @@ public final class QueryAbbreviator
     /**
      * This visitor class traverses the tree and
      * - keeps adding nodes to PruningContext::nodesToPrune.
-     * - propagates the values for pVal and level.
+     * - propagates the values for priorityVal and level.
+     *
+     * Our goal is to get rid of the least “important” nodes first. So it would make sense to start
+     * removing the “bulkiest” parts of a tree, and keep doing that until we meet our goal. How do
+     * we define bulkiness?
+     * (1) Deeper the node, higher the bulkiness → less important it is.
+     * (2) Higher the number of siblings → less important it is.
+     *
+     * The order of pruning is decided based on the value of tuple <childPriorityVal, level> for every node.
+     *
+     * 1. Defintion of `level` for a node:
+     *
+     *     * Same as commonly used in the context of trees
+     *
+     *         level(root) = 1
+     *         level(child_node) = level(parent_node) + 1
+     *
+     * 2. Defintion of childPriorityVal:
+     *
+     *     Definition of childPriorityVal is dependent on the definition of priorityVal.
+     *
+     *     Definition of priorityVal:
+     *
+     *         priorityVal(root) = 1.0
+     * 	       priorityVal(child_node) = priorityVal(parent_node) / parent.getChildren().size()
+     *
+     *         priorityVal can be computed recursively and stored by traversing the whole tree. Two important invariants here:
+     *         (1) child’s priorityVal is always less than or equal to parent’s priorityVal.
+     *         (2) All the children of a node have same priorityVal.
+     *
+     *     childPriorityVal of a node is equal to the priorityVal of its children (if at least one exists).
+     *     Otherwise, childPriorityVal of a node is equal to the priorityVal of that node.
+     *
+     *
+     *     if a node has children:
+     *         childPriorityVal(node) = priorityVal(any of its children)
+     * 	   else:
+     * 		     childPriorityVal(node) = priorityVal(node)
+     *
      */
     private static class PriorityGenerator
             extends AstVisitor<Void, PruningContext>
@@ -194,13 +249,13 @@ public final class QueryAbbreviator
         @Override
         protected Void visitNode(Node node, PruningContext context)
         {
-            double pVal = context.getCurrentPVal();
-            double cpVal = pVal / Math.max(1, node.getChildren().size());
+            double priorityVal = context.getCurrentPriorityVal();
+            double childPriorityVal = priorityVal / Math.max(1, node.getChildren().size());
 
             // Add NodeInfo object to the queue if it is allowed to be pruned
             NodeInfo nodeInfo = new NodeInfo(
                                         node,
-                                        cpVal,
+                                        childPriorityVal,
                                         context.getCurrentLevel(),
                                         context.getCurrentIndent());
 
@@ -214,7 +269,7 @@ public final class QueryAbbreviator
             // Generate child context
             PruningContext childContext = new PruningContext(
                                                     context.getNodesToPrune(),
-                                                    cpVal,
+                                                    childPriorityVal,
                                                     context.getCurrentLevel() + 1,
                                                     childIndent);
 
@@ -245,8 +300,8 @@ public final class QueryAbbreviator
         @Override
         protected Void visitQuery(Query node, PruningContext context)
         {
-            double pVal = context.getCurrentPVal();
-            double cpVal = pVal / Math.max(1, node.getChildren().size());
+            double priorityVal = context.getCurrentPriorityVal();
+            double childPriorityVal = priorityVal / Math.max(1, node.getChildren().size());
 
             // compute indent value for children
             int childIndent = getChildIndent(context.getCurrentIndent(), node);
@@ -254,7 +309,7 @@ public final class QueryAbbreviator
             // Add NodeInfo object to the priority queue
             NodeInfo nodeInfo = new NodeInfo(
                     node,
-                    cpVal,
+                    childPriorityVal,
                     context.getCurrentLevel(),
                     context.getCurrentIndent());
 
@@ -265,7 +320,7 @@ public final class QueryAbbreviator
             // Generate child context
             PruningContext childContext = new PruningContext(
                     context.getNodesToPrune(),
-                    cpVal,
+                    childPriorityVal,
                     context.getCurrentLevel() + 1,
                     childIndent);
 
@@ -294,13 +349,13 @@ public final class QueryAbbreviator
             Iterator<WithQuery> queries = with.getQueries().iterator();
             int numWithQueries = with.getQueries().size();
 
-            double pVal = context.getCurrentPVal();
-            double cpVal = pVal / Math.max(numWithQueries, 1);
+            double priorityVal = context.getCurrentPriorityVal();
+            double childPriorityVal = priorityVal / Math.max(numWithQueries, 1);
 
             int childIndent = getChildIndent(context.getCurrentIndent(), with);
 
             PruningContext childContext = new PruningContext(context.getNodesToPrune(),
-                    cpVal,
+                    childPriorityVal,
                     context.getCurrentLevel() + 1,
                     childIndent);
 
@@ -314,7 +369,7 @@ public final class QueryAbbreviator
     static class NodeInfo
     {
         private final Node node;
-        private final double cpVal;
+        private final double childPriorityVal;
         private final int level;
         private final int indent;
 
@@ -323,9 +378,9 @@ public final class QueryAbbreviator
             return node;
         }
 
-        public double getCPVal()
+        public double getChildPriorityVal()
         {
-            return cpVal;
+            return childPriorityVal;
         }
 
         public int getLevel()
@@ -338,11 +393,11 @@ public final class QueryAbbreviator
             return indent;
         }
 
-        public NodeInfo(Node node, double cpVal, int level, int indent)
+        public NodeInfo(Node node, double childPriorityVal, int level, int indent)
         {
             this.node = node;
             this.level = level;
-            this.cpVal = cpVal;
+            this.childPriorityVal = childPriorityVal;
             this.indent = indent;
         }
     }
@@ -350,14 +405,14 @@ public final class QueryAbbreviator
     static class PruningContext
     {
         private final List<NodeInfo> nodesToPrune;
-        private double currentPVal;
+        private double currentPriorityVal;
         private int currentLevel;
         private int currentIndent;
 
-        public PruningContext(List<NodeInfo> nodesToPrune, double currentPVal, int currentLevel, int currentIndent)
+        public PruningContext(List<NodeInfo> nodesToPrune, double currentPriorityVal, int currentLevel, int currentIndent)
         {
             this.nodesToPrune = nodesToPrune;
-            this.currentPVal = currentPVal;
+            this.currentPriorityVal = currentPriorityVal;
             this.currentLevel = currentLevel;
             this.currentIndent = currentIndent;
         }
@@ -367,9 +422,9 @@ public final class QueryAbbreviator
             return this.nodesToPrune;
         }
 
-        public double getCurrentPVal()
+        public double getCurrentPriorityVal()
         {
-            return this.currentPVal;
+            return this.currentPriorityVal;
         }
 
         public int getCurrentLevel()

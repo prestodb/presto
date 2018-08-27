@@ -110,7 +110,6 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.facebook.presto.sql.SqlFormatter.SqlFormatterType.DEFAULT;
 import static com.facebook.presto.sql.SqlFormatter.SqlFormatterType.PRUNE_AWARE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -177,7 +176,6 @@ public final class SqlFormatter
         @Override
         protected Void visitExpression(Expression node, Integer indent)
         {
-            checkArgument(indent == 0, "visitExpression should only be called at root");
             builder.append(processFormatExpression(node, parameters, indent));
             return null;
         }

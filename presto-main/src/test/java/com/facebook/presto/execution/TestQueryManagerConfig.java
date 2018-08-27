@@ -46,7 +46,9 @@ public class TestQueryManagerConfig
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(1)
-                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES)));
+                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setQueryAbridgingEnabled(false)
+                .setQueryAbridgedMaxLength(10000));
     }
 
     @Test
@@ -61,7 +63,7 @@ public class TestQueryManagerConfig
                 .put("query.schedule-split-batch-size", "99")
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
-                .put("query.max-queued-queries", "-2")
+                .put("query.max-queued-queries", "15")
                 .put("query.initial-hash-partitions", "16")
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.remote-task.min-error-duration", "30s")
@@ -73,6 +75,8 @@ public class TestQueryManagerConfig
                 .put("query.max-cpu-time", "2d")
                 .put("query-manager.initialization-required-workers", "200")
                 .put("query-manager.initialization-timeout", "1m")
+                .put("query.abridging.enabled", "true")
+                .put("query.abridged.max.length", "20000")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -84,7 +88,7 @@ public class TestQueryManagerConfig
                 .setScheduleSplitBatchSize(99)
                 .setMinScheduleSplitBatchSize(9)
                 .setMaxConcurrentQueries(10)
-                .setMaxQueuedQueries(-2)
+                .setMaxQueuedQueries(15)
                 .setInitialHashPartitions(16)
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMinErrorDuration(new Duration(60, TimeUnit.SECONDS))
@@ -95,7 +99,9 @@ public class TestQueryManagerConfig
                 .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(200)
-                .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES));
+                .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
+                .setQueryAbridgingEnabled(true)
+                .setQueryAbridgedMaxLength(20000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

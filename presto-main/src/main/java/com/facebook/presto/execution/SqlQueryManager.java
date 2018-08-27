@@ -34,7 +34,7 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.QueryAbbreviator;
+import com.facebook.presto.sql.QueryAbridger;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -537,17 +537,17 @@ public class SqlQueryManager
         return StatementUtils.getQueryType(statement.getClass()).map(Enum::name);
     }
 
-    public static String wrapExecuteQueryString(String abbreviatedQuery, Statement statement)
+    public static String wrapExecuteQueryString(String abridgedQuery, Statement statement)
     {
         if ((!(statement instanceof Execute))) {
-            return abbreviatedQuery;
+            return abridgedQuery;
         }
-        return "EXECUTE Statement: " + abbreviatedQuery;
+        return "EXECUTE Statement: " + abridgedQuery;
     }
 
     public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
     {
-        if ((!(statement instanceof Execute))) {
+        if (!(statement instanceof Execute)) {
             return statement;
         }
 
@@ -559,8 +559,8 @@ public class SqlQueryManager
     {
         Statement statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
         List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
-        String abbreviatedQuery = QueryAbbreviator.abbreviate(query, statement, Optional.of(parameters), queryAbridgedMaxLength);
-        return wrapExecuteQueryString(abbreviatedQuery, wrappedStatement);
+        String abridgedQuery = QueryAbridger.abridge(query, statement, Optional.of(parameters), queryAbridgedMaxLength);
+        return wrapExecuteQueryString(abridgedQuery, wrappedStatement);
     }
 
     public static void validateParameters(Statement node, List<Expression> parameterValues)

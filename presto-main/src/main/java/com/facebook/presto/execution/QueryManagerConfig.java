@@ -61,7 +61,7 @@ public class QueryManagerConfig
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private boolean queryAbridgingEnabled;
-    private int queryAbridgedMaxLength = 100;
+    private int queryAbridgedMaxLength = 10000;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -354,7 +354,7 @@ public class QueryManagerConfig
     }
 
     @Config("query.abridged.max.length")
-    @ConfigDescription("threshold for query abbreviation")
+    @ConfigDescription("threshold for query abridgement")
     public QueryManagerConfig setQueryAbridgedMaxLength(int queryAbridgedMaxLength)
     {
         this.queryAbridgedMaxLength = queryAbridgedMaxLength;
