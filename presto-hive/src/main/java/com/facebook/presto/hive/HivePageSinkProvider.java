@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxPartitionsPerWriter;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +54,6 @@ public class HivePageSinkProvider
     private final ExtendedHiveMetastore metastore;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
-    private final int maxOpenPartitions;
     private final int maxOpenSortFiles;
     private final DataSize writerSortBufferSize;
     private final boolean immutablePartitions;
@@ -89,7 +89,6 @@ public class HivePageSinkProvider
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.maxOpenSortFiles = config.getMaxOpenSortFiles();
         this.writerSortBufferSize = requireNonNull(config.getWriterSortBufferSize(), "writerSortBufferSize is null");
         this.immutablePartitions = config.isImmutablePartitions();
@@ -159,7 +158,7 @@ public class HivePageSinkProvider
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
-                maxOpenPartitions,
+                getMaxPartitionsPerWriter(session),
                 writeVerificationExecutor,
                 partitionUpdateCodec,
                 session);
