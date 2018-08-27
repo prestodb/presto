@@ -18,33 +18,36 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
-
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
+import java.util.stream.Collectors;
 
 public class MockHiveMetastoreClientFactory
         extends HiveMetastoreClientFactory
 {
-    private final List<HiveMetastoreClient> clients;
+    private Map<HostAndPort, Optional<HiveMetastoreClient>> hostAndPortHiveMetastoreClientMap;
 
-    public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
+    public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, Map<String, Optional<HiveMetastoreClient>> clients)
     {
         super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication());
-        this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
+        this.hostAndPortHiveMetastoreClientMap = clients.entrySet().stream().collect(Collectors.toMap(entry -> createHostAndPort(entry.getKey()), Map.Entry::getValue));
     }
 
     @Override
     public HiveMetastoreClient create(HostAndPort address)
             throws TTransportException
     {
-        checkState(!clients.isEmpty(), "mock not given enough clients");
-        HiveMetastoreClient client = clients.remove(0);
-        if (client == null) {
+        Optional<HiveMetastoreClient> client = hostAndPortHiveMetastoreClientMap.getOrDefault(address, Optional.empty());
+        if (!client.isPresent()) {
             throw new TTransportException(TTransportException.TIMED_OUT);
         }
-        return client;
+        return client.get();
+    }
+
+    private static HostAndPort createHostAndPort(String str)
+    {
+        URI uri = URI.create(str);
+        return HostAndPort.fromParts(uri.getHost(), uri.getPort());
     }
 }

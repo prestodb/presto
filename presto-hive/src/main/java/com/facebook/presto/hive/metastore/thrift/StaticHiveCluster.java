@@ -13,25 +13,24 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.metastore.thrift.FailureAwareHiveMetaStoreClient.ResponseHandle;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
 
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class StaticHiveCluster
         implements HiveCluster
 {
-    private final List<HostAndPort> addresses;
+    private final LinkedList<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
 
@@ -45,10 +44,12 @@ public class StaticHiveCluster
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
-        this.addresses = metastoreUris.stream()
+
+        this.addresses = new LinkedList<>();
+        metastoreUris.stream()
                 .map(StaticHiveCluster::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .collect(toList());
+                .forEach(this.addresses::add);
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -65,13 +66,27 @@ public class StaticHiveCluster
     public HiveMetastoreClient createMetastoreClient()
             throws TException
     {
-        List<HostAndPort> metastores = new ArrayList<>(addresses);
-        Collections.shuffle(metastores.subList(1, metastores.size()));
-
         TException lastException = null;
-        for (HostAndPort metastore : metastores) {
+
+        for (HostAndPort metastore : addresses) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore);
+                HiveMetastoreClient client = new FailureAwareHiveMetaStoreClient(clientFactory.create(metastore), new ResponseHandle()
+                {
+                    @Override
+                    public void success()
+                    {
+                        // do nothing
+                    }
+
+                    @Override
+                    public void failed(TException e)
+                    {
+                        if (!metastore.equals(addresses.getLast())) {
+                            addresses.remove(metastore);
+                            addresses.addLast(metastore);
+                        }
+                    }
+                });
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);
                 }
