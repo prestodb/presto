@@ -263,7 +263,7 @@
                 <configuration>
                     <skip>true</skip>
                     <ignoredUnusedDeclaredDependencies>
-                        <ignoredUnusedDeclaredDependency>com.sun.jersey:jersey-bundle</ignoredUnusedDeclaredDependency>
+                        <!--<ignoredUnusedDeclaredDependency>com.sun.jersey:jersey-bundle</ignoredUnusedDeclaredDependency>-->
                     </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
