@@ -124,6 +124,33 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testFormat()
+    {
+        String.format("%s", 1);
+        assertInvalidFunction("FORMAT('')", "There must be two or more arguments");
+        assertFunction("FORMAT('hello %s', 'world')", VARCHAR, "hello world");
+        assertFunction("FORMAT('a=%s, b=%s, c=%s', cast(1 as varchar), cast(2 as varchar), cast(3 as varchar))", VARCHAR, "a=1, b=2, c=3");
+        assertFunction("FORMAT('', '')", VARCHAR, "");
+        assertFunction("FORMAT('what', '')", VARCHAR, "what");
+        assertFunction("FORMAT('', 'what')", VARCHAR, "");
+        assertFunction("FORMAT(FORMAT('this %s %s', 'is'), 'cool')", VARCHAR, "this is cool");
+
+        // Test varbinary arguments
+        assertFunction("from_utf8(FORMAT(to_utf8('hello %s'), to_utf8('world')))", VARCHAR, "hello world");
+        assertFunction("from_utf8(FORMAT(to_utf8(''), to_utf8('')))", VARCHAR, "");
+
+        // Test concat for non-ASCII
+        assertFunction("FORMAT('hello naïve %s', 'world')", VARCHAR, "hello naïve world");
+        assertFunction("FORMAT('𐐭 %s', 'end')", VARCHAR, "𐐭 end");
+        assertFunction("FORMAT('𐐭%s%s', 'end', '𐐭')", VARCHAR, "𐐭end𐐭");
+        assertFunction("FORMAT('Bag full of %s', '💰')", VARCHAR, "Bag full of 💰");
+
+        // Test argument count limit
+        assertFunction("FORMAT('" + Joiner.on("").join(nCopies(253, "%s")) + "', " + Joiner.on(", ").join(nCopies(253, "'1'")) + ")", VARCHAR, Joiner.on("").join(nCopies(253, "1")));
+        assertNotSupported("FORMAT('" + Joiner.on("").join(nCopies(254, "%s")) + "', " + Joiner.on(", ").join(nCopies(254, "'1'")) + ")", "Too many arguments for string format");
+    }
+
+    @Test
     public void testLength()
     {
         assertFunction("LENGTH('')", BIGINT, 0L);

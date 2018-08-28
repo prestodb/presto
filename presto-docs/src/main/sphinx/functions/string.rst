@@ -42,6 +42,14 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: format(format, string1, ..., stringN) -> varchar
+
+    Returns the formatted string of ``format``, ``string1``, ``...``, ``stringN``.
+    Only supports ``%s`` as a specifier.
+    This function provides the same functionality as the
+    Java formatting a string (``String.format()``).
+
+
 .. function:: hamming_distance(string1, string2) -> bigint
 
     Returns the Hamming distance of ``string1`` and ``string2``,
