@@ -41,6 +41,7 @@ public class TestQueryStats
             new OperatorStats(
                     1,
                     1,
+                    1,
                     new PlanNodeId("1"),
                     TableWriterOperator.class.getSimpleName(),
                     0L,
@@ -74,6 +75,7 @@ public class TestQueryStats
             new OperatorStats(
                     1,
                     1,
+                    1,
                     new PlanNodeId("2"),
                     FilterAndProjectOperator.class.getSimpleName(),
                     0L,
@@ -105,6 +107,7 @@ public class TestQueryStats
                     Optional.empty(),
                     null),
             new OperatorStats(
+                    1,
                     1,
                     1,
                     new PlanNodeId("3"),
