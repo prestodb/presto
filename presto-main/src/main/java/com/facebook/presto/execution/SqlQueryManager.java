@@ -539,7 +539,7 @@ public class SqlQueryManager
 
     public static String wrapExecuteQueryString(String abridgedQuery, Statement statement)
     {
-        if ((!(statement instanceof Execute))) {
+        if (!(statement instanceof Execute)) {
             return abridgedQuery;
         }
         return "EXECUTE Statement: " + abridgedQuery;

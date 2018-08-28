@@ -57,40 +57,30 @@ public final class QueryAbridger
             return PRUNED_MARKER.substring(0, threshold);
         }
 
-        if (threshold >= query.length())
-        {
-            System.out.println("Not invoked");
+        // no need to abbreviate if the original query is shorter than the threshold
+        if (threshold >= query.length()) {
             return query;
         }
 
         // Compute priorities and generate an order of candidates to prune
-//        long startTime = System.nanoTime();
         Queue<NodeInfo> pruningOrder = generatePruningOrder(root);
-//        long endTime = System.nanoTime();
-//        double durationms = (endTime - startTime) / 1000000.0;
-//        System.out.println("Pruning order generation: " +  durationms + "ms");
 
         // Prune the query tree.
         try {
             // Compute priorities and generate an order of candidates to prune
-//            long startTime2 = System.nanoTime();
             pruneQueryTree(root, parameters, pruningOrder, threshold);
-//            long endTime2 = System.nanoTime();
-//            double durationms2 = (endTime2 - startTime2) / 1000000.0;
-//            System.out.println("Pruning Tree: " +  durationms2 + "ms");
         }
         catch (Exception e) {
-            log.warn("Couldn't prune the query: " + query);
-            return query.substring(0, threshold);
+            String queryShortened = query;
+            if (queryShortened.length() > threshold) {
+                queryShortened = query.substring(0, threshold);
+            }
+            log.info("Failed to prune query. " + queryShortened);
+            return queryShortened;
         }
 
         // construct and return formatted string for pruned tree. Truncate if still not done
-
-//        long startTime3 = System.nanoTime();
         String prunedTreeSql = SqlFormatter.formatSql(root, parameters, PRUNE_AWARE);
-//        long endTime3 = System.nanoTime();
-//        double durationms3 = (endTime3 - startTime3) / 1000000.0;
-//        System.out.println("Creating formatted Sql: " +  durationms3 + "ms");
 
         if (prunedTreeSql.length() > threshold) {
             return prunedTreeSql.substring(0, threshold);
@@ -221,7 +211,7 @@ public final class QueryAbridger
      *     Definition of priorityVal:
      *
      *         priorityVal(root) = 1.0
-     * 	       priorityVal(child_node) = priorityVal(parent_node) / parent.getChildren().size()
+     *         priorityVal(child_node) = priorityVal(parent_node) / parent.getChildren().size()
      *
      *         priorityVal can be computed recursively and stored by traversing the whole tree. Two important invariants here:
      *         (1) child’s priorityVal is always less than or equal to parent’s priorityVal.
@@ -233,8 +223,8 @@ public final class QueryAbridger
      *
      *     if a node has children:
      *         childPriorityVal(node) = priorityVal(any of its children)
-     * 	   else:
-     * 		     childPriorityVal(node) = priorityVal(node)
+     *     else:
+     *         childPriorityVal(node) = priorityVal(node)
      *
      */
     private static class PriorityGenerator

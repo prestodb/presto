@@ -76,11 +76,11 @@ public class QueryAbridgerUtil
      *
      * - Input: a 'Query' object
      * - Output: true
-     * - Reason: Query class extends Statement class. Query is not blacklisted. Statement is whitelisted.
+     * - Reason: Query class is a subclass of Statement class. Query is not blacklisted. Statement is whitelisted.
      *
      * - input: a 'Use' object
      * - Output: false
-     * - Reason: Use class also extends Statement class. But Use is blacklisted.
+     * - Reason: Use class also is a subclass Statement class. But Use is blacklisted.
      *
      * - input: a 'GroupBy' object
      * - Output: false
