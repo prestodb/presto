@@ -14,6 +14,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.StatsCalculatorModule;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
@@ -209,6 +215,14 @@ public class CoordinatorModule
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        // statistics calculator
+        binder.install(new StatsCalculatorModule());
+
+        // cost calculator
+        binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
