@@ -14,6 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.CommitTask;
@@ -131,6 +133,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
@@ -174,6 +177,10 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(NodeResource.class);
         jaxrsBinder(binder).bind(WorkerResource.class);
         httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
+
+        // query monitor
+        configBinder(binder).bindConfig(QueryMonitorConfig.class);
+        binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
