@@ -28,8 +28,6 @@ import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculatorModule;
-import com.facebook.presto.event.QueryMonitor;
-import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
@@ -415,10 +413,6 @@ public class ServerMainModule
 
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
-
-        // query monitor
-        configBinder(binder).bindConfig(QueryMonitorConfig.class);
-        binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 
         // Determine the NodeVersion
         NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
