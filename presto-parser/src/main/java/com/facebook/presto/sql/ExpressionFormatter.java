@@ -842,14 +842,14 @@ public final class ExpressionFormatter
             else if (groupingElement instanceof GroupingSets) {
                 result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
                         ((GroupingSets) groupingElement).getSets().stream()
-                                .map(e -> formatGroupingSet(e, parameters))
+                                .map(e -> formatGroupingSet(e, parameters, indent, sqlFormatterType))
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters));
+                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters, indent, sqlFormatterType));
             }
             else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters));
+                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters, indent, sqlFormatterType));
             }
             resultStrings.add(result);
         }
@@ -864,14 +864,14 @@ public final class ExpressionFormatter
         return true;
     }
 
-    private static String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
+    private static String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters, int indent, SqlFormatterType sqlFormatterType)
     {
         return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
             .map(e -> formatExpression(e, parameters, indent, sqlFormatterType))
             .iterator()));
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
+    private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters, int indent, SqlFormatterType sqlFormatterType)
     {
         return input -> {
             StringBuilder builder = new StringBuilder();
