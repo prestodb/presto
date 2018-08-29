@@ -220,6 +220,16 @@ struct PrestoThriftPageResult {
   3: optional PrestoThriftId nextToken;
 }
 
+struct PrestoThriftPage {
+  /**
+   * Returns data in a columnar format.
+   * Columns in this list are in the order given by the metadata of the insert table.
+   */
+  1: list<PrestoThriftBlock> columnBlocks;
+
+  2: i32 rowCount;
+}
+
 struct PrestoThriftNullableTableMetadata {
   1: optional PrestoThriftTableMetadata tableMetadata;
 }
@@ -353,5 +363,34 @@ service PrestoThriftService {
       2: list<string> columns,
       3: i64 maxBytes,
       4: PrestoThriftNullableToken nextToken)
+    throws (1: PrestoThriftServiceException ex1);
+
+  /**
+   * Adds a page of rows to be stored in a given table.
+   *
+   * @param schemaTableName schema and table name
+   * @param page data to store
+   * @param insertId unique identifier for an insertion which may span multiple calls to prestoAddRows
+   */
+  void prestoAddRows(
+      1: PrestoThriftSchemaTableName schemaTableName,
+      2: PrestoThriftPage page,
+      3: string insertId)
+    throws (1: PrestoThriftServiceException ex1);
+
+  /**
+   * Signals the end of sending data to be stored.
+   *
+   * @param insertId unique identifier to notify which insertion should be committed
+   */
+  void prestoFinishAddRows(1: string insertId)
+    throws (1: PrestoThriftServiceException ex1);
+
+  /**
+   * Signals the abort of an insertion of rows
+   *
+   * @param insertId unique identifier to notify the insertion that should be aborted
+   */
+  void prestoAbortAddRows(1: string insertId)
     throws (1: PrestoThriftServiceException ex1);
 }
