@@ -2,6 +2,11 @@
 Release 0.208
 =============
 
+.. warning::
+
+    This release has the potential for data loss in the Hive connector
+    when writing bucketed sorted tables.
+
 General Changes
 ---------------
 

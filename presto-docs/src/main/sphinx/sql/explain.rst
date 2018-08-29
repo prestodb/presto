@@ -11,8 +11,8 @@ Synopsis
 
     where option can be one of:
 
-        FORMAT { TEXT | GRAPHVIZ | IO }
-        TYPE { LOGICAL | DISTRIBUTED | VALIDATE | JSON }
+        FORMAT { TEXT | GRAPHVIZ | JSON }
+        TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }
 
 Description
 -----------
