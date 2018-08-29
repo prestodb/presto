@@ -28,6 +28,7 @@ Create a MySQL database with the following table and load it with the queries yo
         control_postqueries TEXT,
         control_username VARCHAR(256) NOT NULL default 'verifier-test',
         control_password VARCHAR(256),
+        session_properties_json VARCHAR(2048),
         PRIMARY KEY (id)
     );
 
