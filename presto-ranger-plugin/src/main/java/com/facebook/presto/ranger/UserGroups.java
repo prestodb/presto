@@ -46,6 +46,7 @@ public class UserGroups
     private static final Logger log = Logger.get(UserGroups.class);
     private static final String GET_USER_INFO = "/service/xusers/users/userName/%s";
     private static final String GET_USER_GROUPS = "/service/xusers/%d/groups";
+    private static final String KERBEROS = "kerberos";
     private final RangerRESTClient restClient;
     private final LoadingCache<String, Set<String>> userGroupCache;
     private final boolean isKerberos;
@@ -53,11 +54,11 @@ public class UserGroups
     public UserGroups(Map<String, String> configuration)
     {
         this.restClient = new RangerRESTClient();
-        this.isKerberos = "kerberos".equalsIgnoreCase(RangerConfiguration.getInstance().get("hadoop.security.authentication"));
-        restClient.setBasicAuthInfo(configuration.get("ranger.username"), "ranger.password");
+        this.isKerberos =
+                KERBEROS.equalsIgnoreCase(RangerConfiguration.getInstance().get("hadoop.security.authentication"));
+        restClient.setBasicAuthInfo(configuration.get("ranger.username"), configuration.get("ranger.password"));
         int cacheExpiry = Integer.parseInt(configuration.getOrDefault("user-group-cache-expiry-ttl", "30"));
-        this.userGroupCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(cacheExpiry, TimeUnit.SECONDS)
+        this.userGroupCache = CacheBuilder.newBuilder().expireAfterWrite(cacheExpiry, TimeUnit.SECONDS)
                 .build(new CacheLoader<String, Set<String>>()
                 {
                     @Override
@@ -87,10 +88,10 @@ public class UserGroups
 
     private ClientResponse makeUserInfoRequest(String user)
     {
-        WebResource resource = restClient
-                .getResource(String.format(GET_USER_INFO, UriComponent
-                        .contextualEncode(user, UriComponent.Type.PATH_SEGMENT)));
-        return resource.accept(RangerRESTUtils.REST_MIME_TYPE_JSON).type(RangerRESTUtils.REST_MIME_TYPE_JSON).get(ClientResponse.class);
+        WebResource resource = restClient.getResource(
+                String.format(GET_USER_INFO, UriComponent.contextualEncode(user, UriComponent.Type.PATH_SEGMENT)));
+        return resource.accept(RangerRESTUtils.REST_MIME_TYPE_JSON).type(RangerRESTUtils.REST_MIME_TYPE_JSON)
+                .get(ClientResponse.class);
     }
 
     private Optional<Integer> getUserId(String userName)
@@ -102,9 +103,8 @@ public class UserGroups
                 return Optional.of(entity.getId());
             }
             String errorMsg = response.hasEntity() ? response.getEntity(String.class) : null;
-            log.error("Error getting user id for  userName=" + userName
-                    + ", response=" + response.getStatus() +
-                    ", errorMsg=" + errorMsg);
+            log.error("Error getting user id for  userName=" + userName + ", response=" + response.getStatus()
+                    + ", errorMsg=" + errorMsg);
             return Optional.empty();
         }
         catch (Throwable t) {
@@ -113,19 +113,12 @@ public class UserGroups
         }
     }
 
-    private <T> ClientResponse doRequest(Supplier<ClientResponse> f)
+    private ClientResponse doRequest(Supplier<ClientResponse> f)
     {
         try {
             UserGroupInformation user = MiscUtil.getLoginUser();
             if (user != null && isKerberos) {
-                return user.doAs(new PrivilegedAction<ClientResponse>()
-                {
-                    @Override
-                    public ClientResponse run()
-                    {
-                        return f.get();
-                    }
-                });
+                return user.doAs((PrivilegedAction<ClientResponse>) () -> f.get());
             }
             else {
                 return f.get();
@@ -153,9 +146,9 @@ public class UserGroups
                 return entity.getvXGroups().stream().map(RangerGroup::getName).collect(Collectors.toSet());
             }
             String errorMsg = response.hasEntity() ? response.getEntity(String.class) : null;
-            log.error("Error getting groups for  userId=" + userId
-                    + ", response=" + response.getStatus() +
-                    ", errorMsg=" + errorMsg);
+            log.error(
+                    "Error getting groups for  userId=" + userId + ", response=" + response.getStatus() + ", errorMsg="
+                            + errorMsg);
             return ImmutableSet.of();
         }
         catch (Throwable t) {
