@@ -168,7 +168,28 @@ class RelationPlanner
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
-        return new RelationPlan(subPlan.getRoot(), analysis.getScope(node), subPlan.getFieldMappings());
+        PlanNode root = subPlan.getRoot();
+        List<Symbol> mappings = subPlan.getFieldMappings();
+
+        if (node.getColumnNames() != null) {
+            ImmutableList.Builder<Symbol> newMappings = ImmutableList.<Symbol>builder();
+            Assignments.Builder assignments = Assignments.builder();
+
+            // project only the visible columns from the underlying relation
+            for (int i = 0; i < subPlan.getDescriptor().getAllFieldCount(); i++) {
+                Field field = subPlan.getDescriptor().getFieldByIndex(i);
+                if (!field.isHidden()) {
+                    Symbol aliasedColumn = symbolAllocator.newSymbol(field);
+                    assignments.put(aliasedColumn, subPlan.getFieldMappings().get(i).toSymbolReference());
+                    newMappings.add(aliasedColumn);
+                }
+            }
+
+            root = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
+            mappings = newMappings.build();
+        }
+
+        return new RelationPlan(root, analysis.getScope(node), mappings);
     }
 
     @Override
