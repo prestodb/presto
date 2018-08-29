@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -49,7 +48,6 @@ public class OperationTimer
     private long intervalCpuStart;
     private long intervalUserStart;
 
-    private OperationTiming overallTiming;
     private final Map<OperationTiming, InternalTiming> timings = new HashMap<>();
 
     public OperationTimer()
@@ -71,22 +69,15 @@ public class OperationTimer
         intervalUserStart = userStart;
     }
 
-    public void setOverallTimer(OperationTiming overallTiming)
+    public void recordOperationComplete(OperationTiming operationTiming)
     {
-        requireNonNull(overallTiming, "overallTiming is null");
-        checkState(this.overallTiming == null, "Overall timer already set");
-        this.overallTiming = overallTiming;
-    }
-
-    public void recordOperationComplete(OperationTiming timing)
-    {
-        requireNonNull(timing, "timing is null");
-        InternalTiming internalTiming = timings.computeIfAbsent(timing, InternalTiming::new);
+        requireNonNull(operationTiming, "operationTiming is null");
+        InternalTiming internalTiming = timings.computeIfAbsent(operationTiming, InternalTiming::new);
 
         long intervalWallEnd = ticker.read();
-        long intervalWallDuration = intervalWallEnd - intervalWallStart;
+        long intervalWallDuration = max(0, intervalWallEnd - intervalWallStart);
         // only measure cpu time if the wall interval is large
-        if (intervalWallDuration < minNanosForCpuTiming) {
+        if (intervalWallDuration > minNanosForCpuTiming) {
             long intervalCpuEnd = currentThreadCpuTime();
             long intervalCpuDuration = max(0, intervalCpuEnd - intervalCpuStart - intervalUnaccountedCpuWallTime);
 
@@ -108,25 +99,15 @@ public class OperationTimer
         }
     }
 
-    public void end()
+    public void end(OperationTiming overallTiming)
     {
         if (overallTiming == null && timings.isEmpty()) {
             return;
         }
 
         long wallEnd = ticker.read();
-
-        long cpuEnd;
-        long userEnd;
-        // remeasure cpu timings if the current interval is large
-        if (wallEnd - intervalWallStart < minNanosForCpuTiming) {
-            cpuEnd = currentThreadCpuTime();
-            userEnd = currentThreadUserTime();
-        }
-        else {
-            cpuEnd = intervalCpuStart;
-            userEnd = intervalUserStart;
-        }
+        long cpuEnd = currentThreadCpuTime();
+        long userEnd = currentThreadUserTime();
 
         if (overallTiming != null) {
             long wallDuration = wallEnd - wallStart;
@@ -215,10 +196,12 @@ public class OperationTimer
         public void recordTimings(long totalUnaccountedCpuNanos, long totalUnaccountedUserNanos, long totalUnaccountedCpuWallNanos)
         {
             if (cpuUnaccountedWallNanos > 0) {
+                double unaccountedCpuFraction = cpuUnaccountedWallNanos / (double) totalUnaccountedCpuWallNanos;
+
                 // measured CPU + this timers portion of the unaccounted CPU
-                operationTiming.recordEstimatedCpuTime(cpuMeasuredNanos + totalUnaccountedCpuNanos * (totalUnaccountedCpuWallNanos / cpuUnaccountedWallNanos));
+                operationTiming.recordEstimatedCpuTime((long) (cpuMeasuredNanos + totalUnaccountedCpuNanos * unaccountedCpuFraction));
                 // measured USER + this timers portion of the unaccounted USER
-                operationTiming.recordEstimatedUserTime(userMeasuredNanos + totalUnaccountedUserNanos * (totalUnaccountedCpuWallNanos / cpuUnaccountedWallNanos));
+                operationTiming.recordEstimatedUserTime((long) (userMeasuredNanos + totalUnaccountedUserNanos * unaccountedCpuFraction));
             }
             else {
                 operationTiming.recordEstimatedCpuTime(cpuMeasuredNanos);

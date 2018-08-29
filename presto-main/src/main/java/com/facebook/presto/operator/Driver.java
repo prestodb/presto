@@ -275,7 +275,7 @@ public class Driver
 
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
             OperationTimer operationTimer = new OperationTimer();
-            driverContext.startProcessTimer(operationTimer);
+            driverContext.startProcessTimer();
             driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
@@ -289,7 +289,7 @@ public class Driver
             }
             finally {
                 driverContext.getYieldSignal().reset();
-                operationTimer.end();
+                driverContext.recordProcessed(operationTimer);
             }
             return NOT_BLOCKED;
         });
@@ -313,7 +313,7 @@ public class Driver
                 return updateDriverBlockedFuture(future);
             }
             finally {
-                operationTimer.end();
+                operationTimer.end(null);
             }
         });
         return result.orElse(NOT_BLOCKED);

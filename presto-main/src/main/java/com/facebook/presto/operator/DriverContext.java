@@ -69,7 +69,7 @@ public class DriverContext
     private final AtomicLong startNanos = new AtomicLong();
     private final AtomicLong endNanos = new AtomicLong();
 
-    private final OperationTiming processTimer = new OperationTiming();
+    private final OperationTiming overallTiming = new OperationTiming();
 
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
@@ -141,14 +141,17 @@ public class DriverContext
         return pipelineContext.getSession();
     }
 
-    public void startProcessTimer(OperationTimer operationTimer)
+    public void startProcessTimer()
     {
         if (startNanos.compareAndSet(0, System.nanoTime())) {
             pipelineContext.start();
             executionStartTime.set(DateTime.now());
         }
+    }
 
-        operationTimer.setOverallTimer(processTimer);
+    public void recordProcessed(OperationTimer operationTimer)
+    {
+        operationTimer.end(overallTiming);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -300,9 +303,9 @@ public class DriverContext
 
     public DriverStats getDriverStats()
     {
-        long totalScheduledTime = processTimer.getWallNanos();
-        long totalCpuTime = processTimer.getEstimatedCpuNanos();
-        long totalUserTime = processTimer.getEstimatedUserNanos();
+        long totalScheduledTime = overallTiming.getWallNanos();
+        long totalCpuTime = overallTiming.getEstimatedCpuNanos();
+        long totalUserTime = overallTiming.getEstimatedUserNanos();
 
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
