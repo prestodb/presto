@@ -281,6 +281,8 @@ public class DictionaryCompressionOptimizer
         int getDictionaryBytes();
 
         long convertToDirect();
+
+        long getBufferedBytes();
     }
 
     private static class DictionaryColumnManager
@@ -397,7 +399,7 @@ public class DictionaryCompressionOptimizer
 
         public long getBufferedBytes()
         {
-            return getIndexBytes() + getDictionaryBytes();
+            return dictionaryColumn.getBufferedBytes();
         }
     }
 
