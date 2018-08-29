@@ -16,15 +16,15 @@ package com.facebook.presto.connector.thrift;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -39,6 +39,7 @@ public class ThriftConnector
     private final ThriftMetadata metadata;
     private final ThriftSplitManager splitManager;
     private final ThriftPageSourceProvider pageSourceProvider;
+    private final ThriftPageSinkProvider pageSinkProvider;
     private final ThriftSessionProperties sessionProperties;
     private final ThriftIndexProvider indexProvider;
 
@@ -48,6 +49,7 @@ public class ThriftConnector
             ThriftMetadata metadata,
             ThriftSplitManager splitManager,
             ThriftPageSourceProvider pageSourceProvider,
+            ThriftPageSinkProvider pageSinkProvider,
             ThriftSessionProperties sessionProperties,
             ThriftIndexProvider indexProvider)
     {
@@ -55,6 +57,7 @@ public class ThriftConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
     }
@@ -81,6 +84,12 @@ public class ThriftConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override

@@ -64,6 +64,7 @@ public class ThriftModule
         binder.bind(ThriftMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ThriftSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ThriftPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ThriftPageSinkProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ThriftConnectorConfig.class);
         binder.bind(ThriftSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(ThriftIndexProvider.class).in(Scopes.SINGLETON);
