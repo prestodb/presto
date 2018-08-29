@@ -87,6 +87,18 @@ public class OrcFileWriterConfig
         return this;
     }
 
+    public DataSize getColumnMaxSizeConvertToDirect()
+    {
+        return options.getColumnMaxSizeConvertToDirect();
+    }
+
+    @Config("hive.orc.writer.column-max-size-convert-to-direct")
+    public OrcFileWriterConfig setColumnMaxSizeConvertToDirect(DataSize columnMaxSizeConvertToDirect)
+    {
+        options = options.withColumnMaxSizeConvertToDirect(columnMaxSizeConvertToDirect);
+        return this;
+    }
+
     public DataSize getStringStatisticsLimit()
     {
         return options.getMaxStringStatisticsLimit();

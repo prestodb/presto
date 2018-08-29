@@ -37,6 +37,7 @@ public class TestOrcFileWriterConfig
                 .setStripeMaxRowCount(10_000_000)
                 .setRowGroupMaxRowCount(10_000)
                 .setDictionaryMaxMemory(new DataSize(16, MEGABYTE))
+                .setColumnMaxSizeConvertToDirect(new DataSize(256, MEGABYTE))
                 .setStringStatisticsLimit(new DataSize(64, BYTE))
                 .setMaxCompressionBufferSize(new DataSize(256, KILOBYTE)));
     }
@@ -50,6 +51,7 @@ public class TestOrcFileWriterConfig
                 .put("hive.orc.writer.stripe-max-rows", "44")
                 .put("hive.orc.writer.row-group-max-rows", "11")
                 .put("hive.orc.writer.dictionary-max-memory", "13MB")
+                .put("hive.orc.writer.column-max-size-convert-to-direct", "217MB")
                 .put("hive.orc.writer.string-statistics-limit", "17MB")
                 .put("hive.orc.writer.max-compression-buffer-size", "19MB")
                 .build();
@@ -60,6 +62,7 @@ public class TestOrcFileWriterConfig
                 .setStripeMaxRowCount(44)
                 .setRowGroupMaxRowCount(11)
                 .setDictionaryMaxMemory(new DataSize(13, MEGABYTE))
+                .setColumnMaxSizeConvertToDirect(new DataSize(217, MEGABYTE))
                 .setStringStatisticsLimit(new DataSize(17, MEGABYTE))
                 .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE));
 

@@ -187,7 +187,8 @@ public class OrcWriter
                 stripeMinBytes,
                 stripeMaxBytes,
                 stripeMaxRowCount,
-                toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()));
+                toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()),
+                toIntExact(requireNonNull(options.getColumnMaxSizeConvertToDirect(), "columnMaxSizeConvertToDirect is null").toBytes()));
 
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));

@@ -59,6 +59,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
+    private static final String ORC_OPTIMIZED_WRITER_MAX_COLUMN_SIZE_CONVERT_TO_DIRECT = "orc_optimized_writer_max_column_size_convert_to_direct";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
@@ -195,6 +196,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
+                        false),
+                dataSizeSessionProperty(
+                        ORC_OPTIMIZED_WRITER_MAX_COLUMN_SIZE_CONVERT_TO_DIRECT,
+                        "Experimental: ORC: Max column size to convert to direct encoded from dictionary encoded",
+                        orcFileWriterConfig.getColumnMaxSizeConvertToDirect(),
                         false),
                 stringProperty(
                         HIVE_STORAGE_FORMAT,
@@ -376,6 +382,11 @@ public final class HiveSessionProperties
     public static DataSize getOrcOptimizedWriterMaxDictionaryMemory(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
+    }
+
+    public static DataSize getOrcOptimizedWriterMaxColumnSizeConvertToDirect(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_COLUMN_SIZE_CONVERT_TO_DIRECT, DataSize.class);
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
