@@ -16,10 +16,35 @@ package com.facebook.presto.ranger;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoRangerPlugin
         implements Plugin
 {
+
+//    private final Module module;
+//    private final String name;
+//
+//    public PrestoRangerPlugin(String name, Module module)
+//    {
+//        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+//        this.name = name;
+//        this.module = requireNonNull(module, "module is null");
+//    }
+//
+//    private static ClassLoader getClassLoader()
+//    {
+//        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+//        if (classLoader == null) {
+//            classLoader = PrestoRangerPlugin.class.getClassLoader();
+//        }
+//        return classLoader;
+//    }
+
     @Override
     public Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
     {

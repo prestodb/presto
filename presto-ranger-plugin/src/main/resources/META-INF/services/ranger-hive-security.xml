@@ -1,0 +1,47 @@
+<configuration>
+
+    <property>
+        <name>ranger.plugin.hive.policy.cache.dir</name>
+        <value>/etc/ranger/preprod_dp_hive/policycache</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.policy.pollIntervalMs</name>
+        <value>30000</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.policy.rest.ssl.config.file</name>
+        <value>/usr/hdp/current/hive-server2/conf/conf.server/ranger-policymgr-ssl.xml</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.policy.rest.url</name>
+        <value>http://localhost:6080</value>
+    </property>
+
+    <property>
+        <name>ranger.service.store.rest.url</name>
+        <value>http://localhost:6080</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.policy.source.impl</name>
+        <value>org.apache.ranger.admin.client.RangerAdminRESTClient</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.service.name</name>
+        <value>preprod_dp_hive</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.urlauth.filesystem.schemes</name>
+        <value>hdfs:,file:,wasb:,adl:</value>
+    </property>
+
+    <property>
+        <name>xasecure.hive.update.xapolicies.on.grant.revoke</name>
+        <value>true</value>
+    </property>
+</configuration>
