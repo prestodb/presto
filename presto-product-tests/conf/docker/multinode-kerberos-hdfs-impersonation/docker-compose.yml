@@ -1,0 +1,43 @@
+version: '2'
+services:
+
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-kerberized-master run
+
+  presto-worker-1:
+    domainname: docker.cluster
+    hostname: presto-worker-1
+    extends:
+      file: ../common/kerberos.yml
+      service: presto-master
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    networks:
+      default:
+        aliases:
+         - presto-worker-1.docker.cluster
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+
+  presto-worker-2:
+    domainname: docker.cluster
+    hostname: presto-worker-2
+    extends:
+      file: ../common/kerberos.yml
+      service: presto-master
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    networks:
+      default:
+        aliases:
+         - presto-worker-2.docker.cluster
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+
+  application-runner:
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-kerberos.yaml

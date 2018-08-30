@@ -148,7 +148,7 @@ where profile is one of either:
 - **multinode-tls** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. Presto is configured to only accept connections
- on the HTTPS port (7878), and both coordinator and worker traffic is encrypted.
+ on the HTTPS port (7778), and both coordinator and worker traffic is encrypted.
  For multinode-tls, the default configuration is 1 coordinator and 2 workers.
 - **multinode-tls-kerberos** - pseudo-distributed Hadoop installation running on a
   single Docker container and a distributed installation of kerberized Presto
@@ -159,6 +159,14 @@ where profile is one of either:
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
+- **multinode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
+ Hadoop installation running on a single Docker container and a distributed node
+ installation of kerberized Presto running on multiple Docker containers
+ (default configuration is 1 coordinator and 2 workers).
+ Presto is configured to only accept connections on the HTTPS port (7778),
+ and both coordinator and worker traffic is encrypted.
+ This profile has Kerberos impersonation. Presto impersonates the user who
+ is running the query when accessing HDFS.
 - **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
  environment in singlenode profile. Presto impersonates the user
  who is running the query when accessing HDFS.
