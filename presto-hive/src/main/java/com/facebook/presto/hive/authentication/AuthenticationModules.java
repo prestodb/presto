@@ -15,7 +15,7 @@ package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHdfs;
 import com.facebook.presto.hive.ForHiveMetastore;
-import com.facebook.presto.hive.HdfsConfiguration;
+import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -53,14 +53,15 @@ public final class AuthenticationModules
                 configBinder(binder).bindConfig(MetastoreKerberosConfig.class);
             }
 
+            @Inject
             @Provides
             @Singleton
             @ForHiveMetastore
-            HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfiguration hdfsConfiguration)
+            HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationUpdater updater)
             {
                 String principal = config.getHiveMetastoreClientPrincipal();
                 String keytabLocation = config.getHiveMetastoreClientKeytab();
-                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, hdfsConfiguration);
+                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, updater);
             }
         };
     }
@@ -101,11 +102,11 @@ public final class AuthenticationModules
             @Provides
             @Singleton
             @ForHdfs
-            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfiguration hdfsConfiguration)
+            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationUpdater updater)
             {
                 String principal = config.getHdfsPrestoPrincipal();
                 String keytabLocation = config.getHdfsPrestoKeytab();
-                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, hdfsConfiguration);
+                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, updater);
             }
         };
     }
@@ -127,19 +128,19 @@ public final class AuthenticationModules
             @Provides
             @Singleton
             @ForHdfs
-            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfiguration hdfsConfiguration)
+            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationUpdater updater)
             {
                 String principal = config.getHdfsPrestoPrincipal();
                 String keytabLocation = config.getHdfsPrestoKeytab();
-                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, hdfsConfiguration);
+                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, updater);
             }
         };
     }
 
-    private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfiguration hdfsConfiguration)
+    private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfigurationUpdater updater)
     {
         KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(principal, keytabLocation);
-        KerberosHadoopAuthentication kerberosHadoopAuthentication = createKerberosHadoopAuthentication(kerberosAuthentication, hdfsConfiguration);
+        KerberosHadoopAuthentication kerberosHadoopAuthentication = createKerberosHadoopAuthentication(kerberosAuthentication, updater);
         return new CachingKerberosHadoopAuthentication(kerberosHadoopAuthentication);
     }
 }
