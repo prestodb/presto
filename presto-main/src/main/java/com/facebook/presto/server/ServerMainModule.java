@@ -22,14 +22,6 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
-import com.facebook.presto.cost.CostCalculatorUsingExchanges;
-import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
-import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.StatsCalculatorModule;
-import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
@@ -369,14 +361,6 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
-        // statistics calculator
-        binder.install(new StatsCalculatorModule());
-
-        // cost calculator
-        binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
-        binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
-        binder.bind(CostComparator.class).in(Scopes.SINGLETON);
-
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -409,10 +393,6 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
-
-        // query monitor
-        configBinder(binder).bindConfig(QueryMonitorConfig.class);
-        binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 
         // Determine the NodeVersion
         NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
