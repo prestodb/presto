@@ -50,7 +50,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.execution.TaskTestUtils.createTestQueryMonitor;
+import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -96,7 +96,7 @@ public class TestMemoryRevokingScheduler
                 executor,
                 taskExecutor,
                 planner,
-                createTestQueryMonitor(),
+                createTestSplitMonitor(),
                 new TaskManagerConfig());
 
         allOperatorContexts = null;

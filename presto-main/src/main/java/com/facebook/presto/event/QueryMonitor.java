@@ -22,7 +22,6 @@ import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -30,7 +29,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
@@ -43,9 +41,6 @@ import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
-import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
-import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -59,10 +54,8 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import org.joda.time.DateTime;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -375,59 +368,6 @@ public class QueryMonitor
         }
         catch (Exception e) {
             log.error(e, "Error logging query timeline");
-        }
-    }
-
-    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
-    {
-        splitCompletedEvent(taskId, driverStats, null, null);
-    }
-
-    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause)
-    {
-        splitCompletedEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage());
-    }
-
-    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
-    {
-        Optional<Duration> timeToStart = Optional.empty();
-        if (driverStats.getStartTime() != null) {
-            timeToStart = Optional.of(ofMillis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis()));
-        }
-
-        Optional<Duration> timeToEnd = Optional.empty();
-        if (driverStats.getEndTime() != null) {
-            timeToEnd = Optional.of(ofMillis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis()));
-        }
-
-        Optional<SplitFailureInfo> splitFailureMetadata = Optional.empty();
-        if (failureType != null) {
-            splitFailureMetadata = Optional.of(new SplitFailureInfo(failureType, failureMessage != null ? failureMessage : ""));
-        }
-
-        try {
-            eventListenerManager.splitCompleted(
-                    new SplitCompletedEvent(
-                            taskId.getQueryId().toString(),
-                            taskId.getStageId().toString(),
-                            Integer.toString(taskId.getId()),
-                            driverStats.getCreateTime().toDate().toInstant(),
-                            Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
-                            Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
-                            new SplitStatistics(
-                                    ofMillis(driverStats.getTotalCpuTime().toMillis()),
-                                    ofMillis(driverStats.getElapsedTime().toMillis()),
-                                    ofMillis(driverStats.getQueuedTime().toMillis()),
-                                    ofMillis(driverStats.getRawInputReadTime().toMillis()),
-                                    driverStats.getRawInputPositions(),
-                                    driverStats.getRawInputDataSize().toBytes(),
-                                    timeToStart,
-                                    timeToEnd),
-                            splitFailureMetadata,
-                            objectMapper.writeValueAsString(driverStats)));
-        }
-        catch (JsonProcessingException e) {
-            log.error(e, "Error processing split completion event for task %s", taskId);
         }
     }
 
