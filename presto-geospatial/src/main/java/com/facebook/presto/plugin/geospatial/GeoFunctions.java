@@ -95,6 +95,8 @@ import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.isInfinite;
+import static java.lang.Double.isNaN;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -257,7 +259,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stBuffer(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distance)
     {
-        if (Double.isNaN(distance)) {
+        if (isNaN(distance)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
         }
 
@@ -764,7 +766,7 @@ public final class GeoFunctions
     public static Slice simplifyGeometry(@SqlType(GEOMETRY_TYPE_NAME) Slice input,
                                          @SqlType(DOUBLE) double distanceTolerance)
     {
-        if (Double.isNaN(distanceTolerance)) {
+        if (isNaN(distanceTolerance)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is NaN");
         }
 
@@ -1119,14 +1121,14 @@ public final class GeoFunctions
 
     private static void checkLatitude(double latitude)
     {
-        if (Double.isNaN(latitude) || Double.isInfinite(latitude) || latitude < -90 || latitude > 90) {
+        if (isNaN(latitude) || isInfinite(latitude) || latitude < -90 || latitude > 90) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Latitude must be between -90 and 90");
         }
     }
 
     private static void checkLongitude(double longitude)
     {
-        if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < -180 || longitude > 180) {
+        if (isNaN(longitude) || isInfinite(longitude) || longitude < -180 || longitude > 180) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
         }
     }
