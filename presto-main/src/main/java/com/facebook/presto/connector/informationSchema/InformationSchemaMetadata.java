@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -219,17 +220,19 @@ public class InformationSchemaMetadata
 
         InformationSchemaTableHandle handle = checkTableHandle(table);
 
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        Set<QualifiedTablePrefix> schemaPrefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        // By default we'll populate all the data and filter. If only a few prefixes are needed, then it's more efficient to just probe those.
+        Set<QualifiedTablePrefix> prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate(), MAX_PREFIXES_COUNT + 1);
-            // in case of high number of prefixes it is better to populate all data and then filter
-            if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
-                prefixes = tablePrefixes;
+            Optional<ImmutableSet<QualifiedTablePrefix>> tablePrefixes = calculatePrefixesWithTableName(session, schemaPrefixes, constraint.getSummary(), constraint.predicate());
+            if (tablePrefixes.isPresent()) {
+                prefixes = tablePrefixes.get();
             }
         }
-        if (prefixes.size() > MAX_PREFIXES_COUNT) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+        else {
+            if (schemaPrefixes.size() < MAX_PREFIXES_COUNT) {
+                prefixes = schemaPrefixes;
+            }
         }
 
         ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, prefixes));
@@ -260,34 +263,47 @@ public class InformationSchemaMetadata
                 .collect(toImmutableSet());
     }
 
-    private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
+    private Optional<ImmutableSet<QualifiedTablePrefix>> calculatePrefixesWithTableName(
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
             TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
-            int maxResults)
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
+        Stream<QualifiedTablePrefix> prefixStream;
         if (tables.isPresent()) {
-            return prefixes.stream()
+            prefixStream = prefixes.stream()
                     .flatMap(prefix -> tables.get().stream()
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
-                    .limit(maxResults)
-                    .collect(toImmutableSet());
+                    .map(QualifiedObjectName::asQualifiedTablePrefix);
         }
+        else {
+            prefixStream = prefixes.stream()
+                    .flatMap(prefix -> Stream.concat(
+                            metadata.listTables(session, prefix).stream(),
+                            metadata.listViews(session, prefix).stream()))
+                    .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
+                    .map(QualifiedObjectName::asQualifiedTablePrefix);
+        }
+        return collectMaxPrefixes(prefixStream);
+    }
 
-        return prefixes.stream()
-                .flatMap(prefix -> Stream.concat(
-                        metadata.listTables(session, prefix).stream(),
-                        metadata.listViews(session, prefix).stream()))
-                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
-                .limit(maxResults)
-                .collect(toImmutableSet());
+    private Optional<ImmutableSet<QualifiedTablePrefix>> collectMaxPrefixes(Stream<QualifiedTablePrefix> prefixStream)
+    {
+        int count = 0;
+        ImmutableSet.Builder<QualifiedTablePrefix> builder = ImmutableSet.builder();
+        Iterator<QualifiedTablePrefix> prefixIterator = prefixStream.iterator();
+        while (prefixIterator.hasNext()) {
+            if (count > MAX_PREFIXES_COUNT) {
+                return Optional.empty();
+            }
+            builder.add(prefixIterator.next());
+            count++;
+        }
+        return Optional.of(builder.build());
     }
 
     private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
