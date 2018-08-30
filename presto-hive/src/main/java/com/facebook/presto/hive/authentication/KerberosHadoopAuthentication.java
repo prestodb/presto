@@ -16,7 +16,6 @@ package com.facebook.presto.hive.authentication;
 import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.authentication.util.KerberosName;
 
 import javax.security.auth.Subject;
 
@@ -38,11 +37,7 @@ public class KerberosHadoopAuthentication
         // UserGroupInformation.authenticationMethod static field must be set to KERBEROS
         // It is further used in many places in DfsClient
         configuration.set("hadoop.security.authentication", "kerberos");
-        String authToLocalRules = configuration.get("hadoop.security.auth_to_local");
-        if (authToLocalRules == null) {
-            // KerberosName#rules static field must be initialized if hadoop.security.auth_to_local is null
-            KerberosName.setRules("DEFAULT");
-        }
+
         UserGroupInformation.setConfiguration(configuration);
 
         return new KerberosHadoopAuthentication(kerberosAuthentication);
