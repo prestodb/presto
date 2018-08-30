@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
 
 public class PrestoAuthorizer
 {
+    private static final String INFORMATION_SCHEMA_NAME = "information_schema";
     private Map<String, RangerPrestoPlugin> plugins;
-
     private UserGroups userGroups;
 
     public PrestoAuthorizer(UserGroups groups, Map<String, RangerPrestoPlugin> plugins)
@@ -81,6 +81,21 @@ public class PrestoAuthorizer
     private Set<String> getGroups(Identity identity)
     {
         return userGroups.getUserGroups(identity.getUser());
+    }
+
+    public boolean canSelectFromColumns(String catalogName, RangerPrestoResource resource, Identity identity)
+    {
+        if (INFORMATION_SCHEMA_NAME.equals(resource.getSchemaTable().getSchemaName())) {
+            return true;
+        }
+        RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
+                resource,
+                identity.getUser(),
+                getGroups(identity),
+                PrestoAccessType.SELECT);
+
+        RangerAccessResult colResult = plugins.get(catalogName).isAccessAllowed(rangerRequest);
+        return colResult != null && colResult.getIsAllowed();
     }
 
     public boolean canSelectFromColumns(String catalogName, List<RangerPrestoResource> resources, Identity identity)

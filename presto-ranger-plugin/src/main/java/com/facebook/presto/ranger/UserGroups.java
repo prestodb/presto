@@ -54,7 +54,7 @@ public class UserGroups
     {
         this.restClient = new RangerRESTClient();
         this.isKerberos = "kerberos".equalsIgnoreCase(RangerConfiguration.getInstance().get("hadoop.security.authentication"));
-        restClient.setBasicAuthInfo(configuration.get("ranger.username"), "ranger.password");
+        restClient.setBasicAuthInfo(configuration.get("ranger.username"), configuration.get("ranger.password"));
         int cacheExpiry = Integer.parseInt(configuration.getOrDefault("user-group-cache-expiry-ttl", "30"));
         this.userGroupCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpiry, TimeUnit.SECONDS)

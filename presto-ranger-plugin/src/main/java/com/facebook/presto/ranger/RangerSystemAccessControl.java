@@ -164,7 +164,8 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!authorizer.canSelectFromColumns(table.getCatalogName(), createResource(table, columns), identity)) {
+        if (!authorizer.canSelectFromColumns(table.getCatalogName(), new RangerPrestoResource(table.getCatalogName(),
+                Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()), columns), identity)) {
             denySelectColumns(table.getSchemaTableName().getTableName(), columns);
         }
     }
