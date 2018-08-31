@@ -94,7 +94,9 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -2824,22 +2826,59 @@ public class TestHiveIntegrationSmokeTest
     public void testCreateAvroTableWithSchemaUrl()
             throws Exception
     {
-        File tempDir = createTempDir();
-        File schemaFile = createSchemaFileIn(tempDir);
-        String createTableSql = getAvroCreateTableSql(schemaFile.getAbsolutePath());
-        String expectedSql = getAvroCreateTableSql(schemaFile.toURI().toString());
+        String tableName = "test_create_avro_table_with_schema_url";
+        File schemaFile = createAvroSchemaFile();
+
+        String createTableSql = getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath());
+        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile.toURI().toString());
 
         assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_avro");
-        assertEquals(actual.getOnlyValue(), expectedSql);
 
-        assertUpdate("DROP TABLE test_create_avro");
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        try {
+            MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s", tableName));
+            assertEquals(actual.getOnlyValue(), expectedShowCreateTable);
+        }
+        finally {
+            assertUpdate(format("DROP TABLE %s", tableName));
+            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+        }
     }
 
-    private String getAvroCreateTableSql(String schemaFile)
+    @Test
+    public void testAlterAvroTableWithSchemaUrl()
+            throws Exception
     {
-        return format("CREATE TABLE %s.%s.test_create_avro (\n" +
+        testAlterAvroTableWithSchemaUrl(true, true, true);
+    }
+
+    protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
+            throws Exception
+    {
+        String tableName = "test_alter_avro_table_with_schema_url";
+        File schemaFile = createAvroSchemaFile();
+
+        assertUpdate(getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath()));
+
+        try {
+            if (renameColumn) {
+                assertQueryFails(format("ALTER TABLE %s RENAME COLUMN dummy_col TO new_dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+            if (addColumn) {
+                assertQueryFails(format("ALTER TABLE %s ADD COLUMN new_dummy_col VARCHAR", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+            if (dropColumn) {
+                assertQueryFails(format("ALTER TABLE %s DROP COLUMN dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+        }
+        finally {
+            assertUpdate(format("DROP TABLE %s", tableName));
+            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+        }
+    }
+
+    private String getAvroCreateTableSql(String tableName, String schemaFile)
+    {
+        return format("CREATE TABLE %s.%s.%s (\n" +
                         "   dummy_col varchar,\n" +
                         "   another_dummy_col varchar\n" +
                         ")\n" +
@@ -2849,38 +2888,23 @@ public class TestHiveIntegrationSmokeTest
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
+                tableName,
                 schemaFile);
     }
 
-    private static File createSchemaFileIn(File dir)
+    private static File createAvroSchemaFile()
             throws Exception
     {
-        File schemaFile = new File(dir, "avro_single_column.avsc");
-        Files.write("{\n" +
+        File schemaFile = File.createTempFile("avro_single_column-", ".avsc");
+        String schema = "{\n" +
                 "  \"namespace\": \"com.facebook.test\",\n" +
                 "  \"name\": \"single_column\",\n" +
                 "  \"type\": \"record\",\n" +
                 "  \"fields\": [\n" +
                 "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
-                "]}", schemaFile, UTF_8);
+                "]}";
+        asCharSink(schemaFile, UTF_8).write(schema);
         return schemaFile;
-    }
-
-    @Test
-    public void testAlterAvroTableWithSchemaUrl()
-            throws Exception
-    {
-        File tempDir = createTempDir();
-        File schemaFile = createSchemaFileIn(tempDir);
-        String createTableSql = getAvroCreateTableSql(schemaFile.getAbsolutePath());
-
-        assertUpdate(createTableSql);
-        assertQueryFails("ALTER TABLE test_create_avro RENAME COLUMN dummy_col TO new_dummy_col", "ALTER TABLE not supported when Avro schema url is set");
-        assertQueryFails("ALTER TABLE test_create_avro ADD COLUMN new_dummy_col VARCHAR", "ALTER TABLE not supported when Avro schema url is set");
-        assertQueryFails("ALTER TABLE test_create_avro DROP COLUMN dummy_col", "ALTER TABLE not supported when Avro schema url is set");
-
-        assertUpdate("DROP TABLE test_create_avro");
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
     @Test
