@@ -80,6 +80,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -87,6 +88,7 @@ import static java.lang.Math.sqrt;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
 public final class GeoFunctions
@@ -169,12 +171,28 @@ public final class GeoFunctions
         return serialize(geometryFromText(input));
     }
 
+    @Description("Returns a Geometry type object from Well-Known Binary representation (WKB)")
+    @ScalarFunction("ST_GeomFromBinary")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stGeomFromBinary(@SqlType(StandardTypes.VARBINARY) Slice input)
+    {
+        return serialize(geomFromBinary(input));
+    }
+
     @Description("Returns the Well-Known Text (WKT) representation of the geometry")
     @ScalarFunction("ST_AsText")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice stAsText(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         return utf8Slice(deserialize(input).asText());
+    }
+
+    @Description("Returns the Well-Known Binary (WKB) representation of the geometry")
+    @ScalarFunction("ST_AsBinary")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice stAsBinary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        return wrappedBuffer(deserialize(input).asBinary());
     }
 
     @SqlNullable
@@ -1039,6 +1057,20 @@ public final class GeoFunctions
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
+        }
+        geometry.setSpatialReference(null);
+        return geometry;
+    }
+
+    private static OGCGeometry geomFromBinary(Slice input)
+    {
+        requireNonNull(input, "input is null");
+        OGCGeometry geometry;
+        try {
+            geometry = OGCGeometry.fromBinary(input.toByteBuffer());
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
         }
         geometry.setSpatialReference(null);
         return geometry;

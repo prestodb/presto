@@ -22,6 +22,10 @@ Presto Geospatial functions support the Well-Known Text (WKT) form of spatial ob
 Constructors
 ------------
 
+.. function:: ST_AsBinary(Geometry) -> varbinary
+
+    Returns the WKB representation of the geometry.
+
 .. function:: ST_AsText(Geometry) -> varchar
 
     Returns the WKT representation of the geometry. For empty geometries,
@@ -31,6 +35,10 @@ Constructors
 .. function:: ST_GeometryFromText(varchar) -> Geometry
 
     Returns a geometry type object from WKT representation.
+
+.. function:: ST_GeomFromBinary(varbinary) -> Geometry
+
+    Returns a geometry type object from WKB representation.
 
 .. function:: ST_LineFromText(varchar) -> LineString
 
