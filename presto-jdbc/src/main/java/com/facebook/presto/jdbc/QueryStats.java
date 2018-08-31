@@ -32,7 +32,6 @@ public final class QueryStats
     private final int queuedSplits;
     private final int runningSplits;
     private final int completedSplits;
-    private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
     private final long queuedTimeMillis;
@@ -52,7 +51,6 @@ public final class QueryStats
             int queuedSplits,
             int runningSplits,
             int completedSplits,
-            long userTimeMillis,
             long cpuTimeMillis,
             long wallTimeMillis,
             long queuedTimeMillis,
@@ -71,7 +69,6 @@ public final class QueryStats
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
-        this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
@@ -94,7 +91,6 @@ public final class QueryStats
                 stats.getQueuedSplits(),
                 stats.getRunningSplits(),
                 stats.getCompletedSplits(),
-                stats.getUserTimeMillis(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
                 stats.getQueuedTimeMillis(),
@@ -148,11 +144,6 @@ public final class QueryStats
     public int getCompletedSplits()
     {
         return completedSplits;
-    }
-
-    public long getUserTimeMillis()
-    {
-        return userTimeMillis;
     }
 
     public long getCpuTimeMillis()

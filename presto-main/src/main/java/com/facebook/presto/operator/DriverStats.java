@@ -51,7 +51,6 @@ public class DriverStats
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
-    private final Duration totalUserTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -86,7 +85,6 @@ public class DriverStats
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
-        this.totalUserTime = new Duration(0, MILLISECONDS);
         this.totalBlockedTime = new Duration(0, MILLISECONDS);
         this.fullyBlocked = false;
         this.blockedReasons = ImmutableSet.of();
@@ -122,7 +120,6 @@ public class DriverStats
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
@@ -155,7 +152,6 @@ public class DriverStats
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -244,12 +240,6 @@ public class DriverStats
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
-    }
-
-    @JsonProperty
-    public Duration getTotalUserTime()
-    {
-        return totalUserTime;
     }
 
     @JsonProperty

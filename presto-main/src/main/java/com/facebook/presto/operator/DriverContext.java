@@ -70,12 +70,10 @@ public class DriverContext
 
     private final AtomicLong intervalWallStart = new AtomicLong();
     private final AtomicLong intervalCpuStart = new AtomicLong();
-    private final AtomicLong intervalUserStart = new AtomicLong();
 
     private final AtomicLong processCalls = new AtomicLong();
     private final AtomicLong processWallNanos = new AtomicLong();
     private final AtomicLong processCpuNanos = new AtomicLong();
-    private final AtomicLong processUserNanos = new AtomicLong();
 
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
@@ -156,7 +154,6 @@ public class DriverContext
 
         intervalWallStart.set(System.nanoTime());
         intervalCpuStart.set(currentThreadCpuTime());
-        intervalUserStart.set(currentThreadUserTime());
     }
 
     public void recordProcessed()
@@ -164,7 +161,6 @@ public class DriverContext
         processCalls.incrementAndGet();
         processWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         processCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
-        processUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -318,7 +314,6 @@ public class DriverContext
     {
         long totalScheduledTime = processWallNanos.get();
         long totalCpuTime = processCpuNanos.get();
-        long totalUserTime = processUserNanos.get();
 
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
@@ -399,7 +394,6 @@ public class DriverContext
                 succinctBytes(driverMemoryContext.getSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 blockedMonitor != null,
                 builder.build(),
@@ -439,14 +433,6 @@ public class DriverContext
     public ScheduledExecutorService getYieldExecutor()
     {
         return yieldExecutor;
-    }
-
-    private long currentThreadUserTime()
-    {
-        if (!isCpuTimerEnabled()) {
-            return 0;
-        }
-        return THREAD_MX_BEAN.getCurrentThreadUserTime();
     }
 
     private long currentThreadCpuTime()

@@ -227,7 +227,6 @@ public class StageStateMachine
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
-        long totalUserTime = 0;
         long totalBlockedTime = 0;
 
         long rawInputDataSize = 0;
@@ -278,7 +277,6 @@ public class StageStateMachine
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalUserTime += taskStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
@@ -335,7 +333,6 @@ public class StageStateMachine
                 succinctBytes(peakUserMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
-                succinctDuration(totalUserTime, NANOSECONDS),
                 succinctDuration(totalBlockedTime, NANOSECONDS),
                 fullyBlocked && runningTasks > 0,
                 blockedReasons,

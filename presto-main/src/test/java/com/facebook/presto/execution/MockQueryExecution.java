@@ -140,7 +140,6 @@ public class MockQueryExecution
                         true,
                         new Duration(20, NANOSECONDS),
                         new Duration(21, NANOSECONDS),
-                        new Duration(22, NANOSECONDS),
                         new Duration(23, NANOSECONDS),
                         false,
                         ImmutableSet.of(),

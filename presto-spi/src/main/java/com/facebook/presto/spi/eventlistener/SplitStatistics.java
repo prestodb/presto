@@ -23,7 +23,6 @@ public class SplitStatistics
     private final Duration cpuTime;
     private final Duration wallTime;
     private final Duration queuedTime;
-    private final Duration userTime;
     private final Duration completedReadTime;
 
     private final long completedPositions;
@@ -36,7 +35,6 @@ public class SplitStatistics
             Duration cpuTime,
             Duration wallTime,
             Duration queuedTime,
-            Duration userTime,
             Duration completedReadTime,
             long completedPositions,
             long completedDataSizeBytes,
@@ -46,7 +44,6 @@ public class SplitStatistics
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
-        this.userTime = requireNonNull(userTime, "userTime is null");
         this.completedReadTime = requireNonNull(completedReadTime, "completedReadTime is null");
         this.completedPositions = completedPositions;
         this.completedDataSizeBytes = completedDataSizeBytes;
@@ -67,11 +64,6 @@ public class SplitStatistics
     public Duration getQueuedTime()
     {
         return queuedTime;
-    }
-
-    public Duration getUserTime()
-    {
-        return userTime;
     }
 
     public Duration getCompletedReadTime()

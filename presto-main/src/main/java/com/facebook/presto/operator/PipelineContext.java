@@ -79,7 +79,6 @@ public class PipelineContext
 
     private final AtomicLong totalScheduledTime = new AtomicLong();
     private final AtomicLong totalCpuTime = new AtomicLong();
-    private final AtomicLong totalUserTime = new AtomicLong();
     private final AtomicLong totalBlockedTime = new AtomicLong();
 
     private final CounterStat rawInputDataSize = new CounterStat();
@@ -178,7 +177,6 @@ public class PipelineContext
 
         totalScheduledTime.getAndAdd(driverStats.getTotalScheduledTime().roundTo(NANOSECONDS));
         totalCpuTime.getAndAdd(driverStats.getTotalCpuTime().roundTo(NANOSECONDS));
-        totalUserTime.getAndAdd(driverStats.getTotalUserTime().roundTo(NANOSECONDS));
 
         totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTime().roundTo(NANOSECONDS));
 
@@ -336,7 +334,6 @@ public class PipelineContext
 
         long totalScheduledTime = this.totalScheduledTime.get();
         long totalCpuTime = this.totalCpuTime.get();
-        long totalUserTime = this.totalUserTime.get();
         long totalBlockedTime = this.totalBlockedTime.get();
 
         long rawInputDataSize = this.rawInputDataSize.getTotalCount();
@@ -362,7 +359,6 @@ public class PipelineContext
 
             totalScheduledTime += driverStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalUserTime += driverStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
             List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
@@ -431,7 +427,6 @@ public class PipelineContext
 
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked,
                 blockedReasons,

@@ -422,7 +422,6 @@ public class QueryMonitor
                                     ofMillis(driverStats.getTotalCpuTime().toMillis()),
                                     ofMillis(driverStats.getElapsedTime().toMillis()),
                                     ofMillis(driverStats.getQueuedTime().toMillis()),
-                                    ofMillis(driverStats.getTotalUserTime().toMillis()),
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
                                     driverStats.getRawInputDataSize().toBytes(),

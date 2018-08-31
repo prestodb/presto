@@ -387,7 +387,6 @@ public class TaskContext
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
-        long totalUserTime = 0;
         long totalBlockedTime = 0;
 
         long rawInputDataSize = 0;
@@ -416,7 +415,6 @@ public class TaskContext
 
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += pipeline.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalUserTime += pipeline.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
 
             if (pipeline.isInputPipeline()) {
@@ -494,7 +492,6 @@ public class TaskContext
                 succinctBytes(taskMemoryContext.getSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,

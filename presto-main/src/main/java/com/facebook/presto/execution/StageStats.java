@@ -59,7 +59,6 @@ public class StageStats
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
-    private final Duration totalUserTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -105,7 +104,6 @@ public class StageStats
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
@@ -156,7 +154,6 @@ public class StageStats
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -287,12 +284,6 @@ public class StageStats
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
-    }
-
-    @JsonProperty
-    public Duration getTotalUserTime()
-    {
-        return totalUserTime;
     }
 
     @JsonProperty
