@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
@@ -552,6 +553,72 @@ public final class BlockAssertions
             }
             else {
                 arrayType.writeObject(builder, createLongsBlock(value));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createMapVarcharBigintBlock(Iterable<Map<String, Long>> values)
+    {
+        MapType mapType = mapType(VARCHAR, BIGINT);
+        BlockBuilder builder = mapType.createBlockBuilder(null, 100);
+
+        for (Map<String, Long> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                BlockBuilder entryWriter = builder.beginBlockEntry();
+                for (Map.Entry<String, Long> entry : value.entrySet()) {
+                    if (entry.getKey() == null) {
+                        entryWriter.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(entryWriter, entry.getKey());
+                    }
+                    if (entry.getValue() == null) {
+                        entryWriter.appendNull();
+                    }
+                    else {
+                        BIGINT.writeLong(entryWriter, entry.getValue());
+                    }
+                }
+
+                builder.closeEntry();
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createRowVarcharBigintBlock(Iterable<List<Object>> values)
+    {
+        RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT));
+        BlockBuilder builder = rowType.createBlockBuilder(null, 100);
+
+        for (List<Object> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                checkArgument(value.size() == 2);
+                BlockBuilder entryWriter = builder.beginBlockEntry();
+
+                if (value.get(0) == null) {
+                    entryWriter.appendNull();
+                }
+                else {
+                    VARCHAR.writeString(entryWriter, (String) value.get(0));
+                }
+                if (value.get(1) == null) {
+                    entryWriter.appendNull();
+                }
+                else {
+                    BIGINT.writeLong(entryWriter, (Long) value.get(1));
+                }
+
+                builder.closeEntry();
             }
         }
 

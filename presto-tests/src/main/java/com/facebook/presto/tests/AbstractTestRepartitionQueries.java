@@ -190,7 +190,7 @@ public abstract class AbstractTestRepartitionQueries
                         "    l.partkey = p.partkey\n" +
                         "    AND l.suppkey = p.suppkey\n" +
                         "    AND p.availqty < 1000",
-                new byte[] {10, -59, 46, 87, 22, -93, 58, -16});
+                new byte[] {-32, 9, 126, -65, -36, -86, -92, 22});
     }
 
     @Test
@@ -211,7 +211,7 @@ public abstract class AbstractTestRepartitionQueries
                         "    l.partkey = p.partkey\n" +
                         "    AND l.suppkey = p.suppkey\n" +
                         "    AND p.availqty < 1000",
-                new byte[] {10, -59, 46, 87, 22, -93, 58, -16});
+                new byte[] {-75, -83, 96, 40, 5, -56, 9, -45});
     }
 
     @Test
@@ -251,7 +251,7 @@ public abstract class AbstractTestRepartitionQueries
                         "    orders o\n" +
                         "WHERE\n" +
                         "    l.orderkey = o.orderkey",
-                new byte[] {-56, 110, 18, -107, -123, 121, 87, 79});
+                new byte[] {122, 28, -89, 51, -102, -91, 56, 51});
     }
 
     @Test
@@ -282,7 +282,7 @@ public abstract class AbstractTestRepartitionQueries
                         "    orders o\n" +
                         "WHERE\n" +
                         "    l.orderkey = o.orderkey",
-                new byte[] {67, 108, 83, 92, 16, -5, 66, 65});
+                new byte[] {121, -89, 11, 88, -40, 115, 109, 125});
     }
 
     @Test
@@ -303,7 +303,7 @@ public abstract class AbstractTestRepartitionQueries
                         "    l.partkey = p.partkey\n" +
                         "    AND l.suppkey = p.suppkey\n" +
                         "    AND p.availqty < 1000",
-                new byte[] {-28, 76, -12, -42, 116, -118, -9, 46});
+                new byte[] {58, -52, -125, -4, -19, 15, -122, -39});
 
         assertQuery("WITH lineitem_ex AS (\n" +
                         "    SELECT\n" +

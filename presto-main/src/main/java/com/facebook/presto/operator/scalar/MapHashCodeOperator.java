@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.HashUtil;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -72,6 +73,7 @@ public class MapHashCodeOperator
         for (int position = 0; position < block.getPositionCount(); position += 2) {
             result += hashPosition(keyHashCodeFunction, keyType, block, position) ^ hashPosition(valueHashCodeFunction, valueType, block, position + 1);
         }
-        return result;
+
+        return HashUtil.shuffle(result);
     }
 }
