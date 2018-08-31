@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static java.lang.Long.rotateLeft;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -260,7 +261,8 @@ public class RowType
             Type elementType = fields.get(i).getType();
             result = 31 * result + TypeUtils.hashPosition(elementType, arrayBlock, i);
         }
-        return result;
+
+        return HashUtils.shuffle(result);
     }
 
     private static void checkElementNotNull(boolean isNull)

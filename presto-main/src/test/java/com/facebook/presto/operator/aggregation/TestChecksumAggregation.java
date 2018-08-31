@@ -21,17 +21,25 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Random;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createMapVarcharBigintBlock;
+import static com.facebook.presto.block.BlockAssertions.createRowVarcharBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -43,8 +51,10 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.util.Arrays.asList;
+import static org.testng.Assert.assertNotEquals;
 
 public class TestChecksumAggregation
 {
@@ -134,6 +144,47 @@ public class TestChecksumAggregation
         InternalAggregationFunction stringAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("checksum", AGGREGATE, VarbinaryType.VARBINARY.getTypeSignature(), arrayType.getTypeSignature()));
         Block block = createArrayBigintBlock(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
         assertAggregation(stringAgg, expectedChecksum(arrayType, block), block);
+    }
+
+    @Test
+    public void testStructuralChecksumCollision()
+    {
+        Random random = new Random();
+        for (int i = 0; i < 100; i++) {
+            long a1 = random.nextLong();
+            long b1 = random.nextLong();
+            long a2 = random.nextLong();
+            long b2 = random.nextLong();
+
+            ArrayType arrayType = new ArrayType(BigintType.BIGINT);
+            Block arrayBlock1 = createArrayBigintBlock(ImmutableList.of(
+                    ImmutableList.of(a1, b1),
+                    ImmutableList.of(a2, b2)));
+            Block arrayBlock2 = createArrayBigintBlock(ImmutableList.of(
+                    ImmutableList.of(a1, b2),
+                    ImmutableList.of(a2, b1)));
+            assertNotEquals(expectedChecksum(arrayType, arrayBlock1), expectedChecksum(arrayType, arrayBlock2), "unexpected checksum collision");
+        }
+
+        /*
+        MapType mapType = mapType(VarcharType.VARCHAR, BigintType.BIGINT);
+        Block mapBlock1 = createMapVarcharBigintBlock(ImmutableList.of(
+                ImmutableMap.of("a", 0L, "x", 0L),
+                ImmutableMap.of("b", 0L, "y", 0L)));
+        Block mapBlock2 = createMapVarcharBigintBlock(ImmutableList.of(
+                ImmutableMap.of("a", 0L, "y", 0L),
+                ImmutableMap.of("b", 0L, "x", 0L)));
+        assertNotEquals(expectedChecksum(mapType, mapBlock1), expectedChecksum(mapType, mapBlock2), "unexpected checksum collision");
+
+        RowType rowType = RowType.anonymous(ImmutableList.of(VarcharType.VARCHAR, BigintType.BIGINT));
+        Block rowBlock1 = createRowVarcharBigintBlock(ImmutableList.of(
+                ImmutableList.of("a", 1L),
+                ImmutableList.of("b", 2L)));
+        Block rowBlock2 = createRowVarcharBigintBlock(ImmutableList.of(
+                ImmutableList.of("a", 2L),
+                ImmutableList.of("b", 1L)));
+        assertNotEquals(expectedChecksum(rowType, rowBlock1), expectedChecksum(rowType, rowBlock2), "unexpected checksum collision");
+        */
     }
 
     private static SqlVarbinary expectedChecksum(Type type, Block block)

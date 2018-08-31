@@ -30,6 +30,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.spi.type.TypeUtils.hashPosition;
+import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -118,7 +119,8 @@ public class MapType
         for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
             result += hashPosition(keyType, mapBlock, i) ^ hashPosition(valueType, mapBlock, i + 1);
         }
-        return result;
+
+        return HashUtils.shuffle(result);
     }
 
     @Override

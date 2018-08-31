@@ -28,6 +28,7 @@ import java.util.List;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.spi.type.TypeUtils.hashPosition;
+import static java.lang.Long.rotateLeft;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -89,7 +90,8 @@ public class ArrayType
         for (int i = 0; i < array.getPositionCount(); i++) {
             hash = 31 * hash + hashPosition(elementType, array, i);
         }
-        return hash;
+
+        return HashUtils.shuffle(hash);
     }
 
     @Override

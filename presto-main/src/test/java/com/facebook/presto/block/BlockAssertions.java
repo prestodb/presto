@@ -19,7 +19,10 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -43,6 +47,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -454,6 +459,73 @@ public final class BlockAssertions
             }
             else {
                 arrayType.writeObject(builder, createLongsBlock(value));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createMapVarcharBigintBlock(Iterable<Map<String, Long>> values)
+    {
+        MapType mapType = mapType(VARCHAR, BIGINT);
+        BlockBuilder builder = mapType.createBlockBuilder(null, 100);
+
+        for (Map<String, Long> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                BlockBuilder entryWriter = builder.beginBlockEntry();
+                for (Map.Entry<String, Long> entry : value.entrySet()) {
+                    if (entry.getKey() == null) {
+                        entryWriter.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(entryWriter, entry.getKey());
+                    }
+                    if (entry.getValue() == null) {
+                        entryWriter.appendNull();
+                    }
+                    else {
+                        BIGINT.writeLong(entryWriter, entry.getValue());
+                    }
+                }
+
+                builder.closeEntry();
+            }
+        }
+
+        return builder.build();
+    }
+
+
+    public static Block createRowVarcharBigintBlock(Iterable<List<Object>> values)
+    {
+        RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT));
+        BlockBuilder builder = rowType.createBlockBuilder(null, 100);
+
+        for (List<Object> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                checkArgument(value.size() == 2);
+                BlockBuilder entryWriter = builder.beginBlockEntry();
+
+                if (value.get(0) == null) {
+                    entryWriter.appendNull();
+                }
+                else {
+                    VARCHAR.writeString(entryWriter, (String) value.get(0));
+                }
+                if (value.get(1) == null) {
+                    entryWriter.appendNull();
+                }
+                else {
+                    BIGINT.writeLong(entryWriter, (Long) value.get(1));
+                }
+
+                builder.closeEntry();
             }
         }
 

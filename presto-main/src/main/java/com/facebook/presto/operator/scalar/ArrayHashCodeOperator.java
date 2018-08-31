@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.facebook.presto.util.Failures.internalError;
+import static java.lang.Long.rotateLeft;
 
 @ScalarOperator(HASH_CODE)
 public final class ArrayHashCodeOperator
@@ -47,7 +48,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invoke(readNativeValue(type, block, i)));
             }
-            return hash;
+            // non-linear transform inspired by xxhash64 mix
+            return rotateLeft(hash * 0xC2B2AE3D27D4EB4FL, 31);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -67,7 +69,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getLong(block, i)));
             }
-            return hash;
+            // non-linear transform inspired by xxhash64 mix
+            return rotateLeft(hash * 0xC2B2AE3D27D4EB4FL, 31);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -87,7 +90,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getBoolean(block, i)));
             }
-            return hash;
+            // non-linear transform inspired by xxhash64 mix
+            return rotateLeft(hash * 0xC2B2AE3D27D4EB4FL, 31);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -107,7 +111,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getSlice(block, i)));
             }
-            return hash;
+            // non-linear transform inspired by xxhash64 mix
+            return rotateLeft(hash * 0xC2B2AE3D27D4EB4FL, 31);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -127,7 +132,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getDouble(block, i)));
             }
-            return hash;
+            // non-linear transform inspired by xxhash64 mix
+            return rotateLeft(hash * 0xC2B2AE3D27D4EB4FL, 31);
         }
         catch (Throwable t) {
             throw internalError(t);
