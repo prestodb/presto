@@ -4837,6 +4837,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInformationSchemaUppercaseName()
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_catalog = 'LOCAL'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'TINY'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'ORDERS'",
+                "SELECT '' WHERE false");
+    }
+
+    @Test
     public void testSelectColumnOfNulls()
     {
         // Currently nulls can confuse the local planner, so select some

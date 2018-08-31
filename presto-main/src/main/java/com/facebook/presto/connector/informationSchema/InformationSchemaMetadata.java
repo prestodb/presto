@@ -59,6 +59,7 @@ import static com.google.common.base.Predicates.compose;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -249,6 +250,7 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
+                    .filter(this::isLowerCase)
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
         }
@@ -272,6 +274,8 @@ public class InformationSchemaMetadata
         if (tables.isPresent()) {
             return prefixes.stream()
                     .flatMap(prefix -> tables.get().stream()
+                            .filter(this::isLowerCase)
+                            .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
@@ -334,5 +338,10 @@ public class InformationSchemaMetadata
     {
         checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
         return TABLES.get(tableName).getColumns();
+    }
+
+    private boolean isLowerCase(String value)
+    {
+        return value.toLowerCase(ENGLISH).equals(value);
     }
 }
