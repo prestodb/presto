@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
+import static com.facebook.presto.tests.TestGroups.HIVE_PARTITIONING;
 import static io.prestodb.tempto.Requirements.compose;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -98,7 +98,7 @@ public class TestHivePartitionsTable
                 .build();
     }
 
-    @Test(groups = {BASIC_SQL})
+    @Test(groups = {HIVE_PARTITIONING})
     public void testShowPartitionsFromHiveTable()
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
@@ -120,14 +120,14 @@ public class TestHivePartitionsTable
                 .failsWithMessage("Column 'col' cannot be resolved");
     }
 
-    @Test(groups = {BASIC_SQL})
+    @Test(groups = {HIVE_PARTITIONING})
     public void testShowPartitionsFromUnpartitionedTable()
     {
         assertThat(() -> query("SELECT * FROM \"nation$partitions\""))
                 .failsWithMessageMatching(".*Table hive.default.nation\\$partitions does not exist");
     }
 
-    @Test(groups = {BASIC_SQL})
+    @Test(groups = {HIVE_PARTITIONING})
     public void testShowPartitionsFromHiveTableWithTooManyPartitions()
     {
         String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();
