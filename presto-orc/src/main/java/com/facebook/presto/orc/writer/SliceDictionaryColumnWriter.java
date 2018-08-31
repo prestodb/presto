@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -166,26 +167,38 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public long convertToDirect()
+    public OptionalInt tryConvertToDirect(int maxDirectBytes)
     {
         checkState(!closed);
         checkState(!directEncoded);
         if (directColumnWriter == null) {
             directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, orcEncoding, this::newStringStatisticsBuilder);
         }
+        checkState(directColumnWriter.getBufferedBytes() == 0);
 
         Block dictionaryValues = dictionary.getElementBlock();
-        tempDictionaryIdDataStream.close();
         LongInputStream tempDictionaryIdInputStream = tempDictionaryIdDataStream.getLongInputStream();
+
         for (DictionaryRowGroup rowGroup : rowGroups) {
             directColumnWriter.beginRowGroup();
             // todo we should be able to pass the stats down to avoid recalculating min and max
             writeDictionaryRowGroup(dictionaryValues, rowGroup.getValueCount(), tempDictionaryIdInputStream);
             directColumnWriter.finishRowGroup();
+
+            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                directColumnWriter.reset();
+                return OptionalInt.empty();
+            }
         }
+
         if (inRowGroup) {
             directColumnWriter.beginRowGroup();
             writeDictionaryRowGroup(dictionaryValues, rowGroupValueCount, tempDictionaryIdInputStream);
+
+            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                directColumnWriter.reset();
+                return OptionalInt.empty();
+            }
         }
         else {
             checkState(rowGroupValueCount == 0);
@@ -193,17 +206,20 @@ public class SliceDictionaryColumnWriter
 
         rowGroups.clear();
 
+        // free the dictionary and temporary id memory
+        dictionary.clear();
+        tempDictionaryIdDataStream.reset();
+
         rawBytes = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
-        tempDictionaryIdDataStream.close();
 
         rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
 
         directEncoded = true;
 
-        return directColumnWriter.getBufferedBytes();
+        return OptionalInt.of(toIntExact(directColumnWriter.getBufferedBytes()));
     }
 
     private void writeDictionaryRowGroup(Block dictionary, int valueCount, LongInputStream dictionaryIdInputStream)
@@ -350,7 +366,6 @@ public class SliceDictionaryColumnWriter
             dataStream.recordCheckpoint();
         }
 
-        tempDictionaryIdDataStream.close();
         LongInputStream tempDictionaryIdInputStream = tempDictionaryIdDataStream.getLongInputStream();
         for (DictionaryRowGroup rowGroup : rowGroups) {
             for (int position = 0; position < rowGroup.getValueCount(); position++) {
@@ -376,8 +391,10 @@ public class SliceDictionaryColumnWriter
             dataStream.recordCheckpoint();
         }
 
-        // free the dictionary memory
+        // free the dictionary and temporary id memory
         dictionary.clear();
+        tempDictionaryIdDataStream.reset();
+
         dictionaryDataStream.close();
         dictionaryLengthStream.close();
 

@@ -93,8 +93,6 @@ public class LongOutputStreamDwrf
     @Override
     public LongInputStream getLongInputStream()
     {
-        checkState(closed);
-
         FixedLengthSliceInput sliceInput = new ChunkedSliceInput(new ChainedSliceLoader(buffer.getCompressedSlices()), 32 * 1024);
         OrcDataSourceId orcDataSourceId = new OrcDataSourceId("LongOutputStream");
         try {

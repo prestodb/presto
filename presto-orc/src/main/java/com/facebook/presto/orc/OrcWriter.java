@@ -354,7 +354,7 @@ public class OrcWriter
         }
 
         // convert any dictionary encoded column with a low compression ratio to direct
-        dictionaryCompressionOptimizer.finalOptimize();
+        dictionaryCompressionOptimizer.finalOptimize(bufferedBytes);
 
         columnWriters.forEach(ColumnWriter::close);
 
