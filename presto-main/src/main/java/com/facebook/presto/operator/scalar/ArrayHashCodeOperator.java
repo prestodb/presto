@@ -19,6 +19,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
+import com.facebook.presto.spi.type.HashUtil;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -47,7 +48,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invoke(readNativeValue(type, block, i)));
             }
-            return hash;
+
+            return HashUtil.shuffle(hash);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -67,7 +69,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getLong(block, i)));
             }
-            return hash;
+
+            return HashUtil.shuffle(hash);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -87,7 +90,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getBoolean(block, i)));
             }
-            return hash;
+
+            return HashUtil.shuffle(hash);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -107,7 +111,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getSlice(block, i)));
             }
-            return hash;
+
+            return HashUtil.shuffle(hash);
         }
         catch (Throwable t) {
             throw internalError(t);
@@ -127,7 +132,8 @@ public final class ArrayHashCodeOperator
             for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getDouble(block, i)));
             }
-            return hash;
+
+            return HashUtil.shuffle(hash);
         }
         catch (Throwable t) {
             throw internalError(t);

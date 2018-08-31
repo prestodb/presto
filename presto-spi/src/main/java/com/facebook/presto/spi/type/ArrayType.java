@@ -89,7 +89,8 @@ public class ArrayType
         for (int i = 0; i < array.getPositionCount(); i++) {
             hash = 31 * hash + hashPosition(elementType, array, i);
         }
-        return hash;
+
+        return HashUtil.shuffle(hash);
     }
 
     @Override
