@@ -14,18 +14,19 @@
 package com.facebook.presto.ranger;
 
 import com.facebook.presto.spi.SchemaTableName;
+import org.apache.commons.lang.StringUtils;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 
 import java.util.Optional;
+import java.util.Set;
 
 public class RangerPrestoResource
         extends RangerAccessResourceImpl
 {
-    private String catalogName;
-
     public static final String KEY_DATABASE = "database";
     public static final String KEY_TABLE = "table";
     public static final String KEY_COLUMN = "column";
+    private String catalogName;
 
     public RangerPrestoResource(String catalogName, Optional<String> schema, Optional<String> table)
     {
@@ -40,6 +41,16 @@ public class RangerPrestoResource
         schema.ifPresent(s -> setValue(KEY_DATABASE, s));
         table.ifPresent(t -> setValue(KEY_TABLE, t));
         column.ifPresent(c -> setValue(KEY_COLUMN, c));
+    }
+
+    public RangerPrestoResource(String catalogName, Optional<String> schema, Optional<String> table, Set<String> columns)
+    {
+        this.catalogName = catalogName;
+        schema.ifPresent(s -> setValue(KEY_DATABASE, s));
+        table.ifPresent(t -> setValue(KEY_TABLE, t));
+        if (columns != null) {
+            setValue(KEY_COLUMN, StringUtils.join(columns, ","));
+        }
     }
 
     public String getCatalogName()

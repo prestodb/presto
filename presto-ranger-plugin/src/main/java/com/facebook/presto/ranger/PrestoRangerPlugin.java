@@ -16,11 +16,6 @@ package com.facebook.presto.ranger;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Module;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
 
 public class PrestoRangerPlugin
         implements Plugin

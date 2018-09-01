@@ -1,11 +1,10 @@
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-<configuration xmlns:xi="http://www.w3.org/2001/XInclude">
+<configuration>
     <property>
         <name>xasecure.audit.is.enabled</name>
         <value>true</value>
     </property>
-
 
     <!-- DB audit provider configuration -->
     <property>
@@ -58,7 +57,6 @@
         <name>xasecure.audit.credential.provider.file</name>
         <value>jceks://file/etc/ranger/hive/auditcred.jceks</value>
     </property>
-
 
     <!-- HDFS audit provider configuration -->
     <property>
