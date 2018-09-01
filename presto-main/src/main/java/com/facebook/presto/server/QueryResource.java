@@ -33,7 +33,6 @@ import javax.ws.rs.core.Response.Status;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 
 import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
@@ -96,13 +95,10 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            Optional<QueryState> state = queryManager.getQueryState(queryId);
-            if (!state.isPresent()) {
-                throw new NoSuchElementException();
-            }
+            QueryState state = queryManager.getQueryState(queryId);
 
             // check before killing to provide the proper error code (this is racy)
-            if (state.get().isDone()) {
+            if (state.isDone()) {
                 return Response.status(Status.CONFLICT).build();
             }
 

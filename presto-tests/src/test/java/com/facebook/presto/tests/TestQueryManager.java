@@ -25,8 +25,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.NoSuchElementException;
-
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -72,7 +70,7 @@ public class TestQueryManager
 
         // wait until query starts running
         while (true) {
-            QueryState state = queryManager.getQueryState(queryId).orElseThrow(NoSuchElementException::new);
+            QueryState state = queryManager.getQueryState(queryId);
             if (state.isDone()) {
                 fail("unexpected query state: " + state);
             }

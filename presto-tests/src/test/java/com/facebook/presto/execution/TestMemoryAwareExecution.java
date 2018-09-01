@@ -30,7 +30,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -157,7 +156,7 @@ public class TestMemoryAwareExecution
     {
         QueryState actualState;
         do {
-            actualState = queryManager.getQueryState(queryId).orElseThrow(NoSuchElementException::new);
+            actualState = queryManager.getQueryState(queryId);
             if (actualState.isDone() || actualState == state) {
                 return actualState;
             }

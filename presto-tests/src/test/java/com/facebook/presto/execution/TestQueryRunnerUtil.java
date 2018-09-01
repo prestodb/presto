@@ -20,7 +20,6 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.NoSuchElementException;
 import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -64,7 +63,7 @@ public final class TestQueryRunnerUtil
             }
             MILLISECONDS.sleep(500);
         }
-        while (!expectedQueryStates.contains(queryManager.getQueryState(queryId).orElseThrow(NoSuchElementException::new)));
+        while (!expectedQueryStates.contains(queryManager.getQueryState(queryId)));
     }
 
     public static DistributedQueryRunner createQueryRunner()

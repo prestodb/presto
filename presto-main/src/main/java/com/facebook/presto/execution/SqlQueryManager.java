@@ -349,17 +349,15 @@ public class SqlQueryManager
                 .flatMap(QueryExecution::getResourceGroup);
     }
 
-    @Override
     public Plan getQueryPlan(QueryId queryId)
     {
         return getQuery(queryId).getQueryPlan();
     }
 
     @Override
-    public Optional<QueryState> getQueryState(QueryId queryId)
+    public QueryState getQueryState(QueryId queryId)
     {
-        return tryGetQuery(queryId)
-                .map(QueryExecution::getState);
+        return getQuery(queryId).getState();
     }
 
     @Override

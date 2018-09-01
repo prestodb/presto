@@ -279,7 +279,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondQuery, QUEUED);
         // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running
         Thread.sleep(5_000);
-        assertEquals(queryManager.getQueryState(secondQuery).orElse(null), QUEUED);
+        assertEquals(queryManager.getQueryState(secondQuery), QUEUED);
         // reconfigure the resource group to run the second query
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();

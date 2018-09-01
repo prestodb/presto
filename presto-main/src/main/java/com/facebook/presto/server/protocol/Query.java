@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -322,8 +323,12 @@ class Query
 
         // otherwise, wait for the query to finish
         queryManager.recordHeartbeat(queryId);
-        return queryManager.getQueryState(queryId).map(this::queryDoneFuture)
-                .orElse(immediateFuture(null));
+        try {
+            return queryDoneFuture(queryManager.getQueryState(queryId));
+        }
+        catch (NoSuchElementException e) {
+            return immediateFuture(null);
+        }
     }
 
     private synchronized Optional<QueryResults> getCachedResult(long token, UriInfo uriInfo)

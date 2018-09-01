@@ -394,7 +394,7 @@ public class DistributedQueryRunner
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryPlan(queryId);
+        return coordinator.getQueryPlan(queryId);
     }
 
     @Override

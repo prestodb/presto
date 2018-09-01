@@ -26,7 +26,6 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -55,13 +54,10 @@ public class KillQueryProcedure
         QueryId query = parseQueryId(queryId);
 
         try {
-            Optional<QueryState> state = queryManager.getQueryState(query);
-            if (!state.isPresent()) {
-                throw new NoSuchElementException();
-            }
+            QueryState state = queryManager.getQueryState(query);
 
             // check before killing to provide the proper error message (this is racy)
-            if (state.get().isDone()) {
+            if (state.isDone()) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
 
