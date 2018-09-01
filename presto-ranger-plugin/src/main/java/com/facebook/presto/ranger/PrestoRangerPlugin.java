@@ -20,6 +20,26 @@ import com.google.common.collect.ImmutableList;
 public class PrestoRangerPlugin
         implements Plugin
 {
+
+//    private final Module module;
+//    private final String name;
+//
+//    public PrestoRangerPlugin(String name, Module module)
+//    {
+//        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+//        this.name = name;
+//        this.module = requireNonNull(module, "module is null");
+//    }
+//
+//    private static ClassLoader getClassLoader()
+//    {
+//        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+//        if (classLoader == null) {
+//            classLoader = PrestoRangerPlugin.class.getClassLoader();
+//        }
+//        return classLoader;
+//    }
+
     @Override
     public Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
     {
