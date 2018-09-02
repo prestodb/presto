@@ -54,10 +54,12 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
@@ -77,10 +79,12 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -351,6 +355,87 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
+    private PlanBuilder project(
+            PlanBuilder subPlan,
+            ImmutableList<FilterExpressionWithAggregate> filterExpressionWithAggregates,
+            ImmutableList<Expression> groupAndSortArguments,
+            ImmutableList.Builder argumentsAfterFilter)
+    {
+        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
+
+        Assignments.Builder projections = Assignments.builder();
+        Assignments.Builder filterArguments = Assignments.builder();
+        for (FilterExpressionWithAggregate filterExpressionWithAggregate : filterExpressionWithAggregates) {
+            Expression filterExpression = filterExpressionWithAggregate.getFilterExpression();
+            List<Expression> arguments = filterExpressionWithAggregate.getArguments();
+            Symbol filterSymbol = null;
+
+            if (filterExpression != null) {
+                filterSymbol = symbolAllocator.newSymbol(filterExpression, BOOLEAN);
+                filterArguments.put(filterSymbol, subPlan.rewrite(filterExpression));
+                translations.put(filterExpression, filterSymbol);
+            }
+
+            for (Expression currentArgument : arguments) {
+                if (currentArgument instanceof SymbolReference) {
+                    Symbol symbol = Symbol.from(currentArgument);
+                    projections.put(symbol, currentArgument);
+                    translations.put(currentArgument, symbol);
+                    continue;
+                }
+
+                if (filterSymbol != null) {
+                    Expression caseExpression = new SimpleCaseExpression(
+                            filterSymbol.toSymbolReference(),
+                            ImmutableList.of(
+                                    new WhenClause(TRUE_LITERAL, subPlan.rewrite(currentArgument))),
+                            Optional.empty());
+
+                    Symbol symbol = symbolAllocator.newSymbol(caseExpression, analysis.getTypeWithCoercions(currentArgument));
+
+                    projections.put(symbol, caseExpression);
+                    translations.put(caseExpression, symbol);
+
+                    argumentsAfterFilter.add(caseExpression);
+                    filterExpressionWithAggregate.addFinalArgument(caseExpression);
+                }
+                else {
+                    Symbol symbol = symbolAllocator.newSymbol(currentArgument, analysis.getTypeWithCoercions(currentArgument));
+                    projections.put(symbol, subPlan.rewrite(currentArgument));
+                    translations.put(currentArgument, symbol);
+
+                    argumentsAfterFilter.add(currentArgument);
+                    filterExpressionWithAggregate.addFinalArgument(currentArgument);
+                }
+            }
+        }
+
+        // Add the remaining arguments to projection
+        for (Expression expression : groupAndSortArguments) {
+            if (expression instanceof SymbolReference) {
+                Symbol symbol = Symbol.from(expression);
+                projections.putIdentity(symbol);
+                translations.put(expression, symbol);
+                continue;
+            }
+
+            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
+            projections.put(symbol, subPlan.rewrite(expression));
+            translations.put(expression, symbol);
+        }
+
+        filterArguments.putIdentities(subPlan.getRoot().getOutputSymbols());
+        ProjectNode lowerProjectNode = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), filterArguments.build());
+
+        projections.putIdentities(lowerProjectNode.getOutputSymbols());
+
+        return new PlanBuilder(translations, new ProjectNode(
+                idAllocator.getNextId(),
+                lowerProjectNode,
+                projections.build()),
+                analysis.getParameters());
+    }
+
     private Map<Symbol, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
     {
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
@@ -419,6 +504,18 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
+    private ImmutableList<FilterExpressionWithAggregate> getFilterExpressions(QuerySpecification node)
+    {
+        return analysis.getAggregates(node).stream().map(currentAggregate -> {
+            FilterExpressionWithAggregate filterExpressionWithAggregate = new FilterExpressionWithAggregate(
+                    currentAggregate.getFilter().isPresent() ? currentAggregate.getFilter().get() : null,
+                    currentAggregate,
+                    currentAggregate.getArguments());
+
+            return filterExpressionWithAggregate;
+        }).collect(toImmutableList());
+    }
+
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
     {
         if (!analysis.isAggregation(node)) {
@@ -428,11 +525,14 @@ class QueryPlanner
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Set<Expression> groupByExpressions = ImmutableSet.copyOf(analysis.getGroupByExpressions(node));
 
-        ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+        ImmutableList.Builder<Expression> aggregateArguments = ImmutableList.builder();
+        ImmutableList.Builder<Expression> sortArguments = ImmutableList.builder();
+        ImmutableList.Builder<Expression> filterArguments = ImmutableList.builder();
+
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
-                .forEach(arguments::add);
+                .forEach(aggregateArguments::add);
 
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getOrderBy)
@@ -441,19 +541,37 @@ class QueryPlanner
                 .map(OrderBy::getSortItems)
                 .flatMap(List::stream)
                 .map(SortItem::getSortKey)
-                .forEach(arguments::add);
+                .forEach(sortArguments::add);
 
         // filter expressions need to be projected first
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getFilter)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .forEach(arguments::add);
+                .forEach(filterArguments::add);
 
-        Iterable<Expression> inputs = Iterables.concat(groupByExpressions, arguments.build());
+        Iterable<Expression> inputs = Iterables.concat(groupByExpressions, aggregateArguments.build(), sortArguments.build(), filterArguments.build());
+        ImmutableList<Expression> arguments = ImmutableList.copyOf(inputs);
+
         subPlan = handleSubqueries(subPlan, node, inputs);
 
-        if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
+        ImmutableList<FilterExpressionWithAggregate> filterExpressionsAndArgumentsList = getFilterExpressions(node);
+
+        // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
+        if (!filterExpressionsAndArgumentsList.isEmpty()) {
+            ImmutableList.Builder<Expression> argumentsAfterFilterReplacements = ImmutableList.builder();
+            Iterable<Expression> groupByAndSortArguments = Iterables.concat(groupByExpressions, sortArguments.build());
+
+            subPlan = project(
+                    subPlan,
+                    filterExpressionsAndArgumentsList,
+                    ImmutableList.copyOf(groupByAndSortArguments),
+                    argumentsAfterFilterReplacements);
+
+            inputs = Iterables.concat(groupByExpressions, argumentsAfterFilterReplacements.build(), sortArguments.build(), filterArguments.build());
+            arguments = ImmutableList.copyOf(inputs);
+        }
+        else if (!Iterables.isEmpty(inputs)) {
             subPlan = project(subPlan, inputs);
         }
 
@@ -463,7 +581,7 @@ class QueryPlanner
         TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
 
         ImmutableList.Builder<Symbol> aggregationArgumentsBuilder = ImmutableList.builder();
-        for (Expression argument : arguments.build()) {
+        for (Expression argument : arguments) {
             Symbol symbol = subPlan.translate(argument);
             argumentTranslations.put(argument, symbol);
             aggregationArgumentsBuilder.add(symbol);
@@ -543,9 +661,9 @@ class QueryPlanner
         // 2.d. Rewrite aggregates
         ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
         boolean needPostProjectionCoercion = false;
-        for (FunctionCall aggregate : analysis.getAggregates(node)) {
+        for (FilterExpressionWithAggregate currentObject : filterExpressionsAndArgumentsList) {
+            FunctionCall aggregate = currentObject.getFunctionCall();
             Expression rewritten = argumentTranslations.rewrite(aggregate);
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
 
             // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
             // Therefore we can end up with this implicit cast, and have to move it into a post-projection
@@ -553,6 +671,18 @@ class QueryPlanner
                 rewritten = ((Cast) rewritten).getExpression();
                 needPostProjectionCoercion = true;
             }
+
+            if (aggregate.getFilter().isPresent()) {
+                if (currentObject.getFinalArguments() == null) {
+                    throw new IllegalStateException("CASE expression for filter argument for aggregate is not present");
+                }
+
+                FunctionCall functionCall = new FunctionCall(aggregate.getName(), aggregate.isDistinct(), currentObject.getFinalArguments(), aggregate.getOrderBy(), aggregate.getFilter());
+
+                rewritten = argumentTranslations.rewrite(functionCall);
+            }
+
+            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
             aggregationTranslations.put(aggregate, newSymbol);
 
             aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
@@ -949,6 +1079,47 @@ class QueryPlanner
             else {
                 return SortOrder.DESC_NULLS_LAST;
             }
+        }
+    }
+
+    private class FilterExpressionWithAggregate
+    {
+        private final Expression filterExpression;
+        private final FunctionCall functionCall;
+        private final List<Expression> arguments;
+        private List<Expression> finalArguments;
+
+        FilterExpressionWithAggregate(Expression filterExpression, FunctionCall functionCall, List<Expression> arguments)
+        {
+            this.filterExpression = filterExpression;
+            this.functionCall = functionCall;
+            this.arguments = arguments;
+            this.finalArguments = new ArrayList<>();
+        }
+
+        public Expression getFilterExpression()
+        {
+            return filterExpression;
+        }
+
+        public FunctionCall getFunctionCall()
+        {
+            return functionCall;
+        }
+
+        public List<Expression> getArguments()
+        {
+            return arguments;
+        }
+
+        public void addFinalArgument(Expression expression)
+        {
+            finalArguments.add(expression);
+        }
+
+        public List<Expression> getFinalArguments()
+        {
+            return finalArguments;
         }
     }
 }
