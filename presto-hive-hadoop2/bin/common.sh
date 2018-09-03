@@ -26,7 +26,7 @@ function hadoop_master_container(){
 
 function hadoop_master_ip() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-  docker inspect --format '{{ .NetworkSettings.IPAddress }}' $HADOOP_MASTER_CONTAINER
+  docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $HADOOP_MASTER_CONTAINER
 }
 
 function check_hadoop() {
