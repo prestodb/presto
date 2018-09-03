@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.DICTIONARY_MEMORY_MAX_RANGE;
-import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThan;
@@ -113,7 +112,7 @@ public class TestDictionaryCompressionOptimizer
 
         // construct a simulator that will hit the row limit first
         int stripeMaxBytes = megabytes(100);
-        int bytesPerRow = estimateIndexBytesPerValue(dictionaryEntries);
+        int bytesPerRow = TestDictionaryColumn.estimateIndexBytesPerValue(dictionaryEntries);
         int expectedMaxRowCount = stripeMaxBytes / bytesPerRow;
         DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCount * 10, megabytes(16), 0, column);
 
@@ -607,6 +606,12 @@ public class TestDictionaryCompressionOptimizer
         }
 
         @Override
+        public int getIndexBytes()
+        {
+            return estimateIndexBytesPerValue(getDictionaryEntries()) * getNonNullValueCount();
+        }
+
+        @Override
         public OptionalInt tryConvertToDirect(int maxDirectBytes)
         {
             assertFalse(direct);
@@ -623,6 +628,21 @@ public class TestDictionaryCompressionOptimizer
         public boolean isDirect()
         {
             return direct;
+        }
+
+        public static int estimateIndexBytesPerValue(int dictionaryEntries)
+        {
+            // assume basic byte packing
+            if (dictionaryEntries <= 256) {
+                return 1;
+            }
+            if (dictionaryEntries <= 65_536) {
+                return 2;
+            }
+            if (dictionaryEntries <= 16_777_216) {
+                return 3;
+            }
+            return 4;
         }
     }
 }
