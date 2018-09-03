@@ -116,7 +116,9 @@ public class DictionaryCompressionOptimizer
                 .sum();
 
         // update the dictionary growth history
-        directConversionCandidates.forEach(column -> column.updateHistory(stripeRowCount));
+        allWriters.stream()
+                .filter(writer -> !writer.isDirectEncoded())
+                .forEach(column -> column.updateHistory(stripeRowCount));
 
         if (dictionaryMemoryBytes <= dictionaryMemoryMaxBytesLow) {
             return;
@@ -246,14 +248,16 @@ public class DictionaryCompressionOptimizer
         long totalDictionaryBytesPerNewRow = 0;
         long totalDictionaryIndexBytesPerRow = 0;
 
-        for (DictionaryColumnManager column : directConversionCandidates) {
-            totalDictionaryRawBytes += column.getRawBytes();
-            totalDictionaryBytes += column.getDictionaryBytes();
-            totalDictionaryIndexBytes += column.getIndexBytes();
+        for (DictionaryColumnManager column : allWriters) {
+            if (!column.isDirectEncoded()) {
+                totalDictionaryRawBytes += column.getRawBytes();
+                totalDictionaryBytes += column.getDictionaryBytes();
+                totalDictionaryIndexBytes += column.getIndexBytes();
 
-            totalDictionaryRawBytesPerRow += column.getRawBytesPerRow();
-            totalDictionaryBytesPerNewRow += column.getDictionaryBytesPerFutureRow();
-            totalDictionaryIndexBytesPerRow += column.getIndexBytesPerRow();
+                totalDictionaryRawBytesPerRow += column.getRawBytesPerRow();
+                totalDictionaryBytesPerNewRow += column.getDictionaryBytesPerFutureRow();
+                totalDictionaryIndexBytesPerRow += column.getIndexBytesPerRow();
+            }
         }
 
         long totalUncompressedBytesPerRow = totalNonDictionaryBytesPerRow + totalDictionaryRawBytesPerRow;
