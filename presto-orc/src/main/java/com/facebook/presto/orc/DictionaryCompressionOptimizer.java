@@ -426,21 +426,10 @@ public class DictionaryCompressionOptimizer
             return 1.0 * getIndexBytes() / rowCount;
         }
 
-        public int getNullsBytes()
-        {
-            checkState(!directEncoded);
-            return (dictionaryColumn.getValueCount() - dictionaryColumn.getNonNullValueCount() + 7) / 8;
-        }
-
-        public int getCompressedBytes()
-        {
-            return getDictionaryBytes() + getIndexBytes() + getNullsBytes();
-        }
-
         public double getCompressionRatio()
         {
             checkState(!directEncoded);
-            return 1.0 * getRawBytes() / getCompressedBytes();
+            return 1.0 * getRawBytes() / getBufferedBytes();
         }
 
         public long getBufferedBytes()
