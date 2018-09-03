@@ -575,15 +575,15 @@ public class TestDictionaryCompressionOptimizer
         }
 
         @Override
-        public int getValueCount()
+        public long getValueCount()
         {
-            return (int) (rowCount * valuesPerRow);
+            return (long) (rowCount * valuesPerRow);
         }
 
         @Override
-        public int getNonNullValueCount()
+        public long getNonNullValueCount()
         {
-            return (int) (getValueCount() * (1 - nullRate));
+            return (long) (getValueCount() * (1 - nullRate));
         }
 
         @Override
@@ -608,7 +608,7 @@ public class TestDictionaryCompressionOptimizer
         @Override
         public int getIndexBytes()
         {
-            return estimateIndexBytesPerValue(getDictionaryEntries()) * getNonNullValueCount();
+            return toIntExact(estimateIndexBytesPerValue(getDictionaryEntries()) * getNonNullValueCount());
         }
 
         @Override

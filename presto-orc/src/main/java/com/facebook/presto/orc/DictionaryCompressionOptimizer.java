@@ -298,9 +298,9 @@ public class DictionaryCompressionOptimizer
 
     public interface DictionaryColumn
     {
-        int getValueCount();
+        long getValueCount();
 
-        int getNonNullValueCount();
+        long getNonNullValueCount();
 
         long getRawBytes();
 
@@ -322,10 +322,10 @@ public class DictionaryCompressionOptimizer
 
         private int rowCount;
 
-        private int pastValueCount;
+        private long pastValueCount;
         private int pastDictionaryEntries;
 
-        private int pendingPastValueCount;
+        private long pendingPastValueCount;
         private int pendingPastDictionaryEntries;
 
         public DictionaryColumnManager(DictionaryColumn dictionaryColumn)
@@ -356,7 +356,7 @@ public class DictionaryCompressionOptimizer
         public void updateHistory(int rowCount)
         {
             this.rowCount = rowCount;
-            int currentValueCount = dictionaryColumn.getValueCount();
+            long currentValueCount = dictionaryColumn.getValueCount();
             if (currentValueCount - pendingPastValueCount >= 1024) {
                 pastValueCount = pendingPastValueCount;
                 pastDictionaryEntries = pendingPastDictionaryEntries;
@@ -389,7 +389,7 @@ public class DictionaryCompressionOptimizer
             checkState(!directEncoded);
 
             int currentDictionaryEntries = dictionaryColumn.getDictionaryEntries();
-            int currentValueCount = dictionaryColumn.getValueCount();
+            long currentValueCount = dictionaryColumn.getValueCount();
 
             // average size of a dictionary entry
             double dictionaryBytesPerEntry = 1.0 * dictionaryColumn.getDictionaryBytes() / currentDictionaryEntries;

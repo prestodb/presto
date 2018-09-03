@@ -97,8 +97,8 @@ public class SliceDictionaryColumnWriter
     private StringStatisticsBuilder statisticsBuilder;
 
     private long rawBytes;
-    private int totalValueCount;
-    private int totalNonNullValueCount;
+    private long totalValueCount;
+    private long totalNonNullValueCount;
 
     private boolean closed;
     private boolean inRowGroup;
@@ -153,14 +153,14 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public int getValueCount()
+    public long getValueCount()
     {
         checkState(!directEncoded);
         return totalValueCount;
     }
 
     @Override
-    public int getNonNullValueCount()
+    public long getNonNullValueCount()
     {
         checkState(!directEncoded);
         return totalNonNullValueCount;
