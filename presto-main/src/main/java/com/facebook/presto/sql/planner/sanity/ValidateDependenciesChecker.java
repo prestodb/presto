@@ -69,6 +69,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractDependencies;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -246,10 +247,8 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            for (Expression expression : node.getAssignments().getExpressions()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(expression);
-                checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
-            }
+            Set<Symbol> dependencies = SymbolsExtractor.extractDependencies(node);
+            checkDependencies(inputs, extractDependencies(node), "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
 
             return null;
         }
