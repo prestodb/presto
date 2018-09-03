@@ -146,6 +146,13 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
+    public int getIndexBytes()
+    {
+        checkState(!directEncoded);
+        return toIntExact(tempDictionaryIdDataStream.getBufferedBytes());
+    }
+
+    @Override
     public int getValueCount()
     {
         checkState(!directEncoded);
