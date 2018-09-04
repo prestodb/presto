@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -106,6 +108,21 @@ public class JoinNode
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+
+        if (distributionType.isPresent()) {
+            // The implementation of full outer join only works if the data is hash partitioned.
+            checkArgument(
+                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
+                    "%s join do not work with %s distribution type",
+                    type,
+                    distributionType.get());
+            // It does not make sense to PARTITION when there is nothing to partition on
+            checkArgument(
+                    !(distributionType.get() == PARTITIONED && criteria.isEmpty() && type != RIGHT && type != FULL),
+                    "Equi criteria are empty, so %s join should not have %s distribution type",
+                    type,
+                    distributionType.get());
+        }
     }
 
     public JoinNode flipChildren()

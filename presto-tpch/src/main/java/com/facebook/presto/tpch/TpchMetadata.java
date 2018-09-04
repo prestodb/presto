@@ -59,6 +59,7 @@ import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -118,13 +119,14 @@ public class TpchMetadata
     private final ColumnNaming columnNaming;
     private final StatisticsEstimator statisticsEstimator;
     private final boolean predicatePushdownEnabled;
+    private final boolean partitioningEnabled;
 
     public TpchMetadata(String connectorId)
     {
-        this(connectorId, ColumnNaming.SIMPLIFIED, true);
+        this(connectorId, ColumnNaming.SIMPLIFIED, true, true);
     }
 
-    public TpchMetadata(String connectorId, ColumnNaming columnNaming, boolean predicatePushdownEnabled)
+    public TpchMetadata(String connectorId, ColumnNaming columnNaming, boolean predicatePushdownEnabled, boolean partitioningEnabled)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
@@ -134,6 +136,7 @@ public class TpchMetadata
         this.connectorId = connectorId;
         this.columnNaming = columnNaming;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
+        this.partitioningEnabled = partitioningEnabled;
         this.statisticsEstimator = createStatisticsEstimator();
     }
 
@@ -185,14 +188,16 @@ public class TpchMetadata
         TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
-            nodePartition = Optional.of(new ConnectorTablePartitioning(
-                    new TpchPartitioningHandle(
-                            TpchTable.ORDERS.getTableName(),
-                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                    ImmutableList.of(orderKeyColumn)));
-            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
-            localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
+            if (partitioningEnabled) {
+                ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
+                nodePartition = Optional.of(new ConnectorTablePartitioning(
+                        new TpchPartitioningHandle(
+                                TpchTable.ORDERS.getTableName(),
+                                calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                        ImmutableList.of(orderKeyColumn)));
+                partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+                localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
+            }
             if (predicatePushdownEnabled) {
                 predicate = toTupleDomain(ImmutableMap.of(
                         toColumnHandle(OrderColumn.ORDER_STATUS),
@@ -210,22 +215,24 @@ public class TpchMetadata
             unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
-            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
-            nodePartition = Optional.of(new ConnectorTablePartitioning(
-                    new TpchPartitioningHandle(
-                            TpchTable.ORDERS.getTableName(),
-                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                    ImmutableList.of(orderKeyColumn)));
-            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
-            localProperties = ImmutableList.of(
-                    new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
-                    new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
+            if (partitioningEnabled) {
+                ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
+                nodePartition = Optional.of(new ConnectorTablePartitioning(
+                        new TpchPartitioningHandle(
+                                TpchTable.ORDERS.getTableName(),
+                                calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                        ImmutableList.of(orderKeyColumn)));
+                partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+                localProperties = ImmutableList.of(
+                        new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
+                        new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
+            }
         }
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new TpchTableLayoutHandle(tableHandle, predicate),
                 Optional.empty(),
-                predicate, // TODO: return well-known properties (e.g., orderkey > 0, etc)
+                predicate, // TODO: conditionally return well-known properties (e.g., orderkey > 0, etc)
                 nodePartition,
                 partitioningColumns,
                 Optional.empty(),
@@ -386,6 +393,9 @@ public class TpchMetadata
     {
         if (columnType instanceof VarcharType) {
             return Slices.utf8Slice((String) tpchValue);
+        }
+        if (tpchValue instanceof String && columnType.equals(DATE)) {
+            return LocalDate.parse((CharSequence) tpchValue).toEpochDay();
         }
         if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
             return ((Number) tpchValue).longValue();

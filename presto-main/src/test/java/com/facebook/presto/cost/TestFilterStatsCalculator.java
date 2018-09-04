@@ -171,26 +171,28 @@ public class TestFilterStatsCalculator
         assertExpression("-x > -3e0")
                 .outputRowsCount(lessThan3Rows);
 
-        for (String minusThree : ImmutableList.of("DECIMAL '-3'", "-3e0", "(4e0-7e0)", "CAST(-3 AS DECIMAL)")) {
-            System.out.println(minusThree);
+        for (String minusThree : ImmutableList.of("DECIMAL '-3'", "-3e0", "(4e0-7e0)", "CAST(-3 AS DECIMAL(7,3))"/*, "CAST('1' AS BIGINT) - 4"*/)) {
+            for (String xEquals : ImmutableList.of("x = %s", "%s = x", "COALESCE(x * CAST(NULL AS BIGINT), x) = %s", "%s = CAST(x AS DOUBLE)")) {
+                assertExpression(format(xEquals, minusThree))
+                        .outputRowsCount(18.75)
+                        .symbolStats(new Symbol("x"), symbolAssert ->
+                                symbolAssert.averageRowSize(4.0)
+                                        .lowValue(-3)
+                                        .highValue(-3)
+                                        .distinctValuesCount(1)
+                                        .nullsFraction(0.0));
+            }
 
-            assertExpression("x = " + minusThree)
-                    .outputRowsCount(18.75)
-                    .symbolStats(new Symbol("x"), symbolAssert ->
-                            symbolAssert.averageRowSize(4.0)
-                                    .lowValue(-3)
-                                    .highValue(-3)
-                                    .distinctValuesCount(1)
-                                    .nullsFraction(0.0));
-
-            assertExpression("x < " + minusThree)
-                    .outputRowsCount(262.5)
-                    .symbolStats(new Symbol("x"), symbolAssert ->
-                            symbolAssert.averageRowSize(4.0)
-                                    .lowValue(-10)
-                                    .highValue(-3)
-                                    .distinctValuesCount(14)
-                                    .nullsFraction(0.0));
+            for (String xLessThan : ImmutableList.of("x < %s", "%s > x", "%s > CAST(x AS DOUBLE)")) {
+                assertExpression(format(xLessThan, minusThree))
+                        .outputRowsCount(262.5)
+                        .symbolStats(new Symbol("x"), symbolAssert ->
+                                symbolAssert.averageRowSize(4.0)
+                                        .lowValue(-10)
+                                        .highValue(-3)
+                                        .distinctValuesCount(14)
+                                        .nullsFraction(0.0));
+            }
         }
     }
 
@@ -223,6 +225,18 @@ public class TestFilterStatsCalculator
                                 .highValue(3)
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
+
+        assertExpression("x = 1e0 OR 'a' = 'b' OR x = 3e0")
+                .outputRowsCount(37.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(1)
+                                .highValue(3)
+                                .distinctValuesCount(2)
+                                .nullsFraction(0));
+
+        assertExpression("x = 1e0 OR (CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))) OR x = 3e0")
+                .equalTo(standardInputStatistics);
     }
 
     @Test
@@ -278,6 +292,9 @@ public class TestFilterStatsCalculator
                                 .highValue(10)
                                 .distinctValuesCount(40)
                                 .nullsFraction(0.25));
+
+        assertExpression("'a' IN ('b', 'c') AND unknownRange = 3e0")
+                .outputRowsCount(0);
     }
 
     @Test
@@ -431,6 +448,11 @@ public class TestFilterStatsCalculator
                                 .lowValue(-100.0)
                                 .highValue(100.0)
                                 .nullsFraction(0.0));
+
+        assertExpression("'a' IN ('a', 'b')").equalTo(standardInputStatistics);
+        assertExpression("'a' IN ('b', 'c')").outputRowsCount(0);
+        assertExpression("CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").equalTo(standardInputStatistics);
+        assertExpression("CAST('c' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").outputRowsCount(0);
     }
 
     @Test

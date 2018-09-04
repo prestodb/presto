@@ -18,7 +18,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
+import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -33,12 +36,14 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -51,6 +56,7 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInSta
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -61,6 +67,7 @@ import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -70,12 +77,14 @@ public class FilterStatsCalculator
     private final Metadata metadata;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
+    private final LiteralEncoder literalEncoder;
 
     public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
+        this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -84,8 +93,39 @@ public class FilterStatsCalculator
             Session session,
             TypeProvider types)
     {
-        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types).process(predicate)
+        Expression simplifiedExpression = simplifyExpression(session, predicate, types);
+        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
+                .process(simplifiedExpression)
                 .orElseGet(() -> normalizer.normalize(filterStatsForUnknownExpression(statsEstimate), types));
+    }
+
+    private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
+    {
+        // TODO reuse com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite
+
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(predicate, metadata, session, expressionTypes);
+        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+
+        if (value == null) {
+            // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
+            value = false;
+        }
+        return literalEncoder.toExpression(value, BOOLEAN);
+    }
+
+    private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
+    {
+        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                metadata.getFunctionRegistry(),
+                metadata.getTypeManager(),
+                session,
+                types,
+                emptyList(),
+                node -> new IllegalStateException("Expected node: %s" + node),
+                false);
+        expressionAnalyzer.analyze(expression, Scope.create());
+        return expressionAnalyzer.getExpressionTypes();
     }
 
     private static PlanNodeStatsEstimate filterStatsForUnknownExpression(PlanNodeStatsEstimate inputStatistics)
@@ -229,10 +269,10 @@ public class FilterStatsCalculator
             if (!(node.getValue() instanceof SymbolReference)) {
                 return visitExpression(node, context);
             }
-            if (!(node.getMin() instanceof Literal || isSingleValue(getExpressionStats(node.getMin())))) {
+            if (!isSingleValue(node.getMin())) {
                 return visitExpression(node, context);
             }
-            if (!(node.getMax() instanceof Literal || isSingleValue(getExpressionStats(node.getMax())))) {
+            if (!isSingleValue(node.getMax())) {
                 return visitExpression(node, context);
             }
 
@@ -349,6 +389,12 @@ public class FilterStatsCalculator
                 return Optional.of(Symbol.from(expression));
             }
             return Optional.empty();
+        }
+
+        private boolean isSingleValue(Expression expression)
+        {
+            return (expression instanceof Literal)
+                    || isSingleValue(getExpressionStats(expression));
         }
 
         private boolean isSingleValue(SymbolStatsEstimate stats)
