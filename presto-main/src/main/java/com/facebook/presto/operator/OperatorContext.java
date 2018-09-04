@@ -129,7 +129,7 @@ public class OperatorContext
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
         operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
 
-        collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
+        collectTimings = driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled();
     }
 
     public int getOperatorId()

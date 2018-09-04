@@ -39,7 +39,7 @@ public interface QueryContext
 
     TaskContext getTaskContextByTaskId(TaskId taskId);
 
-    TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled, OptionalInt totalPartitions);
+    TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean perOperatorCpuTimerEnabled, boolean cpuTimerEnabled, OptionalInt totalPartitions);
 
     MemoryPool getMemoryPool();
 

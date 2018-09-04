@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
         "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
-    private boolean verboseStats;
+    private boolean perOperatorCpuTimerEnabled;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -104,15 +104,16 @@ public class TaskManagerConfig
         return this;
     }
 
-    public boolean isVerboseStats()
+    public boolean isPerOperatorCpuTimerEnabled()
     {
-        return verboseStats;
+        return perOperatorCpuTimerEnabled;
     }
 
-    @Config("task.verbose-stats")
-    public TaskManagerConfig setVerboseStats(boolean verboseStats)
+    @LegacyConfig("task.verbose-stats")
+    @Config("task.per-operator-cpu-timer-enabled")
+    public TaskManagerConfig setPerOperatorCpuTimerEnabled(boolean perOperatorCpuTimerEnabled)
     {
-        this.verboseStats = verboseStats;
+        this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         return this;
     }
 

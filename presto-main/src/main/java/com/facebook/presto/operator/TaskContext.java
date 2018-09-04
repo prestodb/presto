@@ -86,7 +86,7 @@ public class TaskContext
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
-    private final boolean verboseStats;
+    private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
 
     private final OptionalInt totalPartitions;
@@ -110,11 +110,11 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
-            boolean verboseStats,
+            boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             OptionalInt totalPartitions)
     {
-        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, gcMonitor, notificationExecutor, yieldExecutor, session, taskMemoryContext, verboseStats, cpuTimerEnabled, totalPartitions);
+        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, gcMonitor, notificationExecutor, yieldExecutor, session, taskMemoryContext, perOperatorCpuTimerEnabled, cpuTimerEnabled, totalPartitions);
         taskContext.initialize();
         return taskContext;
     }
@@ -126,7 +126,7 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
-            boolean verboseStats,
+            boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             OptionalInt totalPartitions)
     {
@@ -139,7 +139,7 @@ public class TaskContext
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
-        this.verboseStats = verboseStats;
+        this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
     }
@@ -286,9 +286,9 @@ public class TaskContext
         pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
     }
 
-    public boolean isVerboseStats()
+    public boolean isPerOperatorCpuTimerEnabled()
     {
-        return verboseStats;
+        return perOperatorCpuTimerEnabled;
     }
 
     public boolean isCpuTimerEnabled()

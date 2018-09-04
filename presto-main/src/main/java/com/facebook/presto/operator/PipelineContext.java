@@ -251,9 +251,9 @@ public class PipelineContext
         drivers.forEach(DriverContext::moreMemoryAvailable);
     }
 
-    public boolean isVerboseStats()
+    public boolean isPerOperatorCpuTimerEnabled()
     {
-        return taskContext.isVerboseStats();
+        return taskContext.isPerOperatorCpuTimerEnabled();
     }
 
     public boolean isCpuTimerEnabled()

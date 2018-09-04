@@ -240,9 +240,9 @@ public class DriverContext
         operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
     }
 
-    public boolean isVerboseStats()
+    public boolean isPerOperatorCpuTimerEnabled()
     {
-        return pipelineContext.isVerboseStats();
+        return pipelineContext.isPerOperatorCpuTimerEnabled();
     }
 
     public boolean isCpuTimerEnabled()
