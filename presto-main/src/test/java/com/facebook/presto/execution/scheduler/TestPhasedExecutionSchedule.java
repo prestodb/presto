@@ -45,6 +45,8 @@ import java.util.stream.Stream;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -156,7 +158,8 @@ public class TestPhasedExecutionSchedule
                         .map(PlanFragment::getId)
                         .collect(toImmutableList()),
                 fragments[0].getPartitioningScheme().getOutputLayout(),
-                Optional.empty());
+                Optional.empty(),
+                REPARTITION);
 
         return createFragment(planNode);
     }
@@ -166,7 +169,7 @@ public class TestPhasedExecutionSchedule
         PlanNode planNode = new UnionNode(
                 new PlanNodeId(name + "_id"),
                 Stream.of(fragments)
-                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout(), Optional.empty()))
+                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout(), Optional.empty(), REPARTITION))
                         .collect(toImmutableList()),
                 ImmutableListMultimap.of(),
                 ImmutableList.of());
@@ -183,10 +186,9 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                 Optional.empty(),
-                TupleDomain.all(),
-                null);
+                TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty());
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 INNER,
@@ -207,8 +209,8 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
-        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty());
-        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty());
+        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION);
+        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION);
         PlanNode planNode = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 joinType,
@@ -236,8 +238,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                 Optional.empty(),
-                TupleDomain.all(),
-                null);
+                TupleDomain.all());
 
         return createFragment(planNode);
     }

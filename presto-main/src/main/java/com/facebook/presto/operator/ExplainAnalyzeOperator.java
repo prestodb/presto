@@ -19,7 +19,9 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -45,6 +47,8 @@ public class ExplainAnalyzeOperator
         private final FunctionRegistry functionRegistry;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final InternalNodeManager nodeManager;
+        private final NodeSchedulerConfig nodeSchedulerConfig;
         private final boolean verbose;
         private boolean closed;
 
@@ -55,6 +59,8 @@ public class ExplainAnalyzeOperator
                 FunctionRegistry functionRegistry,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
+                InternalNodeManager nodeManager,
+                NodeSchedulerConfig nodeSchedulerConfig,
                 boolean verbose)
         {
             this.operatorId = operatorId;
@@ -63,6 +69,8 @@ public class ExplainAnalyzeOperator
             this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+            this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
             this.verbose = verbose;
         }
 
@@ -71,7 +79,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionRegistry, statsCalculator, costCalculator, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionRegistry, statsCalculator, costCalculator, nodeManager, nodeSchedulerConfig, verbose);
         }
 
         @Override
@@ -83,7 +91,7 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionRegistry, statsCalculator, costCalculator, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionRegistry, statsCalculator, costCalculator, nodeManager, nodeSchedulerConfig, verbose);
         }
     }
 
@@ -92,6 +100,8 @@ public class ExplainAnalyzeOperator
     private final FunctionRegistry functionRegistry;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final InternalNodeManager nodeManager;
+    private final NodeSchedulerConfig nodeSchedulerConfig;
     private final boolean verbose;
     private boolean finishing;
     private boolean outputConsumed;
@@ -102,6 +112,8 @@ public class ExplainAnalyzeOperator
             FunctionRegistry functionRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
+            InternalNodeManager nodeManager,
+            NodeSchedulerConfig nodeSchedulerConfig,
             boolean verbose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -109,6 +121,8 @@ public class ExplainAnalyzeOperator
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         this.verbose = verbose;
     }
 
@@ -159,7 +173,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, statsCalculator, costCalculator, operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, statsCalculator, costCalculator, nodeManager, nodeSchedulerConfig, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 

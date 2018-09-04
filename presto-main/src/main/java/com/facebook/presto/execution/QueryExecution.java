@@ -25,7 +25,6 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.List;
@@ -36,10 +35,9 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 
 public interface QueryExecution
+        extends ManagedQueryExecution
 {
     QueryId getQueryId();
-
-    QueryInfo getQueryInfo();
 
     QueryState getState();
 
@@ -49,28 +47,13 @@ public interface QueryExecution
 
     Optional<ResourceGroupId> getResourceGroup();
 
-    void setResourceGroup(ResourceGroupId resourceGroupId);
-
     Plan getQueryPlan();
+
+    QueryInfo getQueryInfo();
 
     VersionedMemoryPoolId getMemoryPool();
 
     void setMemoryPool(VersionedMemoryPoolId poolId);
-
-    long getUserMemoryReservation();
-
-    /**
-     * @return the user + system memory reservation
-     */
-    long getTotalMemoryReservation();
-
-    Duration getTotalCpuTime();
-
-    Session getSession();
-
-    void start();
-
-    void fail(Throwable cause);
 
     void cancelQuery();
 

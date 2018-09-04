@@ -401,8 +401,7 @@ public class PruneUnreferencedOutputs
                     newOutputs,
                     newAssignments,
                     node.getLayout(),
-                    node.getCurrentConstraint(),
-                    node.getOriginalConstraint());
+                    node.getCurrentConstraint());
         }
 
         @Override

@@ -17,22 +17,26 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class FailedQueryExecution
         implements QueryExecution
@@ -89,27 +93,39 @@ public class FailedQueryExecution
     }
 
     @Override
-    public long getUserMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return 0;
+        return new DataSize(0, BYTE);
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public DataSize getTotalMemoryReservation()
     {
-        return 0;
+        return new DataSize(0, BYTE);
     }
 
     @Override
     public Duration getTotalCpuTime()
     {
-        return new Duration(0, TimeUnit.SECONDS);
+        return new Duration(0, NANOSECONDS);
     }
 
     @Override
     public Session getSession()
     {
         return session;
+    }
+
+    @Override
+    public Optional<ErrorCode> getErrorCode()
+    {
+        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+    }
+
+    @Override
+    public BasicQueryInfo getBasicQueryInfo()
+    {
+        return new BasicQueryInfo(getQueryInfo());
     }
 
     @Override
@@ -146,6 +162,12 @@ public class FailedQueryExecution
     public void fail(Throwable cause)
     {
         // no-op
+    }
+
+    @Override
+    public boolean isDone()
+    {
+        return getState().isDone();
     }
 
     @Override

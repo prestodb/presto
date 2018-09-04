@@ -73,7 +73,7 @@ import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -214,8 +214,8 @@ public class ClusterMemoryManager
         long totalMemoryBytes = 0L;
         for (QueryExecution query : runningQueries) {
             boolean resourceOvercommit = resourceOvercommit(query.getSession());
-            long userMemoryReservation = query.getUserMemoryReservation();
-            long totalMemoryReservation = query.getTotalMemoryReservation();
+            long userMemoryReservation = query.getUserMemoryReservation().toBytes();
+            long totalMemoryReservation = query.getTotalMemoryReservation().toBytes();
 
             if (resourceOvercommit && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
@@ -348,7 +348,7 @@ public class ClusterMemoryManager
     public synchronized boolean preAllocateQueryMemory(QueryId queryId, long requiredBytes)
     {
         if (requiredBytes > maxQueryMemory.toBytes()) {
-            throw new PrestoException(EXCEEDED_MEMORY_LIMIT, format("Cannot pre-allocate memory, exceeds maximum limit %s", maxQueryMemory));
+            throw new PrestoException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Cannot pre-allocate user memory, exceeds maximum limit %s", maxQueryMemory));
         }
 
         ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
@@ -443,18 +443,18 @@ public class ClusterMemoryManager
     {
         // when the legacy system pool is enabled we use the user memory instead of the total memory
         if (isLegacySystemPoolEnabled) {
-            return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getUserMemoryReservation());
+            return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getUserMemoryReservation().toBytes());
         }
-        return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getTotalMemoryReservation());
+        return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getTotalMemoryReservation().toBytes());
     }
 
     private long getQueryMemoryReservation(QueryExecution query)
     {
         // when the legacy system pool is enabled we use the user memory instead of the total memory
         if (isLegacySystemPoolEnabled) {
-            return query.getUserMemoryReservation();
+            return query.getUserMemoryReservation().toBytes();
         }
-        return query.getTotalMemoryReservation();
+        return query.getTotalMemoryReservation().toBytes();
     }
 
     private synchronized boolean allAssignmentsHavePropagated(Iterable<QueryExecution> queries)

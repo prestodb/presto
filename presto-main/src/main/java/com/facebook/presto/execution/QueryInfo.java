@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
@@ -63,7 +62,7 @@ public class QueryInfo
     private final boolean clearTransactionId;
     private final String updateType;
     private final Optional<StageInfo> outputStage;
-    private final FailureInfo failureInfo;
+    private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
@@ -93,7 +92,7 @@ public class QueryInfo
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
-            @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
@@ -272,7 +271,7 @@ public class QueryInfo
 
     @Nullable
     @JsonProperty
-    public FailureInfo getFailureInfo()
+    public ExecutionFailureInfo getFailureInfo()
     {
         return failureInfo;
     }

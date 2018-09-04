@@ -508,7 +508,10 @@ public class TestRowOperators
         assertFunction("row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, false);
         assertFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, true);
 
-        assertInvalidFunction("row(1, CAST(NULL AS INTEGER)) = row(1, 2)", StandardErrorCode.NOT_SUPPORTED);
+        assertFunction("row(1, CAST(NULL AS INTEGER)) = row(1, 2)", BOOLEAN, null);
+        assertFunction("row(1, CAST(NULL AS INTEGER)) != row(1, 2)", BOOLEAN, null);
+        assertFunction("row(2, CAST(NULL AS INTEGER)) = row(1, 2)", BOOLEAN, false);
+        assertFunction("row(2, CAST(NULL AS INTEGER)) != row(1, 2)", BOOLEAN, true);
         assertInvalidFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) > row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))",
                 SemanticErrorCode.TYPE_MISMATCH, "line 1:64: '>' cannot be applied to row(boolean,array(integer),map(integer,double)), row(boolean,array(integer),map(integer,double))");
 

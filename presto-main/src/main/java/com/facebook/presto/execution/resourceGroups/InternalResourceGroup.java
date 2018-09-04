@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryExecution;
-import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -125,9 +124,9 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
-    private UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
+    private UpdateablePriorityQueue<ManagedQueryExecution> queuedQueries = new FifoQueue<>();
     @GuardedBy("root")
-    private final Set<QueryExecution> runningQueries = new HashSet<>();
+    private final Set<ManagedQueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
     private int descendantRunningQueries;
     @GuardedBy("root")
@@ -253,7 +252,7 @@ public class InternalResourceGroup
         synchronized (root) {
             if (subGroups.isEmpty()) {
                 return runningQueries.stream()
-                        .map(QueryExecution::getQueryInfo)
+                        .map(ManagedQueryExecution::getBasicQueryInfo)
                         .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id)))
                         .collect(toImmutableList());
             }
@@ -517,7 +516,7 @@ public class InternalResourceGroup
 
             // Switch to the appropriate queue implementation to implement the desired policy
             Queue<InternalResourceGroup> queue;
-            UpdateablePriorityQueue<QueryExecution> queryQueue;
+            UpdateablePriorityQueue<ManagedQueryExecution> queryQueue;
             switch (policy) {
                 case FAIR:
                     queue = new FifoQueue<>();
@@ -548,7 +547,7 @@ public class InternalResourceGroup
             }
             eligibleSubGroups = queue;
             while (!queuedQueries.isEmpty()) {
-                QueryExecution query = queuedQueries.poll();
+                ManagedQueryExecution query = queuedQueries.poll();
                 queryQueue.addOrUpdate(query, getQueryPriority(query.getSession()));
             }
             queuedQueries = queryQueue;
@@ -623,7 +622,7 @@ public class InternalResourceGroup
         }
     }
 
-    public void run(QueryExecution query)
+    public void run(ManagedQueryExecution query)
     {
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
@@ -655,13 +654,13 @@ public class InternalResourceGroup
                     queryFinished(query);
                 }
             });
-            if (query.getState().isDone()) {
+            if (query.isDone()) {
                 queryFinished(query);
             }
         }
     }
 
-    private void enqueueQuery(QueryExecution query)
+    private void enqueueQuery(ManagedQueryExecution query)
     {
         checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
         synchronized (root) {
@@ -694,7 +693,7 @@ public class InternalResourceGroup
         }
     }
 
-    private void startInBackground(QueryExecution query)
+    private void startInBackground(ManagedQueryExecution query)
     {
         checkState(Thread.holdsLock(root), "Must hold lock to start a query");
         synchronized (root) {
@@ -710,7 +709,7 @@ public class InternalResourceGroup
         }
     }
 
-    private void queryFinished(QueryExecution query)
+    private void queryFinished(ManagedQueryExecution query)
     {
         synchronized (root) {
             if (!runningQueries.contains(query) && !queuedQueries.contains(query)) {
@@ -718,7 +717,7 @@ public class InternalResourceGroup
                 return;
             }
             // Only count the CPU time if the query succeeded, or the failure was the fault of the user
-            if (query.getState() == QueryState.FINISHED || query.getQueryInfo().getErrorType() == USER_ERROR) {
+            if (!query.getErrorCode().isPresent() || query.getErrorCode().get().getType() == USER_ERROR) {
                 InternalResourceGroup group = this;
                 while (group != null) {
                     group.cpuUsageMillis = saturatedAdd(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
@@ -752,8 +751,8 @@ public class InternalResourceGroup
         synchronized (root) {
             if (subGroups.isEmpty()) {
                 cachedMemoryUsageBytes = 0;
-                for (QueryExecution query : runningQueries) {
-                    cachedMemoryUsageBytes += query.getUserMemoryReservation();
+                for (ManagedQueryExecution query : runningQueries) {
+                    cachedMemoryUsageBytes += query.getUserMemoryReservation().toBytes();
                 }
             }
             else {
@@ -796,7 +795,7 @@ public class InternalResourceGroup
             if (!canRunMore()) {
                 return false;
             }
-            QueryExecution query = queuedQueries.poll();
+            ManagedQueryExecution query = queuedQueries.poll();
             if (query != null) {
                 startInBackground(query);
                 return true;
@@ -832,14 +831,14 @@ public class InternalResourceGroup
             for (InternalResourceGroup group : subGroups.values()) {
                 group.enforceTimeLimits();
             }
-            for (QueryExecution query : runningQueries) {
-                Duration runningTime = query.getQueryInfo().getQueryStats().getExecutionTime();
+            for (ManagedQueryExecution query : runningQueries) {
+                Duration runningTime = query.getBasicQueryInfo().getQueryStats().getExecutionTime();
                 if (runningQueries.contains(query) && runningTime != null && runningTime.compareTo(runningTimeLimit) > 0) {
                     query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "query exceeded resource group runtime limit"));
                 }
             }
-            for (QueryExecution query : queuedQueries) {
-                Duration elapsedTime = query.getQueryInfo().getQueryStats().getElapsedTime();
+            for (ManagedQueryExecution query : queuedQueries) {
+                Duration elapsedTime = query.getBasicQueryInfo().getQueryStats().getElapsedTime();
                 if (queuedQueries.contains(query) && elapsedTime != null && elapsedTime.compareTo(queuedTimeLimit) > 0) {
                     query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "query exceeded resource group queued time limit"));
                 }

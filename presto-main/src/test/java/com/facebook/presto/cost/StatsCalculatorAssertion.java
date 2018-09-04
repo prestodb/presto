@@ -72,6 +72,12 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    public StatsCalculatorAssertion withSourceStats(Map<PlanNode, PlanNodeStatsEstimate> stats)
+    {
+        sourcesStats.putAll(stats);
+        return this;
+    }
+
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
         PlanNodeStatsEstimate statsEstimate = statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), session, types);

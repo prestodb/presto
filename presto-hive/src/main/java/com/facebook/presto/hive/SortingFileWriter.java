@@ -39,10 +39,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NavigableSet;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeSet;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -72,7 +71,7 @@ public class SortingFileWriter
     private final List<SortOrder> sortOrders;
     private final HiveFileWriter outputWriter;
     private final SortBuffer sortBuffer;
-    private final NavigableSet<TempFile> tempFiles = new TreeSet<>(comparing(TempFile::getSize));
+    private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
     private final AtomicLong nextFileId = new AtomicLong();
 
     public SortingFileWriter(
@@ -135,16 +134,8 @@ public class SortingFileWriter
         try {
             writeSorted();
             outputWriter.commit();
-
-            for (TempFile tempFile : tempFiles) {
-                Path file = tempFile.getPath();
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
-                    throw new IOException("Failed to delete temporary file: " + file);
-                }
-            }
         }
-        catch (IOException | UncheckedIOException e) {
+        catch (UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
     }
@@ -193,7 +184,7 @@ public class SortingFileWriter
             int count = min(maxOpenTempFiles, tempFiles.size() - (maxOpenTempFiles - 1));
 
             List<TempFile> smallestFiles = IntStream.range(0, count)
-                    .mapToObj(i -> tempFiles.pollFirst())
+                    .mapToObj(i -> tempFiles.poll())
                     .collect(toImmutableList());
 
             writeTempFile(writer -> mergeFiles(smallestFiles, writer::writePage));
@@ -222,6 +213,14 @@ public class SortingFileWriter
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders)
                     .forEachRemaining(consumer);
+
+            for (TempFile tempFile : files) {
+                Path file = tempFile.getPath();
+                fileSystem.delete(file, false);
+                if (fileSystem.exists(file)) {
+                    throw new IOException("Failed to delete temporary file: " + file);
+                }
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -281,25 +280,6 @@ public class SortingFileWriter
         public long getSize()
         {
             return size;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if ((obj == null) || (getClass() != obj.getClass())) {
-                return false;
-            }
-            TempFile other = (TempFile) obj;
-            return Objects.equals(path, other.path);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(path);
         }
 
         @Override

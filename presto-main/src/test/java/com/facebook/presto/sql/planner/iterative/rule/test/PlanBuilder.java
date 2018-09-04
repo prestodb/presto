@@ -53,9 +53,11 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -346,13 +348,8 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(symbols, assignments, null);
-    }
-
-    public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
-    {
         TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
-        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), originalConstraint);
+        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -376,25 +373,13 @@ public class PlanBuilder
             Optional<TableLayoutHandle> tableLayout,
             TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableScan(tableHandle, symbols, assignments, tableLayout, tupleDomain, null);
-    }
-
-    public TableScanNode tableScan(
-            TableHandle tableHandle,
-            List<Symbol> symbols,
-            Map<Symbol, ColumnHandle> assignments,
-            Optional<TableLayoutHandle> tableLayout,
-            TupleDomain<ColumnHandle> tupleDomain,
-            Expression originalConstraint)
-    {
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
                 symbols,
                 assignments,
                 tableLayout,
-                tupleDomain,
-                originalConstraint);
+                tupleDomain);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
@@ -717,6 +702,11 @@ public class PlanBuilder
                 Optional.of(hashSymbol),
                 ImmutableSet.of(),
                 0);
+    }
+
+    public RemoteSourceNode remoteSourceNode(List<PlanFragmentId> fragmentIds, List<Symbol> symbols, ExchangeNode.Type exchangeType)
+    {
+        return new RemoteSourceNode(idAllocator.getNextId(), fragmentIds, symbols, Optional.empty(), exchangeType);
     }
 
     public static Expression expression(String sql)

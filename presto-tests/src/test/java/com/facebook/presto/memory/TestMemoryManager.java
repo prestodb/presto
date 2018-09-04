@@ -306,7 +306,7 @@ public class TestMemoryManager
         return new Object[][] {{true}, {false}};
     }
 
-    @Test(timeOut = 60_000, dataProvider = "legacy_system_pool_enabled", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max user memory size of 1kB.*")
+    @Test(timeOut = 60_000, dataProvider = "legacy_system_pool_enabled", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed user memory limit of 1kB.*")
     public void testQueryUserMemoryLimit(boolean systemPoolEnabled)
             throws Exception
     {
@@ -321,7 +321,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max total memory size of 2kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed total memory limit of 2kB.*")
     public void testQueryTotalMemoryLimit()
             throws Exception
     {
@@ -334,7 +334,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local user memory limit of 1kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node user memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
             throws Exception
     {

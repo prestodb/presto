@@ -223,18 +223,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            Expression originalConstraint = null;
-            if (node.getOriginalConstraint() != null) {
-                originalConstraint = canonicalize(node.getOriginalConstraint());
-            }
-            return new TableScanNode(
-                    node.getId(),
-                    node.getTable(),
-                    node.getOutputSymbols(),
-                    node.getAssignments(),
-                    node.getLayout(),
-                    node.getCurrentConstraint(),
-                    originalConstraint);
+            return node;
         }
 
         @Override
@@ -328,7 +317,8 @@ public class UnaliasSymbolReferences
                     node.getId(),
                     node.getSourceFragmentIds(),
                     canonicalizeAndDistinct(node.getOutputSymbols()),
-                    node.getOrderingScheme().map(this::canonicalizeAndDistinct));
+                    node.getOrderingScheme().map(this::canonicalizeAndDistinct),
+                    node.getExchangeType());
         }
 
         @Override

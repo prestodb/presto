@@ -92,6 +92,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -1419,7 +1420,9 @@ public class TestPrestoDriver
 
         // make sure the query was aborted
         assertTrue(queryFinished.await(10, SECONDS));
-        assertNotNull(queryFailure.get());
+        assertThat(queryFailure.get())
+                .isInstanceOf(SQLException.class)
+                .hasMessage("ResultSet thread was interrupted");
         assertEquals(getQueryState(queryId.get()), FAILED);
     }
 

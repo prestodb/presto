@@ -404,8 +404,8 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (field.getOriginTable().isPresent() && field.getName().isPresent()) {
-                tableColumnReferences.put(field.getOriginTable().get(), field.getName().get());
+            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
+                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);

@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.event.query;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
@@ -25,7 +27,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.DriverStats;
@@ -66,8 +70,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -88,6 +90,10 @@ public class QueryMonitor
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionRegistry functionRegistry;
     private final int maxJsonLimit;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
+    private final InternalNodeManager nodeManager;
+    private final NodeSchedulerConfig nodeSchedulerConfig;
 
     @Inject
     public QueryMonitor(
@@ -98,7 +104,11 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config)
+            QueryMonitorConfig config,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            InternalNodeManager nodeManager,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -109,6 +119,10 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -149,7 +163,7 @@ public class QueryMonitor
             Optional<QueryFailureInfo> queryFailureInfo = Optional.empty();
 
             if (queryInfo.getFailureInfo() != null) {
-                FailureInfo failureInfo = queryInfo.getFailureInfo();
+                ExecutionFailureInfo failureInfo = queryInfo.getFailureInfo();
                 Optional<TaskInfo> failedTask = queryInfo.getOutputStage().flatMap(QueryMonitor::findFailedTask);
 
                 queryFailureInfo = Optional.of(new QueryFailureInfo(
@@ -199,12 +213,13 @@ public class QueryMonitor
             Optional<String> plan = Optional.empty();
             try {
                 if (queryInfo.getOutputStage().isPresent()) {
-                    // Stats and costs are suppress, since transaction is already completed
                     plan = Optional.of(textDistributedPlan(
                             queryInfo.getOutputStage().get(),
                             functionRegistry,
-                            (node, sourceStats, lookup, session, types) -> UNKNOWN_STATS,
-                            (node, stats, lookup, session, types) -> UNKNOWN_COST,
+                            statsCalculator,
+                            costCalculator,
+                            nodeManager,
+                            nodeSchedulerConfig,
                             queryInfo.getSession().toSession(sessionPropertyManager),
                             false));
                 }

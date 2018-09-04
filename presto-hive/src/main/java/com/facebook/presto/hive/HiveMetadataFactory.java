@@ -26,10 +26,12 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
+        implements Supplier<TransactionalMetadata>
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
@@ -135,7 +137,8 @@ public class HiveMetadataFactory
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
     }
 
-    public HiveMetadata create()
+    @Override
+    public HiveMetadata get()
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,

@@ -182,6 +182,11 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig)
     {
+        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig);
+    }
+
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
+    {
         TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig);
         return new MetadataManager(
                 featuresConfig,
@@ -191,7 +196,7 @@ public class MetadataManager
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
-                createTestTransactionManager(catalogManager));
+                transactionManager);
     }
 
     @Override

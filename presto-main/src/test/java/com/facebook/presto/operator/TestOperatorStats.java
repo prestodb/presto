@@ -33,6 +33,7 @@ public class TestOperatorStats
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
+            0,
             1,
             41,
             new PlanNodeId("test"),
@@ -74,6 +75,7 @@ public class TestOperatorStats
             NON_MERGEABLE_INFO);
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
+            0,
             1,
             41,
             new PlanNodeId("test"),
@@ -127,6 +129,7 @@ public class TestOperatorStats
 
     public static void assertExpectedOperatorStats(OperatorStats actual)
     {
+        assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
@@ -170,6 +173,7 @@ public class TestOperatorStats
     {
         OperatorStats actual = EXPECTED.add(EXPECTED, EXPECTED);
 
+        assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
@@ -211,6 +215,7 @@ public class TestOperatorStats
     {
         OperatorStats actual = MERGEABLE.add(MERGEABLE, MERGEABLE);
 
+        assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 

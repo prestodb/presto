@@ -18,8 +18,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 
 public class TestCanonicalizeExpressions
         extends BaseRuleTest
@@ -47,22 +45,6 @@ public class TestCanonicalizeExpressions
     {
         tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
-                .doesNotFire();
-    }
-
-    @Test
-    public void testDoesNotFireForUnfilteredTableScan()
-    {
-        tester().assertThat(canonicalizeExpressions.tableScanExpressionRewrite())
-                .on(p -> p.tableScan(emptyList(), emptyMap()))
-                .doesNotFire();
-    }
-
-    @Test
-    public void testDoesNotFireForFilterInCanonicalForm()
-    {
-        tester().assertThat(canonicalizeExpressions.tableScanExpressionRewrite())
-                .on(p -> p.tableScan(emptyList(), emptyMap(), FALSE_LITERAL))
                 .doesNotFire();
     }
 }
