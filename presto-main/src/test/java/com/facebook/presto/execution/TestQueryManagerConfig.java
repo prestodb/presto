@@ -47,7 +47,6 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(1)
                 .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
-                .setQueryAbridgingEnabled(false)
                 .setQueryAbridgedMaxLength(10000));
     }
 
@@ -100,7 +99,6 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(200)
                 .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
-                .setQueryAbridgingEnabled(true)
                 .setQueryAbridgedMaxLength(20000);
 
         ConfigAssertions.assertFullMapping(properties, expected);

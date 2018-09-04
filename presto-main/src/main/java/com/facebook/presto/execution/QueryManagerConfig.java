@@ -60,7 +60,6 @@ public class QueryManagerConfig
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
-    private boolean queryAbridgingEnabled;
     private int queryAbridgedMaxLength = 10000;
 
     @Min(1)
@@ -331,19 +330,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
     {
         this.initializationTimeout = initializationTimeout;
-        return this;
-    }
-
-    public boolean isQueryAbridgingEnabled()
-    {
-        return queryAbridgingEnabled;
-    }
-
-    @Config("query.abridging.enabled")
-    @ConfigDescription("Is query abridging enabled?")
-    public QueryManagerConfig setQueryAbridgingEnabled(boolean queryAbridgingEnabled)
-    {
-        this.queryAbridgingEnabled = queryAbridgingEnabled;
         return this;
     }
 

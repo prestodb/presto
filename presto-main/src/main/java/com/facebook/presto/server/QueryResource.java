@@ -35,6 +35,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
+import static com.facebook.presto.server.BasicQueryInfo.getAbridgedBasicQueryInfo;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static java.util.Objects.requireNonNull;
 
@@ -53,12 +54,12 @@ public class QueryResource
     }
 
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String queryState)
+    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String queryState, @QueryParam("abridge") boolean abridge)
     {
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
             if (queryState == null || queryInfo.getState().equals(QueryState.valueOf(queryState.toUpperCase(Locale.ENGLISH)))) {
-                builder.add(new BasicQueryInfo(queryInfo));
+                builder.add(getBasicQueryInfo(queryInfo, abridge));
             }
         }
         return builder.build();
@@ -123,5 +124,14 @@ public class QueryResource
     {
         requireNonNull(stageId, "stageId is null");
         queryManager.cancelStage(stageId);
+    }
+
+    private BasicQueryInfo getBasicQueryInfo(QueryInfo queryInfo, boolean abridge)
+    {
+        if (!abridge) {
+            return new BasicQueryInfo(queryInfo);
+        }
+
+        return getAbridgedBasicQueryInfo(queryInfo);
     }
 }

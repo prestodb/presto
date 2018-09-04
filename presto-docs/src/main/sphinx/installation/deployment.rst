@@ -186,6 +186,10 @@ You may also wish to set the following properties:
   Specifies the port for the JMX RMI server. Presto exports many metrics
   that are useful for monitoring via JMX.
 
+* ``query.abridged.max.length``:
+  Specifies the maximum length for the abridged version of a query, which is displayed
+  in the query-list on UI.
+
 See also :doc:`/admin/resource-groups`.
 
 Log Levels

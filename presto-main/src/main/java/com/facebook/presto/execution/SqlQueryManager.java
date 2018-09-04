@@ -125,7 +125,6 @@ public class SqlQueryManager
     private final int maxQueryHistory;
     private final Duration minQueryExpireAge;
     private final int maxQueryLength;
-    private final boolean queryAbridgingEnabled;
     private final int queryAbridgedMaxLength;
     private final int initializationRequiredWorkers;
     private final Duration initializationTimeout;
@@ -206,7 +205,6 @@ public class SqlQueryManager
         this.clientTimeout = queryManagerConfig.getClientTimeout();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
-        this.queryAbridgingEnabled = queryManagerConfig.isQueryAbridgingEnabled();
         this.queryAbridgedMaxLength = queryManagerConfig.getQueryAbridgedMaxLength();
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
         this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
@@ -435,9 +433,7 @@ public class SqlQueryManager
             Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
 
-            if (queryAbridgingEnabled) {
-                queryAbridged = getAbridgedVersion(query, wrappedStatement, session);
-            }
+            queryAbridged = getAbridgedVersion(query, wrappedStatement, session);
 
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
             validateParameters(statement, parameters);
@@ -468,10 +464,8 @@ public class SqlQueryManager
                         .build();
             }
 
-            if (queryAbridgingEnabled) {
-                if (queryAbridged.length() > queryAbridgedMaxLength) {
-                    queryAbridged = queryAbridged.substring(0, queryAbridgedMaxLength);
-                }
+            if (queryAbridged.length() > queryAbridgedMaxLength) {
+                queryAbridged = queryAbridged.substring(0, queryAbridgedMaxLength);
             }
 
             QueryExecution execution = new FailedQueryExecution(

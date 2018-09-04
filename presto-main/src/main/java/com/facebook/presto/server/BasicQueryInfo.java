@@ -82,7 +82,7 @@ public class BasicQueryInfo
                 queryInfo.getMemoryPool(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
-                queryInfo.getQueryAbridged(),
+                queryInfo.getQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode());
@@ -157,5 +157,19 @@ public class BasicQueryInfo
                 .add("queryId", queryId)
                 .add("state", state)
                 .toString();
+    }
+
+    public static BasicQueryInfo getAbridgedBasicQueryInfo(QueryInfo queryInfo)
+    {
+        return new BasicQueryInfo(queryInfo.getQueryId(),
+                queryInfo.getSession(),
+                queryInfo.getState(),
+                queryInfo.getMemoryPool(),
+                queryInfo.isScheduled(),
+                queryInfo.getSelf(),
+                queryInfo.getQueryAbridged(),
+                new BasicQueryStats(queryInfo.getQueryStats()),
+                queryInfo.getErrorType(),
+                queryInfo.getErrorCode());
     }
 }
