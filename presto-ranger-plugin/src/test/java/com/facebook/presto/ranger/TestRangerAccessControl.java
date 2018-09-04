@@ -13,16 +13,7 @@
  */
 package com.facebook.presto.ranger;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.google.common.collect.ImmutableList;
-
-public class PrestoRangerPlugin
-        implements Plugin
+public class TestRangerAccessControl
 {
-    @Override
-    public Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
-    {
-        return ImmutableList.of(new RangerSystemAccessControlFactory());
-    }
+
 }
