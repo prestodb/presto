@@ -44,6 +44,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -445,7 +446,7 @@ public class DriverContext
 
     private static long nanosBetween(long start, long end)
     {
-        return Math.abs(end - start);
+        return max(0, end - start);
     }
 
     private class BlockedMonitor

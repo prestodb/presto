@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -509,7 +510,7 @@ public class OperatorContext
 
     private static long nanosBetween(long start, long end)
     {
-        return Math.abs(end - start);
+        return max(0, end - start);
     }
 
     private class BlockedMonitor
