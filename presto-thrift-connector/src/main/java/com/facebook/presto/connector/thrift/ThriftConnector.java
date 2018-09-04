@@ -16,6 +16,7 @@ package com.facebook.presto.connector.thrift;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -40,6 +41,7 @@ public class ThriftConnector
     private final ThriftSplitManager splitManager;
     private final ThriftPageSourceProvider pageSourceProvider;
     private final ThriftPageSinkProvider pageSinkProvider;
+    private final ThriftNodePartitioningProvider partitioningProvider;
     private final ThriftSessionProperties sessionProperties;
     private final ThriftIndexProvider indexProvider;
 
@@ -50,6 +52,7 @@ public class ThriftConnector
             ThriftSplitManager splitManager,
             ThriftPageSourceProvider pageSourceProvider,
             ThriftPageSinkProvider pageSinkProvider,
+            ThriftNodePartitioningProvider partitioningProvider,
             ThriftSessionProperties sessionProperties,
             ThriftIndexProvider indexProvider)
     {
@@ -58,6 +61,7 @@ public class ThriftConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
     }
@@ -90,6 +94,12 @@ public class ThriftConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
+    }
+
+    @Override
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        return partitioningProvider;
     }
 
     @Override

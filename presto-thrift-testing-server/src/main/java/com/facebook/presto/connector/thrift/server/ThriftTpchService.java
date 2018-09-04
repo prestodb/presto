@@ -107,7 +107,7 @@ public class ThriftTpchService
             columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column), null, false));
         }
         List<Set<String>> indexableKeys = getIndexableKeys(schemaName, tableName);
-        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null));
+        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null, null));
     }
 
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)

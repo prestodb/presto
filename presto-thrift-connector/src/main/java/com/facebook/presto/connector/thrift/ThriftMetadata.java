@@ -22,6 +22,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -112,8 +113,7 @@ public class ThriftMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return tableCache.getUnchecked(tableName)
-                .map(ThriftTableMetadata::getSchemaTableName)
-                .map(ThriftTableHandle::new)
+                .map(e -> new ThriftTableHandle(e.getSchemaTableName(), e.getBucketedBy(), e.getBucketCount()))
                 .orElse(null);
     }
 
@@ -170,13 +170,37 @@ public class ThriftMetadata
                 .map(e -> e.getName())
                 .collect(Collectors.toList());
         ThriftTableHandle thriftTableHandle = (ThriftTableHandle) tableHandle;
-        return new ThriftInsertTableHandle(thriftTableHandle.getSchemaName(), thriftTableHandle.getTableName(), columnTypes, columnNames);
+        Optional<ThriftBucketProperty> bucketProperty = Optional.empty();
+        if (thriftTableHandle.getBucketedBy().isPresent()) {
+            bucketProperty = Optional.of(new ThriftBucketProperty(thriftTableHandle.getBucketedBy().get(), thriftTableHandle.getBucketCount()));
+        }
+        return new ThriftInsertTableHandle(thriftTableHandle.getSchemaName(), thriftTableHandle.getTableName(), columnTypes, columnNames, bucketProperty);
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         // This implementation of the write path does not do anything when finishInsert is called.
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        ThriftTableHandle thriftTableHandle = (ThriftTableHandle) tableHandle;
+        Optional<List<String>> bucketedBy = thriftTableHandle.getBucketedBy();
+        if (bucketedBy.isPresent()) {
+            List<String> columnNames = getTableMetadata(session, tableHandle).getColumns().stream()
+                    .map(e -> e.getName())
+                    .collect(Collectors.toList());
+
+            List<Integer> bucketedByColumnPositions = bucketedBy.get().stream()
+                    .map(e -> columnNames.indexOf(e))
+                    .collect(Collectors.toList());
+
+            ThriftPartitioningHandle partitioningHandle = new ThriftPartitioningHandle(thriftTableHandle.getBucketCount(), bucketedByColumnPositions);
+            return Optional.of(new ConnectorNewTableLayout(partitioningHandle, bucketedBy.get()));
+        }
         return Optional.empty();
     }
 

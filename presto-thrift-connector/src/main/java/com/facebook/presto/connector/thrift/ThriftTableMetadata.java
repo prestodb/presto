@@ -40,13 +40,17 @@ class ThriftTableMetadata
     private final List<ColumnMetadata> columns;
     private final Optional<String> comment;
     private final Set<Set<String>> indexableKeys;
+    private final Optional<List<String>> bucketedBy;
+    private final int bucketCount;
 
-    public ThriftTableMetadata(SchemaTableName schemaTableName, List<ColumnMetadata> columns, Optional<String> comment, List<Set<String>> indexableKeys)
+    public ThriftTableMetadata(SchemaTableName schemaTableName, List<ColumnMetadata> columns, Optional<String> comment, List<Set<String>> indexableKeys, List<String> bucketedBy, int bucketCount)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
         this.indexableKeys = deepImmutableCopy(requireNonNull(indexableKeys, "indexableKeys is null"));
+        this.bucketedBy = Optional.ofNullable(bucketedBy);
+        this.bucketCount = bucketCount;
     }
 
     public ThriftTableMetadata(PrestoThriftTableMetadata thriftTableMetadata, TypeManager typeManager)
@@ -54,7 +58,9 @@ class ThriftTableMetadata
         this(thriftTableMetadata.getSchemaTableName().toSchemaTableName(),
                 columnMetadata(thriftTableMetadata.getColumns(), typeManager),
                 Optional.ofNullable(thriftTableMetadata.getComment()),
-                thriftTableMetadata.getIndexableKeys() != null ? thriftTableMetadata.getIndexableKeys() : ImmutableList.of());
+                thriftTableMetadata.getIndexableKeys() != null ? thriftTableMetadata.getIndexableKeys() : ImmutableList.of(),
+                thriftTableMetadata.getBucketedBy(),
+                thriftTableMetadata.getBucketCount());
     }
 
     public SchemaTableName getSchemaTableName()
@@ -74,6 +80,16 @@ class ThriftTableMetadata
                 .map(ThriftColumnHandle::getColumnName)
                 .collect(toImmutableSet());
         return indexableKeys.contains(keyColumns);
+    }
+
+    public Optional<List<String>> getBucketedBy()
+    {
+        return bucketedBy;
+    }
+
+    public int getBucketCount()
+    {
+        return bucketCount;
     }
 
     public ConnectorTableMetadata toConnectorTableMetadata()

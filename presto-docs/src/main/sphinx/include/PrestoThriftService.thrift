@@ -29,6 +29,15 @@ struct PrestoThriftTableMetadata {
    * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
    */
   4: optional list<set<string>> indexableKeys;
+
+  /**
+   * Returns the list of column names that the table should be partitioned by.
+   * Presto will then partition the data into buckets and pass whole buckets to
+   * Presto workers for processing. Useful for inserting data that should be inserted
+   * together.
+   * The list is expected to have only unique key sets.
+   */
+  5: optional list<string> bucketedBy;
 }
 
 struct PrestoThriftColumnMetadata {

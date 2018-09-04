@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,18 +30,21 @@ public final class ThriftInsertTableHandle
     private final String tableName;
     private final List<Type> columnTypes;
     private final List<String> columnNames;
+    private final Optional<ThriftBucketProperty> bucketProperty;
 
     @JsonCreator
     public ThriftInsertTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("columnNames") List<String> columnNames)
+            @JsonProperty("columnNames") List<String> columnNames,
+            @JsonProperty("bucketProperty") Optional<ThriftBucketProperty> bucketProperty)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
         this.columnNames = requireNonNull(columnNames, "columnNames is null");
+        this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
     }
 
     @JsonProperty
@@ -65,5 +69,11 @@ public final class ThriftInsertTableHandle
     public List<String> getColumnNames()
     {
         return columnNames;
+    }
+
+    @JsonProperty
+    public Optional<ThriftBucketProperty> getBucketProperty()
+    {
+        return bucketProperty;
     }
 }

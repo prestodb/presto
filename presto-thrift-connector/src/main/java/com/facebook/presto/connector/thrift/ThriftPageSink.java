@@ -30,6 +30,7 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -50,14 +51,32 @@ public class ThriftPageSink
             ThriftInsertTableHandle insertTableHandle)
     {
         this.insertTableHandle = requireNonNull(insertTableHandle, "insertTableHandle is null");
-        // Sticky connection is not supported until bucketing is supported.
-        this.client = client.get(thriftHeader);
+        if (this.insertTableHandle.getBucketProperty().isPresent()) {
+            /*
+                When a table is bucketed by some set of columns, we want to ensure that all data from a Presto worker is sent
+                to only one connector worker.
+                Otherwise, bucketed data will be separated which defeats the purpose of bucketing.
+                Use the addressSelector to choose only one address to maintain a "sticky" connection with.
+             */
+            Address selectedAddress = addressSelector.selectAddress(Optional.empty()).get();
+            this.client = client.get(Optional.of(selectedAddress.getHostAndPort().toString()), thriftHeader);
+        }
+        else {
+            this.client = client.get(thriftHeader);
+        }
         future = null;
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
+        /*
+            Currently, bucketed data is not sorted back into buckets in appendPage like it does so in HivePageSink. Instead, we give all the data,
+            no matter how many buckets this Presto worker has, to the connector worker, and we expect that it separates out the data if it needs to.
+
+            To sort the data on the Presto side, consider using the bucketProperty to recreate the ThriftBucketFunction here. Look at the HivePageSink implementation for more details.
+            Note that the ThriftBucketFunction was used in ThriftNodePartitioningManager to partition the data into buckets to give to Presto workers.
+         */
         List<Type> columnTypes = insertTableHandle.getColumnTypes();
         List<PrestoThriftBlock> prestoThriftBlocks = IntStream.range(0, page.getChannelCount())
                 .mapToObj(i -> PrestoThriftBlock.fromBlock(page.getBlock(i), columnTypes.get(i)))
