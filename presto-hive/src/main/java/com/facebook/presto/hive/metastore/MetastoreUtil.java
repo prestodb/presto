@@ -177,7 +177,7 @@ public class MetastoreUtil
 
     public static String makePartName(List<Column> partitionColumns, List<String> values)
     {
-        checkArgument(partitionColumns.size() == values.size());
+        checkArgument(partitionColumns.size() == values.size(), "Partition value count does not match the partition column count");
         List<String> partitionColumnNames = partitionColumns.stream().map(Column::getName).collect(toList());
         return FileUtils.makePartName(partitionColumnNames, values);
     }
