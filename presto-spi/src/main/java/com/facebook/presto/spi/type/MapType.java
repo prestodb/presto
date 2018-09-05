@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
@@ -250,7 +251,7 @@ public class MapType
         return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 
-    public Block createBlockFromKeyValue(boolean[] mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
+    public Block createBlockFromKeyValue(Optional<boolean[]> mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
     {
         return MapBlock.fromKeyValueBlock(
                 mapIsNull,
@@ -273,7 +274,7 @@ public class MapType
             Type keyType,
             int startOffset,
             int positionCount,
-            boolean[] mapIsNull,
+            Optional<boolean[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
