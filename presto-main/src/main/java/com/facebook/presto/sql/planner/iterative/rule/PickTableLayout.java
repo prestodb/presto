@@ -53,6 +53,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
@@ -166,7 +167,8 @@ public class PickTableLayout
             }
 
             TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
-            return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint());
+            return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
+                    && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
         }
     }
 
@@ -254,7 +256,7 @@ public class PickTableLayout
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
                 .transform(node.getAssignments()::get)
-                .intersect(node.getCurrentConstraint());
+                .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
@@ -310,7 +312,8 @@ public class PickTableLayout
                             node.getOutputSymbols(),
                             node.getAssignments(),
                             Optional.of(layout.getLayout().getHandle()),
-                            newDomain.intersect(layout.getLayout().getPredicate()));
+                            newDomain.intersect(layout.getLayout().getPredicate()),
+                            computeEnforced(newDomain, layout.getUnenforcedConstraint()));
 
                     Expression resultingPredicate = combineConjuncts(
                             decomposedPredicate.getRemainingExpression(),

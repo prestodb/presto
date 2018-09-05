@@ -337,7 +337,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.of(TESTING_TABLE_LAYOUT),
-                TupleDomain.none());
+                TupleDomain.none(),
+                TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, FALSE_LITERAL);
 
@@ -347,7 +348,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.of(TESTING_TABLE_LAYOUT),
-                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))));
+                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
+                TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
 
@@ -359,7 +361,8 @@ public class TestEffectivePredicateExtractor
                 Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
-                        scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))));
+                        scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
+                TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
@@ -369,6 +372,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
@@ -408,6 +412,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -417,6 +422,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         FilterNode left = filter(leftScan,
@@ -470,6 +476,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -479,6 +486,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         FilterNode left = filter(leftScan,
@@ -528,6 +536,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -537,6 +546,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         FilterNode left = filter(leftScan,
@@ -583,6 +593,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -592,6 +603,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         FilterNode left = filter(leftScan,
@@ -641,6 +653,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -650,6 +663,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
+                TupleDomain.all(),
                 TupleDomain.all());
 
         FilterNode left = filter(leftScan, FALSE_LITERAL);

@@ -118,6 +118,7 @@ public class TestPickTableLayout
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
                                 Optional.of(nationTableLayoutHandle),
+                                TupleDomain.none(),
                                 TupleDomain.none())))
                 .matches(values("A"));
     }
@@ -132,6 +133,7 @@ public class TestPickTableLayout
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                 Optional.of(nationTableLayoutHandle),
+                                TupleDomain.all(),
                                 TupleDomain.all())))
                 .doesNotFire();
     }

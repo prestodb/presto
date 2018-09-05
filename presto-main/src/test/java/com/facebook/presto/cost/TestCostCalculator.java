@@ -581,6 +581,7 @@ public class TestCostCalculator
                 symbolsList,
                 assignments.build(),
                 Optional.of(new TableLayoutHandle(new ConnectorId("tpch"), INSTANCE, new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
+                TupleDomain.all(),
                 TupleDomain.all());
     }
 

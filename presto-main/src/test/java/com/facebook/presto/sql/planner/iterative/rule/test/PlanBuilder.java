@@ -358,7 +358,7 @@ public class PlanBuilder
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
         TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
-        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -372,7 +372,7 @@ public class PlanBuilder
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout)
     {
-        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(
@@ -380,7 +380,8 @@ public class PlanBuilder
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
                 idAllocator.getNextId(),
@@ -388,7 +389,8 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 tableLayout,
-                tupleDomain);
+                currentConstraint,
+                enforcedConstraint);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

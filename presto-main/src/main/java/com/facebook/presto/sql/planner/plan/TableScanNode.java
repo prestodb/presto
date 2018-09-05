@@ -48,6 +48,8 @@ public class TableScanNode
     // TODO: think about how to get rid of this in new planner
     private final TupleDomain<ColumnHandle> currentConstraint;
 
+    private final TupleDomain<ColumnHandle> enforcedConstraint;
+
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
@@ -64,6 +66,7 @@ public class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
         this.currentConstraint = null;
+        this.enforcedConstraint = null;
     }
 
     public TableScanNode(
@@ -72,7 +75,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments)
     {
-        this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all());
+        this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode(
@@ -81,7 +84,8 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
-            TupleDomain<ColumnHandle> currentConstraint)
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -90,7 +94,10 @@ public class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
-        checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
+        this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
+            checkArgument(tableLayout.isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
+        }
     }
 
     @JsonProperty("table")
@@ -118,11 +125,33 @@ public class TableScanNode
         return assignments;
     }
 
+    /**
+     * A TupleDomain that represents a predicate that every row this TableScan node
+     * produces is guaranteed to satisfy.
+     * <p>
+     * This guarantee can have different origins.
+     * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
+     */
     public TupleDomain<ColumnHandle> getCurrentConstraint()
     {
         // currentConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
         checkState(currentConstraint != null, "currentConstraint should only be used in planner. It is not transported to workers.");
         return currentConstraint;
+    }
+
+    /**
+     * A TupleDomain that represents a predicate that has been successfully pushed into
+     * this TableScan node. In other words, predicates that were removed from filters
+     * above the TableScan node because the TableScan node can guarantee it.
+     * <p>
+     * This field is used to make sure that predicates which were previously pushed down
+     * do not get lost in subsequent refinements of the table layout.
+     */
+    public TupleDomain<ColumnHandle> getEnforcedConstraint()
+    {
+        // enforcedConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
+        checkState(enforcedConstraint != null, "enforcedConstraint should only be used in planner. It is not transported to workers.");
+        return enforcedConstraint;
     }
 
     @Override
@@ -146,6 +175,7 @@ public class TableScanNode
                 .add("outputSymbols", outputSymbols)
                 .add("assignments", assignments)
                 .add("currentConstraint", currentConstraint)
+                .add("enforcedConstraint", enforcedConstraint)
                 .toString();
     }
 
