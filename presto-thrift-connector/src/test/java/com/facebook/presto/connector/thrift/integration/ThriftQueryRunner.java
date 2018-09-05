@@ -16,6 +16,7 @@ package com.facebook.presto.connector.thrift.integration;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
+import com.facebook.presto.connector.thrift.server.ThriftInsertRowsService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
@@ -57,13 +58,19 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, int nodeCount, boolean enableIndexJoin, Map<String, String> properties)
+    public enum EnableExtraPrestoFeature {
+        NONE,
+        INDEX_JOIN,
+        INSERT_ROWS
+    }
+
+    public static QueryRunner createThriftQueryRunner(int thriftServers, int nodeCount, EnableExtraPrestoFeature extraPrestoFeature, Map<String, String> properties)
             throws Exception
     {
         List<DriftServer> servers = null;
         DistributedQueryRunner runner = null;
         try {
-            servers = startThriftServers(thriftServers, enableIndexJoin);
+            servers = startThriftServers(thriftServers, extraPrestoFeature);
             runner = createThriftQueryRunnerInternal(servers, nodeCount, properties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
@@ -84,23 +91,34 @@ public final class ThriftQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true, properties);
+        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, EnableExtraPrestoFeature.INDEX_JOIN, properties);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    private static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    private static List<DriftServer> startThriftServers(int thriftServers, EnableExtraPrestoFeature extraPrestoFeature)
     {
         List<DriftServer> servers = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
-            ThriftTpchService service = enableIndexJoin ? new ThriftIndexedTpchService() : new ThriftTpchService();
+            DriftService driftService = null;
+            switch (extraPrestoFeature) {
+                case NONE:
+                    driftService = new DriftService(new ThriftTpchService());
+                    break;
+                case INDEX_JOIN:
+                    driftService = new DriftService(new ThriftIndexedTpchService());
+                    break;
+                case INSERT_ROWS:
+                    driftService = new DriftService(new ThriftInsertRowsService());
+                    break;
+            }
             DriftServer server = new DriftServer(
                     new DriftNettyServerTransportFactory(new DriftNettyServerConfig()),
                     CODEC_MANAGER,
                     new NullMethodInvocationStatsFactory(),
-                    ImmutableSet.of(new DriftService(service)),
+                    ImmutableSet.of(driftService),
                     ImmutableSet.of());
             server.start();
             servers.add(server);

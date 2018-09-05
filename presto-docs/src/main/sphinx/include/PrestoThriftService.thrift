@@ -29,6 +29,9 @@ struct PrestoThriftTableMetadata {
    * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
    */
   4: optional list<set<string>> indexableKeys;
+
+  5: optional list<string> bucketedBy;
+  6: optional i32 bucketCount;
 }
 
 struct PrestoThriftColumnMetadata {
@@ -220,6 +223,16 @@ struct PrestoThriftPageResult {
   3: optional PrestoThriftId nextToken;
 }
 
+struct PrestoThriftPage {
+  /**
+   * Returns data in a columnar format.
+   * Columns in this list must be in the order they were requested by the engine.
+   */
+  1: list<PrestoThriftBlock> columnBlocks;
+
+  2: i32 rowCount;
+}
+
 struct PrestoThriftNullableTableMetadata {
   1: optional PrestoThriftTableMetadata tableMetadata;
 }
@@ -354,4 +367,18 @@ service PrestoThriftService {
       3: i64 maxBytes,
       4: PrestoThriftNullableToken nextToken)
     throws (1: PrestoThriftServiceException ex1);
+
+   /**
+     * Returns a batch of rows for the given split.
+     *
+     * @param schemaTableName TODO
+     * @param page a list of column names to insert
+     * @param nextToken token from a previous batch or {@literal null} if it is the first call
+     * @return a batch of table data
+     */
+     PrestoThriftNullableToken prestoAddRows(
+     1: PrestoThriftSchemaTableName schemaTableName,
+     2: PrestoThriftPage page,
+     3: PrestoThriftNullableToken nextToken)
+     throws (1: PrestoThriftServiceException ex1);
 }

@@ -118,4 +118,20 @@ public interface PrestoThriftService
             @ThriftField(name = "columns") List<String> columns,
             @ThriftField(name = "maxBytes") long maxBytes,
             @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken);
+
+    /**
+     * Returns a batch of rows for the given split.
+     *
+     * @param schemaTableName TODO
+     * @param page a list of column names to insert
+     * @param nextToken token from a previous batch or {@literal null} if it is the first call
+     * @return a batch of table data
+     */
+    @ThriftMethod(
+            value = "prestoAddRows",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
+    ListenableFuture<PrestoThriftNullableToken> addRows(
+            @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName,
+            @ThriftField(name = "page") PrestoThriftPage page,
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken);
 }
