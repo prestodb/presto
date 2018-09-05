@@ -164,7 +164,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!authorizer.canSelectFromColumns(table.getCatalogName(), new RangerPrestoResource(table.getCatalogName(),
+        if (!authorizer.canSelectResource(new RangerPrestoResource(table.getCatalogName(),
                 Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()), columns), identity)) {
             denySelectColumns(table.getSchemaTableName().getTableName(), columns);
         }
@@ -218,7 +218,7 @@ public class RangerSystemAccessControl
                 .collect(Collectors.toList());
 
         Stream<SchemaTableName> outTables = authorizer.filterResources(rangerResources, identity).stream()
-                .map(RangerPrestoResource::getSchemaTable);
+                .map(RangerPrestoResource::getSchemaTable).filter(schemaTableName -> schemaTableName.isPresent()).map(schemaTableName -> schemaTableName.get());
 
         return makeSortedSet(outTables, comparing(t -> t.toString().toLowerCase(ENGLISH)));
     }
@@ -339,5 +339,21 @@ public class RangerSystemAccessControl
         if (!authorizer.canDropResource(createResource(view), identity)) {
             denyDropView(view.getSchemaTableName().getTableName());
         }
+    }
+
+    @Override
+    public String applyRowLevelFiltering(Identity identity, CatalogSchemaTableName table)
+    {
+        RangerPrestoResource rp = new RangerPrestoResource(table.getCatalogName(),
+                Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()));
+        return authorizer.getRowLevelFilterExp(table.getCatalogName(), rp, identity);
+    }
+
+    @Override
+    public String applyColumnMasking(Identity identity, CatalogSchemaTableName table, String columnName)
+    {
+        RangerPrestoResource rp = new RangerPrestoResource(table.getCatalogName(),
+                Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()), Optional.of(columnName));
+        return authorizer.getColumnMaskingExpression(table.getCatalogName(), rp, identity, columnName);
     }
 }

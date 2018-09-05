@@ -541,6 +541,46 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "table name is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, tableName.getCatalogName()));
+        final String expressionFilter = systemAccessControl.get().applyRowLevelFiltering(identity, tableName.asCatalogSchemaTableName());
+
+        // Giving priority to system access control
+        if (expressionFilter != null) {
+            return expressionFilter;
+        }
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry == null) {
+            return null;
+        }
+        return entry.getAccessControl().applyRowlevelFiltering(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName());
+    }
+
+    @Override
+    public String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "table name is null");
+        requireNonNull(columnName, "column name is null");
+
+        // Giving priority to system access control
+        final String columnMasking = systemAccessControl.get().applyColumnMasking(identity, tableName.asCatalogSchemaTableName(), columnName);
+        if (columnMasking != null) {
+            return columnMasking;
+        }
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry == null) {
+            return null;
+        }
+        return entry.getAccessControl().applyColumnMasking(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), columnName);
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
