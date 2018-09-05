@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
@@ -40,9 +39,10 @@ public class TableScanNode
         extends PlanNode
 {
     private final TableHandle table;
-    private final Optional<TableLayoutHandle> tableLayout;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
+
+    private final Optional<TableLayoutHandle> tableLayout;
 
     // Used during predicate refinement over multiple passes of predicate pushdown
     // TODO: think about how to get rid of this in new planner
@@ -56,7 +56,14 @@ public class TableScanNode
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout)
     {
-        this(id, table, outputs, assignments, tableLayout, null);
+        // This constructor is for JSON deserialization only. Do not use.
+        super(id);
+        this.table = requireNonNull(table, "table is null");
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+        this.currentConstraint = null;
     }
 
     public TableScanNode(
@@ -74,23 +81,16 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
-            @Nullable TupleDomain<ColumnHandle> currentConstraint)
+            TupleDomain<ColumnHandle> currentConstraint)
     {
         super(id);
-        requireNonNull(table, "table is null");
-        requireNonNull(outputs, "outputs is null");
-        requireNonNull(assignments, "assignments is null");
+        this.table = requireNonNull(table, "table is null");
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
-        requireNonNull(tableLayout, "tableLayout is null");
-        if (currentConstraint != null) {
-            checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
-        }
-
-        this.table = table;
-        this.outputSymbols = ImmutableList.copyOf(outputs);
-        this.assignments = ImmutableMap.copyOf(assignments);
-        this.tableLayout = tableLayout;
-        this.currentConstraint = currentConstraint;
+        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+        this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
+        checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
     }
 
     @JsonProperty("table")
