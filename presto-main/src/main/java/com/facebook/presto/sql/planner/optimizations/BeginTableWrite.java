@@ -191,7 +191,7 @@ public class BeginTableWrite
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
                         Optional.of(layoutResult.getLayout().getHandle()),
-                        scan.getCurrentConstraint(),
+                        layoutResult.getLayout().getPredicate(),
                         computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));
             }
 

@@ -167,6 +167,11 @@ public class PickTableLayout
             }
 
             TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
+
+            if (!tableScan.getLayout().isPresent() && rewrittenTableScan.getLayout().isPresent()) {
+                return false;
+            }
+
             return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
                     && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
         }
