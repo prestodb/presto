@@ -970,6 +970,7 @@ public class TestGeoFunctions
         assertFunction(String.format("transform(ST_Geometries(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt), new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
     }
 
+    @Test
     public void testSTInteriorRingN()
     {
         assertInvalidInteriorRingN("POINT EMPTY", 0, "POINT");
@@ -997,6 +998,7 @@ public class TestGeoFunctions
         assertInvalidFunction(format("ST_InteriorRingN(ST_GeometryFromText('%s'), %d)", wkt, index), format("ST_InteriorRingN only applies to POLYGON. Input type is: %s", geometryType));
     }
 
+    @Test
     public void testSTGeometryType()
     {
         assertFunction("ST_GeometryType(ST_Point(1, 4))", VARCHAR, "ST_Point");
