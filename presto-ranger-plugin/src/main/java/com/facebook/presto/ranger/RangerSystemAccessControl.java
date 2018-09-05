@@ -340,4 +340,13 @@ public class RangerSystemAccessControl
             denyDropView(view.getSchemaTableName().getTableName());
         }
     }
+
+    @Override
+    public String applyRowLevelFiltering(Identity identity, CatalogSchemaTableName table)
+    {
+        RangerPrestoResource rp = new RangerPrestoResource(table.getCatalogName(),
+                Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()));
+        return authorizer.getRowLevelFilterExp(table.getCatalogName(), rp, identity);
+    }
+
 }

@@ -29,6 +29,7 @@ import java.net.MalformedURLException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
 
@@ -60,7 +61,12 @@ public class RangerSystemAccessControlFactory
         for (final Map.Entry<String, String> configEntry : config.entrySet()) {
             if (configEntry.getKey().startsWith("ranger.")) {
                 rangerConfig.set(configEntry.getKey(), configEntry.getValue());
-                log.info("Setting: " + configEntry.getKey() + " to: " + configEntry.getValue());
+                if (configEntry.getKey().toLowerCase(Locale.ENGLISH).contains("password")) {
+                    log.info("Setting: " + configEntry.getKey() + " to: ******");
+                }
+                else {
+                    log.info("Setting: " + configEntry.getKey() + " to: " + configEntry.getValue());
+                }
             }
             if (configEntry.getKey().equals("ranger-service-types")) {
                 serviceTypes = Arrays.asList(configEntry.getValue().trim().split(","));

@@ -300,4 +300,15 @@ public interface SystemAccessControl
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
     }
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return Expression as form of a string. Null if no row filters are present
+     */
+
+    default String applyRowLevelFiltering(Identity identity, CatalogSchemaTableName tableName)
+    {
+        return null;
+    }
 }

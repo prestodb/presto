@@ -16,6 +16,7 @@ package com.facebook.presto.ranger;
 import com.facebook.presto.spi.security.Identity;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
+import org.apache.ranger.plugin.policyengine.RangerRowFilterResult;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -121,5 +122,23 @@ public class PrestoAuthorizer
             }
         }
         return result.getIsAllowed();
+    }
+
+    public String getRowLevelFilterExp(String catalogName, RangerPrestoResource resource, Identity identity)
+    {
+
+        RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
+                resource,
+                identity.getUser(),
+                getGroups(identity),
+                PrestoAccessType.SELECT);
+
+        RangerRowFilterResult rowFilterResult = plugins.get(catalogName).evalRowFilterPolicies(rangerRequest, null);
+        if (rowFilterResult != null && rowFilterResult.isRowFilterEnabled()) {
+            return rowFilterResult.getFilterExpr();
+        }
+        else {
+            return null;
+        }
     }
 }

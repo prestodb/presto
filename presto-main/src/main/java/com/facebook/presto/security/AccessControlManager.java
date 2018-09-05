@@ -539,6 +539,24 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, tableName.getCatalogName()));
+        final String expressionFilter = systemAccessControl.get().applyRowLevelFiltering(identity, tableName.asCatalogSchemaTableName());
+        if (expressionFilter != null) {
+            return expressionFilter;
+        }
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry == null) {
+            return null;
+        }
+        return entry.getAccessControl().applyRowlevelFiltering(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName());
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)

@@ -206,4 +206,14 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return Expression as form of a string. Null if no row filters are present
+     */
+    default String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        return null;
+    }
 }
