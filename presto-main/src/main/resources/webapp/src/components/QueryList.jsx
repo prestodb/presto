@@ -201,8 +201,8 @@ class DisplayedQueriesList extends React.Component {
 }
 
 const FILTER_TYPE = {
-    RUNNING_BLOCKED: function (query) {
-        return query.state === "PLANNING" || query.state === "STARTING" || query.state === "RUNNING" || query.state === "FINISHING";
+    RUNNING: function (query) {
+        return !(query.state === "QUEUED" || query.state === "FINISHED" || query.state === "FAILED");
     },
     QUEUED: function (query) { return query.state === "QUEUED"},
     FINISHED: function (query) { return query.state === "FINISHED"},
@@ -233,7 +233,7 @@ export class QueryList extends React.Component {
             reorderInterval: 5000,
             currentSortType: SORT_TYPE.CREATED,
             currentSortOrder: SORT_ORDER.DESCENDING,
-            filters: [FILTER_TYPE.RUNNING_BLOCKED, FILTER_TYPE.QUEUED, FILTER_TYPE.FAILED],
+            filters: [FILTER_TYPE.RUNNING, FILTER_TYPE.QUEUED, FILTER_TYPE.FAILED],
             searchString: '',
             maxQueries: 100,
             lastRefresh: Date.now(),
@@ -513,7 +513,7 @@ export class QueryList extends React.Component {
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">Filter:</span>
                             <div className="input-group-btn">
-                                {this.renderFilterButton(FILTER_TYPE.RUNNING_BLOCKED, "Running/blocked")}
+                                {this.renderFilterButton(FILTER_TYPE.RUNNING, "Running")}
                                 {this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued")}
                                 {this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished")}
                                 {this.renderFilterButton(FILTER_TYPE.FAILED, "Failed")}
