@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.function.ToLongFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -47,7 +48,7 @@ class Histogram<K extends Comparable<K>>
         return new Histogram<>(buckets, false);
     }
 
-    public static <D> Histogram<Long> fromContinuous(Collection<D> initialData, Function<D, Long> keyFunction)
+    public static <D> Histogram<Long> fromContinuous(Collection<D> initialData, ToLongFunction<D> keyFunction)
     {
         if (initialData.isEmpty()) {
             return new Histogram<>(ImmutableList.<Long>of(), false);
@@ -55,11 +56,11 @@ class Histogram<K extends Comparable<K>>
 
         int numBuckets = Math.min(10, (int) Math.sqrt(initialData.size()));
         long min = initialData.stream()
-                .mapToLong(keyFunction::apply)
+                .mapToLong(keyFunction::applyAsLong)
                 .min()
                 .getAsLong();
         long max = initialData.stream()
-                .mapToLong(keyFunction::apply)
+                .mapToLong(keyFunction::applyAsLong)
                 .max()
                 .getAsLong();
 

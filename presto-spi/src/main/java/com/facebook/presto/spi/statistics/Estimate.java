@@ -15,7 +15,7 @@
 package com.facebook.presto.spi.statistics;
 
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.function.DoubleUnaryOperator;
 
 import static java.lang.Double.isNaN;
 
@@ -55,13 +55,13 @@ public final class Estimate
         return value;
     }
 
-    public Estimate map(Function<Double, Double> mappingFunction)
+    public Estimate map(DoubleUnaryOperator mappingFunction)
     {
         if (isValueUnknown()) {
             return this;
         }
         else {
-            return new Estimate(mappingFunction.apply(value));
+            return new Estimate(mappingFunction.applyAsDouble(value));
         }
     }
 

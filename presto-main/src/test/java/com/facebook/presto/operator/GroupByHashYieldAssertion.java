@@ -29,7 +29,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -71,7 +71,7 @@ public final class GroupByHashYieldAssertion
      * @param getHashCapacity returns the hash table capacity for the input operator
      * @param additionalMemoryInBytes the memory used in addition to the GroupByHash in the operator (e.g., aggregator)
      */
-    public static GroupByHashYieldResult finishOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
+    public static GroupByHashYieldResult finishOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, ToIntFunction<Operator> getHashCapacity, long additionalMemoryInBytes)
     {
         assertLessThan(additionalMemoryInBytes, 1L << 21, "additionalMemoryInBytes should be a relatively small number");
         List<Page> result = new LinkedList<>();
@@ -107,7 +107,7 @@ public final class GroupByHashYieldAssertion
             memoryPool.reserve(queryId, "test", reservedMemoryInBytes);
 
             long oldMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-            int oldCapacity = getHashCapacity.apply(operator);
+            int oldCapacity = getHashCapacity.applyAsInt(operator);
 
             // add a page and verify different behaviors
             operator.addInput(page);
@@ -139,7 +139,7 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertTrue(oldCapacity == getHashCapacity.apply(operator));
+                assertTrue(oldCapacity == getHashCapacity.applyAsInt(operator));
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);
@@ -155,7 +155,7 @@ public final class GroupByHashYieldAssertion
                 assertFalse(operator.getOperatorContext().isWaitingForMemory().isDone());
 
                 // Hash table capacity should not change
-                assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
+                assertEquals(oldCapacity, (long) getHashCapacity.applyAsInt(operator));
 
                 // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
                 if (hashKeyType == BIGINT) {
@@ -182,7 +182,7 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.needsInput());
 
                 // Hash table capacity has increased
-                assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
+                assertGreaterThan(getHashCapacity.applyAsInt(operator), oldCapacity);
 
                 // Assert the estimated reserved memory before rehash is very close to the one after rehash
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
