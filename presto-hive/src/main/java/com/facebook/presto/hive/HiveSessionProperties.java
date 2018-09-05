@@ -71,6 +71,7 @@ public final class HiveSessionProperties
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
+    private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -257,6 +258,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.getPartitionStatisticsSampleSize(),
                         false),
                 booleanProperty(
+                        IGNORE_CORRUPTED_STATISTICS,
+                        "Experimental: Ignore corrupted statistics",
+                        hiveClientConfig.isIgnoreCorruptedStatistics(),
+                        false),
+                booleanProperty(
                         COLLECT_COLUMN_STATISTICS_ON_WRITE,
                         "Experimental: Enables automatic column level statistics collection on write",
                         hiveClientConfig.isCollectColumnStatisticsOnWrite(),
@@ -435,6 +441,11 @@ public final class HiveSessionProperties
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
         }
         return size;
+    }
+
+    public static boolean isIgnoreCorruptedStatistics(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_CORRUPTED_STATISTICS, Boolean.class);
     }
 
     public static boolean isCollectColumnStatisticsOnWrite(ConnectorSession session)

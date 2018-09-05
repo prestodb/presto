@@ -25,6 +25,7 @@ import com.facebook.presto.hive.util.Statistics.Range;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
@@ -51,10 +52,13 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.PrimitiveIterator;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.DoubleStream;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.util.Statistics.getMinMaxAsPrestoNativeValues;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
@@ -104,7 +108,7 @@ public class MetastoreHiveStatisticsProvider
         int sampleSize = getPartitionStatisticsSampleSize(session);
         List<HivePartition> samplePartitions = getPartitionsSample(queriedPartitions, sampleSize);
 
-        Map<String, PartitionStatistics> statisticsSample = getPartitionsStatistics((HiveTableHandle) tableHandle, samplePartitions);
+        Map<String, PartitionStatistics> statisticsSample = getPartitionsStatistics(session, (HiveTableHandle) tableHandle, samplePartitions);
 
         TableStatistics.Builder tableStatistics = TableStatistics.builder();
         OptionalDouble rowsPerPartition = calculateRowsPerPartition(statisticsSample);
@@ -411,7 +415,7 @@ public class MetastoreHiveStatisticsProvider
         return new Estimate(statisticsValue.getAsDouble());
     }
 
-    private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions)
+    private Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, HiveTableHandle tableHandle, List<HivePartition> hivePartitions)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -421,16 +425,23 @@ public class MetastoreHiveStatisticsProvider
             checkArgument(hivePartitions.size() == 1, "expected only one hive partition");
         }
 
-        if (unpartitioned) {
-            return ImmutableMap.of(HivePartition.UNPARTITIONED_ID, metastore.getTableStatistics(tableHandle.getSchemaName(), tableHandle.getTableName()));
+        try {
+            if (unpartitioned) {
+                return ImmutableMap.of(HivePartition.UNPARTITIONED_ID, metastore.getTableStatistics(tableHandle.getSchemaName(), tableHandle.getTableName()));
+            }
+            else {
+                Set<String> partitionNames = hivePartitions.stream()
+                        .map(HivePartition::getPartitionId)
+                        .collect(toImmutableSet());
+                return metastore.getPartitionStatistics(tableHandle.getSchemaName(), tableHandle.getTableName(), partitionNames);
+            }
         }
-        else {
-            return metastore.getPartitionStatistics(
-                    tableHandle.getSchemaName(),
-                    tableHandle.getTableName(),
-                    hivePartitions.stream()
-                            .map(HivePartition::getPartitionId)
-                            .collect(toImmutableSet()));
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode().getCode() && isIgnoreCorruptedStatistics(session)) {
+                log.warn(e, "Corrupted column statistics: %s", e.getMessage());
+                return ImmutableMap.of();
+            }
+            throw e;
         }
     }
 
