@@ -370,6 +370,7 @@ public class QueryStateMachine
         return new BasicQueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
+                Optional.ofNullable(resourceGroup.get()),
                 state,
                 memoryPool.get().getId(),
                 stageStats.isScheduled(),

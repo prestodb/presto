@@ -153,6 +153,14 @@ export class QueryListItem extends React.Component {
                             </div>
                         </div>
                         <div className="row stat-row">
+                            <div className="col-xs-12">
+                                <span data-toggle="tooltip" data-placement="right" title="Resource Group">
+                                    <span className="glyphicon glyphicon-road" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                    <span>{truncateString(query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a", 35)}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div className="row stat-row">
                             {splitDetails}
                         </div>
                         <div className="row stat-row">
@@ -295,6 +303,10 @@ export class QueryList extends React.Component {
                 }
 
                 if (query.session.source && query.session.source.toLowerCase().indexOf(term) !== -1) {
+                    return true;
+                }
+
+                if (query.resourceGroupId && query.resourceGroupId.join(".").toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
@@ -556,7 +568,7 @@ export class QueryList extends React.Component {
                 <div className="row toolbar-row">
                     <div className="col-xs-12 toolbar-col">
                         <div className="input-group input-group-sm">
-                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID or query text"
+                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, resource group, or query text"
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">State:</span>
                             <div className="input-group-btn">
