@@ -90,22 +90,19 @@ public class TestFilteredAggregations
     @Test
     public void testFilterProjectionExecutedConditionally()
     {
-        assertions.assertQuery("select sum(1 / a) filter (where a <> 0) from (values (1), (0)) t(a)",
+        assertions.assertQuery(
+                "select sum(1 / a) filter (where a <> 0) from (values (1), (0)) t(a)",
                 "VALUES (BIGINT '1')");
-    }
 
-    @Test
-    public void testFilterProjectionExecutedConditionallyInCTE()
-    {
         assertions.assertQuery(
                 "WITH test AS (" +
                         "    SELECT * FROM (" +
                         "        VALUES" +
-                        "            ('1', 'a', 'good'),\n" +
-                        "            ('2', 'b', 'good'),\n" +
-                        "            ('x', 'c', 'bad')\n" +
-                        "    ) AS t (v, k, name)\n" +
-                        ")\n" +
+                        "            ('1', 'a', 'good')," +
+                        "            ('2', 'b', 'good')," +
+                        "            ('x', 'c', 'bad')" +
+                        "    ) AS t (v, k, name)" +
+                        ")" +
                         "SELECT" +
                         "    SUM(CAST(v AS BIGINT)) FILTER (WHERE name = 'good') AS col2\n" +
                         "FROM test",
