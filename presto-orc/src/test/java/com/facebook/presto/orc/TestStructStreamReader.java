@@ -234,7 +234,7 @@ public class TestStructStreamReader
             fieldBlocks[i] = blockBuilder.build();
             blockBuilder = blockBuilder.newBlockBuilderLike(null);
         }
-        Block rowBlock = RowBlock.fromFieldBlocks(rowIsNull, fieldBlocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), fieldBlocks);
         writer.write(new Page(rowBlock));
         writer.close();
     }

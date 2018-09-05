@@ -96,7 +96,7 @@ public final class PrestoThriftBigintArray
         int numberOfRecords = numberOfRecords();
         return ArrayBlock.fromElementBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.of(nulls == null ? new boolean[numberOfRecords] : nulls),
                 calculateOffsets(sizes, nulls, numberOfRecords),
                 values != null ? values.toBlock(BIGINT) : new LongArrayBlock(0, Optional.empty(), new long[] {}));
     }

@@ -88,13 +88,13 @@ public class TestRowBlock
         Block incompactFiledBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
         boolean[] rowIsNull = {false, true, false, false, false, false};
 
-        assertCompact(fromFieldBlocks(new boolean[0], new Block[] {emptyBlock, emptyBlock}));
-        assertCompact(fromFieldBlocks(rowIsNull, new Block[] {compactFieldBlock1, compactFieldBlock2}));
+        assertCompact(fromFieldBlocks(0, Optional.empty(), new Block[] {emptyBlock, emptyBlock}));
+        assertCompact(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {compactFieldBlock1, compactFieldBlock2}));
         // TODO: add test case for a sliced RowBlock
 
         // underlying field blocks are not compact
-        testIncompactBlock(fromFieldBlocks(rowIsNull, new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
-        testIncompactBlock(fromFieldBlocks(rowIsNull, new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
+        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
+        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
     }
 
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
