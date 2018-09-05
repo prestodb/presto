@@ -111,10 +111,9 @@ public abstract class AbstractArrayBlock
         Block newValues = getRawElementBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
-        boolean[] valueIsNull = getValueIsNull();
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, position + getOffsetBase(), length);
+        boolean[] newValueIsNull = compactArray(getValueIsNull(), position + getOffsetBase(), length);
 
-        if (newValues == getRawElementBlock() && newOffsets == getOffsets() && newValueIsNull == valueIsNull) {
+        if (newValues == getRawElementBlock() && newOffsets == getOffsets() && newValueIsNull == getValueIsNull()) {
             return this;
         }
         return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
@@ -181,8 +180,7 @@ public abstract class AbstractArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        boolean[] valueIsNull = getValueIsNull();
-        return valueIsNull == null ? false : valueIsNull[position + getOffsetBase()];
+        return getValueIsNull()[position + getOffsetBase()];
     }
 
     public <T> T apply(ArrayBlockFunction<T> function, int position)

@@ -35,7 +35,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -111,7 +110,7 @@ public class MapStreamReader
         // We will use the offsetVector as the buffer to read the length values from lengthStream,
         // and the length values will be converted in-place to an offset vector.
         int[] offsetVector = new int[nextBatchSize + 1];
-        boolean[] nullVector = null;
+        boolean[] nullVector = new boolean[nextBatchSize];
 
         if (presentStream == null) {
             if (lengthStream == null) {
@@ -120,7 +119,6 @@ public class MapStreamReader
             lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
         }
         else {
-            nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
@@ -167,7 +165,7 @@ public class MapStreamReader
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
+        return mapType.createBlockFromKeyValue(nullVector, offsetVector, keyValueBlock[0], keyValueBlock[1]);
     }
 
     private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)

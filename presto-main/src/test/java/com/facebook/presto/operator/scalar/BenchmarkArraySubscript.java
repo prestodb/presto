@@ -164,7 +164,7 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < offsets.length; i++) {
                 offsets[i] = arraySize * i;
             }
-            return ArrayBlock.fromElementBlock(positionCount, Optional.empty(), offsets, elementsBlock);
+            return ArrayBlock.fromElementBlock(positionCount, new boolean[positionCount], offsets, elementsBlock);
         }
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)

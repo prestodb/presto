@@ -122,10 +122,9 @@ public abstract class AbstractRowBlock
         }
 
         int[] newOffsets = compactOffsets(getFieldBlockOffsets(), position + getOffsetBase(), length);
-        boolean[] rowIsNull = getRowIsNull();
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, position + getOffsetBase(), length);
+        boolean[] newRowIsNull = compactArray(getRowIsNull(), position + getOffsetBase(), length);
 
-        if (arraySame(newBlocks, getRawFieldBlocks()) && newOffsets == getFieldBlockOffsets() && newRowIsNull == rowIsNull) {
+        if (arraySame(newBlocks, getRawFieldBlocks()) && newOffsets == getFieldBlockOffsets() && newRowIsNull == getRowIsNull()) {
             return this;
         }
         return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
@@ -188,8 +187,7 @@ public abstract class AbstractRowBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        boolean[] rowIsNull = getRowIsNull();
-        return rowIsNull != null && rowIsNull[position + getOffsetBase()];
+        return getRowIsNull()[position + getOffsetBase()];
     }
 
     private void checkReadablePosition(int position)

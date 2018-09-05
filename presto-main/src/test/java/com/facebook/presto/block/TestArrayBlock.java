@@ -180,11 +180,11 @@ public class TestArrayBlock
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
-        testCompactBlock(fromElementBlock(0, Optional.empty(), new int[1], emptyValueBlock));
-        testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, compactValueBlock));
-        testIncompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
+        testCompactBlock(fromElementBlock(0, new boolean[0], new int[1], emptyValueBlock));
+        testCompactBlock(fromElementBlock(valueIsNull.length, valueIsNull, offsets, compactValueBlock));
+        testIncompactBlock(fromElementBlock(valueIsNull.length - 1, valueIsNull, offsets, compactValueBlock));
         // underlying value block is not compact
-        testIncompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
+        testIncompactBlock(fromElementBlock(valueIsNull.length, valueIsNull, offsets, inCompactValueBlock));
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)

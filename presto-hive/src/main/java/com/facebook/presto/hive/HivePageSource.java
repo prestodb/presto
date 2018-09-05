@@ -514,7 +514,7 @@ public class HivePageSource
                 valueIsNull[i] = arrayBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
-            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
+            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), valueIsNull, offsets, elementsBlock);
         }
     }
 
@@ -550,7 +550,7 @@ public class HivePageSource
                 valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return ((MapType) toType).createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+            return ((MapType) toType).createBlockFromKeyValue(valueIsNull, offsets, keysBlock, valuesBlock);
         }
     }
 
@@ -600,7 +600,7 @@ public class HivePageSource
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
                 valueIsNull[i] = rowBlock.isNull(i);
             }
-            return RowBlock.fromFieldBlocks(valueIsNull.length, Optional.of(valueIsNull), fields);
+            return RowBlock.fromFieldBlocks(valueIsNull, fields);
         }
     }
 

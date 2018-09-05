@@ -144,7 +144,7 @@ public class ParquetReader
         BooleanList valueIsNull = new BooleanArrayList();
 
         calculateCollectionOffsets(field, offsets, valueIsNull, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block arrayBlock = ArrayBlock.fromElementBlock(valueIsNull.size(), Optional.of(valueIsNull.toBooleanArray()), offsets.toIntArray(), columnChunk.getBlock());
+        Block arrayBlock = ArrayBlock.fromElementBlock(valueIsNull.size(), valueIsNull.toBooleanArray(), offsets.toIntArray(), columnChunk.getBlock());
         return new ColumnChunk(arrayBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -161,7 +161,7 @@ public class ParquetReader
         IntList offsets = new IntArrayList();
         BooleanList valueIsNull = new BooleanArrayList();
         calculateCollectionOffsets(field, offsets, valueIsNull, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(Optional.of(valueIsNull.toBooleanArray()), offsets.toIntArray(), blocks[0], blocks[1]);
+        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(valueIsNull.toBooleanArray(), offsets.toIntArray(), blocks[0], blocks[1]);
         return new ColumnChunk(mapBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -185,8 +185,7 @@ public class ParquetReader
             }
         }
         BooleanList structIsNull = ParquetStructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        boolean[] structIsNullVector = structIsNull.toBooleanArray();
-        Block rowBlock = RowBlock.fromFieldBlocks(structIsNullVector.length, Optional.of(structIsNullVector), blocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(structIsNull.toBooleanArray(), blocks);
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 

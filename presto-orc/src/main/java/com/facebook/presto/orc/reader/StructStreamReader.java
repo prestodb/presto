@@ -99,14 +99,13 @@ public class StructStreamReader
             }
         }
 
-        boolean[] nullVector = null;
+        boolean[] nullVector = new boolean[nextBatchSize];
         Block[] blocks;
 
         if (presentStream == null) {
             blocks = getBlocksForType(type, nextBatchSize);
         }
         else {
-            nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 blocks = getBlocksForType(type, nextBatchSize - nullValues);
@@ -126,7 +125,7 @@ public class StructStreamReader
                 .count() == 1);
 
         // Struct is represented as a row block
-        Block rowBlock = RowBlock.fromFieldBlocks(nextBatchSize, Optional.ofNullable(nullVector), blocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(nullVector, blocks);
 
         readOffset = 0;
         nextBatchSize = 0;

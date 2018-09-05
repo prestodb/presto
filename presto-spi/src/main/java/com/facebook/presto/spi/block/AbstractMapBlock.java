@@ -18,7 +18,6 @@ import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
@@ -122,7 +121,7 @@ public abstract class AbstractMapBlock
 
         Block newKeys = getRawKeyBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
         Block newValues = getRawValueBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
-        return createMapBlockInternal(0, length, Optional.of(newMapIsNull), newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        return createMapBlockInternal(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override
@@ -134,7 +133,7 @@ public abstract class AbstractMapBlock
         return createMapBlockInternal(
                 position + getOffsetBase(),
                 length,
-                Optional.ofNullable(getMapIsNull()),
+                getMapIsNull(),
                 getOffsets(),
                 getRawKeyBlock(),
                 getRawValueBlock(),
@@ -172,17 +171,16 @@ public abstract class AbstractMapBlock
         Block newValues = getRawValueBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
-        boolean[] mapIsNull = getMapIsNull();
-        boolean[] newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + getOffsetBase(), length);
+        boolean[] newMapIsNull = compactArray(getMapIsNull(), position + getOffsetBase(), length);
         int[] newHashTable = compactArray(getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
 
-        if (newKeys == getRawKeyBlock() && newValues == getRawValueBlock() && newOffsets == getOffsets() && newMapIsNull == mapIsNull && newHashTable == getHashTables()) {
+        if (newKeys == getRawKeyBlock() && newValues == getRawValueBlock() && newOffsets == getOffsets() && newMapIsNull == getMapIsNull() && newHashTable == getHashTables()) {
             return this;
         }
         return createMapBlockInternal(
                 0,
                 length,
-                Optional.ofNullable(newMapIsNull),
+                newMapIsNull,
                 newOffsets,
                 newKeys,
                 newValues,
@@ -235,7 +233,7 @@ public abstract class AbstractMapBlock
         return createMapBlockInternal(
                 0,
                 1,
-                Optional.of(new boolean[] {isNull(position)}),
+                new boolean[] {isNull(position)},
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
@@ -271,8 +269,7 @@ public abstract class AbstractMapBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        boolean[] mapIsNull = getMapIsNull();
-        return mapIsNull != null && mapIsNull[position + getOffsetBase()];
+        return getMapIsNull()[position + getOffsetBase()];
     }
 
     private void checkReadablePosition(int position)
