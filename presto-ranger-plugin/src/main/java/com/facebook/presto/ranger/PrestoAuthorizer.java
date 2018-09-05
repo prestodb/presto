@@ -14,68 +14,93 @@
 package com.facebook.presto.ranger;
 
 import com.facebook.presto.spi.security.Identity;
-import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
+import org.apache.commons.lang.StringUtils;
+import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
+import org.apache.ranger.plugin.policyengine.RangerDataMaskResult;
+import org.apache.ranger.plugin.policyengine.RangerRowFilterResult;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class PrestoAuthorizer
 {
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
-    private Map<String, RangerPrestoPlugin> plugins;
+    private CatalogPlugin catalogPlugin;
     private UserGroups userGroups;
 
     public PrestoAuthorizer(UserGroups groups, Map<String, RangerPrestoPlugin> plugins)
     {
-        this.plugins = plugins;
+        this.catalogPlugin = new CatalogPlugin(plugins);
         this.userGroups = groups;
     }
 
     public List<RangerPrestoResource> filterResources(List<RangerPrestoResource> resources, Identity identity)
     {
-        return resources.stream()
-                .map(resource -> checkPermission(resource, identity, PrestoAccessType.USE))
-                .filter(RangerAccessResult::getIsAllowed)
-                .map(RangerAccessResult::getAccessRequest)
-                .map(RangerAccessRequest::getResource)
-                .map(resource -> (RangerPrestoResource) resource)
-                .collect(Collectors.toList());
+        List<RangerPrestoResource> rangerPrestoResources = new ArrayList<>();
+        for (RangerPrestoResource rangerPrestoResource : resources) {
+            if (checkPermisionForResource(rangerPrestoResource, identity, PrestoAccessType.USE)) {
+                rangerPrestoResources.add(rangerPrestoResource);
+            }
+        }
+        return rangerPrestoResources;
     }
 
     public boolean canSeeResource(RangerPrestoResource resource, Identity identity)
     {
-        return checkPermission(resource, identity, PrestoAccessType.USE).getIsAllowed();
+        return checkPermisionForResource(resource, identity, PrestoAccessType.USE);
     }
 
     public boolean canCreateResource(RangerPrestoResource resource, Identity identity)
     {
-        return checkPermission(resource, identity, PrestoAccessType.CREATE).getIsAllowed();
+        return checkPermisionForResource(resource, identity, PrestoAccessType.CREATE);
     }
 
     public boolean canDropResource(RangerPrestoResource resource, Identity identity)
     {
-        return checkPermission(resource, identity, PrestoAccessType.DROP).getIsAllowed();
+        return checkPermisionForResource(resource, identity, PrestoAccessType.DROP);
     }
 
     public boolean canUpdateResource(RangerPrestoResource resource, Identity identity)
     {
-        return checkPermission(resource, identity, PrestoAccessType.UPDATE).getIsAllowed();
+        return checkPermisionForResource(resource, identity, PrestoAccessType.UPDATE);
     }
 
-    private RangerAccessResult checkPermission(RangerPrestoResource resource, Identity identity, PrestoAccessType accessType)
+    public boolean canSelectResource(RangerPrestoResource resource, Identity identity)
     {
-        RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
-                resource,
-                identity.getUser(),
-                getGroups(identity),
-                accessType);
+        return checkPermisionForResource(resource, identity, PrestoAccessType.SELECT);
+    }
 
-        return plugins.get(resource.getCatalogName()).isAccessAllowed(rangerRequest);
+    private boolean checkPermisionForResource(RangerPrestoResource resource, Identity identity, PrestoAccessType prestoAccessType)
+    {
+        Optional<RangerAccessResult> rangerPrestoPlugin = checkPermission(resource, identity, prestoAccessType);
+        if (rangerPrestoPlugin.isPresent()) {
+            if (resource.getSchemaTable().isPresent() && INFORMATION_SCHEMA_NAME.equals(resource.getSchemaTable().get().getSchemaName())) {
+                return true;
+            }
+            return rangerPrestoPlugin.get().getIsAllowed();
+        }
+        else {
+            return true;
+        }
+    }
+
+    private Optional<RangerAccessResult> checkPermission(RangerPrestoResource resource, Identity identity, PrestoAccessType accessType)
+    {
+        Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(resource.getCatalogName());
+        if (rangerPrestoPlugin.isPresent()) {
+            RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
+                    resource,
+                    identity.getUser(),
+                    getGroups(identity),
+                    accessType);
+
+            return Optional.of(rangerPrestoPlugin.get().isAccessAllowed(rangerRequest));
+        }
+        return Optional.empty();
     }
 
     private Set<String> getGroups(Identity identity)
@@ -83,43 +108,74 @@ public class PrestoAuthorizer
         return userGroups.getUserGroups(identity.getUser());
     }
 
-    public boolean canSelectFromColumns(String catalogName, RangerPrestoResource resource, Identity identity)
+    public String getRowLevelFilterExp(String catalogName, RangerPrestoResource resource, Identity identity)
     {
-        if (INFORMATION_SCHEMA_NAME.equals(resource.getSchemaTable().getSchemaName())) {
-            return true;
-        }
-        RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
-                resource,
-                identity.getUser(),
-                getGroups(identity),
-                PrestoAccessType.SELECT);
-
-        RangerAccessResult colResult = plugins.get(catalogName).isAccessAllowed(rangerRequest);
-        return colResult != null && colResult.getIsAllowed();
-    }
-
-    public boolean canSelectFromColumns(String catalogName, List<RangerPrestoResource> resources, Identity identity)
-    {
-        RangerAccessResult result = null;
-        Collection<RangerAccessRequest> colRequests = new ArrayList<>();
-
-        for (RangerPrestoResource resource : resources) {
+        Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(catalogName);
+        if (rangerPrestoPlugin.isPresent()) {
             RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
                     resource,
                     identity.getUser(),
                     getGroups(identity),
                     PrestoAccessType.SELECT);
-            colRequests.add(rangerRequest);
+
+            RangerRowFilterResult rowFilterResult = rangerPrestoPlugin.get().evalRowFilterPolicies(rangerRequest, rangerPrestoPlugin.get().getResultProcessor());
+            if (isRowFilterEnabled(rowFilterResult)) {
+                return rowFilterResult.getFilterExpr();
+            }
         }
-        Collection<RangerAccessResult> colResults = plugins.get(catalogName).isAccessAllowed(colRequests);
-        if (colResults != null) {
-            for (RangerAccessResult colResult : colResults) {
-                result = colResult;
-                if (result != null && !result.getIsAllowed()) {
-                    break;
+        return null;
+    }
+
+    public String getColumnMaskingExpression(String catalogName, RangerPrestoResource resource, Identity identity, String columnName)
+    {
+        Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(catalogName);
+        if (rangerPrestoPlugin.isPresent()) {
+            RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
+                    resource,
+                    identity.getUser(),
+                    getGroups(identity),
+                    PrestoAccessType.SELECT);
+
+            RangerDataMaskResult rangerDataMaskResult = rangerPrestoPlugin.get().evalDataMaskPolicies(rangerRequest, rangerPrestoPlugin.get().getResultProcessor());
+            if (isDataMaskEnabled(rangerDataMaskResult)) {
+                // only support for custom masking
+                if (StringUtils.equalsIgnoreCase(rangerDataMaskResult.getMaskType(), RangerPolicy.MASK_TYPE_CUSTOM)) {
+                    String maskedValue = rangerDataMaskResult.getMaskedValue();
+                    if (maskedValue == null) {
+                        return "NULL";
+                    }
+                    else {
+                        return maskedValue.replace("{col}", columnName);
+                    }
                 }
             }
         }
-        return result.getIsAllowed();
+
+        return null;
+    }
+
+    private boolean isDataMaskEnabled(RangerDataMaskResult result)
+    {
+        return result != null && result.isMaskEnabled() && !StringUtils.equalsIgnoreCase(result.getMaskType(), RangerPolicy.MASK_TYPE_NONE);
+    }
+
+    private boolean isRowFilterEnabled(RangerRowFilterResult result)
+    {
+        return result != null && result.isRowFilterEnabled() && StringUtils.isNotEmpty(result.getFilterExpr());
+    }
+
+    private class CatalogPlugin
+    {
+        private Map<String, RangerPrestoPlugin> plugins;
+
+        public CatalogPlugin(Map<String, RangerPrestoPlugin> plugins)
+        {
+            this.plugins = plugins;
+        }
+
+        public Optional<RangerPrestoPlugin> getPluginForCatalog(String catalogName)
+        {
+            return Optional.ofNullable(plugins.get(catalogName));
+        }
     }
 }

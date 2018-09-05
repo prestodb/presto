@@ -13,7 +13,16 @@
  */
 package com.facebook.presto.ranger;
 
+import com.facebook.presto.spi.security.SystemAccessControl;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+
 public class TestRangerAccessControl
 {
-
+    @Test
+    public void testEverythingImplemented()
+    {
+        assertAllMethodsOverridden(SystemAccessControl.class, RangerSystemAccessControl.class);
+    }
 }

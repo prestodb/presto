@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.ranger.audit.provider.MiscUtil;
 import org.apache.ranger.authorization.hadoop.config.RangerConfiguration;
+import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.net.MalformedURLException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
 
@@ -36,11 +38,12 @@ public class RangerSystemAccessControlFactory
         implements SystemAccessControlFactory
 {
     private static final Logger log = Logger.get(RangerSystemAccessControlFactory.class);
+    protected static final String RANGER_ACCESS_CONTROL = "ranger-access-control";
 
     @Override
     public String getName()
     {
-        return "ranger-access-control";
+        return RANGER_ACCESS_CONTROL;
     }
 
     @Override
@@ -60,7 +63,12 @@ public class RangerSystemAccessControlFactory
         for (final Map.Entry<String, String> configEntry : config.entrySet()) {
             if (configEntry.getKey().startsWith("ranger.")) {
                 rangerConfig.set(configEntry.getKey(), configEntry.getValue());
-                log.info("Setting: " + configEntry.getKey() + " to: " + configEntry.getValue());
+                if (configEntry.getKey().toLowerCase(Locale.ENGLISH).contains("password")) {
+                    log.info("Setting: " + configEntry.getKey() + " to: ******");
+                }
+                else {
+                    log.info("Setting: " + configEntry.getKey() + " to: " + configEntry.getValue());
+                }
             }
             if (configEntry.getKey().equals("ranger-service-types")) {
                 serviceTypes = Arrays.asList(configEntry.getValue().trim().split(","));
@@ -132,6 +140,7 @@ public class RangerSystemAccessControlFactory
                     log.info("Initializing rangerPlugin for serviceType: %s with appId: %s", catalog, appId);
                     RangerPrestoPlugin tmpRangerPlugin = new RangerPrestoPlugin(catalog, appId.get(i));
                     tmpRangerPlugin.init();
+                    tmpRangerPlugin.setResultProcessor(new RangerDefaultAuditHandler());
                     plugins.put(catalog, tmpRangerPlugin);
                 }
             }
