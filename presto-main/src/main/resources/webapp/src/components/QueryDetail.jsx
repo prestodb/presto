@@ -1176,7 +1176,7 @@ export class QueryDetail extends React.Component {
                                     Resource Group
                                 </td>
                                 <td className="info-text wrap-text">
-                                    {query.resourceGroupId.join(".")}
+                                    {query.resourceGroupId ? query.resourceGroupId.join(".") : null}
                                 </td>
                             </tr>
                             <tr>
