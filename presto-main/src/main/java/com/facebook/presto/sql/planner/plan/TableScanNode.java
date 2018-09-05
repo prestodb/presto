@@ -63,6 +63,15 @@ public class TableScanNode
             PlanNodeId id,
             TableHandle table,
             List<Symbol> outputs,
+            Map<Symbol, ColumnHandle> assignments)
+    {
+        this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all());
+    }
+
+    public TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
             @Nullable TupleDomain<ColumnHandle> currentConstraint)

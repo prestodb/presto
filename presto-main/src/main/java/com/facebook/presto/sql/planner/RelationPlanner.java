@@ -18,7 +18,6 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
@@ -159,7 +158,7 @@ class RelationPlanner
         }
 
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), Optional.empty(), TupleDomain.all());
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build());
         return new RelationPlan(root, scope, outputSymbols);
     }
 

@@ -29,7 +29,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -64,7 +63,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -111,9 +109,7 @@ public class MockRemoteTaskFactory
                         sourceId,
                         new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                        Optional.empty(),
-                        TupleDomain.all()),
+                        ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
