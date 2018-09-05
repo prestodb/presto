@@ -490,6 +490,22 @@ pre {
     font-weight: 500;
 }
 
+#error-type-dropdown {
+    margin-left: -1px;
+    height: 30px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    position: relative;
+    color: #fff;
+    background-color: #4ba1bb;
+    border-color: #46b8da;
+}
+
+.error-type-dropdown-menu {
+    margin-left: 143px;
+}
+
 /** Loading indicators **/
 /** ================== **/
 

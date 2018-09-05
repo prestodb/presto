@@ -206,8 +206,6 @@ const FILTER_TYPE = {
     },
     QUEUED: function (query) { return query.state === "QUEUED"},
     FINISHED: function (query) { return query.state === "FINISHED"},
-    FAILED: function (query) { return query.state === "FAILED" && query.errorType !== "USER_ERROR"},
-    USER_ERROR: function (query) { return query.state === "FAILED" && query.errorType === "USER_ERROR"},
 };
 
 const SORT_TYPE = {
@@ -217,6 +215,13 @@ const SORT_TYPE = {
     CPU: function (query) {return parseDuration(query.queryStats.totalCpuTime)},
     CUMULATIVE_MEMORY: function (query) {return query.queryStats.cumulativeUserMemory},
     CURRENT_MEMORY: function (query) {return parseDataSize(query.queryStats.userMemoryReservation)},
+};
+
+const ERROR_TYPE = {
+    USER_ERROR: function (query) {return query.state === "FAILED" && query.errorType === "USER_ERROR"},
+    INTERNAL_ERROR: function (query) {return query.state === "FAILED" && query.errorType === "INTERNAL_ERROR"},
+    INSUFFICIENT_RESOURCES: function (query) {return query.state === "FAILED" && query.errorType === "INSUFFICIENT_RESOURCES"},
+    EXTERNAL: function (query) {return query.state === "FAILED" && query.errorType === "EXTERNAL"},
 };
 
 const SORT_ORDER = {
@@ -233,7 +238,8 @@ export class QueryList extends React.Component {
             reorderInterval: 5000,
             currentSortType: SORT_TYPE.CREATED,
             currentSortOrder: SORT_ORDER.DESCENDING,
-            filters: [FILTER_TYPE.RUNNING, FILTER_TYPE.QUEUED, FILTER_TYPE.FAILED],
+            stateFilters: [FILTER_TYPE.RUNNING, FILTER_TYPE.QUEUED],
+            errorTypeFilters: [ERROR_TYPE.INTERNAL_ERROR, ERROR_TYPE.INSUFFICIENT_RESOURCES, ERROR_TYPE.EXTERNAL],
             searchString: '',
             maxQueries: 100,
             lastRefresh: Date.now(),
@@ -257,10 +263,15 @@ export class QueryList extends React.Component {
         }
     }
 
-    filterQueries(queries, filters, searchString) {
+    filterQueries(queries, stateFilters, errorTypeFilters, searchString) {
         const stateFilteredQueries = queries.filter(function (query) {
-            for (let i = 0; i < filters.length; i++) {
-                if (filters[i](query)) {
+            for (let i = 0; i < stateFilters.length; i++) {
+                if (stateFilters[i](query)) {
+                    return true;
+                }
+            }
+            for (let i = 0; i < errorTypeFilters.length; i++) {
+                if (errorTypeFilters[i](query)) {
                     return true;
                 }
             }
@@ -323,13 +334,13 @@ export class QueryList extends React.Component {
                     newQueries.push(queryMap[queryId]);
                 }
             }
-            newQueries = this.filterQueries(newQueries, this.state.filters, this.state.searchString);
+            newQueries = this.filterQueries(newQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
 
             const lastRefresh = Date.now();
             let lastReorder = this.state.lastReorder;
 
             if (this.state.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= this.state.reorderInterval)) {
-                updatedQueries = this.filterQueries(updatedQueries, this.state.filters, this.state.searchString);
+                updatedQueries = this.filterQueries(updatedQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
                 updatedQueries = updatedQueries.concat(newQueries);
                 this.sortAndLimitQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
                 lastReorder = Date.now();
@@ -378,7 +389,7 @@ export class QueryList extends React.Component {
     executeSearch() {
         clearTimeout(this.searchTimeoutId);
 
-        const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.filters, this.state.searchString);
+        const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
         this.sortAndLimitQueries(newDisplayedQueries, this.state.currentSortType, this.state.currentSortOrder, this.state.maxQueries);
 
         this.setState({
@@ -394,7 +405,7 @@ export class QueryList extends React.Component {
     }
 
     handleMaxQueriesClick(newMaxQueries) {
-        const filteredQueries = this.filterQueries(this.state.allQueries, this.state.filters, this.state.searchString);
+        const filteredQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
         this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder, newMaxQueries);
 
         this.setState({
@@ -446,7 +457,7 @@ export class QueryList extends React.Component {
             newSortOrder = SORT_ORDER.ASCENDING;
         }
 
-        const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.filters, this.state.searchString);
+        const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, this.state.searchString);
         this.sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, this.state.maxQueries);
 
         this.setState({
@@ -457,30 +468,66 @@ export class QueryList extends React.Component {
     }
 
     renderFilterButton(filterType, filterText) {
+        let checkmarkStyle = {color: '#57aac7'};
         let classNames = "btn btn-sm btn-info style-check";
-        if (this.state.filters.indexOf(filterType) > -1) {
+        if (this.state.stateFilters.indexOf(filterType) > -1) {
             classNames += " active";
+            checkmarkStyle = {color: '#ffffff'};
         }
 
         return (
-            <button type="button" className={classNames} onClick={this.handleFilterClick.bind(this, filterType)}>{filterText}</button>
+            <button type="button" className={classNames} onClick={this.handleStateFilterClick.bind(this, filterType)}>
+                <span className="glyphicon glyphicon-ok" style={checkmarkStyle}/>&nbsp;{filterText}
+            </button>
         );
     }
 
-    handleFilterClick(filter) {
-        const newFilters = this.state.filters.slice();
-        if (this.state.filters.indexOf(filter) > -1) {
+    handleStateFilterClick(filter) {
+        const newFilters = this.state.stateFilters.slice();
+        if (this.state.stateFilters.indexOf(filter) > -1) {
             newFilters.splice(newFilters.indexOf(filter), 1);
         }
         else {
             newFilters.push(filter);
         }
 
-        const filteredQueries = this.filterQueries(this.state.allQueries, newFilters, this.state.searchString);
+        const filteredQueries = this.filterQueries(this.state.allQueries, newFilters, this.state.errorTypeFilters, this.state.searchString);
         this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder);
 
         this.setState({
-            filters: newFilters,
+            stateFilters: newFilters,
+            displayedQueries: filteredQueries
+        });
+    }
+
+    renderErrorTypeListItem(errorType, errorTypeText) {
+        let checkmarkStyle = {color: '#ffffff'};
+        if (this.state.errorTypeFilters.indexOf(errorType) > -1) {
+            checkmarkStyle = GLYPHICON_HIGHLIGHT;
+        }
+        return (
+            <li>
+                <a href="#" onClick={this.handleErrorTypeFilterClick.bind(this, errorType)}>
+                    <span className="glyphicon glyphicon-ok" style={checkmarkStyle}/>
+                    &nbsp;{errorTypeText}
+                </a>
+            </li>);
+    }
+
+    handleErrorTypeFilterClick(errorType) {
+        const newFilters = this.state.errorTypeFilters.slice();
+        if (this.state.errorTypeFilters.indexOf(errorType) > -1) {
+            newFilters.splice(newFilters.indexOf(errorType), 1);
+        }
+        else {
+            newFilters.push(errorType);
+        }
+
+        const filteredQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, newFilters, this.state.searchString);
+        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder);
+
+        this.setState({
+            errorTypeFilters: newFilters,
             displayedQueries: filteredQueries
         });
     }
@@ -511,13 +558,20 @@ export class QueryList extends React.Component {
                         <div className="input-group input-group-sm">
                             <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID or query text"
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
-                            <span className="input-group-addon filter-addon">Filter:</span>
+                            <span className="input-group-addon filter-addon">State:</span>
                             <div className="input-group-btn">
                                 {this.renderFilterButton(FILTER_TYPE.RUNNING, "Running")}
                                 {this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued")}
                                 {this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished")}
-                                {this.renderFilterButton(FILTER_TYPE.FAILED, "Failed")}
-                                {this.renderFilterButton(FILTER_TYPE.USER_ERROR, "User error")}
+                                <button type="button" id="error-type-dropdown" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    Failed <span className="caret"/>
+                                </button>
+                                <ul className="dropdown-menu error-type-dropdown-menu">
+                                    {this.renderErrorTypeListItem(ERROR_TYPE.INTERNAL_ERROR, "Internal Error")}
+                                    {this.renderErrorTypeListItem(ERROR_TYPE.EXTERNAL, "External Error")}
+                                    {this.renderErrorTypeListItem(ERROR_TYPE.INSUFFICIENT_RESOURCES, "Resources Error")}
+                                    {this.renderErrorTypeListItem(ERROR_TYPE.USER_ERROR, "User Error")}
+                                </ul>
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
