@@ -57,7 +57,8 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
-                .setLevelTimeMultiplier(new BigDecimal("2")));
+                .setLevelTimeMultiplier(new BigDecimal("2"))
+                .setStatisticsCpuTimerEnabled(false));
     }
 
     @Test
@@ -89,6 +90,7 @@ public class TestTaskManagerConfig
                 .put("task.task-notification-threads", "13")
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
+                .put("task.statistics-cpu-timer-enabled", "true")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -116,7 +118,8 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
-                .setLevelTimeMultiplier(new BigDecimal("2.1"));
+                .setLevelTimeMultiplier(new BigDecimal("2.1"))
+                .setStatisticsCpuTimerEnabled(true);
 
         assertFullMapping(properties, expected);
     }

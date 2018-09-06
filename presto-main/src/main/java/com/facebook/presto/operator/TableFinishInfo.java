@@ -20,12 +20,14 @@ import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class TableFinishInfo
         implements OperatorInfo
@@ -36,8 +38,10 @@ public class TableFinishInfo
 
     private final String connectorOutputMetadata;
     private final boolean jsonLengthLimitExceeded;
+    private final Duration statisticsWallTime;
+    private final Duration statisticsCpuTime;
 
-    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata)
+    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata, Duration statisticsWallTime, Duration statisticsCpuTime)
     {
         String connectorOutputMetadata = null;
         boolean jsonLengthLimitExceeded = false;
@@ -54,15 +58,21 @@ public class TableFinishInfo
         }
         this.connectorOutputMetadata = connectorOutputMetadata;
         this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
+        this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
+        this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
     }
 
     @JsonCreator
     public TableFinishInfo(
             @JsonProperty("connectorOutputMetadata") JsonNode connectorOutputMetadata,
-            @JsonProperty("jsonLengthLimitExceeded") boolean jsonLengthLimitExceeded)
+            @JsonProperty("jsonLengthLimitExceeded") boolean jsonLengthLimitExceeded,
+            @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
+            @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
     {
         this.connectorOutputMetadata = JSON_NODE_CODEC.toJson(connectorOutputMetadata);
         this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
+        this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
+        this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
     }
 
     @JsonProperty
@@ -76,6 +86,18 @@ public class TableFinishInfo
     public boolean isJsonLengthLimitExceeded()
     {
         return jsonLengthLimitExceeded;
+    }
+
+    @JsonProperty
+    public Duration getStatisticsWallTime()
+    {
+        return statisticsWallTime;
+    }
+
+    @JsonProperty
+    public Duration getStatisticsCpuTime()
+    {
+        return statisticsCpuTime;
     }
 
     @Override

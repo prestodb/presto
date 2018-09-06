@@ -43,6 +43,7 @@ public class TaskManagerConfig
 {
     private boolean perOperatorCpuTimerEnabled;
     private boolean taskCpuTimerEnabled = true;
+    private boolean statisticsCpuTimerEnabled;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
@@ -126,6 +127,18 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
     {
         this.taskCpuTimerEnabled = taskCpuTimerEnabled;
+        return this;
+    }
+
+    public boolean isStatisticsCpuTimerEnabled()
+    {
+        return statisticsCpuTimerEnabled;
+    }
+
+    @Config("task.statistics-cpu-timer-enabled")
+    public TaskManagerConfig setStatisticsCpuTimerEnabled(boolean statisticsCpuTimerEnabled)
+    {
+        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         return this;
     }
 

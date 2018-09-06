@@ -42,6 +42,11 @@ class OperationTimer
 
     private boolean finished;
 
+    OperationTimer(boolean trackOverallCpuTime)
+    {
+        this(trackOverallCpuTime, false);
+    }
+
     OperationTimer(boolean trackOverallCpuTime, boolean trackOperationCpuTime)
     {
         this.trackOverallCpuTime = trackOverallCpuTime;

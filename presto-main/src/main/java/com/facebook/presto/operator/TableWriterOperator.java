@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -33,12 +34,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
@@ -50,6 +53,7 @@ import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableWriterOperator
         implements Operator
@@ -96,7 +100,9 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregationOperatorFactory.createOperator(driverContext), types);
+            Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
+            boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
+            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregationOperator, types, statisticsCpuTimerEnabled);
         }
 
         private ConnectorPageSink createPageSink()
@@ -144,12 +150,16 @@ public class TableWriterOperator
     private boolean closed;
     private long writtenBytes;
 
+    private final OperationTiming statisticsTiming = new OperationTiming();
+    private final boolean statisticsCpuTimerEnabled;
+
     public TableWriterOperator(
             OperatorContext operatorContext,
             ConnectorPageSink pageSink,
             List<Integer> columnChannels,
             Operator statisticAggregationOperator,
-            List<Type> types)
+            List<Type> types,
+            boolean statisticsCpuTimerEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
@@ -158,6 +168,7 @@ public class TableWriterOperator
         this.operatorContext.setInfoSupplier(this::getInfo);
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
     }
 
     @Override
@@ -170,7 +181,11 @@ public class TableWriterOperator
     public void finish()
     {
         ListenableFuture<?> currentlyBlocked = blocked;
+
+        OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
         statisticAggregationOperator.finish();
+        timer.end(statisticsTiming);
+
         ListenableFuture<?> blockedOnAggregation = statisticAggregationOperator.isBlocked();
         ListenableFuture<?> blockedOnFinish = NOT_BLOCKED;
         if (state == State.RUNNING) {
@@ -214,7 +229,10 @@ public class TableWriterOperator
             blocks[outputChannel] = page.getBlock(columnChannels.get(outputChannel));
         }
 
+        OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
         statisticAggregationOperator.addInput(page);
+        timer.end(statisticsTiming);
+
         ListenableFuture<?> blockedOnAggregation = statisticAggregationOperator.isBlocked();
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
         updateMemoryUsage();
@@ -232,7 +250,10 @@ public class TableWriterOperator
         }
 
         if (!statisticAggregationOperator.isFinished()) {
+            OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
             Page aggregationOutput = statisticAggregationOperator.getOutput();
+            timer.end(statisticsTiming);
+
             if (aggregationOutput == null) {
                 return null;
             }
@@ -340,18 +361,28 @@ public class TableWriterOperator
     @VisibleForTesting
     TableWriterInfo getInfo()
     {
-        return new TableWriterInfo(pageSinkPeakMemoryUsage.get());
+        return new TableWriterInfo(
+                pageSinkPeakMemoryUsage.get(),
+                new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
     }
 
     public static class TableWriterInfo
             implements Mergeable<TableWriterInfo>, OperatorInfo
     {
         private final long pageSinkPeakMemoryUsage;
+        private final Duration statisticsWallTime;
+        private final Duration statisticsCpuTime;
 
         @JsonCreator
-        public TableWriterInfo(@JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage)
+        public TableWriterInfo(
+                @JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage,
+                @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
+                @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
         {
             this.pageSinkPeakMemoryUsage = pageSinkPeakMemoryUsage;
+            this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
+            this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
         }
 
         @JsonProperty
@@ -360,10 +391,25 @@ public class TableWriterOperator
             return pageSinkPeakMemoryUsage;
         }
 
+        @JsonProperty
+        public Duration getStatisticsWallTime()
+        {
+            return statisticsWallTime;
+        }
+
+        @JsonProperty
+        public Duration getStatisticsCpuTime()
+        {
+            return statisticsCpuTime;
+        }
+
         @Override
         public TableWriterInfo mergeWith(TableWriterInfo other)
         {
-            return new TableWriterInfo(Math.max(pageSinkPeakMemoryUsage, other.pageSinkPeakMemoryUsage));
+            return new TableWriterInfo(
+                    Math.max(pageSinkPeakMemoryUsage, other.pageSinkPeakMemoryUsage),
+                    new Duration(statisticsWallTime.getValue(NANOSECONDS) + other.statisticsWallTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                    new Duration(statisticsCpuTime.getValue(NANOSECONDS) + other.statisticsCpuTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit());
         }
 
         @Override
@@ -377,6 +423,8 @@ public class TableWriterOperator
         {
             return toStringHelper(this)
                     .add("pageSinkPeakMemoryUsage", pageSinkPeakMemoryUsage)
+                    .add("statisticsWallTime", statisticsWallTime)
+                    .add("statisticsCpuTime", statisticsCpuTime)
                     .toString();
         }
     }

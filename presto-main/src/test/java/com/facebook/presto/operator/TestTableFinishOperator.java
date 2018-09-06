@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import com.facebook.presto.operator.TableFinishOperator.TableFinisher;
@@ -40,7 +41,6 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -48,11 +48,14 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -88,6 +91,9 @@ public class TestTableFinishOperator
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(statisticMetadata, 0));
+        Session session = testSessionBuilder()
+                .setSystemProperty("statistics_cpu_timer_enabled", "true")
+                .build();
         TableFinishOperatorFactory operatorFactory = new TableFinishOperatorFactory(
                 0,
                 new PlanNodeId("node"),
@@ -97,8 +103,9 @@ public class TestTableFinishOperator
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
                         ImmutableList.of(LONG_MAX.bind(ImmutableList.of(2), Optional.empty()))),
-                descriptor);
-        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(createTaskContext(scheduledExecutor, scheduledExecutor, TEST_SESSION)
+                descriptor,
+                session);
+        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true)
                 .addDriverContext());
 
@@ -135,6 +142,10 @@ public class TestTableFinishOperator
                 .closeEntry()
                 .build();
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
+
+        TableFinishInfo tableFinishInfo = operator.getInfo();
+        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
     }
 
     private static class TestTableFinisher
