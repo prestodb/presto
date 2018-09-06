@@ -163,7 +163,7 @@ public class TestTableWriterOperator
     public void testTableWriterInfo()
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
         TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new DevNullOperatorFactory(1, new PlanNodeId("test")),
@@ -176,12 +176,15 @@ public class TestTableWriterOperator
         List<Page> pages = rowPagesBuilder.build();
 
         long peakMemoryUsage = 0;
+        long validationCpuNanos = 0;
         for (int i = 0; i < pages.size(); i++) {
             Page page = pages.get(i);
             peakMemoryUsage += page.getRetainedSizeInBytes();
+            validationCpuNanos += page.getPositionCount();
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
             assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
+            assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
         }
     }
 
@@ -190,7 +193,7 @@ public class TestTableWriterOperator
             throws Exception
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
         ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
@@ -340,7 +343,7 @@ public class TestTableWriterOperator
         }
     }
 
-    private static class MemoryAccountingTestPageSink
+    private static class TableWriteInfoTestPageSink
             implements ConnectorPageSink
     {
         private final List<Page> pages = new ArrayList<>();
@@ -366,6 +369,16 @@ public class TestTableWriterOperator
                 memoryUsage += page.getRetainedSizeInBytes();
             }
             return memoryUsage;
+        }
+
+        @Override
+        public long getValidationCpuNanos()
+        {
+            long validationCpuNanos = 0;
+            for (Page page : pages) {
+                validationCpuNanos += page.getPositionCount();
+            }
+            return validationCpuNanos;
         }
 
         @Override
