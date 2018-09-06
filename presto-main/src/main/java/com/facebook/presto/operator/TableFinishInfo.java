@@ -34,32 +34,35 @@ public class TableFinishInfo
     private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
     private static final JsonCodec<JsonNode> JSON_NODE_CODEC = jsonCodec(JsonNode.class);
 
-    private String connectorOutputMetadata;
-    private boolean jsonLengthLimitExceeded;
+    private final String connectorOutputMetadata;
+    private final boolean jsonLengthLimitExceeded;
 
     public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata)
     {
+        String connectorOutputMetadata = null;
+        boolean jsonLengthLimitExceeded = false;
         if (metadata.isPresent()) {
             Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.get().getInfo(), JSON_LENGTH_LIMIT);
             if (!serializedMetadata.isPresent()) {
+                connectorOutputMetadata = null;
                 jsonLengthLimitExceeded = true;
             }
             else {
                 connectorOutputMetadata = serializedMetadata.get();
+                jsonLengthLimitExceeded = false;
             }
         }
+        this.connectorOutputMetadata = connectorOutputMetadata;
+        this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
     }
 
     @JsonCreator
-    public TableFinishInfo(@JsonProperty("connectorOutputMetadata") JsonNode connectorOutputMetadata)
+    public TableFinishInfo(
+            @JsonProperty("connectorOutputMetadata") JsonNode connectorOutputMetadata,
+            @JsonProperty("jsonLengthLimitExceeded") boolean jsonLengthLimitExceeded)
     {
         this.connectorOutputMetadata = JSON_NODE_CODEC.toJson(connectorOutputMetadata);
-    }
-
-    @Override
-    public boolean isFinal()
-    {
-        return true;
+        this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
     }
 
     @JsonProperty
@@ -73,5 +76,11 @@ public class TableFinishInfo
     public boolean isJsonLengthLimitExceeded()
     {
         return jsonLengthLimitExceeded;
+    }
+
+    @Override
+    public boolean isFinal()
+    {
+        return true;
     }
 }
