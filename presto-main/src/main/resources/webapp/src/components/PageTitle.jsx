@@ -21,6 +21,9 @@ export class PageTitle extends React.Component {
             noConnection: false,
             lightShown: false,
             info: null,
+            lastSuccess: Date.now(),
+            modalShown: false,
+            errorText: null,
         };
 
         this.refreshLoop = this.refreshLoop.bind(this);
@@ -32,16 +35,25 @@ export class PageTitle extends React.Component {
             this.setState({
                 info: info,
                 noConnection: false,
+                lastSuccess: Date.now(),
+                modalShown: false,
             });
+            $('#no-connection-modal').modal('hide');
             this.resetTimer();
         }.bind(this))
-            .error(() => {
+            .error(function (jqXHR, textStatus, error) {
                 this.setState({
                     noConnection: true,
                     lightShown: !this.state.lightShown,
+                    errorText: error
                 });
                 this.resetTimer();
-            });
+
+                if (!this.state.modalShown && (error || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
+                    $('#no-connection-modal').modal();
+                    this.setState({modalShown: true});
+                }
+            }.bind(this));
     }
 
     resetTimer() {
@@ -72,50 +84,65 @@ export class PageTitle extends React.Component {
         }
 
         return (
-            <nav className="navbar">
-                <div className="container-fluid">
-                    <div className="navbar-header">
-                        <table>
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <a href="/"><img src="assets/logo.png"/></a>
-                                </td>
-                                <td>
-                                    <span className="navbar-brand">{this.props.title}</span>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+            <div>
+                <nav className="navbar">
+                    <div className="container-fluid">
+                        <div className="navbar-header">
+                            <table>
+                                <tbody>
+                                <tr>
+                                    <td>
+                                        <a href="/"><img src="assets/logo.png"/></a>
+                                    </td>
+                                    <td>
+                                        <span className="navbar-brand">{this.props.title}</span>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="navbar" className="navbar-collapse collapse">
+                            <ul className="nav navbar-nav navbar-right">
+                                <li>
+                                    <span className="navbar-cluster-info">
+                                        <span className="uppercase">Version</span><br/>
+                                        <span className="text uppercase" id="version-number">{info.nodeVersion.version}</span>
+                                    </span>
+                                </li>
+                                <li>
+                                    <span className="navbar-cluster-info">
+                                        <span className="uppercase">Environment</span><br/>
+                                        <span className="text uppercase" id="environment">{info.environment}</span>
+                                    </span>
+                                </li>
+                                <li>
+                                    <span className="navbar-cluster-info">
+                                        <span className="uppercase">Uptime</span><br/>
+                                        <span data-toggle="tooltip" data-placement="bottom" title="Connection status">
+                                        {this.renderStatusLight()}
+                                         </span>
+                                        &nbsp;
+                                        <span className="text" id="uptime">{info.uptime}</span>
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
-                    <div id="navbar" className="navbar-collapse collapse">
-                        <ul className="nav navbar-nav navbar-right">
-                            <li>
-                        <span className="navbar-cluster-info">
-                            <span className="uppercase">Version</span><br/>
-                            <span className="text uppercase" id="version-number">{info.nodeVersion.version}</span>
-                        </span>
-                            </li>
-                            <li>
-                        <span className="navbar-cluster-info">
-                            <span className="uppercase">Environment</span><br/>
-                            <span className="text uppercase" id="environment">{info.environment}</span>
-                        </span>
-                            </li>
-                            <li>
-                        <span className="navbar-cluster-info">
-                            <span className="uppercase">Uptime</span><br/>
-                            <span data-toggle="tooltip" data-placement="bottom" title="Connection status">
-                            {this.renderStatusLight()}
-                             </span>
-                            &nbsp;
-                            <span className="text" id="uptime">{info.uptime}</span>
-                        </span>
-                            </li>
-                        </ul>
+                </nav>
+                <div id="no-connection-modal" className="modal" tabIndex="-1" role="dialog">
+                    <div className="modal-dialog modal-sm" role="document">
+                        <div className="modal-content">
+                            <div className="row error-message">
+                                <div className="col-xs-12">
+                                    <br />
+                                    <h4>Unable to connect to server</h4>
+                                    <p>{this.state.errorText ? "Error: " + this.state.errorText : null}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </nav>
+            </div>
         );
     }
 }
