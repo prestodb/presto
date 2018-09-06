@@ -57,6 +57,7 @@ public class StorageManagerConfig
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
     private boolean organizationEnabled = true;
+    private Duration organizationDiscoveryInterval = new Duration(6, TimeUnit.HOURS);
     private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
@@ -228,6 +229,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrganizationInterval(Duration organizationInterval)
     {
         this.organizationInterval = organizationInterval;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getOrganizationDiscoveryInterval()
+    {
+        return organizationDiscoveryInterval;
+    }
+
+    @Config("storage.organization-discovery-interval")
+    @ConfigDescription("How long to wait between discovering tables that need to be organized")
+    public StorageManagerConfig setOrganizationDiscoveryInterval(Duration organizationDiscoveryInterval)
+    {
+        this.organizationDiscoveryInterval = organizationDiscoveryInterval;
         return this;
     }
 

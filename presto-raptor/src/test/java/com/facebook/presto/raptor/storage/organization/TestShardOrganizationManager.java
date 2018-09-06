@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -201,6 +202,7 @@ public class TestShardOrganizationManager
                 createShardOrganizer(),
                 TEMPORAL_FUNCTION,
                 true,
-                new Duration(intervalMillis, MILLISECONDS));
+                new Duration(intervalMillis, MILLISECONDS),
+                new Duration(5, MINUTES));
     }
 }
