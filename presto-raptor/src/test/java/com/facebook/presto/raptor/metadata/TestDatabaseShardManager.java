@@ -409,6 +409,13 @@ public class TestDatabaseShardManager
         assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
         assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(newNodes));
+
+        Set<Node> singleNode = ImmutableSet.of(node1);
+        shardManager = createShardManager(dbi, () -> singleNode, ticker);
+        ticker.increment(2, DAYS);
+        assignments = shardManager.getBucketAssignments(distributionId);
+        assertEquals(assignments.size(), bucketCount);
+        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(singleNode));
     }
 
     @Test
