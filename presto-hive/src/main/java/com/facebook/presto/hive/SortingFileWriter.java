@@ -151,6 +151,12 @@ public class SortingFileWriter
     }
 
     @Override
+    public long getValidationCpuNanos()
+    {
+        return outputWriter.getValidationCpuNanos();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

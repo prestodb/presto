@@ -43,6 +43,17 @@ public interface ConnectorPageSink
     }
 
     /**
+     * ConnectorPageSink can provide optional validation to check
+     * the data is correctly consumed by connector (e.g. output table has the correct data).
+     * <p>
+     * This method returns the CPU spent on validation, if any.
+     */
+    default long getValidationCpuNanos()
+    {
+        return 0;
+    }
+
+    /**
      * Returns a future that will be completed when the page sink can accept
      * more pages.  If the page sink can accept more pages immediately,
      * this method should return {@code NOT_BLOCKED}.
