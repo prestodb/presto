@@ -164,6 +164,8 @@ public interface Block
 
     /**
      * Returns the logical size of this block in memory.
+     * This should provide an estimate of memory consumed if the block was compacted and should ignore
+     * any over-allocations.
      */
     long getSizeInBytes();
 
@@ -184,6 +186,7 @@ public interface Block
     /**
      * Returns the retained size of this block in memory.
      * This method is called from the inner most execution loop and must be fast.
+     * Estimates the actual memory consumed by the block including any over-allocations.
      */
     long getRetainedSizeInBytes();
 

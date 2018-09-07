@@ -414,7 +414,7 @@ public class OrcRecordReader
     {
         Block block = streamReaders[columnIndex].readBlock(type);
         if (block.getPositionCount() > 0) {
-            long bytesPerCell = block.getSizeInBytes() / block.getPositionCount();
+            long bytesPerCell = block.getUnoptimizedSizeInBytes() / block.getPositionCount();
             if (maxBytesPerCell[columnIndex] < bytesPerCell) {
                 maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[columnIndex] + bytesPerCell;
                 maxBytesPerCell[columnIndex] = bytesPerCell;

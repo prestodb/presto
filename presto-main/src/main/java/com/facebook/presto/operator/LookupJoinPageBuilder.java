@@ -179,7 +179,7 @@ public class LookupJoinPageBuilder
         for (int index : probe.getOutputChannels()) {
             Block block = probe.getPage().getBlock(index);
             // Estimate the size of the current row
-            estimatedProbeBlockBytes += block.getSizeInBytes() / block.getPositionCount();
+            estimatedProbeBlockBytes += block.getUnoptimizedSizeInBytes() / block.getPositionCount();
         }
     }
 }
