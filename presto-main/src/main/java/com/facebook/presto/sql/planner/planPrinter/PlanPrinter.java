@@ -104,6 +104,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -126,6 +127,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
@@ -474,6 +476,23 @@ public class PlanPrinter
         output.append(indentString(indent));
         output.append(format("Size of partition: std.dev.: %s", formatDouble(stats.getPartitionRowsStdDev())));
         output.append('\n');
+    }
+
+    private static String formatDoubleAsCpuCost(double value)
+    {
+        return formatDoubleAsDataSize(value).replaceAll("B$", "");
+    }
+
+    private static String formatDoubleAsDataSize(double value)
+    {
+        if (!isFinite(value)) {
+            return Double.toString(value);
+        }
+        else if (isNaN(value)) {
+            return "?";
+        }
+
+        return DataSize.succinctDataSize(value, BYTE).toString();
     }
 
     private static String formatDouble(double value)
@@ -1405,9 +1424,9 @@ public class PlanPrinter
             return format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputSymbols(), types)),
-                    formatDouble(cost.getCpuCost()),
-                    formatDouble(cost.getMemoryCost()),
-                    formatDouble(cost.getNetworkCost()));
+                    formatDoubleAsCpuCost(cost.getCpuCost()),
+                    formatDoubleAsDataSize(cost.getMemoryCost()),
+                    formatDoubleAsDataSize(cost.getNetworkCost()));
         }
     }
 
