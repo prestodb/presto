@@ -19,7 +19,6 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -73,7 +72,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -177,8 +175,6 @@ public final class TaskTestUtils
                 new SessionPropertyManager(),
                 metadata,
                 new QueryMonitorConfig(),
-                new ComposableStatsCalculator(ImmutableList.of()),
-                (node, stats, lookup, session, types) -> UNKNOWN_COST,
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true));
     }
