@@ -120,6 +120,7 @@
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
         <module>presto-kudu</module>
+        <module>presto-ranger-plugin</module>
     </modules>
 
     <dependencyManagement>
