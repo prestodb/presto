@@ -22,8 +22,7 @@ Cast to JSON
         SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
         SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
         SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
-        SELECT CAST(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[1, 23, 456]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
-        SELECT CAST(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[1, 23, 456]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
+        SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
         SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON); -- JSON '[123,"abc",true]'
 
 .. note::
