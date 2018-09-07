@@ -106,6 +106,7 @@ public final class SystemSessionProperties
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
+    public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -490,6 +491,11 @@ public final class SystemSessionProperties
                         STATISTICS_CPU_TIMER_ENABLED,
                         "Experimental: Enable cpu time tracking for automatic column statistics collection on write",
                         taskManagerConfig.isStatisticsCpuTimerEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_STATS_CALCULATOR,
+                        "Experimental: Enable statistics calculator",
+                        featuresConfig.isEnableStatsCalculator(),
                         false));
     }
 
@@ -811,5 +817,10 @@ public final class SystemSessionProperties
     public static boolean isStatisticsCpuTimerEnabled(Session session)
     {
         return session.getSystemProperty(STATISTICS_CPU_TIMER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isEnableStatsCalculator(Session session)
+    {
+        return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
     }
 }
