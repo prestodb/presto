@@ -225,8 +225,9 @@ public class QueryMonitor
                 }
             }
             catch (Exception e) {
-                // don't fail to create event if the plan can not be created
-                log.debug(e, "Error creating explain plan");
+                // Sometimes it is expected to fail. For example if generated plan is too long.
+                // Don't fail to create event if the plan can not be created.
+                log.warn(e, "Error creating explain plan");
             }
 
             eventListenerManager.queryCompleted(
