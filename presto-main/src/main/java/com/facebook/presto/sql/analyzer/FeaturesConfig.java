@@ -105,7 +105,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
-    private boolean enableNewStatsCalculator = true;
+    private boolean enableStatsCalculator = true;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -579,15 +579,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isEnableNewStatsCalculator()
+    public boolean isEnableStatsCalculator()
     {
-        return enableNewStatsCalculator;
+        return enableStatsCalculator;
     }
 
-    @Config("experimental.enable-new-stats-calculator")
-    public FeaturesConfig setEnableNewStatsCalculator(boolean enableNewStatsCalculator)
+    @Config("experimental.enable-stats-calculator")
+    public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
-        this.enableNewStatsCalculator = enableNewStatsCalculator;
+        this.enableStatsCalculator = enableStatsCalculator;
         return this;
     }
 
