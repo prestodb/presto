@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.S3SelectPushdown.shouldEnablePushdownForTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
@@ -529,14 +530,6 @@ public class BackgroundHiveSplitLoader
             return getHiveSchema(table);
         }
         return getHiveSchema(partition.get(), table);
-    }
-
-    private static String getPartitionLocation(Table table, Optional<Partition> partition)
-    {
-        if (!partition.isPresent()) {
-            return table.getStorage().getLocation();
-        }
-        return partition.get().getStorage().getLocation();
     }
 
     public static class BucketSplitInfo
