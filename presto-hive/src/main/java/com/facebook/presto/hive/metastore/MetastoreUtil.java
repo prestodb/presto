@@ -182,6 +182,14 @@ public class MetastoreUtil
         return FileUtils.makePartName(partitionColumnNames, values);
     }
 
+    public static String getPartitionLocation(Table table, Optional<Partition> partition)
+    {
+        if (!partition.isPresent()) {
+            return table.getStorage().getLocation();
+        }
+        return partition.get().getStorage().getLocation();
+    }
+
     private static String toThriftDdl(String structName, List<Column> columns)
     {
         // Mimics function in Hive:
