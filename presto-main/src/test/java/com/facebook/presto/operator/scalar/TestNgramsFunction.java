@@ -25,21 +25,32 @@ public class TestNgramsFunction
     @Test
     public void testNgrams()
     {
-        assertFunction("ngrams('foo bar baz', 2, ' ', ',')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo,bar", "bar,baz"));
-        assertFunction("ngrams('foo bar baz', 2, ' ')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar", "bar baz"));
-        assertFunction("ngrams('foo bar baz', 3, ' ')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar baz"));
-        assertFunction("ngrams('foo bar baz', 4, ' ')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar baz"));
-        assertFunction("ngrams('foo bar baz', 2, ' ')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar", "bar baz"));
-        assertFunction("ngrams('foo bar baz', 1, ' ')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo", "bar", "baz"));
-        assertFunction("ngrams('foo bar baz ', 1, ' ')", new ArrayType(createVarcharType(12)), ImmutableList.of("foo", "bar", "baz", ""));
+        assertFunction("ngrams('foo bar baz foo', 2)", new ArrayType(createVarcharType(15)), ImmutableList.of("foo bar", "bar baz", "baz foo"));
+        assertFunction("ngrams('foo bar baz foo', 3)", new ArrayType(createVarcharType(15)), ImmutableList.of("foo bar baz", "bar baz foo"));
+        assertFunction("ngrams('foo bar baz', 2)", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar", "bar baz"));
+        assertFunction("ngrams('foo bar baz', 3)", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar baz"));
+        assertFunction("ngrams('foo bar baz', 4)", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar baz"));
+        assertFunction("ngrams('foo bar baz', 2)", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar", "bar baz"));
+        assertFunction("ngrams('foo bar baz', 1)", new ArrayType(createVarcharType(11)), ImmutableList.of("foo", "bar", "baz"));
+        assertFunction("ngrams('foo bar baz ', 2)", new ArrayType(createVarcharType(12)), ImmutableList.of("foo bar", "bar baz", "baz "));
+        assertFunction("ngrams('foo bar baz  ', 2)", new ArrayType(createVarcharType(13)), ImmutableList.of("foo bar", "bar baz", "baz ", " "));
+        assertFunction("ngrams('foo bar baz ', 1)", new ArrayType(createVarcharType(12)), ImmutableList.of("foo", "bar", "baz", ""));
 
-        // Test split for non-ASCII
+        assertFunction("ngrams('foo&bar&baz&foo', 3, '&')", new ArrayType(createVarcharType(15)), ImmutableList.of("foo&bar&baz", "bar&baz&foo"));
+        assertFunction("ngrams('foo/bar/foo', 2, '/')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo/bar", "bar/foo"));
+
+        assertFunction("ngrams('foo&bar&baz&foo', 3, '&', ' ')", new ArrayType(createVarcharType(15)), ImmutableList.of("foo bar baz", "bar baz foo"));
+        assertFunction("ngrams('foo bar baz', 2, ' ', ',')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo,bar", "bar,baz"));
+        assertFunction("ngrams('foo bar baz', 2, ' ', ' ')", new ArrayType(createVarcharType(11)), ImmutableList.of("foo bar", "bar baz"));
+
+        // Test ngram for non-ASCII
         assertFunction("ngrams('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 2, ',', '')", new ArrayType(createVarcharType(7)), ImmutableList.of("\u4FE1\u5FF5\u7231", "\u7231\u5E0C\u671B"));
         assertFunction("ngrams('\u8B49\u8BC1\u8A3C\u8BC1\u7231', 2, '\u8BC1', '')", new ArrayType(createVarcharType(5)), ImmutableList.of("\u8B49\u8A3C", "\u8A3C\u7231"));
 
         // Test delimiter is empty
         assertFunction("ngrams('foo', 1, '', '')", new ArrayType(createVarcharType(3)), ImmutableList.of("f", "o", "o"));
         assertFunction("ngrams('foobar', 4, '', '')", new ArrayType(createVarcharType(6)), ImmutableList.of("foob", "ooba", "obar"));
+        assertFunction("ngrams('foobar', 4, '', '|')", new ArrayType(createVarcharType(6)), ImmutableList.of("f|o|o|b", "o|o|b|a", "o|b|a|r"));
 
         assertInvalidFunction("ngrams('foo', 0)", "N must be positive");
         assertInvalidFunction("ngrams('foo', -1)", "N must be positive");

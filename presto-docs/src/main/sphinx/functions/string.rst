@@ -163,6 +163,19 @@ String Functions
 
     Returns the stem of ``word`` in the ``lang`` language.
 
+.. function:: ngrams(string, n) -> array<varchar>
+
+    Return ``n``-grams for the ``string`` splitted by empty string ' '
+
+.. function:: ngrams(string, n, delimiter) -> array<varchar>
+
+    Return ``n``-grams for the ``string`` splitted by ``delimiter``
+
+.. function:: ngrams(string, n, delimiter, glue) -> array<varchar>
+
+    Return ``n``-grams for the ``string`` splitted by ``delimiter`` and concat by ``glue``
+
+
 Unicode Functions
 -----------------
 

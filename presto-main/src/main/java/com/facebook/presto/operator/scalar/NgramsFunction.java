@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -21,44 +20,18 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.tartarus.snowball.SnowballProgram;
-import org.tartarus.snowball.ext.ArmenianStemmer;
-import org.tartarus.snowball.ext.BasqueStemmer;
-import org.tartarus.snowball.ext.CatalanStemmer;
-import org.tartarus.snowball.ext.DanishStemmer;
-import org.tartarus.snowball.ext.DutchStemmer;
-import org.tartarus.snowball.ext.EnglishStemmer;
-import org.tartarus.snowball.ext.FinnishStemmer;
-import org.tartarus.snowball.ext.FrenchStemmer;
-import org.tartarus.snowball.ext.German2Stemmer;
-import org.tartarus.snowball.ext.HungarianStemmer;
-import org.tartarus.snowball.ext.IrishStemmer;
-import org.tartarus.snowball.ext.ItalianStemmer;
-import org.tartarus.snowball.ext.LithuanianStemmer;
-import org.tartarus.snowball.ext.NorwegianStemmer;
-import org.tartarus.snowball.ext.PortugueseStemmer;
-import org.tartarus.snowball.ext.RomanianStemmer;
-import org.tartarus.snowball.ext.RussianStemmer;
-import org.tartarus.snowball.ext.SpanishStemmer;
-import org.tartarus.snowball.ext.SwedishStemmer;
-import org.tartarus.snowball.ext.TurkishStemmer;
-
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Queue;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static io.airlift.slice.Slices.utf8Slice;
 
 
-@Description("Return N-grams of the string")
+@Description("Return N-grams for the string")
 public final class NgramsFunction
 {
     private NgramsFunction() {}
@@ -68,7 +41,7 @@ public final class NgramsFunction
     @SqlType("array(varchar(x))")
     public static Block ngrams(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.BIGINT) long n)
     {
-        return ngrams(string, n, Slices.utf8Slice(""), Slices.utf8Slice(""));
+        return ngrams(string, n, Slices.utf8Slice(" "), Slices.utf8Slice(" "));
     }
 
     @ScalarFunction
@@ -87,7 +60,7 @@ public final class NgramsFunction
         checkCondition(n > 0, INVALID_FUNCTION_ARGUMENT, "N must be positive");
         checkCondition(n <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "N is too large");
         BlockBuilder parts = VARCHAR.createBlockBuilder(null, (int) n, string.length());
-        Queue<Slice> queue = new LinkedList<Slice>();
+        Queue<Slice> queue = new LinkedList<>();
         int index = 0;
         // Track the sum of slices' length in the queue
         int curSlicesLen = 0;
