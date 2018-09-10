@@ -17,12 +17,17 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.google.common.collect.ImmutableSet;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.Util.domainsMatch;
@@ -36,12 +41,14 @@ final class TableScanMatcher
     private final String expectedTableName;
     private final Optional<Map<String, Domain>> expectedConstraint;
     private final Optional<Boolean> hasTableLayout;
+    private final Optional<Set<ColumnHandle>> expectedColumnHandles;
 
-    private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Boolean> hasTableLayout)
+    private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Boolean> hasTableLayout, Optional<Set<ColumnHandle>> expectedColumnHandles)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
         this.expectedConstraint = requireNonNull(expectedConstraint, "expectedConstraint is null");
         this.hasTableLayout = requireNonNull(hasTableLayout, "hasTableLayout is null");
+        this.expectedColumnHandles = requireNonNull(expectedColumnHandles, "expectedColumnHandles is null");
     }
 
     @Override
@@ -62,12 +69,19 @@ final class TableScanMatcher
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
                         ((!expectedConstraint.isPresent()) ||
                                 domainsMatch(expectedConstraint, tableScanNode.getCurrentConstraint(), tableScanNode.getTable(), session, metadata)) &&
-                        hasTableLayout(tableScanNode));
+                        hasTableLayout(tableScanNode) &&
+                        ((!expectedColumnHandles.isPresent()) ||
+                                expectedColumnHandles.get().equals(ImmutableSet.copyOf(tableScanNode.getAssignments().values()))));
     }
 
     private boolean hasTableLayout(TableScanNode tableScanNode)
     {
         return !hasTableLayout.isPresent() || hasTableLayout.get() == tableScanNode.getLayout().isPresent();
+    }
+
+    public static Function<PlanNode, Collection<ColumnHandle>> actualColumnHandles()
+    {
+        return node -> ((TableScanNode) node).getAssignments().values();
     }
 
     @Override
@@ -78,6 +92,7 @@ final class TableScanMatcher
                 .add("expectedTableName", expectedTableName)
                 .add("expectedConstraint", expectedConstraint.orElse(null))
                 .add("hasTableLayout", hasTableLayout.orElse(null))
+                .add("expectedColumnHandles", expectedColumnHandles.orElse(null))
                 .toString();
     }
 
@@ -91,11 +106,19 @@ final class TableScanMatcher
         return builder(expectedTableName).build();
     }
 
+    public static PlanMatchPattern create(String expectedTableName, Collection<? extends ColumnHandle> columnHandles)
+    {
+        return builder(expectedTableName)
+                .expectedColumnHandles(columnHandles)
+                .build();
+    }
+
     public static class Builder
     {
         private final String expectedTableName;
         private Optional<Map<String, Domain>> expectedConstraint = Optional.empty();
         private Optional<Boolean> hasTableLayout = Optional.empty();
+        private Optional<Set<ColumnHandle>> expectedColumnHandles = Optional.empty();
 
         private Builder(String expectedTableName)
         {
@@ -114,13 +137,20 @@ final class TableScanMatcher
             return this;
         }
 
+        public Builder expectedColumnHandles(Collection<? extends ColumnHandle> expectedColumnHandles)
+        {
+            this.expectedColumnHandles = Optional.of(ImmutableSet.copyOf(expectedColumnHandles));
+            return this;
+        }
+
         PlanMatchPattern build()
         {
             PlanMatchPattern result = node(TableScanNode.class).with(
                     new TableScanMatcher(
                             expectedTableName,
                             expectedConstraint,
-                            hasTableLayout));
+                            hasTableLayout,
+                            expectedColumnHandles));
             return result;
         }
     }

@@ -20,16 +20,19 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMatcher
@@ -42,6 +45,12 @@ public class ExpressionMatcher
     {
         this.sql = requireNonNull(expression);
         this.expression = expression(requireNonNull(expression));
+    }
+
+    public ExpressionMatcher(Expression expression)
+    {
+        this.sql = requireNonNull(expression.toString());
+        this.expression = requireNonNull(expression);
     }
 
     private Expression expression(String sql)
@@ -85,6 +94,10 @@ public class ExpressionMatcher
         else if (node instanceof ApplyNode) {
             ApplyNode applyNode = (ApplyNode) node;
             return applyNode.getSubqueryAssignments().getMap();
+        }
+        else if (node instanceof TableScanNode) {
+            TableScanNode tableScanNode = (TableScanNode) node;
+            return tableScanNode.getAssignments().keySet().stream().collect(toImmutableMap(Function.identity(), Symbol::toSymbolReference));
         }
         else {
             return null;

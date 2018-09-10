@@ -211,6 +211,12 @@ public final class SymbolAliases
                 return this;
             }
 
+            // allow to rebind with a narrowed SymbolReference
+            if (bindings.containsKey(alias) && bindings.get(alias).contains(symbolReference)) {
+                bindings.put(alias, symbolReference);
+                return this;
+            }
+
             checkState(!bindings.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, bindings.get(alias), symbolReference);
             bindings.put(alias, symbolReference);
             return this;

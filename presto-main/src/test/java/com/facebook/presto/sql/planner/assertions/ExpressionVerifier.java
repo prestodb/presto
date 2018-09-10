@@ -21,10 +21,12 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -308,12 +310,30 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitIdentifier(Identifier actual, Node expected)
+    {
+        if (!(expected instanceof Identifier)) {
+            return false;
+        }
+        return actual.getValue().equals(((Identifier) expected).getValue());
+    }
+
+    @Override
+    protected Boolean visitDereferenceExpression(DereferenceExpression actual, Node expected)
+    {
+        if (!(expected instanceof DereferenceExpression)) {
+            return false;
+        }
+        return process(actual.getBase(), ((DereferenceExpression) expected).getBase()) && process(actual.getField(), ((DereferenceExpression) expected).getField());
+    }
+
+    @Override
     protected Boolean visitSymbolReference(SymbolReference actual, Node expected)
     {
         if (!(expected instanceof SymbolReference)) {
             return false;
         }
-        return symbolAliases.get(((SymbolReference) expected).getName()).equals(actual);
+        return actual.equals(expected) || symbolAliases.get(((SymbolReference) expected).getName()).equals(actual);
     }
 
     @Override

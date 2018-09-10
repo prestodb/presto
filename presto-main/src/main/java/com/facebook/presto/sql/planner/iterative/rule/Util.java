@@ -25,12 +25,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 class Util
 {
@@ -55,6 +58,26 @@ class Util
         return Optional.of(prunedInputs);
     }
 
+    public static Optional<Set<Symbol>> pruneNestedFields(Collection<Symbol> availableInputs, Collection<Expression> expressions)
+    {
+        Set<Symbol> availableInputsSet = ImmutableSet.copyOf(availableInputs);
+        Map<String, Symbol> expressionInputsMap = SymbolsExtractor.extractUniqueWithFields(expressions);
+
+        Set<Symbol> prunedInputs = availableInputsSet.stream()
+                .filter(symbol -> expressionInputsMap.containsKey(symbol.getName()))
+                .collect(toImmutableSet());
+
+        if (prunedInputs.stream().allMatch(symbol -> expressionInputsMap.get(symbol.getName()).getFields().equals(symbol.getFields()))) {
+            return Optional.empty();
+        }
+
+        Set<Symbol> fieldPrunedInputs = prunedInputs.stream()
+                .map(symbol -> expressionInputsMap.getOrDefault(symbol.getName(), symbol))
+                .collect(toImmutableSet());
+
+        return Optional.of(fieldPrunedInputs);
+    }
+
     /**
      * Transforms a plan like P->C->X to C->P->X
      */
@@ -70,13 +93,19 @@ class Util
      */
     public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol> permittedOutputs)
     {
-        List<Symbol> restrictedOutputs = node.getOutputSymbols().stream()
-                .filter(permittedOutputs::contains)
-                .collect(toImmutableList());
+        Map<String, Symbol> permittedOutputsMap = new HashMap<>();
+        permittedOutputs.forEach(symbol -> permittedOutputsMap.put(symbol.getName(), symbol));
 
-        if (restrictedOutputs.size() == node.getOutputSymbols().size()) {
+        if (node.getOutputSymbols().stream().allMatch(symbol ->
+                permittedOutputsMap.containsKey(symbol.getName())
+                        && permittedOutputsMap.get(symbol.getName()).getFields().equals(symbol.getFields()))) {
             return Optional.empty();
         }
+
+        List<Symbol> restrictedOutputs = node.getOutputSymbols().stream()
+                .filter(symbol -> permittedOutputsMap.containsKey(symbol.getName()))
+                .map(symbol -> permittedOutputsMap.get(symbol.getName()))
+                .collect(toImmutableList());
 
         return Optional.of(
                 new ProjectNode(

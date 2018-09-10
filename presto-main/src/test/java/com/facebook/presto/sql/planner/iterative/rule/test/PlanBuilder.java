@@ -677,7 +677,12 @@ public class PlanBuilder
 
     public Symbol symbol(String name, Type type)
     {
-        Symbol symbol = new Symbol(name);
+        return symbol(name, type, ImmutableSet.of());
+    }
+
+    public Symbol symbol(String name, Type type, Set<String> fields)
+    {
+        Symbol symbol = new Symbol(name, fields);
 
         Type old = symbols.put(symbol, type);
         if (old != null && !old.equals(type)) {

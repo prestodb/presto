@@ -24,9 +24,12 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
@@ -107,6 +110,31 @@ public final class SymbolsExtractor
                 .collect(toImmutableSet());
     }
 
+    public static Map<String, Symbol> extractUniqueWithFields(Iterable<? extends Expression> expressions)
+    {
+        Map<String, Symbol> symbolMap = new HashMap<>();
+        for (Expression expression : expressions) {
+            extractAllWithFields(expression).forEach(symbol -> {
+                String name = symbol.getName();
+                if (symbolMap.containsKey(name)) {
+                    symbolMap.put(name, Symbol.merge(symbolMap.get(name), symbol));
+                }
+                else {
+                    symbolMap.put(name, symbol);
+                }
+            });
+        }
+
+        return ImmutableMap.copyOf(symbolMap);
+    }
+
+    public static List<Symbol> extractAllWithFields(Expression expression)
+    {
+        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
+        new SymbolWithFieldsBuilderVisitor().process(expression, builder);
+        return builder.build();
+    }
+
     private static class SymbolBuilderVisitor
             extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
     {
@@ -144,6 +172,29 @@ public final class SymbolsExtractor
         protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
         {
             builder.add(QualifiedName.of(node.getValue()));
+            return null;
+        }
+    }
+
+    private static class SymbolWithFieldsBuilderVisitor
+            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
+    {
+        @Override
+        protected Void visitDereferenceExpression(DereferenceExpression expression, ImmutableList.Builder<Symbol> builder)
+        {
+            if (expression.getBase() instanceof SymbolReference) {
+                builder.add(Symbol.withField(expression));
+            }
+            else {
+                process(expression.getBase(), builder);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
+        {
+            builder.add(Symbol.withAllFields(node));
             return null;
         }
     }
