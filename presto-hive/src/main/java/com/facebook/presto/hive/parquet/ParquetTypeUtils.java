@@ -26,6 +26,8 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
 import parquet.io.ColumnIO;
@@ -40,13 +42,16 @@ import parquet.schema.MessageType;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Optional.empty;
 import static parquet.schema.OriginalType.DECIMAL;
 import static parquet.schema.Type.Repetition.REPEATED;
@@ -212,6 +217,59 @@ public final class ParquetTypeUtils
             }
             return -1;
         }
+    }
+
+    public static parquet.schema.Type getPrunedParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames, boolean pruneNestedFields)
+    {
+        parquet.schema.Type originalType = getParquetType(column, messageType, useParquetColumnNames);
+        if (pruneNestedFields && column.getFieldSet().isPresent()) {
+            return pruneParquetType(originalType, column.getFieldSet().get());
+        }
+
+        return originalType;
+    }
+
+    private static parquet.schema.Type pruneParquetType(parquet.schema.Type type, Set<String> requiredFields)
+    {
+        if (requiredFields.isEmpty()) {
+            return type;
+        }
+
+        if (type.isPrimitive()) {
+            return type;
+        }
+
+        Map<String, Set<String>> fields = groupFields(requiredFields);
+
+        List<parquet.schema.Type> newFields = fields.entrySet().stream()
+                .map(entry -> pruneParquetType(type.asGroupType().getType(entry.getKey()), entry.getValue()))
+                .collect(toImmutableList());
+
+        return type.asGroupType().withNewFields(newFields);
+    }
+
+    private static Map<String, Set<String>> groupFields(Set<String> requiredFields)
+    {
+        Map<String, Set<String>> fields = new HashMap<>();
+        for (String field : requiredFields) {
+            String[] path = field.split("\\.", 2);
+            String fieldName = path[0];
+            if (fields.containsKey(fieldName) && fields.get(fieldName).isEmpty()) {
+                continue;
+            }
+            Set<String> nestedField = path.length == 1 ? ImmutableSet.of() : ImmutableSet.of(path[1]);
+            if (fields.containsKey(fieldName) && nestedField.isEmpty()) {
+                fields.get(fieldName).clear();
+            }
+            else if (fields.containsKey(fieldName)) {
+                fields.get(fieldName).addAll(nestedField);
+            }
+            else {
+                fields.put(fieldName, new HashSet<>(nestedField));
+            }
+        }
+
+        return ImmutableMap.copyOf(fields);
     }
 
     public static parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)

@@ -54,6 +54,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.isParquetNestedFieldsProjectionPushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -61,7 +62,7 @@ import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptors;
-import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getPrunedParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
@@ -123,6 +124,7 @@ public class ParquetPageSourceFactory
                 schema,
                 columns,
                 isUseParquetColumnNames(session),
+                isParquetNestedFieldsProjectionPushdownEnabled(session),
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate,
@@ -140,6 +142,7 @@ public class ParquetPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
+            boolean pruneNestedFields,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -158,7 +161,7 @@ public class ParquetPageSourceFactory
 
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))
+                    .map(column -> getPrunedParquetType(column, fileSchema, useParquetColumnNames, pruneNestedFields))
                     .filter(Objects::nonNull)
                     .collect(toList());
 
