@@ -13,11 +13,23 @@
  */
 package com.facebook.presto.sql.query;
 
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
+import static org.testng.Assert.assertFalse;
+
 public class TestFilteredAggregations
+        extends BasePlanTest
 {
     private QueryAssertions assertions;
 
@@ -32,6 +44,22 @@ public class TestFilteredAggregations
     {
         assertions.close();
         assertions = null;
+    }
+
+    @Test
+    public void testAddPredicateForFilterClauses()
+    {
+        assertions.assertQuery(
+                "SELECT sum(x) FILTER(WHERE x > 0) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)",
+                "VALUES (BIGINT '10')");
+
+        assertions.assertQuery(
+                "SELECT sum(x) FILTER(WHERE x > 0), sum(x) FILTER(WHERE x < 3) FROM (VALUES 1, 1, 0, 5, 3, 8) t(x)",
+                "VALUES (BIGINT '18', BIGINT '2')");
+
+        assertions.assertQuery(
+                "SELECT sum(x) FILTER(WHERE x > 1), sum(x) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)",
+                "VALUES (BIGINT '8', BIGINT '10')");
     }
 
     @Test
@@ -85,5 +113,49 @@ public class TestFilteredAggregations
                         "(1, BIGINT '2', BIGINT '1'), " +
                         "(2, BIGINT '4', BIGINT '1'), " +
                         "(CAST(NULL AS INTEGER), BIGINT '5', BIGINT '2')");
+    }
+
+    @Test
+    public void rewriteAddFilterWithMultipleFilters()
+    {
+        assertPlan(
+                "SELECT sum(totalprice) FILTER(WHERE totalprice > 0), sum(custkey) FILTER(WHERE custkey > 0) FROM orders",
+                anyTree(
+                        filter(
+                                "(\"totalprice\" > 0E0 OR \"custkey\" > BIGINT '0')",
+                                tableScan(
+                                        "orders", ImmutableMap.of("totalprice", "totalprice",
+                                                "custkey", "custkey")))));
+    }
+
+    @Test
+    public void testDoNotPushdownPredicateIfNonFilteredAggregateIsPresent()
+    {
+        assertPlanContainsNoFilter("SELECT sum(totalprice) FILTER(WHERE totalprice > 0), sum(custkey) FROM orders");
+    }
+
+    @Test
+    public void testPushDownConstantFilterPredicate()
+    {
+        assertPlanContainsNoFilter("SELECT sum(totalprice) FILTER(WHERE FALSE) FROM orders");
+
+        assertPlanContainsNoFilter("SELECT sum(totalprice) FILTER(WHERE TRUE) FROM orders");
+    }
+
+    @Test
+    public void testNoFilterAddedForConstantValueFilters()
+    {
+        assertPlanContainsNoFilter("SELECT sum(x) FILTER(WHERE x > 0) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x) GROUP BY x");
+
+        assertPlanContainsNoFilter("SELECT sum(totalprice) FILTER(WHERE totalprice > 0) FROM orders GROUP BY totalprice");
+    }
+
+    private void assertPlanContainsNoFilter(String sql)
+    {
+        assertFalse(
+                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                        .where(isInstanceOfAny(FilterNode.class))
+                        .matches(),
+                "Unexpected node for query: " + sql);
     }
 }
