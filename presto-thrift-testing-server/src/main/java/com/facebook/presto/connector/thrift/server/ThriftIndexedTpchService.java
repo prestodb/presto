@@ -96,8 +96,12 @@ public class ThriftIndexedTpchService
                 schemaNameToScaleFactor(splitInfo.getSchemaName()),
                 ImmutableSet.copyOf(splitInfo.getLookupColumnNames()))
                 .orElseThrow(() -> new IllegalArgumentException(String.format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
-        List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
-        RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);
+        ImmutableList.Builder<List<String>> keyBuilder = ImmutableList.builder();
+        for (String column : indexedTable.getKeyColumns()) {
+            keyBuilder.add(splitInfo.getKeys().get(splitInfo.getLookupColumnNames().indexOf(column)));
+        }
+        List<Type> lookupColumnTypes = types(splitInfo.getTableName(), indexedTable.getKeyColumns());
+        RecordSet keyRecordSet = new ListBasedRecordSet(keyBuilder.build(), lookupColumnTypes);
         RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames);
         return new RecordPageSource(outputRecordSet);
     }
