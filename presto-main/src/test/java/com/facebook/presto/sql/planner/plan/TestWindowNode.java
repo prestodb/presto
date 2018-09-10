@@ -67,6 +67,8 @@ public class TestWindowNode
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new Serialization.ExpressionDeserializer(sqlParser),
                 FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser)));
+        provider.setKeySerializers(ImmutableMap.of(Symbol.class, new Symbol.SymbolKeySerializer()));
+        provider.setKeyDeserializers(ImmutableMap.of(Symbol.class, new Symbol.SymbolKeyDeserializer()));
         objectMapper = provider.get();
     }
 

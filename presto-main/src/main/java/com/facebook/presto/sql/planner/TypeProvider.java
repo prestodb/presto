@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +52,15 @@ public class TypeProvider
         requireNonNull(symbol, "symbol is null");
 
         Type type = types.get(symbol);
+        if (type == null) {
+            Optional<Type> alternative = types.entrySet().stream()
+                    .filter(e -> e.getKey().getName().equals(symbol.getName()))
+                    .findAny()
+                    .map(Map.Entry::getValue);
+            if (alternative.isPresent()) {
+                type = alternative.get();
+            }
+        }
         checkArgument(type != null, "no type found found for symbol '%s'", symbol);
 
         return type;

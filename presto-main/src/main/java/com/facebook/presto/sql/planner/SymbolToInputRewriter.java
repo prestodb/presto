@@ -23,17 +23,22 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolToInputRewriter
 {
     private final Map<Symbol, Integer> symbolToChannelMapping;
+    private final Map<String, Symbol> nameToSymbolMapping;
 
     public SymbolToInputRewriter(Map<Symbol, Integer> symbolToChannelMapping)
     {
         requireNonNull(symbolToChannelMapping, "symbolToChannelMapping is null");
         this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
+        this.nameToSymbolMapping = symbolToChannelMapping.keySet().stream()
+                .collect(toImmutableMap(Symbol::getName, Function.identity()));
     }
 
     public Expression rewrite(Expression expression)
@@ -44,6 +49,9 @@ public class SymbolToInputRewriter
             public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
             {
                 Integer channel = symbolToChannelMapping.get(Symbol.from(node));
+                if (channel == null) {
+                    channel = symbolToChannelMapping.get(nameToSymbolMapping.get(node.getName()));
+                }
                 if (channel == null) {
                     Preconditions.checkArgument(context.isInLambda(), "Cannot resolve symbol %s", node.getName());
                     return node;

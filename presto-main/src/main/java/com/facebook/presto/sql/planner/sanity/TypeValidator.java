@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.Symbol.from;
+import static com.facebook.presto.sql.planner.Symbol.withEmptyFields;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
@@ -110,10 +112,11 @@ public final class TypeValidator
             visitPlan(node, context);
 
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                Type expectedType = types.get(entry.getKey());
+                Type expectedType = getType(entry.getKey());
                 if (entry.getValue() instanceof SymbolReference) {
                     SymbolReference symbolReference = (SymbolReference) entry.getValue();
-                    verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
+                    Type actualType = getType(from(symbolReference));
+                    verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
                     continue;
                 }
                 Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /* parameters already replaced */);
@@ -132,9 +135,9 @@ public final class TypeValidator
             ListMultimap<Symbol, Symbol> symbolMapping = node.getSymbolMapping();
             for (Symbol keySymbol : symbolMapping.keySet()) {
                 List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
-                Type expectedType = types.get(keySymbol);
+                Type expectedType = getType(keySymbol);
                 for (Symbol valueSymbol : valueSymbols) {
-                    verifyTypeSignature(keySymbol, expectedType.getTypeSignature(), types.get(valueSymbol).getTypeSignature());
+                    verifyTypeSignature(keySymbol, expectedType.getTypeSignature(), getType(valueSymbol).getTypeSignature());
                 }
             }
 
@@ -154,14 +157,14 @@ public final class TypeValidator
 
         private void checkSignature(Symbol symbol, Signature signature)
         {
-            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
+            TypeSignature expectedTypeSignature = getType(symbol).getTypeSignature();
             TypeSignature actualTypeSignature = signature.getReturnType();
             verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
         }
 
         private void checkCall(Symbol symbol, FunctionCall call)
         {
-            Type expectedType = types.get(symbol);
+            Type expectedType = getType(symbol);
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */);
             Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
@@ -188,6 +191,16 @@ public final class TypeValidator
             if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
                 checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
             }
+        }
+
+        private Type getType(Symbol symbol)
+        {
+            Type type = types.get(symbol);
+            if (type == null) {
+                type = types.get(withEmptyFields(symbol));
+            }
+
+            return type;
         }
     }
 }

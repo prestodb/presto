@@ -130,6 +130,7 @@ import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.Symbol.withEmptyFields;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -1312,7 +1313,17 @@ public class PlanPrinter
 
         private String formatOutputs(Iterable<Symbol> symbols)
         {
-            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input).getDisplayName()));
+            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + getType(input).getDisplayName()));
+        }
+
+        private Type getType(Symbol symbol)
+        {
+            Type type = types.get(symbol);
+            if (type == null) {
+                type = types.get(withEmptyFields(symbol));
+            }
+
+            return type;
         }
 
         private void printConstraint(int indent, ColumnHandle column, TupleDomain<ColumnHandle> constraint)

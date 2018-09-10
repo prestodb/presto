@@ -38,6 +38,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingSplit;
@@ -237,6 +238,8 @@ public class TestHttpRemoteTask
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
+                        jsonBinder(binder).addKeySerializerBinding(Symbol.class).to(Symbol.SymbolKeySerializer.class);
+                        jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(Symbol.SymbolKeyDeserializer.class);
                     }
 
                     @Provides

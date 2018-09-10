@@ -14,25 +14,41 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public class SymbolReference
         extends Expression
 {
     private final String name;
+    private final Set<String> fields;
 
     public SymbolReference(String name)
     {
         super(Optional.empty());
         this.name = name;
+        this.fields = ImmutableSet.of();
+    }
+
+    public SymbolReference(String name, Set<String> fields)
+    {
+        super(Optional.empty());
+        this.name = name;
+        this.fields = ImmutableSet.copyOf(fields);
     }
 
     public String getName()
     {
         return name;
+    }
+
+    public Set<String> getFields()
+    {
+        return fields;
     }
 
     @Override
@@ -57,12 +73,29 @@ public class SymbolReference
             return false;
         }
         SymbolReference that = (SymbolReference) o;
-        return Objects.equals(name, that.name);
+        return Objects.equals(name, that.name) && Objects.equals(fields, that.fields);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name);
+        return Objects.hash(name, fields);
+    }
+
+    public boolean contains(SymbolReference o)
+    {
+        if (!this.getName().equals(o.getName())) {
+            return false;
+        }
+
+        if (this.getFields().isEmpty()) {
+            return true;
+        }
+
+        if (o.getFields().isEmpty()) {
+            return false;
+        }
+
+        return this.getFields().containsAll(o.getFields());
     }
 }

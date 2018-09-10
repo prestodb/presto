@@ -123,6 +123,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.transaction.NoOpTransactionManager;
@@ -411,6 +412,8 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+        jsonBinder(binder).addKeySerializerBinding(Symbol.class).to(Symbol.SymbolKeySerializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(Symbol.SymbolKeyDeserializer.class);
 
         // query monitor
         configBinder(binder).bindConfig(QueryMonitorConfig.class);

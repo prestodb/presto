@@ -18,13 +18,16 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class LookupSymbolResolver
         implements SymbolResolver
 {
+    private final Map<String, Symbol> assignmentSymbolLookup;
     private final Map<Symbol, ColumnHandle> assignments;
     private final Map<ColumnHandle, NullableValue> bindings;
 
@@ -33,6 +36,8 @@ public class LookupSymbolResolver
         requireNonNull(assignments, "assignments is null");
         requireNonNull(bindings, "bindings is null");
 
+        this.assignmentSymbolLookup = assignments.keySet().stream()
+                .collect(toImmutableMap(Symbol::getName, Function.identity()));
         this.assignments = ImmutableMap.copyOf(assignments);
         this.bindings = ImmutableMap.copyOf(bindings);
     }
@@ -40,11 +45,13 @@ public class LookupSymbolResolver
     @Override
     public Object getValue(Symbol symbol)
     {
-        ColumnHandle column = assignments.get(symbol);
+        Symbol assignmentSymbol = assignmentSymbolLookup.get(symbol.getName());
+        checkArgument(assignmentSymbol != null, "Missing column assignment for %s", symbol.getName());
+        ColumnHandle column = assignments.get(assignmentSymbol);
         checkArgument(column != null, "Missing column assignment for %s", symbol);
 
         if (!bindings.containsKey(column)) {
-            return symbol.toSymbolReference();
+            return assignmentSymbol.toSymbolReference();
         }
 
         return bindings.get(column).getValue();

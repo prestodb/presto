@@ -23,6 +23,7 @@ import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -39,14 +40,15 @@ import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -55,13 +57,13 @@ import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutpu
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
+import static com.facebook.presto.sql.planner.Symbol.withEmptyFields;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -164,13 +166,30 @@ public class PlanFragmenter
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    Maps.filterKeys(types.allTypes(), in(dependencies)),
+                    typeMapper(dependencies),
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     StageExecutionStrategy.ungroupedExecution());
 
             return new SubPlan(fragment, properties.getChildren());
+        }
+
+        private Map<Symbol, Type> typeMapper(Set<Symbol> dependencies)
+        {
+            Map<Symbol, Type> typeMap = types.allTypes();
+            ImmutableMap.Builder<Symbol, Type> builder = ImmutableMap.builder();
+            for (Symbol symbol : dependencies) {
+                if (typeMap.containsKey(symbol)) {
+                    builder.put(symbol, types.get(symbol));
+                    continue;
+                }
+                Symbol alternativeSymbol = withEmptyFields(symbol);
+                if (typeMap.containsKey(alternativeSymbol)) {
+                    builder.put(symbol, types.get(alternativeSymbol));
+                }
+            }
+            return builder.build();
         }
 
         @Override
