@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -29,7 +30,6 @@ import java.util.Queue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
-
 
 @Description("Return N-grams for the string")
 public final class NgramsFunction
@@ -78,7 +78,7 @@ public final class NgramsFunction
                 break;
             }
             // Add the slice to the queue and increase the curSlicesLen
-            queue.add(string.slice(index,splitIndex - index));
+            queue.add(string.slice(index, splitIndex - index));
             curSlicesLen += splitIndex - index;
             if (queue.size() == n) {
                 Slice slice = mergeSlices(queue, glue, curSlicesLen);
@@ -97,11 +97,12 @@ public final class NgramsFunction
         return parts.build();
     }
 
-    private static Slice mergeSlices(Queue<Slice> queue, Slice glue, int curSlicesLen) {
-        Slice slice = Slices.allocate(curSlicesLen + glue.length() * (queue.size() - 1)) ;
+    private static Slice mergeSlices(Queue<Slice> queue, Slice glue, int curSlicesLen)
+    {
+        Slice slice = Slices.allocate(curSlicesLen + glue.length() * (queue.size() - 1));
         Iterator<Slice> iterator = queue.iterator();
         int index = 0;
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             Slice s = iterator.next();
             slice.setBytes(index, s);
             index += s.length();
@@ -112,5 +113,4 @@ public final class NgramsFunction
         }
         return slice;
     }
-
 }
