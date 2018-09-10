@@ -356,6 +356,7 @@ public class HivePageSourceProvider
                         }
                         return new HiveColumnHandle(
                                 columnHandle.getName(),
+                                columnHandle.getFieldSet(),
                                 columnMapping.getCoercionFrom().get(),
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),
                                 columnHandle.getHiveColumnIndex(),

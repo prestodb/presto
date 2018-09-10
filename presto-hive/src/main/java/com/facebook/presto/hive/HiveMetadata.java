@@ -115,6 +115,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.withFieldSet;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
@@ -1473,18 +1474,42 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
 
+        HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle(
+                handle.getSchemaTableName(),
+                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
+                getPartitionsAsList(hivePartitionResult),
+                hivePartitionResult.getCompactEffectivePredicate(),
+                hivePartitionResult.getEnforcedConstraint(),
+                hivePartitionResult.getBucketHandle(),
+                hivePartitionResult.getBucketFilter());
+
+        if (constraint.fieldSets().isPresent()) {
+            return ImmutableList.of(new ConnectorTableLayoutResult(
+                    pruneColumnFields(layoutHandle, constraint),
+                    constraint.getSummary()));
+        }
+
         return ImmutableList.of(new ConnectorTableLayoutResult(
-                getTableLayout(
-                        session,
-                        new HiveTableLayoutHandle(
-                                handle.getSchemaTableName(),
-                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                                getPartitionsAsList(hivePartitionResult),
-                                hivePartitionResult.getCompactEffectivePredicate(),
-                                hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle(),
-                                hivePartitionResult.getBucketFilter())),
+                getTableLayout(session, layoutHandle),
                 hivePartitionResult.getUnenforcedConstraint()));
+    }
+
+    private ConnectorTableLayout pruneColumnFields(HiveTableLayoutHandle layoutHandle, Constraint<ColumnHandle> constraint)
+    {
+        Optional<List<ColumnHandle>> columns = constraint.fieldSets()
+                .map(fieldsSets -> fieldsSets.stream()
+                        .filter(fieldSet -> !((HiveColumnHandle) fieldSet.getColumn()).getFieldSet().isPresent())
+                        .map(fieldSet -> withFieldSet((HiveColumnHandle) fieldSet.getColumn(), Optional.of(fieldSet.getFields())))
+                        .collect(toImmutableList()));
+
+        return new ConnectorTableLayout(
+                layoutHandle,
+                columns,
+                TupleDomain.all(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                emptyList());
     }
 
     @Override
