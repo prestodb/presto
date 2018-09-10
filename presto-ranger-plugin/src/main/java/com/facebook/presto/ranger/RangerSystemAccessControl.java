@@ -349,4 +349,11 @@ public class RangerSystemAccessControl
         return authorizer.getRowLevelFilterExp(table.getCatalogName(), rp, identity);
     }
 
+    @Override
+    public String applyColumnMasking(Identity identity, CatalogSchemaTableName table, String columnName)
+    {
+        RangerPrestoResource rp = new RangerPrestoResource(table.getCatalogName(),
+                Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()), Optional.of(columnName));
+        return authorizer.getColumnMaskingExpression(table.getCatalogName(), rp, identity, columnName);
+    }
 }

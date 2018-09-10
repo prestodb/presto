@@ -276,4 +276,14 @@ public interface ConnectorAccessControl
     {
         return null;
     }
+
+    /**
+     * Check if identity and table and column has some column making enabled
+     *
+     * @return Expression as form of a string. Null if no column filters are present
+     */
+    default String applyColumnMasking(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, String columnName)
+    {
+        return null;
+    }
 }

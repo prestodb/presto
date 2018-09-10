@@ -185,4 +185,16 @@ public class AllowAllSystemAccessControl
     public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String revokee, boolean grantOptionFor)
     {
     }
+
+    @Override
+    public String applyRowLevelFiltering(Identity identity, CatalogSchemaTableName tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public String applyColumnMasking(Identity identity, CatalogSchemaTableName tableName, String columnName)
+    {
+        return null;
+    }
 }

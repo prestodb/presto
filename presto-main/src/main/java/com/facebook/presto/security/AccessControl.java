@@ -216,4 +216,14 @@ public interface AccessControl
     {
         return null;
     }
+
+    /**
+     * Check if identity and table and column has some column making enabled
+     *
+     * @return Expression as form of a string. Null if no column filters are present
+     */
+    default String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
+    {
+        return null;
+    }
 }

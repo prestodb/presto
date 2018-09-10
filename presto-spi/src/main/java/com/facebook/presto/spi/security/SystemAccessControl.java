@@ -311,4 +311,14 @@ public interface SystemAccessControl
     {
         return null;
     }
+
+    /**
+     * Check if identity and table and column has some column making enabled
+     *
+     * @return Expression as form of a string. Null if no column filters are present
+     */
+    default String applyColumnMasking(Identity identity, CatalogSchemaTableName tableName, String columnName)
+    {
+        return null;
+    }
 }
