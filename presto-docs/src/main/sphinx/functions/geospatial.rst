@@ -2,8 +2,8 @@
 Geospatial Functions
 ====================
 
-Presto Geospatial functions support the SQL/MM specification.
-They are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
+Presto Geospatial functions that begin with the ``ST_`` prefix support the SQL/MM specification
+and are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
 As such, many Presto Geospatial functions require, or more accurately, assume that
 geometries that are operated on are both simple and valid. For example, it does not
 make sense to calculate the area of a polygon that has a hole defined outside of the
@@ -106,6 +106,12 @@ Relationship Tests
 Operations
 ----------
 
+.. function:: geometry_union(array(Geometry)) -> Geometry
+
+    Returns a geometry that represents the point set union of the input geometries. Performance
+    of this function, in conjunction with :func:`array_agg` to first aggregate the input geometries,
+    may be better than :func:`geometry_union_agg`, at the expense of higher memory utilization.
+
 .. function:: ST_Boundary(Geometry) -> Geometry
 
     Returns the closure of the combinatorial boundary of this geometry.
@@ -145,6 +151,8 @@ Operations
     Returns a geometry that represents the point set union of the input geometries.
 
     This function doesn't support geometry collections.
+
+    See also:  :func:`geometry_union`, :func:`geometry_union_agg`
 
 
 Accessors
