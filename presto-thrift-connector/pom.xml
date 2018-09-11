@@ -44,11 +44,6 @@
 
         <dependency>
             <groupId>io.airlift.drift</groupId>
-            <artifactId>drift-transport-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
