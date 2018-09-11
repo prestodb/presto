@@ -193,6 +193,7 @@ public class SliceDictionaryColumnWriter
             directColumnWriter.finishRowGroup();
 
             if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                directColumnWriter.close();
                 directColumnWriter.reset();
                 return OptionalInt.empty();
             }
@@ -203,6 +204,7 @@ public class SliceDictionaryColumnWriter
             writeDictionaryRowGroup(dictionaryValues, rowGroupValueCount, tempDictionaryIdInputStream);
 
             if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                directColumnWriter.close();
                 directColumnWriter.reset();
                 return OptionalInt.empty();
             }
@@ -215,6 +217,7 @@ public class SliceDictionaryColumnWriter
 
         // free the dictionary and temporary id memory
         dictionary.clear();
+        tempDictionaryIdDataStream.close();
         tempDictionaryIdDataStream.reset();
 
         rawBytes = 0;
@@ -400,6 +403,7 @@ public class SliceDictionaryColumnWriter
 
         // free the dictionary and temporary id memory
         dictionary.clear();
+        tempDictionaryIdDataStream.close();
         tempDictionaryIdDataStream.reset();
 
         dictionaryDataStream.close();
