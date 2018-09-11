@@ -924,6 +924,43 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTLineString()
+    {
+        // General case, 2+ points
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_Point(3,4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_Point(3,4), ST_Point(5, 6)])", GEOMETRY, "LINESTRING (1 2, 3 4, 5 6)");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_Point(3,4), ST_Point(5,6), ST_Point(7,8)])", GEOMETRY, "LINESTRING (1 2, 3 4, 5 6, 7 8)");
+
+        // Other ways of creating points
+        assertFunction("ST_LineString(array[ST_GeometryFromText('POINT (1 2)'), ST_GeometryFromText('POINT (3 4)')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+
+        // Duplicate points work
+        assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 1 2)");
+        assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(3, 4), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 3 4, 1 2)");
+
+        // Single point
+        assertFunction("ST_LineString(array[ST_Point(9,10)])", GEOMETRY, "LINESTRING EMPTY");
+
+        // Zero points
+        assertFunction("ST_LineString(array[])", GEOMETRY, "LINESTRING EMPTY");
+
+        // Only points can be passed
+        assertInvalidFunction("ST_LineString(array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')])", INVALID_FUNCTION_ARGUMENT, "ST_LineString takes only an array of valid points, LineString was passed");
+
+        // Nulls points ignored
+        assertFunction("ST_LineString(array[NULL])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1,2), NULL])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        assertFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+
+        // Empty points ignored
+        assertFunction("ST_LineString(array[ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+    }
+
+    @Test
     public void testSTPointN()
     {
         assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 1, "POINT (1 2)");

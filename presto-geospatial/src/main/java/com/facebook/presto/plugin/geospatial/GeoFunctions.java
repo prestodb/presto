@@ -119,6 +119,46 @@ public final class GeoFunctions
         return serialize(geometry);
     }
 
+    @Description("Returns a LineString from an array of points")
+    @ScalarFunction("ST_LineString")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stLineString(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
+    {
+        // The number of points added to the LineString
+        int addedPoints = 0;
+
+        MultiPath multipath = new Polyline();
+        for (int i = 0; i < input.getPositionCount(); i++) {
+            Slice slice = GEOMETRY.getSlice(input, i);
+
+            // Ignore null points
+            if (slice.getInput().available() == 0) {
+                continue;
+            }
+
+            OGCGeometry geometry = deserialize(slice);
+            if (!(geometry instanceof OGCPoint)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
+            }
+            OGCPoint point = (OGCPoint) geometry;
+
+            // Empty points are ignored
+            if (point.isEmpty()) {
+                continue;
+            }
+
+            if (addedPoints == 0) {
+                multipath.startPath(point.X(), point.Y());
+            }
+            else {
+                multipath.lineTo(point.X(), point.Y());
+            }
+            addedPoints++;
+        }
+        OGCLineString linestring = new OGCLineString(multipath, 0, null);
+        return serialize(linestring);
+    }
+
     @Description("Returns a Geometry type Point object with the given coordinate values")
     @ScalarFunction("ST_Point")
     @SqlType(GEOMETRY_TYPE_NAME)

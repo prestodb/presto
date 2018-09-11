@@ -44,6 +44,12 @@ Constructors
 
     Returns a geometry type linestring object from WKT representation.
 
+.. function:: ST_LineString(array<Point>) -> LineString
+
+    Returns a LineString formed from an array of points. Empty or null points are ignored.  If there are fewer than
+    two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
+    not be simple, e.g. may self-intersect or may contain duplicate vertexes depending on the input.
+
 .. function:: ST_Point(double, double) -> Point
 
     Returns a geometry type point object with the given coordinate values.
