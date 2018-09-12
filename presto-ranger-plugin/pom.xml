@@ -12,7 +12,8 @@
     <description>Presto Ranger Plugin</description>
 
     <properties>
-        <ranger.version>0.6.0</ranger.version>
+        <ranger.version>0.7.1</ranger.version>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
@@ -34,7 +35,7 @@
                     <artifactId>ranger-plugins-audit</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.google.code.findbugs</groupId>
+                <groupId>com.google.code.findbugs</groupId>
                     <artifactId>jsr305</artifactId>
                 </exclusion>
                 <exclusion>
@@ -61,68 +62,88 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-common</artifactId>
-            <version>2.7.4</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.sun.jersey</groupId>
-                    <artifactId>jersey-core</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-bundle</artifactId>
             <version>1.17.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ranger</groupId>
-            <artifactId>ranger-plugins-audit</artifactId>
-            <version>0.6.0</version>
             <exclusions>
-                <exclusion>
-                    <groupId>net.jpountz.lz</groupId>
-                    <artifactId>lz4</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.kafka</groupId>
-                    <artifactId>kafka_2.10</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.101tec</groupId>
-                    <artifactId>zkclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>net.sf.jopt-simple</groupId>
-                    <artifactId>jopt-simple</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.kafka</groupId>
-                    <artifactId>kafka-clients</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.scala-lang</groupId>
-                    <artifactId>scala-library</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
+            <exclusion>
+                <groupId>javax.ws.rs</groupId>
+                <artifactId>jsr311-api</artifactId>
+            </exclusion>
             </exclusions>
         </dependency>
 
+        <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-common</artifactId>
+        <version>2.7.4</version>
+        <exclusions>
+            <exclusion>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-core</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-server</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-json</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
 
+    <dependency>
+        <groupId>org.apache.ranger</groupId>
+        <artifactId>ranger-plugins-audit</artifactId>
+        <version>${ranger.version}</version>
+        <exclusions>
+            <exclusion>
+                <groupId>net.jpountz.lz</groupId>
+                <artifactId>lz4</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka_2.10</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>com.101tec</groupId>
+                <artifactId>zkclient</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>net.sf.jopt-simple</groupId>
+                <artifactId>jopt-simple</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>org.eclipse.persistence</groupId>
+                <artifactId>eclipselink</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -166,5 +187,42 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
+
+
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.log4j</pattern>
+                                    <shadedPattern>org.apache.log4j.shaded</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.ws</pattern>
+                                    <shadedPattern>com.facebook.internal.shaded.javax.ws</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.sun.jersey</pattern>
+                                    <shadedPattern>com.facebook.internal.shaded.com.sun.jersey</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

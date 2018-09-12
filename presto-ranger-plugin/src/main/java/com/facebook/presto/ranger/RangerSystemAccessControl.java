@@ -24,6 +24,7 @@ import java.security.Principal;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -92,7 +93,7 @@ public class RangerSystemAccessControl
         if (principal == null) {
             return;
         }
-        if (powerPrincipals.contains(principal.get().getName().toLowerCase())) {
+        if (powerPrincipals.contains(principal.get().getName().toLowerCase(Locale.ENGLISH))) {
             return;
         }
         String principalName = principal.get().getName()
@@ -112,7 +113,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
-        if (!powerUsers.contains(identity.getUser().toLowerCase())) {
+        if (!powerUsers.contains(identity.getUser().toLowerCase(Locale.ENGLISH))) {
             denySetSystemSessionProperty(propertyName);
         }
     }
@@ -120,7 +121,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
     {
-        if (!powerUsers.contains(identity.getUser().toLowerCase())) {
+        if (!powerUsers.contains(identity.getUser().toLowerCase(Locale.ENGLISH))) {
             denySetSystemSessionProperty(propertyName);
         }
     }
@@ -156,7 +157,7 @@ public class RangerSystemAccessControl
                 .stream()
                 .map(RangerPrestoResource::getSchemaTable);
 
-        return makeSortedSet(outTables, comparing(t -> t.toString().toLowerCase()));
+        return makeSortedSet(outTables, comparing(t -> t.toString().toLowerCase(Locale.ENGLISH)));
     }
 
     @Override

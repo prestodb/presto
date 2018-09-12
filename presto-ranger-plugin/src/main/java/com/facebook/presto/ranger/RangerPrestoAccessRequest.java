@@ -16,6 +16,7 @@ package com.facebook.presto.ranger;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerPolicyEngine;
 
+import java.util.Locale;
 import java.util.Set;
 
 public class RangerPrestoAccessRequest
@@ -30,7 +31,7 @@ public class RangerPrestoAccessRequest
         super(resource,
               prestoAccessType == PrestoAccessType.USE ? RangerPolicyEngine.ANY_ACCESS :
               prestoAccessType == PrestoAccessType.ADMIN ? RangerPolicyEngine.ADMIN_ACCESS :
-              prestoAccessType.name().toLowerCase(),
+              prestoAccessType.name().toLowerCase(Locale.ENGLISH),
               user,
               userGroups);
     }
