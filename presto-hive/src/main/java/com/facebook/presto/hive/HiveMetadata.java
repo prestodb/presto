@@ -1220,6 +1220,13 @@ public class HiveMetadata
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
+            if (partitionUpdate.getFileNames().size() == 0) {
+                HiveWriteUtils.createDirectory(
+                        new HdfsContext(session, table.get().getDatabaseName(), table.get().getTableName()),
+                        hdfsEnvironment,
+                        partitionUpdate.getWritePath());
+            }
+
             if (partitionUpdate.getName().isEmpty()) {
                 // insert into unpartitioned table
                 metastore.finishInsertIntoExistingTable(
