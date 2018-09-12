@@ -84,7 +84,6 @@ public class FeaturesConfig
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
-    private boolean legacyRoundNBigint;
     private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
@@ -191,18 +190,6 @@ public class FeaturesConfig
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
         return this;
-    }
-
-    @Config("deprecated.legacy-round-n-bigint")
-    public FeaturesConfig setLegacyRoundNBigint(boolean legacyRoundNBigint)
-    {
-        this.legacyRoundNBigint = legacyRoundNBigint;
-        return this;
-    }
-
-    public boolean isLegacyRoundNBigint()
-    {
-        return legacyRoundNBigint;
     }
 
     @Config("deprecated.legacy-row-field-ordinal-access")

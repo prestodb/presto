@@ -138,12 +138,6 @@ public class TestingConnectorSession
     }
 
     @Override
-    public boolean isLegacyRoundNBigint()
-    {
-        return false;
-    }
-
-    @Override
     public <T> T getProperty(String name, Class<T> type)
     {
         PropertyMetadata<?> metadata = properties.get(name);
