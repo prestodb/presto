@@ -75,7 +75,7 @@ public abstract class AbstractTestHiveClientLocal
             throws IOException
     {
         try {
-            getMetastoreClient(testDbName).dropDatabase(testDbName);
+            getMetastoreClient().dropDatabase(testDbName);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
