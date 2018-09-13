@@ -24,9 +24,17 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 
 import java.io.File;
 
+import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
+
 public class TestHiveClientGlueMetastore
         extends AbstractTestHiveClientLocal
 {
+    public TestHiveClientGlueMetastore()
+    {
+        super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+    }
+
     /**
      * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
      * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
