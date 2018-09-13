@@ -17,13 +17,14 @@ import com.github.luben.zstd.Zstd;
 import io.airlift.compress.Compressor;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import static java.lang.Math.toIntExact;
 
 public class ZstdJniCompressor
         implements Compressor
 {
-    private static final int COMPRESSION_LEVEL = 3; // default level
+    private static final int COMPRESSION_LEVEL = 3;
 
     @Override
     public int maxCompressedLength(int uncompressedSize)
@@ -34,16 +35,23 @@ public class ZstdJniCompressor
     @Override
     public int compress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
     {
-        long size = Zstd.compressByteArray(output, outputOffset, maxOutputLength, input, inputOffset, inputLength, COMPRESSION_LEVEL);
-        if (Zstd.isError(size)) {
-            throw new RuntimeException(Zstd.getErrorName(size));
-        }
-        return toIntExact(size);
+        byte[] uncompressed = Arrays.copyOfRange(input, inputOffset, inputLength);
+        byte[] compressed = Zstd.compress(uncompressed, COMPRESSION_LEVEL);
+
+        System.arraycopy(compressed, 0, output, outputOffset, compressed.length);
+
+        return compressed.length;
     }
 
     @Override
     public void compress(ByteBuffer input, ByteBuffer output)
     {
-        throw new UnsupportedOperationException();
+        byte[] uncompressed = new byte[input.remaining()];
+        input.get(uncompressed);
+
+        byte[] compressed = new byte[output.remaining()];
+
+        int compressedSize = compress(uncompressed, 0, uncompressed.length, compressed, 0, compressed.length);
+        output.put(compressed, 0, compressedSize);
     }
 }
