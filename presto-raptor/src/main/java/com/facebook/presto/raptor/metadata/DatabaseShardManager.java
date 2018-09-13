@@ -549,7 +549,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void assignShard(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
+    public void replaceShardAssignment(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
     {
         if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
             throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign shards while server is starting");
@@ -560,30 +560,11 @@ public class DatabaseShardManager
         runTransaction(dbi, (handle, status) -> {
             ShardDao dao = shardDaoSupplier.attach(handle);
 
-            Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
-            if (nodes.add(nodeId)) {
-                updateNodeIds(handle, tableId, shardUuid, nodes);
-                dao.insertShardNode(shardUuid, nodeId);
-            }
+            Set<Integer> oldAssignments = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
+            updateNodeIds(handle, tableId, shardUuid, ImmutableSet.of(nodeId));
 
-            return null;
-        });
-    }
-
-    @Override
-    public void unassignShard(long tableId, UUID shardUuid, String nodeIdentifier)
-    {
-        int nodeId = getOrCreateNodeId(nodeIdentifier);
-
-        runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = shardDaoSupplier.attach(handle);
-
-            Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
-            if (nodes.remove(nodeId)) {
-                updateNodeIds(handle, tableId, shardUuid, nodes);
-                dao.deleteShardNode(shardUuid, nodeId);
-            }
-
+            dao.deleteShardNodes(shardUuid, oldAssignments);
+            dao.insertShardNode(shardUuid, nodeId);
             return null;
         });
     }

@@ -46,10 +46,10 @@ public interface ShardDao
             "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
     void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") int nodeId);
 
-    @SqlUpdate("DELETE FROM shard_nodes\n" +
+    @SqlBatch("DELETE FROM shard_nodes\n" +
             "WHERE shard_id = (SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid)\n" +
             "  AND node_id = :nodeId")
-    void deleteShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") int nodeId);
+    void deleteShardNodes(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") Iterable<Integer> nodeId);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Integer getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
