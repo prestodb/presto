@@ -85,7 +85,7 @@ public interface PrestoThriftService
      * @param schemaTableName schema and table name
      * @param indexColumnNames specifies columns and their order for keys
      * @param outputColumnNames a list of column names to return
-     * @param keys keys for which records need to be returned
+     * @param keys keys for which records need to be returned; includes only unique and non-null values
      * @param outputConstraint constraint on the returned data
      * @param maxSplitCount maximum number of splits to return
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
