@@ -68,19 +68,19 @@ These requirements can be expressed with the following rules:
 
     [
       {
-        "resourceGroup": "global.*",
+        "group": "global.*",
         "sessionProperties": {
           "query_max_execution_time": "8h",
         }
       },
       {
-        "resourceGroup": "global.interactive.*",
+        "group": "global.interactive.*",
         "sessionProperties": {
           "query_max_execution_time": "1h"
         }
       },
       {
-        "resourceGroup": "global.pipeline.*",
+        "group": "global.pipeline.*",
         "clientTags": ["etl"],
         "sessionProperties": {
           "scale_writers": "true",
