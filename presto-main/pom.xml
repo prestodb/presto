@@ -425,7 +425,7 @@
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />
-                                <argument>com.facebook.presto</argument>
+                                <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
                         </configuration>
