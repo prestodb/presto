@@ -118,6 +118,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -273,7 +274,7 @@ public class OrcTester
         orcTester.skipBatchTestsEnabled = true;
         orcTester.skipStripeTestsEnabled = true;
         orcTester.formats = ImmutableSet.copyOf(Format.values());
-        orcTester.compressions = ImmutableSet.of(NONE, SNAPPY, ZLIB, LZ4);
+        orcTester.compressions = ImmutableSet.of(NONE, SNAPPY, ZLIB, LZ4, ZSTD);
         return orcTester;
     }
 
@@ -473,7 +474,7 @@ public class OrcTester
 
             OrcEncoding orcEncoding = format.getOrcEncoding();
             for (CompressionKind compression : compressions) {
-                boolean hiveSupported = (compression != LZ4);
+                boolean hiveSupported = (compression != LZ4) && (compression != ZSTD);
 
                 // write Hive, read Presto
                 if (hiveSupported) {
