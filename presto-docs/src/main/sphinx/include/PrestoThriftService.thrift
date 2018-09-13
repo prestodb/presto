@@ -200,7 +200,18 @@ struct PrestoThriftSplitBatch {
 }
 
 struct PrestoThriftSplit {
+  /**
+   * Encodes all the information needed to identify a batch of rows to return to Presto.
+   * For a basic scan, includes schema name, table name, and output constraint.
+   * For an index scan, includes schema name, table name, set of keys to lookup and output constraint.
+   */
   1: PrestoThriftId splitId;
+
+  /**
+   * Identifies the set of hosts on which the rows are available. If empty, then the rows
+   * are expected to be available on any host. The hosts in this list may be independent
+   * from the hosts used to serve metadata requests.
+   */
   2: list<PrestoThriftHostAddress> hosts;
 }
 
@@ -323,7 +334,7 @@ service PrestoThriftService {
    * @param schemaTableName schema and table name
    * @param indexColumnNames specifies columns and their order for keys
    * @param outputColumnNames a list of column names to return
-   * @param keys keys for which records need to be returned
+   * @param keys keys for which records need to be returned; includes only unique and non-null values
    * @param outputConstraint constraint on the returned data
    * @param maxSplitCount maximum number of splits to return
    * @param nextToken token from a previous split batch or {@literal null} if it is the first call
