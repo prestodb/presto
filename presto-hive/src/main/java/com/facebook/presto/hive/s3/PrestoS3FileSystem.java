@@ -33,6 +33,7 @@ import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
@@ -93,6 +94,7 @@ import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CONNECT_TIMEOUT;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
@@ -167,6 +169,7 @@ public class PrestoS3FileSystem
     private boolean isPathStyleAccess;
     private long multiPartUploadMinFileSize;
     private long multiPartUploadMinPartSize;
+    private PrestoS3AclType s3AclType;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -200,6 +203,7 @@ public class PrestoS3FileSystem
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
         this.sseType = PrestoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
+        this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
 
         ClientConfiguration configuration = new ClientConfiguration()
@@ -363,7 +367,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize),
+                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType),
                 statistics);
     }
 
@@ -976,6 +980,7 @@ public class PrestoS3FileSystem
         private final boolean sseEnabled;
         private final PrestoS3SseType sseType;
         private final String sseKmsKeyId;
+        private final CannedAccessControlList aclType;
 
         private boolean closed;
 
@@ -988,7 +993,8 @@ public class PrestoS3FileSystem
                 PrestoS3SseType sseType,
                 String sseKmsKeyId,
                 long multiPartUploadMinFileSize,
-                long multiPartUploadMinPartSize)
+                long multiPartUploadMinPartSize,
+                PrestoS3AclType aclType)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -998,13 +1004,14 @@ public class PrestoS3FileSystem
                     .withMinimumUploadPartSize(multiPartUploadMinPartSize)
                     .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
 
+            requireNonNull(aclType, "aclType is null");
+            this.aclType = aclType.getCannedACL();
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.sseEnabled = sseEnabled;
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
-
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
 
@@ -1055,6 +1062,8 @@ public class PrestoS3FileSystem
                             break;
                     }
                 }
+
+                request.withCannedAcl(aclType);
 
                 Upload upload = transferManager.upload(request);
 

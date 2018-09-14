@@ -48,6 +48,7 @@ public class PrestoS3ConfigurationUpdater
     private final File stagingDirectory;
     private final boolean pinClientToCurrentRegion;
     private final String userAgentPrefix;
+    private final PrestoS3AclType aclType;
 
     @Inject
     public PrestoS3ConfigurationUpdater(HiveS3Config config)
@@ -76,6 +77,7 @@ public class PrestoS3ConfigurationUpdater
         this.stagingDirectory = config.getS3StagingDirectory();
         this.pinClientToCurrentRegion = config.isPinS3ClientToCurrentRegion();
         this.userAgentPrefix = config.getS3UserAgentPrefix();
+        this.aclType = config.getS3AclType();
     }
 
     @Override
@@ -124,5 +126,6 @@ public class PrestoS3ConfigurationUpdater
         config.setLong(S3_MULTIPART_MIN_PART_SIZE, multipartMinPartSize.toBytes());
         config.setBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, pinClientToCurrentRegion);
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
+        config.set(S3_ACL_TYPE, aclType.name());
     }
 }

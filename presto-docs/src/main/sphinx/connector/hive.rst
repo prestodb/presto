@@ -247,6 +247,9 @@ Property Name                                Description
                                              class also implements ``Configurable`` from the Hadoop
                                              API, the Hadoop configuration will be passed in after
                                              the object has been created.
+
+``hive.s3.upload-acl-type``                  Canned ACL to use when files are uploaded to S3 (defaults
+                                             to ``Private``).
 ============================================ =================================================================
 
 S3 Credentials
