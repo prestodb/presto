@@ -361,7 +361,6 @@ public class ReorderJoins
 
         private JoinEnumerationResult setJoinNodeProperties(JoinNode joinNode)
         {
-            // TODO avoid stat (but not cost) recalculation for all considered (distribution,flip) pairs, since resulting relation is the same in all case
             if (isAtMostScalar(joinNode.getRight(), lookup)) {
                 return createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED));
             }
