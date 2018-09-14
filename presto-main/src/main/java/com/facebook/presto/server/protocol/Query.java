@@ -33,9 +33,11 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -44,7 +46,6 @@ import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
@@ -61,6 +62,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -402,23 +405,22 @@ class Query
         // the pages will be lost.
         Iterable<List<Object>> data = null;
         try {
-            ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
-            long bytes = 0;
+            RowData rowData = new RowData();
             long rows = 0;
-            while (bytes < DESIRED_RESULT_BYTES) {
+            while (rowData.getDataSize() < DESIRED_RESULT_BYTES) {
                 SerializedPage serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;
                 }
 
                 Page page = serde.deserialize(serializedPage);
-                bytes += page.getUnoptimizedSizeInBytes();
                 rows += page.getPositionCount();
-                pages.add(new RowIterable(session.toConnectorSession(), types, page));
+                rowData.addPage(session.toConnectorSession(), types, page);
             }
             if (rows > 0) {
                 // client implementations do not properly handle empty list of data
-                data = Iterables.concat(pages.build());
+                rowData.finalize();
+                data = rowData.getRows();
             }
         }
         catch (Throwable cause) {
@@ -745,6 +747,69 @@ class Query
         {
             // query submission can not be canceled
             return false;
+        }
+    }
+
+    // Helper class for combining rows from multiple pages into a single List.
+    // Not thread safe.
+    // TODO: Replace RuntimeExceptions with better alternatives.
+    private static class RowData
+    {
+        private List<List<Object>> rows = new ArrayList<>();
+        private boolean rowsFinalized;
+        private long dataSize;
+
+        public RowData()
+        {
+        }
+
+        public void addPage(ConnectorSession session, List<Type> types, Page page)
+        {
+            requireNonNull(session, "session is null");
+            requireNonNull(types, "types is null");
+            requireNonNull(page, "page is null");
+            if (rowsFinalized) {
+                throw new RuntimeException("Can't add more pages once finalized");
+            }
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                List<Object> row = new ArrayList<>(page.getChannelCount());
+                int rowSize = 0;
+                for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    Type type = types.get(channel);
+                    Block block = page.getBlock(channel);
+                    row.add(type.getObjectValue(session, block, position));
+
+                    // TODO: Find a better way of determining size of the type.getObjectValue returned in previous statement.
+                    // Using type.getSlice() has significant issues.
+                    //   (1) getSlice is not implemented for all the types which support getObjectValue.
+                    //   (2) It's not clear if the value returned by this always provides an accurate size of the object from getObjectValue.
+                    //   (3) Seems quite inefficient.
+                    //  A better alternative may be to return the size of the object as part of the Type::getObjectValue(). However
+                    //  doing that for all supported types would be reasonably involved.
+                    rowSize += type.getSlice(block, position).length();
+                }
+                rows.add(Collections.unmodifiableList(row));
+                dataSize += rowSize;
+            }
+        }
+
+        public List<List<Object>> getRows()
+        {
+            if (!rowsFinalized) {
+                throw new RuntimeException("Data can't be requested without finalization");
+            }
+            return rows;
+        }
+
+        public long getDataSize()
+        {
+            return dataSize;
+        }
+
+        public void finalize()
+        {
+            rows = Collections.unmodifiableList(rows);
+            rowsFinalized = true;
         }
     }
 }
