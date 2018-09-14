@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
@@ -95,7 +96,11 @@ public class AddColumnTask
                 metadata,
                 parameters);
 
-        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), null, false, columnProperties);
+        Optional<Object> maybeDefaultValue = element.getDefaultValue()
+                .map(val -> LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), val));
+
+        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), null, false, columnProperties,
+                maybeDefaultValue.orElse(null), element.isNullable());
 
         metadata.addColumn(session, tableHandle.get(), column);
 

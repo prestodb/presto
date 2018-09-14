@@ -77,6 +77,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -1128,6 +1129,27 @@ public class TestSqlParser
                         true,
                         ImmutableList.of(),
                         Optional.of("test")));
+    }
+
+    @Test
+    public void testCreateTableWithNotNull()
+    {
+        assertStatement("CREATE TABLE foo (" +
+                        "a VARCHAR DEFAULT 'default', " +
+                        "b BIGINT COMMENT 'hello world', " +
+                        "c IPADDRESS, " +
+                        "d DATE DEFAULT '2001-01-01'," +
+                        "e DATE DEFAULT DATE '2001-01-01')",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(new NodeLocation(0, 1), identifier("a"), "VARCHAR", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("default"))),
+                                new ColumnDefinition(identifier("b"), "BIGINT", emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "IPADDRESS", emptyList(), Optional.empty()),
+                                new ColumnDefinition(new NodeLocation(0, 4), identifier("d"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2001-01-01"))),
+                                new ColumnDefinition(new NodeLocation(0, 5), identifier("e"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new GenericLiteral("DATE", "2001-01-01")))),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
     }
 
     @Test

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
@@ -128,7 +129,11 @@ public class CreateTableTask
                         metadata,
                         parameters);
 
-                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), null, false, columnProperties));
+                Optional<Object> maybeDefaultValue = column.getDefaultValue()
+                        .map(val -> LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), val));
+
+                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), null, false, columnProperties,
+                        maybeDefaultValue.orElse(null), column.isNullable()));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;

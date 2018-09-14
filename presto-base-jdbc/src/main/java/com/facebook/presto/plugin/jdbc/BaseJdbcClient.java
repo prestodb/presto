@@ -22,7 +22,15 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -30,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
@@ -40,6 +49,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -307,17 +318,7 @@ public class BaseJdbcClient
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
-                String columnName = column.getName();
-                if (uppercase) {
-                    columnName = columnName.toUpperCase(ENGLISH);
-                }
-                columnNames.add(columnName);
-                columnTypes.add(column.getType());
-                columnList.add(new StringBuilder()
-                        .append(quoted(columnName))
-                        .append(" ")
-                        .append(toSqlType(column.getType()))
-                        .toString());
+                columnList.add(getColumnString(uppercase, columnNames, columnTypes, column));
             }
             Joiner.on(", ").appendTo(sql, columnList.build());
             sql.append(")");
@@ -336,6 +337,62 @@ public class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    private String getColumnString(boolean uppercase, ImmutableList.Builder<String> columnNames, ImmutableList.Builder<Type> columnTypes, ColumnMetadata column)
+    {
+        String columnName = column.getName();
+        if (uppercase) {
+            columnName = columnName.toUpperCase(ENGLISH);
+        }
+        columnNames.add(columnName);
+        columnTypes.add(column.getType());
+        StringBuilder sb = new StringBuilder()
+                .append(quoted(columnName))
+                .append(" ")
+                .append(toSqlType(column.getType()));
+        if (!column.isNullable()) {
+            sb.append(" ").append("NOT NULL");
+        }
+        if (column.getDefaultValue() != null) {
+            sb.append(" DEFAULT ").append(objectToValue(column.getType(), column.getDefaultValue()));
+        }
+        return sb.toString();
+    }
+
+    private String objectToValue(Type type, Object value)
+    {
+        if (value instanceof String) {
+            return stringValue(value.toString());
+        }
+        if (value instanceof Slice) {
+            return stringValue(((Slice) value).toStringUtf8());
+        }
+        if (value instanceof Number) {
+            Number number = (Number) value;
+            if (type instanceof DateType) {
+                return stringValue(LocalDate.ofEpochDay(number.longValue()).toString());
+            }
+            else if (type instanceof TimeType) {
+                return stringValue(LocalTime.ofSecondOfDay(number.longValue()).toString());
+            }
+            else if (type instanceof TimeWithTimeZoneType) {
+                return stringValue(new SqlTimeWithTimeZone(number.longValue()).toString());
+            }
+            else if (type instanceof TimestampType) {
+                return stringValue(new SqlTimestamp(number.longValue()).toString());
+            }
+            else if (type instanceof TimestampWithTimeZoneType) {
+                return stringValue(new SqlTimestampWithTimeZone(number.longValue()).toString());
+            }
+            else {
+                return stringValue(number.toString());
+            }
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value).toString().toUpperCase(ENGLISH);
+        }
+        throw new PrestoException(NOT_SUPPORTED, format("Error: unknown type and object combination: %s, %s", type, value.getClass()));
     }
 
     protected String generateTemporaryTableName()
@@ -493,6 +550,10 @@ public class BaseJdbcClient
     {
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);
         return identifierQuote + name + identifierQuote;
+    }
+
+    protected String stringValue(String name) {
+        return String.format("'%s'", name);
     }
 
     protected String quoted(String catalog, String schema, String table)

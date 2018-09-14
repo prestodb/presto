@@ -112,7 +112,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (COMMENT string)? (WITH properties)?
+    : identifier type (DEFAULT defaultValue=primaryExpression)? (NOT? NULL)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause
@@ -515,6 +515,7 @@ DATA: 'DATA';
 DATE: 'DATE';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
+DEFAULT: 'DEFAULT';
 DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';

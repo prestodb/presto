@@ -31,23 +31,30 @@ public class ColumnMetadata
     private final String extraInfo;
     private final boolean hidden;
     private final Map<String, Object> properties;
+    private final Object defaultValue;
+    private final boolean nullable;
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, null, null, false, emptyMap());
+        this(name, type, null, null, false, emptyMap(), null, true);
     }
 
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
-        this(name, type, comment, null, hidden, emptyMap());
+        this(name, type, comment, null, hidden, emptyMap(), null, true);
     }
 
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
-        this(name, type, comment, extraInfo, hidden, emptyMap());
+        this(name, type, comment, extraInfo, hidden, emptyMap(), null, true);
     }
 
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    {
+        this(name, type, comment, extraInfo, hidden, properties, null, true);
+    }
+
+    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties, Object defaultValue, boolean nullable)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -65,6 +72,8 @@ public class ColumnMetadata
         this.extraInfo = extraInfo;
         this.hidden = hidden;
         this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        this.defaultValue = defaultValue;
+        this.nullable = nullable;
     }
 
     public String getName()
@@ -95,6 +104,16 @@ public class ColumnMetadata
     public Map<String, Object> getProperties()
     {
         return properties;
+    }
+
+    public Object getDefaultValue()
+    {
+        return defaultValue;
+    }
+
+    public boolean isNullable()
+    {
+        return nullable;
     }
 
     @Override
