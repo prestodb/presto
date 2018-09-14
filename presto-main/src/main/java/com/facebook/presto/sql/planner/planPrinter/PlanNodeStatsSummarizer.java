@@ -159,9 +159,11 @@ public class PlanNodeStatsSummarizer
             }
             stats.add(new PlanNodeStats(
                     planNodeId,
+                    // It's possible there will be no input stats because all the pipelines that we observed were non-input.
+                    // For instance we could receive stats for exchange source, but not exchange sink.
                     new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS),
-                    planNodeInputPositions.get(planNodeId),
-                    succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                    planNodeInputPositions.getOrDefault(planNodeId, 0L),
+                    succinctDataSize(planNodeInputBytes.getOrDefault(planNodeId, 0L), BYTE),
                     // It's possible there will be no output stats because all the pipelines that we observed were non-output.
                     // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
                     // It's possible to observe stats after the build starts, but before the probe does
