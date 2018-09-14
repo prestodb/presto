@@ -154,8 +154,8 @@ public final class QueryAssertions
             int limit = 100;
             fail(format(
                     "%snot equal\n" +
-                            "Actual rows (up to %s of %s extra rows shown, %s matching and extra rows in total):\n    %s\n" +
-                            "Expected rows (up to %s of %s missing rows shown, %s matching and missing rows in total):\n    %s\n",
+                            "Actual rows (up to %s of %s extra rows shown, %s rows in total):\n    %s\n" +
+                            "Expected rows (up to %s of %s missing rows shown, %s rows in total):\n    %s\n",
                     message == null ? "" : (message + "\n"),
                     limit,
                     unexpectedRows.size(),
