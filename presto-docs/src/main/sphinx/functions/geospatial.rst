@@ -44,7 +44,7 @@ Constructors
 
     Returns a geometry type linestring object from WKT representation.
 
-.. function:: ST_LineString(array<Point>) -> LineString
+.. function:: ST_LineString(array(Point)) -> LineString
 
     Returns a LineString formed from an array of points. Empty or null points are ignored.  If there are fewer than
     two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
@@ -352,12 +352,12 @@ These functions convert between geometries and
     and longitude. Latitude must be within ``[-85.05112878, 85.05112878]`` range.
     Longitude must be within ``[-180, 180]`` range. Zoom levels from 1 to 23 are supported.
 
-.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array<BingTile>
+.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array(BingTile)
 
     Returns a collection of Bing tiles that surround the point specified
     by the latitude and longitude arguments at a given zoom level.
 
-.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array<BingTile>
+.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array(BingTile)
 
     Returns a minimum set of Bing tiles at specified zoom level that cover a circle of specified
     radius in km around a specified (latitude, longitude) point.
@@ -378,7 +378,7 @@ These functions convert between geometries and
 
     Returns the zoom level of a given Bing tile.
 
-.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array<BingTile>
+.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array(BingTile)
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.
