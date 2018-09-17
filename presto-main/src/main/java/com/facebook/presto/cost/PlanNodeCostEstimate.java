@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.cost;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -46,7 +49,11 @@ public final class PlanNodeCostEstimate
     private final double memoryCost;
     private final double networkCost;
 
-    public PlanNodeCostEstimate(double cpuCost, double memoryCost, double networkCost)
+    @JsonCreator
+    public PlanNodeCostEstimate(
+            @JsonProperty("cpuCost") double cpuCost,
+            @JsonProperty("memoryCost") double memoryCost,
+            @JsonProperty("networkCost") double networkCost)
     {
         checkArgument(isNaN(cpuCost) || cpuCost >= 0, "cpuCost cannot be negative");
         checkArgument(isNaN(memoryCost) || memoryCost >= 0, "memoryCost cannot be negative");
@@ -59,6 +66,7 @@ public final class PlanNodeCostEstimate
     /**
      * Returns CPU component of the cost. Unknown value is represented by {@link Double#NaN}
      */
+    @JsonProperty
     public double getCpuCost()
     {
         return cpuCost;
@@ -67,6 +75,7 @@ public final class PlanNodeCostEstimate
     /**
      * Returns memory component of the cost. Unknown value is represented by {@link Double#NaN}
      */
+    @JsonProperty
     public double getMemoryCost()
     {
         return memoryCost;
@@ -75,6 +84,7 @@ public final class PlanNodeCostEstimate
     /**
      * Returns network component of the cost. Unknown value is represented by {@link Double#NaN}
      */
+    @JsonProperty
     public double getNetworkCost()
     {
         return networkCost;
