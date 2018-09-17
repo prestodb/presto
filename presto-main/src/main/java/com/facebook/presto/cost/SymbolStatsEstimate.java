@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.cost;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -41,7 +44,13 @@ public class SymbolStatsEstimate
     private final double averageRowSize;
     private final double distinctValuesCount;
 
-    public SymbolStatsEstimate(double lowValue, double highValue, double nullsFraction, double averageRowSize, double distinctValuesCount)
+    @JsonCreator
+    public SymbolStatsEstimate(
+            @JsonProperty("lowValue") double lowValue,
+            @JsonProperty("highValue") double highValue,
+            @JsonProperty("nullsFraction") double nullsFraction,
+            @JsonProperty("averageRowSize") double averageRowSize,
+            @JsonProperty("distinctValuesCount") double distinctValuesCount)
     {
         checkArgument(
                 lowValue <= highValue || (isNaN(lowValue) && isNaN(highValue)),
@@ -66,11 +75,13 @@ public class SymbolStatsEstimate
         this.distinctValuesCount = distinctValuesCount;
     }
 
+    @JsonProperty
     public double getLowValue()
     {
         return lowValue;
     }
 
+    @JsonProperty
     public double getHighValue()
     {
         return highValue;
@@ -81,6 +92,7 @@ public class SymbolStatsEstimate
         return isNaN(lowValue) && isNaN(highValue);
     }
 
+    @JsonProperty
     public double getNullsFraction()
     {
         return nullsFraction;
@@ -96,11 +108,13 @@ public class SymbolStatsEstimate
         return 1.0 - nullsFraction;
     }
 
+    @JsonProperty
     public double getAverageRowSize()
     {
         return averageRowSize;
     }
 
+    @JsonProperty
     public double getDistinctValuesCount()
     {
         return distinctValuesCount;
