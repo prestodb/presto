@@ -44,6 +44,15 @@ public class TestCostComparator
     }
 
     @Test
+    public void testMemoryLimit()
+    {
+        new CostComparisonAssertion(1.0, 0.0, 0.0)
+                .smaller(1000, 100, 100)
+                .larger(100, 6e13, 100)
+                .assertCompare();
+    }
+
+    @Test
     public void testNetworkWeight()
     {
         new CostComparisonAssertion(0.0, 0.0, 1.0)
