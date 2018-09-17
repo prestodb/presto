@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates.TransformSpatialPredicateToLeftJoin;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.google.common.collect.ImmutableMap;
@@ -28,10 +28,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 
-public class TestTransformSpatialPredicateToLeftJoin
+public class TestExtractSpatialLeftJoin
         extends BaseRuleTest
 {
-    public TestTransformSpatialPredicateToLeftJoin()
+    public TestExtractSpatialLeftJoin()
     {
         super(new GeoPlugin());
     }
@@ -221,6 +221,6 @@ public class TestTransformSpatialPredicateToLeftJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new TransformSpatialPredicateToLeftJoin(tester().getMetadata()));
+        return tester().assertThat(new ExtractSpatialLeftJoin(tester().getMetadata()));
     }
 }
