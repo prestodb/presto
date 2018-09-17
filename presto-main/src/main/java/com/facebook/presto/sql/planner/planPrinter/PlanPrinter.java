@@ -32,8 +32,6 @@ import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.ColumnHandle;
@@ -46,7 +44,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -113,7 +110,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -129,7 +125,6 @@ import java.util.stream.Stream;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -263,7 +258,7 @@ public class PlanPrinter
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
-                        String printableValue = castToVarchar(constant.getType(), constant.getValue(), functionRegistry, session);
+                        String printableValue = PlanPrinterUtil.castToVarchar(constant.getType(), constant.getValue(), functionRegistry, session);
                         return constant.getType().getDisplayName() + "(" + printableValue + ")";
                     }
                     return argument.getColumn().toString();
@@ -1339,7 +1334,7 @@ public class PlanPrinter
                         for (Range range : ranges.getOrderedRanges()) {
                             StringBuilder builder = new StringBuilder();
                             if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue(), functionRegistry, session);
+                                String value = PlanPrinterUtil.castToVarchar(type, range.getSingleValue(), functionRegistry, session);
                                 builder.append('[').append(value).append(']');
                             }
                             else {
@@ -1349,7 +1344,7 @@ public class PlanPrinter
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue(), functionRegistry, session));
+                                    builder.append(PlanPrinterUtil.castToVarchar(type, range.getLow().getValue(), functionRegistry, session));
                                 }
 
                                 builder.append(", ");
@@ -1358,7 +1353,7 @@ public class PlanPrinter
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue(), functionRegistry, session));
+                                    builder.append(PlanPrinterUtil.castToVarchar(type, range.getHigh().getValue(), functionRegistry, session));
                                 }
 
                                 builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
@@ -1367,7 +1362,7 @@ public class PlanPrinter
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
-                            .map(value -> castToVarchar(type, value, functionRegistry, session))
+                            .map(value -> PlanPrinterUtil.castToVarchar(type, value, functionRegistry, session))
                             .sorted() // Sort so the values will be printed in predictable order
                             .forEach(parts::add),
                     allOrNone -> {
@@ -1438,21 +1433,5 @@ public class PlanPrinter
         builder.append(" ").append(frame.getEndType());
 
         return builder.toString();
-    }
-
-    private static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
-    {
-        if (value == null) {
-            return "NULL";
-        }
-
-        try {
-            Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
-            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
-            return coerced.toStringUtf8();
-        }
-        catch (OperatorNotFoundException e) {
-            return "<UNREPRESENTABLE VALUE>";
-        }
     }
 }

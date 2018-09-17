@@ -33,6 +33,7 @@ import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
@@ -1056,6 +1057,7 @@ public class PrestoS3FileSystem
                     }
                 }
 
+                request.withCannedAcl(CannedAccessControlList.BucketOwnerFullControl);
                 Upload upload = transferManager.upload(request);
 
                 if (log.isDebugEnabled()) {
