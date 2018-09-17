@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionT
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
@@ -91,7 +92,6 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarA
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -415,7 +415,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new TransformSpatialPredicates(metadata).rules())
+                        .addAll(new ExtractSpatialJoins(metadata).rules())
                         .add(new InlineProjections())
                         .build()));
 
