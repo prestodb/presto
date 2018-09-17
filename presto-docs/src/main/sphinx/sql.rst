@@ -42,6 +42,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-grants
     sql/show-schemas
     sql/show-session
+    sql/show-stats
     sql/show-tables
     sql/start-transaction
     sql/use
