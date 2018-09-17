@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +44,7 @@ public class Analyzer
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
+    private static final Logger log = Logger.get(Analyzer.class);
 
     public Analyzer(Session session,
             Metadata metadata,

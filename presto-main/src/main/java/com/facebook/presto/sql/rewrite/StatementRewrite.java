@@ -35,7 +35,7 @@ public final class StatementRewrite
             new ShowQueriesRewrite(),
             new ShowStatsRewrite(),
             new ExplainRewrite(),
-            new RowFilterColumnMaskerRewrite());
+            new RowFilterColumnMaskingRewrite());
 
     private StatementRewrite() {}
 

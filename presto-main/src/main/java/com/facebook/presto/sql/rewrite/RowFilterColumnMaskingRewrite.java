@@ -20,14 +20,17 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Lateral;
@@ -47,6 +50,8 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +63,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Created by localadmin on 8/16/18.
  */
-public class RowFilterColumnMaskerRewrite
+public class RowFilterColumnMaskingRewrite
         implements StatementRewrite.Rewrite
 {
     @Override
@@ -101,6 +106,235 @@ public class RowFilterColumnMaskerRewrite
         {
             return node.accept(this, context);
         }
+
+//        @Override
+//        protected Node visitExpression(Expression node,Void context){
+//            return node.accept(this,context);
+//        }
+//
+//
+//        protected Node visitExtract(Extract node, Void context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected Node visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected Node visitBetweenPredicate(BetweenPredicate node, Void context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected Node visitCoalesceExpression(CoalesceExpression node, Void context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected Node visitComparisonExpression(ComparisonExpression node, Void context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+
+        protected Node visitWith(With node, Void context)
+        {
+            List<WithQuery> withQueries = new ArrayList<>();
+            for (WithQuery withQuery : node.getQueries()) {
+                withQueries.add((WithQuery) visitWithQuery(withQuery, context));
+            }
+            return node.getLocation().isPresent() ?
+                    new With(node.getLocation().get(), node.isRecursive(), withQueries) :
+                    new With(node.isRecursive(), withQueries);
+        }
+
+        protected Node visitWithQuery(WithQuery node, Void context)
+        {
+            Query query = (Query) visitQuery(node.getQuery(), context);
+
+            return node.getLocation().isPresent() ?
+                    new WithQuery(node.getLocation().get(), node.getName(), query, node.getColumnNames()) :
+                    new WithQuery(node.getName(), query, node.getColumnNames());
+        }
+//        protected R visitInListExpression(InListExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitWhenClause(WhenClause node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//        protected R visitInPredicate(InPredicate node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitFunctionCall(FunctionCall node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitLambdaExpression(LambdaExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitSimpleCaseExpression(SimpleCaseExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitDereferenceExpression(DereferenceExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitNullIfExpression(NullIfExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitIfExpression(IfExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitNullLiteral(NullLiteral node, C context)
+//        {
+//            return visitLiteral(node, context);
+//        }
+//
+//        protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitNotExpression(NotExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitSelectItem(SelectItem node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//        protected R visitSingleColumn(SingleColumn node, C context)
+//        {
+//            return visitSelectItem(node, context);
+//        }
+//
+//
+//        protected R visitIsNotNullPredicate(IsNotNullPredicate node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitIsNullPredicate(IsNullPredicate node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitArrayConstructor(ArrayConstructor node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitSubscriptExpression(SubscriptExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitSubqueryExpression(SubqueryExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitSortItem(SortItem node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//
+//        protected R visitValues(Values node, C context)
+//        {
+//            return visitQueryBody(node, context);
+//        }
+//
+//        protected R visitRow(Row node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//        protected R visitExists(ExistsPredicate node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitTryExpression(TryExpression node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitCast(Cast node, C context)
+//        {
+//            return visitExpression(node, context);
+//        }
+//
+//        protected R visitWindow(Window node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//        protected R visitWindowFrame(WindowFrame node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//        protected R visitFrameBound(FrameBound node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//        protected R visitCallArgument(CallArgument node, C context)
+//        {
+//            return visitNode(node, context);
+//        }
+//
+//        protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
+//        {
+//            return visitStatement(node, context);
+//        }
+//
+//
+//        protected R visitCreateView(CreateView node, C context)
+//        {
+//            return visitStatement(node, context);
+//        }
+//
+//        protected R visitInsert(Insert node, C context)
+//        {
+//            return visitStatement(node, context);
+//        }
+//
+//        protected R visitCall(Call node, C context)
+//        {
+//            return visitStatement(node, context);
+//        }
+//
+//
+//        protected R visitDelete(Delete node, C context)
+//        {
+//            return visitStatement(node, context);
+//        }
 
         @Override
         protected Node visitLateral(Lateral lateral, Void context)
@@ -175,9 +409,9 @@ public class RowFilterColumnMaskerRewrite
         @Override
         protected Node visitTable(Table table, Void context)
         {
+            // TODO: Handle views
             boolean hasColumnMasking = false;
             QualifiedObjectName qualifiedObjectName = MetadataUtil.createQualifiedObjectName(session, table, table.getName());
-
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedObjectName);
 
             Select select = new Select(false, new
@@ -192,18 +426,22 @@ public class RowFilterColumnMaskerRewrite
             // TODO: Add column blacklisting in case the user does not have permission on that column
             if (tableHandle.isPresent()) {
                 List<SelectItem> selectItems = new ArrayList<SelectItem>();
-                Map<String, ColumnHandle> columnNames = metadata.getColumnHandles(session, tableHandle.get());
-                for (String columnName : columnNames.keySet()) {
-                    String expStr = accessControl.applyColumnMasking(session.getTransactionId().get(), session.getIdentity(), qualifiedObjectName, columnName);
-                    if (expStr == null) {
-                        selectItems.add(new SingleColumn(new Identifier(columnName)));
-                    }
-                    else {
-                        hasColumnMasking = true;
-                        selectItems.add(new SingleColumn(sqlParser.createExpression(expStr)));
+                Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+
+                for (Map.Entry<String, ColumnHandle> columnHandleEntry : columnHandles.entrySet()) {
+                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandleEntry.getValue());
+                    if (!columnMetadata.isHidden()) {
+                        String columnName = columnMetadata.getName();
+                        String expStr = accessControl.applyColumnMasking(session.getTransactionId().get(), session.getIdentity(), qualifiedObjectName, columnName);
+                        if (expStr == null) {
+                            selectItems.add(new SingleColumn(new Identifier(columnName)));
+                        }
+                        else {
+                            hasColumnMasking = true;
+                            selectItems.add(new SingleColumn(sqlParser.createExpression(expStr), Optional.of(new Identifier(columnName))));
+                        }
                     }
                 }
-                System.out.println(columnNames);
                 select = new Select(false, selectItems);
             }
 
@@ -228,8 +466,7 @@ public class RowFilterColumnMaskerRewrite
 
             Query query = new Query(Optional.empty(), subQuerySpecification, Optional.empty(), Optional
                     .empty());
-
-            return new TableSubquery(query);
+            return new AliasedRelation(new TableSubquery(query), new Identifier(table.getName().toString()), null);
         }
 
         @Override
@@ -284,6 +521,25 @@ public class RowFilterColumnMaskerRewrite
                         context), node
                         .getOrderBy(), node.getLimit());
             }
+        }
+
+        @Override
+        protected Node visitCreateTableAsSelect(CreateTableAsSelect createTableAsSelect, Void context)
+        {
+            Query query = (Query) visitQuery(createTableAsSelect.getQuery(), context);
+            return createTableAsSelect.getLocation().isPresent() ?
+                    new CreateTableAsSelect(createTableAsSelect.getLocation().get(), createTableAsSelect.getName(), query,
+                            createTableAsSelect.isNotExists(), createTableAsSelect.getProperties(), createTableAsSelect.isWithData(),
+                            createTableAsSelect.getColumnAliases(), createTableAsSelect.getComment()) :
+                    new CreateTableAsSelect(createTableAsSelect.getName(), query, createTableAsSelect.isNotExists(),
+                            createTableAsSelect.getProperties(), createTableAsSelect.isWithData(), createTableAsSelect.getColumnAliases(),
+                            createTableAsSelect.getComment());
+        }
+
+        @Override
+        protected Node visitInsert(Insert insert, Void context)
+        {
+            return new Insert(insert.getTarget(), insert.getColumns(), (Query) visitQuery(insert.getQuery(), context));
         }
 
         @Override

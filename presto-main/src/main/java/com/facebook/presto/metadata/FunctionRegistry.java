@@ -1185,9 +1185,10 @@ public class FunctionRegistry
 
         public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
         {
+            //TODO: hack for db.$funcname
             this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
                     .putAll(map.functions)
-                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
+                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(Arrays.asList(function.getSignature().getName().split("\\.")))))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
@@ -1208,7 +1209,14 @@ public class FunctionRegistry
 
         public Collection<SqlFunction> get(QualifiedName name)
         {
-            return functions.get(name);
+            //TODO: hack for db.$funcname
+            Collection<SqlFunction> result;
+            result = functions.get(QualifiedName.of(Arrays.asList(name.toString().split("\\."))));
+            if (result.isEmpty()) {
+                String nameStr = "default." + name.toString();
+                result = functions.get(QualifiedName.of(Arrays.asList(nameStr.split("\\."))));
+            }
+            return result;
         }
     }
 
