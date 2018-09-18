@@ -24,9 +24,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorStats;
@@ -61,8 +59,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -83,8 +79,6 @@ public class QueryMonitor
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionRegistry functionRegistry;
     private final int maxJsonLimit;
-    private final InternalNodeManager nodeManager;
-    private final NodeSchedulerConfig nodeSchedulerConfig;
 
     @Inject
     public QueryMonitor(
@@ -95,9 +89,7 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig nodeSchedulerConfig)
+            QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -108,8 +100,6 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -203,11 +193,6 @@ public class QueryMonitor
                     plan = Optional.of(textDistributedPlan(
                             queryInfo.getOutputStage().get(),
                             functionRegistry,
-                            // Not possible to recompute stats and costs, since transaction is already completed at this moment
-                            (node, sourceStats, lookup, session, types) -> UNKNOWN_STATS,
-                            (node, stats, lookup, session, types) -> UNKNOWN_COST,
-                            nodeManager,
-                            nodeSchedulerConfig,
                             queryInfo.getSession().toSession(sessionPropertyManager),
                             false));
                 }
