@@ -165,7 +165,6 @@ Accessors
 .. function:: ST_ConvexHull(Geometry) -> Geometry
 
     Returns the minimum convex geometry that encloses all input geometries.
-    This function doesn't support geometry collections.
 
 .. function:: ST_CoordDim(Geometry) -> bigint
 
