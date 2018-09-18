@@ -64,7 +64,6 @@ public class ParquetPageSource
 
     private int batchId;
     private boolean closed;
-    private long readTimeNanos;
     private final boolean useParquetColumnNames;
 
     public ParquetPageSource(
@@ -125,7 +124,7 @@ public class ParquetPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return readTimeNanos;
+        return parquetReader.getDataSource().getReadTimeNanos();
     }
 
     @Override
@@ -145,11 +144,7 @@ public class ParquetPageSource
     {
         try {
             batchId++;
-            long start = System.nanoTime();
-
             int batchSize = parquetReader.nextBatch();
-
-            readTimeNanos += System.nanoTime() - start;
 
             if (closed || batchSize <= 0) {
                 close();

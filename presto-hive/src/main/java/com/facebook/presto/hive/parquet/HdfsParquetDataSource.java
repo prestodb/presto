@@ -34,6 +34,7 @@ public class HdfsParquetDataSource
     private final String name;
     private final long size;
     private final FSDataInputStream inputStream;
+    private long readTimeNanos;
     private long readBytes;
     private final FileFormatDataSourceStats stats;
 
@@ -49,6 +50,12 @@ public class HdfsParquetDataSource
     public final long getReadBytes()
     {
         return readBytes;
+    }
+
+    @Override
+    public long getReadTimeNanos()
+    {
+        return readTimeNanos;
     }
 
     @Override
@@ -73,16 +80,20 @@ public class HdfsParquetDataSource
     @Override
     public final void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
     {
-        readInternal(position, buffer, bufferOffset, bufferLength);
         readBytes += bufferLength;
+
+        long start = System.nanoTime();
+        readInternal(position, buffer, bufferOffset, bufferLength);
+        long currentReadTimeNanos = System.nanoTime() - start;
+
+        readTimeNanos += currentReadTimeNanos;
+        stats.readDataBytesPerSecond(bufferLength, currentReadTimeNanos);
     }
 
     private void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
     {
         try {
-            long readStart = System.nanoTime();
             inputStream.readFully(position, buffer, bufferOffset, bufferLength);
-            stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
         catch (PrestoException e) {
             // just in case there is a Presto wrapper or hook
