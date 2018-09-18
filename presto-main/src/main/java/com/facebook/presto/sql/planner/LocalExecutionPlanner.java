@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -740,16 +739,11 @@ public class LocalExecutionPlanner
             ExplainAnalyzeContext analyzeContext = explainAnalyzeContext
                     .orElseThrow(() -> new IllegalStateException("ExplainAnalyze can only run on coordinator"));
             PhysicalOperation source = node.getSource().accept(this, context);
-            verify(analyzeContext.getCostCalculator() instanceof CostCalculatorUsingExchanges, "costCalculator not instance of CostCalculatorUsingExchanges but plan is distributed");
             OperatorFactory operatorFactory = new ExplainAnalyzeOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     analyzeContext.getQueryPerformanceFetcher(),
                     metadata.getFunctionRegistry(),
-                    analyzeContext.getStatsCalculator(),
-                    analyzeContext.getCostCalculator(),
-                    analyzeContext.getNodeManager(),
-                    analyzeContext.getNodeSchedulerConfig(),
                     node.isVerbose());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
