@@ -21,6 +21,8 @@ public interface ParquetDataSource
 {
     long getReadBytes();
 
+    long getReadTimeNanos();
+
     long getSize();
 
     void readFully(long position, byte[] buffer);
