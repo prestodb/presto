@@ -17,34 +17,42 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestProxyConfig
+public class TestJwtHandlerConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ProxyConfig.class)
-                .setUri(null)
-                .setSharedSecretFile(null));
+        assertRecordedDefaults(recordDefaults(JwtHandlerConfig.class)
+                .setJwtKeyFile(null)
+                .setJwtKeyFilePassword(null)
+                .setJwtKeyId(null)
+                .setJwtIssuer(null)
+                .setJwtAudience(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("proxy.uri", "http://example.net/")
-                .put("proxy.shared-secret-file", "test.secret")
+                .put("jwt.key-file", "test.key")
+                .put("jwt.key-file-password", "password")
+                .put("jwt.key-id", "testkeyid")
+                .put("jwt.issuer", "testissuer")
+                .put("jwt.audience", "testaudience")
                 .build();
 
-        ProxyConfig expected = new ProxyConfig()
-                .setUri(URI.create("http://example.net/"))
-                .setSharedSecretFile(new File("test.secret"));
+        JwtHandlerConfig expected = new JwtHandlerConfig()
+                .setJwtKeyFile(new File("test.key"))
+                .setJwtKeyFilePassword("password")
+                .setJwtKeyId("testkeyid")
+                .setJwtIssuer("testissuer")
+                .setJwtAudience("testaudience");
 
         assertFullMapping(properties, expected);
     }
