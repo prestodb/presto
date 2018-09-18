@@ -34,6 +34,9 @@ public class TestFilteringMaskingAccessControl
         if (tableName.getObjectName().equals("t2")) {
             return new String("abs(b)>3");
         }
+        if (tableName.getObjectName().equals("t5")) {
+            return new String("abs(a)>3");
+        }
 
         return null;
     }
@@ -43,6 +46,10 @@ public class TestFilteringMaskingAccessControl
     {
         if (tableName.getObjectName().equals("t1") && columnName.equals("b")) {
             return new String("ceil(b)");
+        }
+
+        if (tableName.getObjectName().equals("t5") && columnName.equals("a")) {
+            return new String("ceil(a)");
         }
         return null;
     }

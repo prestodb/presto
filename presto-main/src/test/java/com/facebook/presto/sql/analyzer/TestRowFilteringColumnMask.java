@@ -343,6 +343,11 @@ public class TestRowFilteringColumnMask
     }
 
     @Test
+    public void testHiddenColumn(){
+        analyzeWithRowColRewrite("SELECT a FROM t5","SELECT a from (SELECT ceil(a) a from t5 where abs(a)>3) t5");
+    }
+
+    @Test
     public void testJoinUnnest()
     {
     }
