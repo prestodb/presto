@@ -43,7 +43,7 @@ public class JsonWebTokenHandler
     private final Optional<String> jwtAudience;
 
     @Inject
-    public JsonWebTokenHandler(ProxyConfig config)
+    public JsonWebTokenHandler(JwtHandlerConfig config)
     {
         this.jwtSigner = setupJwtSigner(config.getJwtKeyFile(), config.getJwtKeyFilePassword());
         this.jwtKeyId = Optional.ofNullable(config.getJwtKeyId());
