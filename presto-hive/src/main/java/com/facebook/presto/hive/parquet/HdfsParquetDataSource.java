@@ -46,6 +46,12 @@ public class HdfsParquetDataSource
     }
 
     @Override
+    public String getPath()
+    {
+        return name;
+    }
+
+    @Override
     public final long getReadBytes()
     {
         return readBytes;

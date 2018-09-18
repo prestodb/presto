@@ -28,6 +28,7 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.google.common.base.Joiner;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -53,6 +54,8 @@ import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetReader
@@ -206,7 +209,18 @@ public class ParquetReader
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
-        return columnReader.readPrimitive(field);
+        try {
+            return columnReader.readPrimitive(field);
+        }
+        catch (UnsupportedOperationException e) {
+            throw new ParquetCorruptionException(format(
+                    "There is a mismatch between parquet file schema and partition schema. " +
+                    "The column %s in file %s is declared as type %s but parquet file declared column type as %s.",
+                    Joiner.on(".").join(columnDescriptor.getPath()).toLowerCase(ENGLISH),
+                    dataSource.getPath(),
+                    field.getType(),
+                    columnDescriptor.getType()));
+        }
     }
 
     private byte[] allocateBlock(int length)

@@ -19,6 +19,8 @@ import java.io.IOException;
 public interface ParquetDataSource
         extends Closeable
 {
+    String getPath();
+
     long getReadBytes();
 
     long getSize();
