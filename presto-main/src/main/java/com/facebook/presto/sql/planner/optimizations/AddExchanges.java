@@ -16,27 +16,19 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableLayoutResult;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -69,17 +61,13 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -100,10 +88,6 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSources;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -121,15 +105,13 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.intersection;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 
 public class AddExchanges
@@ -520,7 +502,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
-            return planTableScan(node, BooleanLiteral.TRUE_LITERAL, preferredProperties);
+            return planTableScan(node, TRUE_LITERAL, preferredProperties);
         }
 
         @Override
@@ -552,92 +534,11 @@ public class AddExchanges
 
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, PreferredProperties preferredProperties)
         {
-            // don't include non-deterministic predicates
-            Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
-
-            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                    metadata,
-                    session,
-                    deterministicPredicate,
-                    types);
-
-            TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-                    .transform(node.getAssignments()::get)
-                    .intersect(node.getCurrentConstraint());
-
-            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-
-            // Simplify the tuple domain to avoid creating an expression with too many nodes that's
-            // expensive to evaluate in the call to shouldPrune below.
-            Expression constraint = combineConjuncts(
-                    deterministicPredicate,
-                    domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get)));
-
-            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
-                    session,
-                    symbolAllocator.getTypes(),
-                    node.getAssignments(),
-                    constraint);
-
-            // Layouts will be returned in order of the connector's preference
-            List<TableLayoutResult> layouts = metadata.getLayouts(
-                    session, node.getTable(),
-                    new Constraint<>(newDomain, evaluator::isCandidate),
-                    Optional.of(node.getOutputSymbols().stream()
-                            .map(node.getAssignments()::get)
-                            .collect(toImmutableSet())));
-
-            if (layouts.isEmpty()) {
-                return emptyRelation(node.getOutputSymbols());
-            }
-
-            // Filter out layouts that cannot supply all the required columns
-            layouts = layouts.stream()
-                    .filter(layout -> layout.hasAllOutputs(node))
-                    .collect(toList());
-            checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
-
-            if (layouts.stream().anyMatch(layout -> layout.getLayout().getPredicate().isNone())) {
-                return emptyRelation(node.getOutputSymbols());
-            }
-
-            List<PlanWithProperties> possiblePlans = layouts.stream()
-                    .map(layout -> {
-                        TableScanNode tableScan = new TableScanNode(
-                                node.getId(),
-                                node.getTable(),
-                                node.getOutputSymbols(),
-                                node.getAssignments(),
-                                Optional.of(layout.getLayout().getHandle()),
-                                newDomain.intersect(layout.getLayout().getPredicate()));
-
-                        PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
-
-                        Expression resultingPredicate = combineConjuncts(
-                                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
-                                filterNonDeterministicConjuncts(predicate),
-                                decomposedPredicate.getRemainingExpression());
-
-                        if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
-                            return withDerivedProperties(
-                                    new FilterNode(idAllocator.getNextId(), result.getNode(), resultingPredicate),
-                                    deriveProperties(tableScan, ImmutableList.of()));
-                        }
-
-                        return result;
-                    })
-                    .collect(toList());
-
-            return pickPlan(possiblePlans, preferredProperties);
-        }
-
-        private PlanWithProperties emptyRelation(List<Symbol> outputSymbols)
-        {
-            return new PlanWithProperties(
-                    new ValuesNode(idAllocator.getNextId(), outputSymbols, ImmutableList.of()),
-                    ActualProperties.builder()
-                            .global(singleStreamPartition())
-                            .build());
+            List<PlanNode> possiblePlans = PickTableLayout.listTableLayouts(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
+            List<PlanWithProperties> possiblePlansWithProperties = possiblePlans.stream()
+                    .map(planNode -> new PlanWithProperties(planNode, derivePropertiesRecursively(planNode)))
+                    .collect(toImmutableList());
+            return pickPlan(possiblePlansWithProperties, preferredProperties);
         }
 
         /**
@@ -1263,6 +1164,11 @@ public class AddExchanges
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
         }
+
+        private ActualProperties derivePropertiesRecursively(PlanNode result)
+        {
+            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, types, parser);
+        }
     }
 
     private static Map<Symbol, Symbol> computeIdentityTranslations(Assignments assignments)
@@ -1369,41 +1275,6 @@ public class AddExchanges
         public ActualProperties getProperties()
         {
             return properties;
-        }
-    }
-
-    private class LayoutConstraintEvaluator
-    {
-        private final Map<Symbol, ColumnHandle> assignments;
-        private final ExpressionInterpreter evaluator;
-        private final Set<ColumnHandle> arguments;
-
-        public LayoutConstraintEvaluator(Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
-        {
-            this.assignments = assignments;
-
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList());
-
-            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-            arguments = SymbolsExtractor.extractUnique(expression).stream()
-                    .map(assignments::get)
-                    .collect(toImmutableSet());
-        }
-
-        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
-        {
-            if (intersection(bindings.keySet(), arguments).isEmpty()) {
-                return true;
-            }
-            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
-
-            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            Object optimized = evaluator.optimize(inputs);
-            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                return false;
-            }
-
-            return true;
         }
     }
 }

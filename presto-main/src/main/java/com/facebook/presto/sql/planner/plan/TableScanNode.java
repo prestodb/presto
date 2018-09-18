@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
@@ -40,13 +39,16 @@ public class TableScanNode
         extends PlanNode
 {
     private final TableHandle table;
-    private final Optional<TableLayoutHandle> tableLayout;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
+
+    private final Optional<TableLayoutHandle> tableLayout;
 
     // Used during predicate refinement over multiple passes of predicate pushdown
     // TODO: think about how to get rid of this in new planner
     private final TupleDomain<ColumnHandle> currentConstraint;
+
+    private final TupleDomain<ColumnHandle> enforcedConstraint;
 
     @JsonCreator
     public TableScanNode(
@@ -56,7 +58,24 @@ public class TableScanNode
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout)
     {
-        this(id, table, outputs, assignments, tableLayout, null);
+        // This constructor is for JSON deserialization only. Do not use.
+        super(id);
+        this.table = requireNonNull(table, "table is null");
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+        this.currentConstraint = null;
+        this.enforcedConstraint = null;
+    }
+
+    public TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<Symbol> outputs,
+            Map<Symbol, ColumnHandle> assignments)
+    {
+        this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode(
@@ -65,23 +84,20 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
-            @Nullable TupleDomain<ColumnHandle> currentConstraint)
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint)
     {
         super(id);
-        requireNonNull(table, "table is null");
-        requireNonNull(outputs, "outputs is null");
-        requireNonNull(assignments, "assignments is null");
+        this.table = requireNonNull(table, "table is null");
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
-        requireNonNull(tableLayout, "tableLayout is null");
-        if (currentConstraint != null) {
-            checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
+        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+        this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
+        this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
+            checkArgument(tableLayout.isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
-
-        this.table = table;
-        this.outputSymbols = ImmutableList.copyOf(outputs);
-        this.assignments = ImmutableMap.copyOf(assignments);
-        this.tableLayout = tableLayout;
-        this.currentConstraint = currentConstraint;
     }
 
     @JsonProperty("table")
@@ -109,11 +125,33 @@ public class TableScanNode
         return assignments;
     }
 
+    /**
+     * A TupleDomain that represents a predicate that every row this TableScan node
+     * produces is guaranteed to satisfy.
+     * <p>
+     * This guarantee can have different origins.
+     * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
+     */
     public TupleDomain<ColumnHandle> getCurrentConstraint()
     {
         // currentConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
         checkState(currentConstraint != null, "currentConstraint should only be used in planner. It is not transported to workers.");
         return currentConstraint;
+    }
+
+    /**
+     * A TupleDomain that represents a predicate that has been successfully pushed into
+     * this TableScan node. In other words, predicates that were removed from filters
+     * above the TableScan node because the TableScan node can guarantee it.
+     * <p>
+     * This field is used to make sure that predicates which were previously pushed down
+     * do not get lost in subsequent refinements of the table layout.
+     */
+    public TupleDomain<ColumnHandle> getEnforcedConstraint()
+    {
+        // enforcedConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
+        checkState(enforcedConstraint != null, "enforcedConstraint should only be used in planner. It is not transported to workers.");
+        return enforcedConstraint;
     }
 
     @Override
@@ -137,6 +175,7 @@ public class TableScanNode
                 .add("outputSymbols", outputSymbols)
                 .add("assignments", assignments)
                 .add("currentConstraint", currentConstraint)
+                .add("enforcedConstraint", enforcedConstraint)
                 .toString();
     }
 

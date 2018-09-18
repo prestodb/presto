@@ -924,6 +924,43 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTLineString()
+    {
+        // General case, 2+ points
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_Point(3,4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_Point(3,4), ST_Point(5, 6)])", GEOMETRY, "LINESTRING (1 2, 3 4, 5 6)");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_Point(3,4), ST_Point(5,6), ST_Point(7,8)])", GEOMETRY, "LINESTRING (1 2, 3 4, 5 6, 7 8)");
+
+        // Other ways of creating points
+        assertFunction("ST_LineString(array[ST_GeometryFromText('POINT (1 2)'), ST_GeometryFromText('POINT (3 4)')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+
+        // Duplicate points work
+        assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 1 2)");
+        assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(3, 4), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 3 4, 1 2)");
+
+        // Single point
+        assertFunction("ST_LineString(array[ST_Point(9,10)])", GEOMETRY, "LINESTRING EMPTY");
+
+        // Zero points
+        assertFunction("ST_LineString(array[])", GEOMETRY, "LINESTRING EMPTY");
+
+        // Only points can be passed
+        assertInvalidFunction("ST_LineString(array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')])", INVALID_FUNCTION_ARGUMENT, "ST_LineString takes only an array of valid points, LineString was passed");
+
+        // Nulls points ignored
+        assertFunction("ST_LineString(array[NULL])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1,2), NULL])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        assertFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+
+        // Empty points ignored
+        assertFunction("ST_LineString(array[ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+    }
+
+    @Test
     public void testSTPointN()
     {
         assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 1, "POINT (1 2)");
@@ -970,6 +1007,7 @@ public class TestGeoFunctions
         assertFunction(String.format("transform(ST_Geometries(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt), new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
     }
 
+    @Test
     public void testSTInteriorRingN()
     {
         assertInvalidInteriorRingN("POINT EMPTY", 0, "POINT");
@@ -997,6 +1035,7 @@ public class TestGeoFunctions
         assertInvalidFunction(format("ST_InteriorRingN(ST_GeometryFromText('%s'), %d)", wkt, index), format("ST_InteriorRingN only applies to POLYGON. Input type is: %s", geometryType));
     }
 
+    @Test
     public void testSTGeometryType()
     {
         assertFunction("ST_GeometryType(ST_Point(1, 4))", VARCHAR, "ST_Point");
@@ -1007,5 +1046,42 @@ public class TestGeoFunctions
         assertFunction("ST_GeometryType(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))'))", VARCHAR, "ST_MultiPolygon");
         assertFunction("ST_GeometryType(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6, 7 10))'))", VARCHAR, "ST_GeomCollection");
         assertFunction("ST_GeometryType(ST_Envelope(ST_GeometryFromText('LINESTRING (1 1, 2 2)')))", VARCHAR, "ST_Polygon");
+    }
+
+    @Test
+    public void testSTGeometryFromBinary()
+    {
+        assertFunction("ST_GeomFromBinary(null)", GEOMETRY, null);
+
+        // empty geometries
+        assertGeomFromBinary("POINT EMPTY");
+        assertGeomFromBinary("MULTIPOINT EMPTY");
+        assertGeomFromBinary("LINESTRING EMPTY");
+        assertGeomFromBinary("MULTILINESTRING EMPTY");
+        assertGeomFromBinary("POLYGON EMPTY");
+        assertGeomFromBinary("MULTIPOLYGON EMPTY");
+        assertGeomFromBinary("GEOMETRYCOLLECTION EMPTY");
+
+        // valid nonempty geometries
+        assertGeomFromBinary("POINT (1 2)");
+        assertGeomFromBinary("MULTIPOINT ((1 2), (3 4))");
+        assertGeomFromBinary("LINESTRING (0 0, 1 2, 3 4)");
+        assertGeomFromBinary("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
+        assertGeomFromBinary("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))");
+        assertGeomFromBinary("POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))");
+        assertGeomFromBinary("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
+        assertGeomFromBinary("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0)))");
+
+        // invalid geometries
+        assertGeomFromBinary("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        assertGeomFromBinary("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
+
+        // invalid binary
+        assertInvalidFunction("ST_GeomFromBinary(from_hex('deadbeef'))", "Invalid WKB");
+    }
+
+    private void assertGeomFromBinary(String wkt)
+    {
+        assertFunction(format("ST_AsText(ST_GeomFromBinary(ST_AsBinary(ST_GeometryFromText('%s'))))", wkt), VARCHAR, wkt);
     }
 }

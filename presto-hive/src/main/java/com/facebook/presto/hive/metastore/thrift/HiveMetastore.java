@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -59,16 +60,21 @@ public interface HiveMetastore
 
     Optional<Database> getDatabase(String databaseName);
 
-    /**
-     * Adds partitions to the table in a single atomic task.  The implementation
-     * must either add all partitions and return normally, or add no partitions and
-     * throw an exception.
-     */
-    void addPartitions(String databaseName, String tableName, List<Partition> partitions);
+    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+
+    // TODO: Remove this method by release 0.212.
+    // This method is available to allow smoother transition of the addPartitions API.
+    @Deprecated
+    void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions);
 
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(String databaseName, String tableName, Partition partition);
+    void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
+
+    // TODO: Remove this method by release 0.212.
+    // This method is available to allow smoother transition of the addPartitions API.
+    @Deprecated
+    void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 

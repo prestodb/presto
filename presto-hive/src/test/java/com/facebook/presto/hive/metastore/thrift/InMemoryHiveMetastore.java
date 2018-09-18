@@ -17,6 +17,7 @@ import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -58,6 +59,7 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -327,7 +329,21 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public synchronized void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
+    {
+        for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
+            Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+            if (partition.getParameters() == null) {
+                partition.setParameters(ImmutableMap.of());
+            }
+            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
+            partitions.put(partitionKey, partition);
+            partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
+        }
+    }
+
+    @Override
+    public void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions)
     {
         Optional<Table> table = getTable(databaseName, tableName);
         if (!table.isPresent()) {
@@ -363,14 +379,26 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterPartition(String databaseName, String tableName, Partition partition)
+    public synchronized void alterPartition(String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
+    {
+        Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+        if (partition.getParameters() == null) {
+            partition.setParameters(ImmutableMap.of());
+        }
+        PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
+        partitions.put(partitionKey, partition);
+        partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
+    }
+
+    @Override
+    public void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition)
     {
         Optional<Table> table = getTable(databaseName, tableName);
         if (!table.isPresent()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         String partitionName = createPartitionName(partition, table.get());
-        this.partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
+        partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
     }
 
     @Override

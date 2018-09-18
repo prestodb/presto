@@ -459,13 +459,13 @@ public class Validator
                 exception = (Exception) e.getCause();
             }
             State state = isPrestoQueryInvalid(e) ? State.INVALID : State.FAILED;
-            return new QueryResult(state, exception, null, null, null, null);
+            return new QueryResult(state, exception, null, null, queryId, ImmutableList.of());
         }
         catch (VerifierException e) {
-            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, null, null);
+            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, queryId, ImmutableList.of());
         }
         catch (UncheckedTimeoutException e) {
-            return new QueryResult(State.TIMEOUT, null, null, null, queryId, ImmutableList.of());
+            return new QueryResult(State.TIMEOUT, e, null, null, queryId, ImmutableList.of());
         }
         finally {
             executor.shutdownNow();

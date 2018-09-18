@@ -96,6 +96,8 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles = ImmutableList.of();
 
+    private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
+
     private boolean useParquetColumnNames;
     private boolean parquetOptimizedReaderEnabled = true;
     private boolean parquetPredicatePushdownEnabled = true;
@@ -889,6 +891,22 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    @MinDataSize("1B")
+    @MaxDataSize("1GB")
+    @NotNull
+    public DataSize getTextMaxLineLength()
+    {
+        return textMaxLineLength;
+    }
+
+    @Config("hive.text.max-line-length")
+    @ConfigDescription("Maximum line length for text files")
+    public HiveClientConfig setTextMaxLineLength(DataSize textMaxLineLength)
+    {
+        this.textMaxLineLength = textMaxLineLength;
         return this;
     }
 

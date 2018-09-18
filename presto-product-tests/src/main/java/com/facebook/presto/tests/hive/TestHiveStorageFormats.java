@@ -47,10 +47,10 @@ public class TestHiveStorageFormats
     public static Object[][] storageFormats()
     {
         return new StorageFormat[][] {
-                {storageFormat("ORC")},
+                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_enabled", "false"))},
                 {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_enabled", "true", "hive.orc_optimized_writer_validate", "true"))},
                 {storageFormat("DWRF")},
-                {storageFormat("PARQUET")},
+                {storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_reader_enabled", "false"))},
                 {storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_reader_enabled", "true"))},
                 {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "false", "hive.rcfile_optimized_writer_validate", "false"))},
                 {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "true", "hive.rcfile_optimized_writer_validate", "true"))},

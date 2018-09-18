@@ -16,7 +16,6 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.StageExecutionStrategy;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -183,9 +182,7 @@ public class TestPhasedExecutionSchedule
                 new PlanNodeId(name),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                Optional.empty(),
-                TupleDomain.all());
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
@@ -235,9 +232,7 @@ public class TestPhasedExecutionSchedule
                 new PlanNodeId(name),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                Optional.empty(),
-                TupleDomain.all());
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         return createFragment(planNode);
     }

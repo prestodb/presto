@@ -22,27 +22,41 @@ Presto Geospatial functions support the Well-Known Text (WKT) form of spatial ob
 Constructors
 ------------
 
-.. function:: ST_Point(double, double) -> Point
+.. function:: ST_AsBinary(Geometry) -> varbinary
 
-    Returns a geometry type point object with the given coordinate values.
-
-.. function:: ST_LineFromText(varchar) -> LineString
-
-    Returns a geometry type linestring object from WKT representation.
-
-.. function:: ST_Polygon(varchar) -> Polygon
-
-    Returns a geometry type polygon object from WKT representation.
-
-.. function:: ST_GeometryFromText(varchar) -> Geometry
-
-    Returns a geometry type object from WKT representation.
+    Returns the WKB representation of the geometry.
 
 .. function:: ST_AsText(Geometry) -> varchar
 
     Returns the WKT representation of the geometry. For empty geometries,
     ``ST_AsText(ST_LineFromText('LINESTRING EMPTY'))`` will produce ``'MULTILINESTRING EMPTY'``
     and ``ST_AsText(ST_Polygon('POLYGON EMPTY'))`` will produce ``'MULTIPOLYGON EMPTY'``.
+
+.. function:: ST_GeometryFromText(varchar) -> Geometry
+
+    Returns a geometry type object from WKT representation.
+
+.. function:: ST_GeomFromBinary(varbinary) -> Geometry
+
+    Returns a geometry type object from WKB representation.
+
+.. function:: ST_LineFromText(varchar) -> LineString
+
+    Returns a geometry type linestring object from WKT representation.
+
+.. function:: ST_LineString(array(Point)) -> LineString
+
+    Returns a LineString formed from an array of points. Empty or null points are ignored.  If there are fewer than
+    two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
+    not be simple, e.g. may self-intersect or may contain duplicate vertexes depending on the input.
+
+.. function:: ST_Point(double, double) -> Point
+
+    Returns a geometry type point object with the given coordinate values.
+
+.. function:: ST_Polygon(varchar) -> Polygon
+
+    Returns a geometry type polygon object from WKT representation.
 
 Relationship Tests
 ------------------
@@ -109,7 +123,7 @@ Operations
 
     Returns the bounding rectangular polygon of a geometry.
 
-.. function:: ST_EnvelopeAsPts(Geometry) -> Geometry
+.. function:: ST_EnvelopeAsPts(Geometry) -> array(Geometry)
 
     Returns an array of two points: the lower left and upper right corners of the bounding
     rectangular polygon of a geometry. Returns null if input geometry is empty.
@@ -338,12 +352,12 @@ These functions convert between geometries and
     and longitude. Latitude must be within ``[-85.05112878, 85.05112878]`` range.
     Longitude must be within ``[-180, 180]`` range. Zoom levels from 1 to 23 are supported.
 
-.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array<BingTile>
+.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array(BingTile)
 
     Returns a collection of Bing tiles that surround the point specified
     by the latitude and longitude arguments at a given zoom level.
 
-.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array<BingTile>
+.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array(BingTile)
 
     Returns a minimum set of Bing tiles at specified zoom level that cover a circle of specified
     radius in km around a specified (latitude, longitude) point.
@@ -364,7 +378,7 @@ These functions convert between geometries and
 
     Returns the zoom level of a given Bing tile.
 
-.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array<BingTile>
+.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array(BingTile)
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.

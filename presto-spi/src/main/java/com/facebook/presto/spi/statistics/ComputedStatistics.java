@@ -95,14 +95,16 @@ public class ComputedStatistics
             this.groupingValues = requireNonNull(groupingValues, "groupingValues is null");
         }
 
-        public void addTableStatistic(TableStatisticType type, Block value)
+        public Builder addTableStatistic(TableStatisticType type, Block value)
         {
             tableStatistics.put(type, value);
+            return this;
         }
 
-        public void addColumnStatistic(ColumnStatisticMetadata columnStatisticMetadata, Block value)
+        public Builder addColumnStatistic(ColumnStatisticMetadata columnStatisticMetadata, Block value)
         {
             columnStatistics.put(columnStatisticMetadata, value);
+            return this;
         }
 
         public ComputedStatistics build()

@@ -18,15 +18,20 @@ import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter
@@ -54,6 +59,17 @@ public final class GlueInputConverter
         input.setParameters(table.getParameters());
         table.getViewOriginalText().ifPresent(input::setViewOriginalText);
         table.getViewExpandedText().ifPresent(input::setViewExpandedText);
+        return input;
+    }
+
+    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
+    {
+        PartitionInput input = convertPartition(partitionWithStatistics.getPartition());
+        PartitionStatistics statistics = partitionWithStatistics.getStatistics();
+        if (!statistics.getColumnStatistics().isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
+        }
+        input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
         return input;
     }
 

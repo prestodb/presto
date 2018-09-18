@@ -21,6 +21,8 @@ import com.facebook.presto.spi.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
@@ -91,7 +93,7 @@ public class MapBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
-        boolean[] mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
+        Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
         return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
     }
 }

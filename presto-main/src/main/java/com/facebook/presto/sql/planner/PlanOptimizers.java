@@ -333,7 +333,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata).rules()),
+                        new PickTableLayout(metadata, sqlParser).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         ruleStats,
@@ -382,7 +382,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata).rules()),
+                        new PickTableLayout(metadata, sqlParser).rules()),
                 projectionPushDown,
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

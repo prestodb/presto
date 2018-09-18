@@ -18,7 +18,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 
@@ -42,8 +41,6 @@ public class ResourceGroupInfo
     private final int softConcurrencyLimit;
     private final int hardConcurrencyLimit;
     private final int maxQueuedQueries;
-    private final Duration runningTimeLimit;
-    private final Duration queuedTimeLimit;
 
     private final DataSize memoryUsage;
     private final int numQueuedQueries;
@@ -65,8 +62,6 @@ public class ResourceGroupInfo
             int softConcurrencyLimit,
             int hardConcurrencyLimit,
             int maxQueuedQueries,
-            Duration runningTimeLimit,
-            Duration queuedTimeLimit,
 
             DataSize memoryUsage,
             int numQueuedQueries,
@@ -88,8 +83,6 @@ public class ResourceGroupInfo
         this.softConcurrencyLimit = softConcurrencyLimit;
         this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.maxQueuedQueries = maxQueuedQueries;
-        this.runningTimeLimit = requireNonNull(runningTimeLimit, "runningTimeLimit is null");
-        this.queuedTimeLimit = requireNonNull(queuedTimeLimit, "queuedTimeLimit is null");
 
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         this.numQueuedQueries = numQueuedQueries;
@@ -153,18 +146,6 @@ public class ResourceGroupInfo
     public int getMaxQueuedQueries()
     {
         return maxQueuedQueries;
-    }
-
-    @JsonProperty
-    public Duration getQueuedTimeLimit()
-    {
-        return queuedTimeLimit;
-    }
-
-    @JsonProperty
-    public Duration getRunningTimeLimit()
-    {
-        return runningTimeLimit;
     }
 
     @JsonProperty

@@ -126,17 +126,4 @@ public class ByteInputStream
             type.writeLong(builder, next());
         }
     }
-
-    public void nextVector(Type type, long items, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, next());
-            }
-        }
-    }
 }

@@ -29,6 +29,8 @@ public interface HiveFileWriter
 
     void rollback();
 
+    long getValidationCpuNanos();
+
     default Optional<Runnable> getVerificationTask()
     {
         return Optional.empty();

@@ -37,7 +37,7 @@ public class TestTaskManagerConfig
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
                 .setInfoUpdateInterval(new Duration(3, TimeUnit.SECONDS))
-                .setVerboseStats(false)
+                .setPerOperatorCpuTimerEnabled(false)
                 .setTaskCpuTimerEnabled(true)
                 .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 2 * 2)
@@ -57,7 +57,8 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
-                .setLevelTimeMultiplier(new BigDecimal("2")));
+                .setLevelTimeMultiplier(new BigDecimal("2"))
+                .setStatisticsCpuTimerEnabled(false));
     }
 
     @Test
@@ -68,7 +69,7 @@ public class TestTaskManagerConfig
                 .put("task.split-concurrency-adjustment-interval", "1s")
                 .put("task.status-refresh-max-wait", "2s")
                 .put("task.info-update-interval", "2s")
-                .put("task.verbose-stats", "true")
+                .put("task.per-operator-cpu-timer-enabled", "true")
                 .put("task.cpu-timer-enabled", "false")
                 .put("task.max-index-memory", "512MB")
                 .put("task.share-index-loading", "true")
@@ -89,6 +90,7 @@ public class TestTaskManagerConfig
                 .put("task.task-notification-threads", "13")
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
+                .put("task.statistics-cpu-timer-enabled", "true")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -96,7 +98,7 @@ public class TestTaskManagerConfig
                 .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
                 .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
                 .setInfoUpdateInterval(new Duration(2, TimeUnit.SECONDS))
-                .setVerboseStats(true)
+                .setPerOperatorCpuTimerEnabled(true)
                 .setTaskCpuTimerEnabled(false)
                 .setMaxIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
                 .setShareIndexLoading(true)
@@ -116,7 +118,8 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
-                .setLevelTimeMultiplier(new BigDecimal("2.1"));
+                .setLevelTimeMultiplier(new BigDecimal("2.1"))
+                .setStatisticsCpuTimerEnabled(true);
 
         assertFullMapping(properties, expected);
     }

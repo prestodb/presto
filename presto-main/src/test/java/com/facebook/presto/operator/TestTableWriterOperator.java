@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.OutputTableHandle;
@@ -57,11 +58,14 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -159,7 +163,7 @@ public class TestTableWriterOperator
     public void testTableWriterInfo()
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
         TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new DevNullOperatorFactory(1, new PlanNodeId("test")),
@@ -172,12 +176,15 @@ public class TestTableWriterOperator
         List<Page> pages = rowPagesBuilder.build();
 
         long peakMemoryUsage = 0;
+        long validationCpuNanos = 0;
         for (int i = 0; i < pages.size(); i++) {
             Page page = pages.get(i);
             peakMemoryUsage += page.getRetainedSizeInBytes();
+            validationCpuNanos += page.getPositionCount();
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
             assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
+            assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
         }
     }
 
@@ -186,8 +193,11 @@ public class TestTableWriterOperator
             throws Exception
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
         ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
+        Session session = testSessionBuilder()
+                .setSystemProperty("statistics_cpu_timer_enabled", "true")
+                .build();
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(
@@ -195,7 +205,8 @@ public class TestTableWriterOperator
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
                         ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty()))),
-                outputTypes);
+                outputTypes,
+                session);
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
         operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
@@ -220,6 +231,10 @@ public class TestTableWriterOperator
 
         operator.close();
         assertMemoryIsReleased(operator);
+
+        TableWriterInfo info = operator.getInfo();
+        assertThat(info.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(info.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
     }
 
     private void assertMemoryIsReleased(TableWriterOperator tableWriterOperator)
@@ -249,6 +264,11 @@ public class TestTableWriterOperator
 
     private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes)
     {
+        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, TEST_SESSION);
+    }
+
+    private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes, Session session)
+    {
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -259,11 +279,11 @@ public class TestTableWriterOperator
                         new ConnectorOutputTableHandle() {}),
                         new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
-                TEST_SESSION,
+                session,
                 statisticsAggregation,
                 outputTypes);
 
-        return factory.createOperator(createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+        return factory.createOperator(createTaskContext(executor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true)
                 .addDriverContext());
     }
@@ -323,7 +343,7 @@ public class TestTableWriterOperator
         }
     }
 
-    private static class MemoryAccountingTestPageSink
+    private static class TableWriteInfoTestPageSink
             implements ConnectorPageSink
     {
         private final List<Page> pages = new ArrayList<>();
@@ -349,6 +369,16 @@ public class TestTableWriterOperator
                 memoryUsage += page.getRetainedSizeInBytes();
             }
             return memoryUsage;
+        }
+
+        @Override
+        public long getValidationCpuNanos()
+        {
+            long validationCpuNanos = 0;
+            for (Page page : pages) {
+                validationCpuNanos += page.getPositionCount();
+            }
+            return validationCpuNanos;
         }
 
         @Override

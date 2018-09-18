@@ -15,9 +15,11 @@ package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionMetadata
@@ -69,15 +72,13 @@ public class PartitionMetadata
         this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
-    public PartitionMetadata(Table table, Partition partition)
+    public PartitionMetadata(Table table, PartitionWithStatistics partitionWithStatistics)
     {
-        this(table, partition, ImmutableMap.of());
-    }
+        Partition partition = partitionWithStatistics.getPartition();
+        PartitionStatistics statistics = partitionWithStatistics.getStatistics();
 
-    public PartitionMetadata(Table table, Partition partition, Map<String, HiveColumnStatistics> columnStatistics)
-    {
         this.columns = partition.getColumns();
-        this.parameters = partition.getParameters();
+        this.parameters = updateStatisticsParameters(partition.getParameters(), statistics.getBasicStatistics());
 
         StorageFormat tableFormat = partition.getStorage().getStorageFormat();
         storageFormat = Arrays.stream(HiveStorageFormat.values())
@@ -93,7 +94,7 @@ public class PartitionMetadata
 
         bucketProperty = partition.getStorage().getBucketProperty();
         serdeParameters = partition.getStorage().getSerdeParameters();
-        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        columnStatistics = ImmutableMap.copyOf(statistics.getColumnStatistics());
     }
 
     @JsonProperty

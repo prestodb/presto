@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartitioningHandle
@@ -53,10 +53,7 @@ public class HivePartitioningHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("bucketCount", bucketCount)
-                .add("hiveTypes", hiveTypes)
-                .toString();
+        return format("buckets=%s, hiveTypes=%s", bucketCount, hiveTypes);
     }
 
     @Override

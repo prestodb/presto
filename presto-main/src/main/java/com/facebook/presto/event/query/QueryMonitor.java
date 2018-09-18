@@ -15,8 +15,6 @@ package com.facebook.presto.event.query;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -70,6 +68,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
+import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -90,8 +90,6 @@ public class QueryMonitor
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionRegistry functionRegistry;
     private final int maxJsonLimit;
-    private final StatsCalculator statsCalculator;
-    private final CostCalculator costCalculator;
     private final InternalNodeManager nodeManager;
     private final NodeSchedulerConfig nodeSchedulerConfig;
 
@@ -105,8 +103,6 @@ public class QueryMonitor
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
             QueryMonitorConfig config,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
@@ -119,8 +115,6 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
-        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
     }
@@ -216,8 +210,9 @@ public class QueryMonitor
                     plan = Optional.of(textDistributedPlan(
                             queryInfo.getOutputStage().get(),
                             functionRegistry,
-                            statsCalculator,
-                            costCalculator,
+                            // Not possible to recompute stats and costs, since transaction is already completed at this moment
+                            (node, sourceStats, lookup, session, types) -> UNKNOWN_STATS,
+                            (node, stats, lookup, session, types) -> UNKNOWN_COST,
                             nodeManager,
                             nodeSchedulerConfig,
                             queryInfo.getSession().toSession(sessionPropertyManager),
@@ -225,8 +220,9 @@ public class QueryMonitor
                 }
             }
             catch (Exception e) {
-                // don't fail to create event if the plan can not be created
-                log.debug(e, "Error creating explain plan");
+                // Sometimes it is expected to fail. For example if generated plan is too long.
+                // Don't fail to create event if the plan can not be created.
+                log.warn(e, "Error creating explain plan");
             }
 
             eventListenerManager.queryCompleted(

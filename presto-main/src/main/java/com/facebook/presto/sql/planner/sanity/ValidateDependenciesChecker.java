@@ -64,7 +64,6 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -360,14 +359,6 @@ public final class ValidateDependenciesChecker
                 }
             }
             checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
-
-            if (node.isCrossJoin()) {
-                List<Symbol> allInputsOrdered = ImmutableList.<Symbol>builder()
-                        .addAll(node.getLeft().getOutputSymbols())
-                        .addAll(node.getRight().getOutputSymbols())
-                        .build();
-                checkState(allInputsOrdered.equals(node.getOutputSymbols()), "Outputs symbols (%s) for cross join do not match ordered input symbols (%s)", node.getOutputSymbols(), allInputsOrdered);
-            }
 
             return null;
         }

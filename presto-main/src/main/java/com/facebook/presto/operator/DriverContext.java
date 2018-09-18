@@ -18,6 +18,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -28,8 +29,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -44,6 +43,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -54,8 +54,6 @@ import static java.util.stream.Collectors.toList;
  */
 public class DriverContext
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
-
     private final PipelineContext pipelineContext;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -68,12 +66,7 @@ public class DriverContext
     private final AtomicLong startNanos = new AtomicLong();
     private final AtomicLong endNanos = new AtomicLong();
 
-    private final AtomicLong intervalWallStart = new AtomicLong();
-    private final AtomicLong intervalCpuStart = new AtomicLong();
-
-    private final AtomicLong processCalls = new AtomicLong();
-    private final AtomicLong processWallNanos = new AtomicLong();
-    private final AtomicLong processCpuNanos = new AtomicLong();
+    private final OperationTiming overallTiming = new OperationTiming();
 
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
@@ -151,16 +144,11 @@ public class DriverContext
             pipelineContext.start();
             executionStartTime.set(DateTime.now());
         }
-
-        intervalWallStart.set(System.nanoTime());
-        intervalCpuStart.set(currentThreadCpuTime());
     }
 
-    public void recordProcessed()
+    public void recordProcessed(OperationTimer operationTimer)
     {
-        processCalls.incrementAndGet();
-        processWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        processCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        operationTimer.end(overallTiming);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -239,9 +227,9 @@ public class DriverContext
         operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
     }
 
-    public boolean isVerboseStats()
+    public boolean isPerOperatorCpuTimerEnabled()
     {
-        return pipelineContext.isVerboseStats();
+        return pipelineContext.isPerOperatorCpuTimerEnabled();
     }
 
     public boolean isCpuTimerEnabled()
@@ -312,8 +300,8 @@ public class DriverContext
 
     public DriverStats getDriverStats()
     {
-        long totalScheduledTime = processWallNanos.get();
-        long totalCpuTime = processCpuNanos.get();
+        long totalScheduledTime = overallTiming.getWallNanos();
+        long totalCpuTime = overallTiming.getCpuNanos();
 
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
@@ -435,17 +423,9 @@ public class DriverContext
         return yieldExecutor;
     }
 
-    private long currentThreadCpuTime()
-    {
-        if (!isCpuTimerEnabled()) {
-            return 0;
-        }
-        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
-    }
-
     private static long nanosBetween(long start, long end)
     {
-        return Math.abs(end - start);
+        return max(0, end - start);
     }
 
     private class BlockedMonitor

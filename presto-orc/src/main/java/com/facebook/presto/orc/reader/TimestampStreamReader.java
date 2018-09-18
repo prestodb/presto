@@ -34,14 +34,13 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampStreamReader
@@ -121,75 +120,36 @@ public class TimestampStreamReader
             }
         }
 
-        assureVectorSize();
-
         BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-        while (nextBatchSize > 0) {
-            int subBatchSize = min(nextBatchSize, MAX_BATCH_SIZE);
-            if (presentStream == null) {
-                if (secondsStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but seconds stream is not present");
-                }
-                if (nanosStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is not present");
-                }
 
-                secondsStream.nextLongVector(subBatchSize, secondsVector);
-                nanosStream.nextLongVector(subBatchSize, nanosVector);
-
-                // merge seconds and nanos together
-                for (int i = 0; i < subBatchSize; i++) {
-                    type.writeLong(builder, decodeTimestamp(secondsVector[i], nanosVector[i], baseTimestampInSeconds));
-                }
+        if (presentStream == null) {
+            if (secondsStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but seconds stream is not present");
             }
-            else {
-                if (nullVector.length < subBatchSize) {
-                    nullVector = new boolean[subBatchSize];
-                }
-                int nullValues = presentStream.getUnsetBits(subBatchSize, nullVector);
-                if (nullValues != subBatchSize) {
-                    if (secondsStream == null) {
-                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but seconds stream is not present");
-                    }
-                    if (nanosStream == null) {
-                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is not present");
-                    }
+            if (nanosStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is not present");
+            }
 
-                    secondsStream.nextLongVector(subBatchSize, secondsVector, nullVector);
-                    nanosStream.nextLongVector(subBatchSize, nanosVector, nullVector);
-
-                    // merge seconds and nanos together
-                    for (int i = 0; i < subBatchSize; i++) {
-                        if (nullVector[i]) {
-                            builder.appendNull();
-                        }
-                        else {
-                            type.writeLong(builder, decodeTimestamp(secondsVector[i], nanosVector[i], baseTimestampInSeconds));
-                        }
-                    }
+            for (int i = 0; i < nextBatchSize; i++) {
+                type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
+            }
+        }
+        else {
+            for (int i = 0; i < nextBatchSize; i++) {
+                if (presentStream.nextBit()) {
+                    verify(secondsStream != null, "Value is not null but seconds stream is not present");
+                    verify(nanosStream != null, "Value is not null but nanos stream is not present");
+                    type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
                 }
                 else {
-                    for (int i = 0; i < subBatchSize; i++) {
-                        builder.appendNull();
-                    }
+                    builder.appendNull();
                 }
             }
-            nextBatchSize -= subBatchSize;
         }
 
         readOffset = 0;
         nextBatchSize = 0;
         return builder.build();
-    }
-
-    private void assureVectorSize()
-    {
-        int requiredVectorLength = min(nextBatchSize, MAX_BATCH_SIZE);
-        if (secondsVector.length < requiredVectorLength) {
-            secondsVector = new long[requiredVectorLength];
-            nanosVector = new long[requiredVectorLength];
-            systemMemoryContext.setBytes(getRetainedSizeInBytes());
-        }
     }
 
     private void openRowGroup()

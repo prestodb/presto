@@ -29,14 +29,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestFileResourceGroupConfigurationManager
 {
@@ -75,14 +75,14 @@ public class TestFileResourceGroupConfigurationManager
         parse("resource_groups_config_bad_query_type.json");
     }
 
-    private void assertMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context, String expectedResourceGroup)
+    private static void assertMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context, String expectedResourceGroup)
     {
         Optional<ResourceGroupId> group = tryMatch(selectors, context);
         assertTrue(group.isPresent(), "match expected");
         assertEquals(group.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, group.get()));
     }
 
-    private Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)
+    private static Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)
     {
         for (ResourceGroupSelector selector : selectors) {
             Optional<SelectionContext<VariableMap>> group = selector.match(context);
@@ -93,6 +93,7 @@ public class TestFileResourceGroupConfigurationManager
         return Optional.empty();
     }
 
+    @SuppressWarnings("SimplifiedTestNGAssertion")
     @Test
     public void testConfiguration()
     {
@@ -109,8 +110,6 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
-        assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
-        assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
 
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
         ResourceGroup sub = new TestingResourceGroup(subId);
@@ -121,8 +120,6 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);
         assertEquals(sub.getJmxExport(), false);
-        assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
-        assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
     }
 
     @Test
@@ -160,26 +157,15 @@ public class TestFileResourceGroupConfigurationManager
         parse("resource_groups_config_bad_selector.json");
     }
 
-    private FileResourceGroupConfigurationManager parse(String fileName)
+    private static FileResourceGroupConfigurationManager parse(String fileName)
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();
-        config.setConfigFile(getResourceFilePath(fileName));
+        config.setConfigFile(getResource(fileName).getPath());
         return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
     }
 
-    private String getResourceFilePath(String fileName)
+    private static void assertFails(String fileName, String expectedPattern)
     {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
-    }
-
-    private void assertFails(String fileName, String expectedPattern)
-    {
-        try {
-            parse(fileName);
-            fail("Expected parsing to fail");
-        }
-        catch (RuntimeException e) {
-            assertThat(e.getMessage()).matches(expectedPattern);
-        }
+        assertThatThrownBy(() -> parse(fileName)).hasMessageMatching(expectedPattern);
     }
 }
