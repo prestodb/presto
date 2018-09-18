@@ -15,7 +15,6 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.ranger.RangerSystemAccessControlFactory;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -81,7 +80,6 @@ public class AccessControlManager
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
-        addSystemAccessControlFactory(new RangerSystemAccessControlFactory());
     }
 
     public void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)

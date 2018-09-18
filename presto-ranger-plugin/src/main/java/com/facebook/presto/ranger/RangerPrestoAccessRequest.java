@@ -21,11 +21,13 @@ import java.util.Locale;
 import java.util.Set;
 
 public class RangerPrestoAccessRequest
-    extends RangerAccessRequestImpl
+        extends RangerAccessRequestImpl
 {
-    public RangerPrestoAccessRequest() {
+    public RangerPrestoAccessRequest()
+    {
         super();
     }
+
     public RangerPrestoAccessRequest(RangerPrestoResource resource,
                                      String user,
                                      Set<String> userGroups,
@@ -39,7 +41,8 @@ public class RangerPrestoAccessRequest
             userGroups);
     }
 
-    public RangerPrestoAccessRequest copy() {
+    public RangerPrestoAccessRequest copy()
+    {
         RangerPrestoAccessRequest ret = new RangerPrestoAccessRequest();
         ret.setResource(getResource());
         ret.setAccessType(getAccessType());

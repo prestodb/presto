@@ -376,11 +376,6 @@
             <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-ranger-plugin</artifactId>
-            <version>0.211-SNAPSHOT</version>
-        </dependency>
     </dependencies>
 
     <build>

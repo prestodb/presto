@@ -94,6 +94,10 @@
                 <groupId>commons-logging</groupId>
                 <artifactId>commons-logging</artifactId>
             </exclusion>
+            <exclusion>
+                <groupId>commons-lang</groupId>
+                <artifactId>commons-lang</artifactId>
+            </exclusion>
         </exclusions>
     </dependency>
 
@@ -173,6 +177,11 @@
             <artifactId>log</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.4</version>
+        </dependency>
         <!-- Presto SPI -->
 
         <dependency>
