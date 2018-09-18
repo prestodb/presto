@@ -53,12 +53,6 @@ public class JoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
-    /**
-     * List of output symbols produced by join. Output symbols
-     * must be from either left or right side of join. Symbols
-     * from left join side must precede symbols from right side
-     * of join.
-     */
     private final List<Symbol> outputSymbols;
     private final Optional<Expression> filter;
     private final Optional<Symbol> leftHashSymbol;
