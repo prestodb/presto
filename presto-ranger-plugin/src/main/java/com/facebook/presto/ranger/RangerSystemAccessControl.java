@@ -19,6 +19,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import io.airlift.log.Logger;
+import org.apache.commons.lang.StringUtils;
+import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 
 import java.security.Principal;
 import java.util.Arrays;
@@ -44,6 +46,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
@@ -51,11 +54,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Comparator.comparing;
 
-/**
- * @author cquptethan
- */
 public class RangerSystemAccessControl
-        implements SystemAccessControl
+    implements SystemAccessControl
 {
     private static final Logger log = Logger.get(RangerSystemAccessControl.class);
     private final Set<String> powerPrincipals;
@@ -63,6 +63,8 @@ public class RangerSystemAccessControl
     private final Set<String> powerUsers;
     private final PrestoAuthorizer authorizer;
     private final Set<String> writeableCatalogs;
+
+    private static final char COLUMN_SEP = ',';
 
     public RangerSystemAccessControl(PrestoAuthorizer prestoAuthorizer, Map<String, String> config)
     {
@@ -73,32 +75,32 @@ public class RangerSystemAccessControl
 
         log.info("Writeable catalogs: " + this.writeableCatalogs);
         String[] powerPrincipals = config.getOrDefault("power-principals", "")
-                .split(",");
+            .split(",");
         this.powerPrincipals = Arrays.stream(powerPrincipals)
-                .filter(s -> !s.isEmpty())
-                .map(String::toLowerCase)
-                .collect(toImmutableSet());
+            .filter(s -> !s.isEmpty())
+            .map(String::toLowerCase)
+            .collect(toImmutableSet());
 
         String[] powerUsers = config.getOrDefault("power-users", "")
-                .split(",");
+            .split(",");
         this.powerUsers = Arrays.stream(powerUsers)
-                .filter(s -> !s.isEmpty())
-                .map(String::toLowerCase)
-                .collect(toImmutableSet());
+            .filter(s -> !s.isEmpty())
+            .map(String::toLowerCase)
+            .collect(toImmutableSet());
     }
 
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
-        if (principal == null) {
+        if (!principal.isPresent()) {
             return;
         }
         if (powerPrincipals.contains(principal.get().getName().toLowerCase(Locale.ENGLISH))) {
             return;
         }
         String principalName = principal.get().getName()
-                .replaceAll("@.*", "")
-                .replaceAll("/.*", "");
+            .replaceAll("@.*", "")
+            .replaceAll("/.*", "");
         if (!principalName.equalsIgnoreCase(userName)) {
             denySetUser(principal, userName);
         }
@@ -148,14 +150,14 @@ public class RangerSystemAccessControl
     public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
     {
         List<RangerPrestoResource> rangerResources = tableNames
-                .stream()
-                .map(t -> new RangerPrestoResource(t.getSchemaName(), Optional.of(t.getTableName())))
-                .collect(toImmutableList());
+            .stream()
+            .map(t -> new RangerPrestoResource(catalogName, t.getSchemaName(), Optional.of(t.getTableName())))
+            .collect(toImmutableList());
 
         Stream<SchemaTableName> outTables = authorizer
-                .filterResources(rangerResources, identity)
-                .stream()
-                .map(RangerPrestoResource::getSchemaTable);
+            .filterResources(rangerResources, identity)
+            .stream()
+            .map(RangerPrestoResource::getSchemaTable);
 
         return makeSortedSet(outTables, comparing(t -> t.toString().toLowerCase(Locale.ENGLISH)));
     }
@@ -164,14 +166,14 @@ public class RangerSystemAccessControl
     public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
     {
         List<RangerPrestoResource> rangerResources = schemaNames
-                .stream()
-                .map(schemaName -> new RangerPrestoResource(schemaName, Optional.empty()))
-                .collect(toImmutableList());
+            .stream()
+            .map(schemaName -> new RangerPrestoResource(catalogName ,schemaName, Optional.empty()))
+            .collect(toImmutableList());
 
         Stream<String> outSchemas = authorizer
-                .filterResources(rangerResources, identity)
-                .stream()
-                .map(RangerPrestoResource::getDatabase);
+            .filterResources(rangerResources, identity)
+            .stream()
+            .map(RangerPrestoResource::getDatabase);
 
         return makeSortedSet(outSchemas, comparing(String::toLowerCase));
     }
@@ -187,7 +189,7 @@ public class RangerSystemAccessControl
     public void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
     {
         if (!authorizer.canCreateResource(createResource(schema), identity) ||
-                !writeableCatalogs.contains(schema.getCatalogName())) {
+            !writeableCatalogs.contains(schema.getCatalogName())) {
             denyCreateSchema(schema.getSchemaName());
         }
     }
@@ -196,7 +198,7 @@ public class RangerSystemAccessControl
     public void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
     {
         if (!authorizer.canCreateResource(createResource(schema), identity) ||
-                !writeableCatalogs.contains(schema.getCatalogName())) {
+            !writeableCatalogs.contains(schema.getCatalogName())) {
             denyDropSchema(schema.getSchemaName());
         }
     }
@@ -205,8 +207,8 @@ public class RangerSystemAccessControl
     public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
     {
         if (!authorizer.canCreateResource(createResource(schema), identity) ||
-                !authorizer.canDropResource(createResource(newSchemaName), identity) ||
-                !writeableCatalogs.contains(schema.getCatalogName())) {
+            !authorizer.canDropResource(createResource(schema.getCatalogName(), newSchemaName), identity) ||
+            !writeableCatalogs.contains(schema.getCatalogName())) {
             denyRenameSchema(schema.getSchemaName(), newSchemaName);
         }
     }
@@ -215,7 +217,7 @@ public class RangerSystemAccessControl
     public void checkCanCreateTable(Identity identity, CatalogSchemaTableName table)
     {
         if (!authorizer.canCreateResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyCreateTable(table.getSchemaTableName().getTableName());
         }
     }
@@ -224,7 +226,7 @@ public class RangerSystemAccessControl
     public void checkCanDropTable(Identity identity, CatalogSchemaTableName table)
     {
         if (!authorizer.canDropResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyDropTable(table.getSchemaTableName().getTableName());
         }
     }
@@ -233,9 +235,9 @@ public class RangerSystemAccessControl
     public void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         if (!authorizer.canCreateResource(createResource(newTable), identity) ||
-                !authorizer.canDropResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(newTable.getCatalogName()) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !authorizer.canDropResource(createResource(table), identity) ||
+            !writeableCatalogs.contains(newTable.getCatalogName()) ||
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyRenameTable(table.getSchemaTableName().getTableName(), newTable.getSchemaTableName().getTableName());
         }
     }
@@ -244,7 +246,7 @@ public class RangerSystemAccessControl
     public void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
     {
         if (!authorizer.canUpdateResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyAddColumn(table.getSchemaTableName().getTableName());
         }
     }
@@ -253,7 +255,7 @@ public class RangerSystemAccessControl
     public void checkCanRenameColumn(Identity identity, CatalogSchemaTableName table)
     {
         if (!authorizer.canUpdateResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyRenameColumn(table.getSchemaTableName().getTableName());
         }
     }
@@ -262,7 +264,7 @@ public class RangerSystemAccessControl
     public void checkCanInsertIntoTable(Identity identity, CatalogSchemaTableName table)
     {
         if (!authorizer.canUpdateResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyInsertTable(table.getSchemaTableName().getTableName());
         }
     }
@@ -271,7 +273,7 @@ public class RangerSystemAccessControl
     public void checkCanDeleteFromTable(Identity identity, CatalogSchemaTableName table)
     {
         if (!authorizer.canUpdateResource(createResource(table), identity) ||
-                !writeableCatalogs.contains(table.getCatalogName())) {
+            !writeableCatalogs.contains(table.getCatalogName())) {
             denyDeleteTable(table.getSchemaTableName().getTableName());
         }
     }
@@ -280,7 +282,7 @@ public class RangerSystemAccessControl
     public void checkCanCreateView(Identity identity, CatalogSchemaTableName view)
     {
         if (!authorizer.canCreateResource(createResource(view), identity) ||
-                !writeableCatalogs.contains(view.getCatalogName())) {
+            !writeableCatalogs.contains(view.getCatalogName())) {
             denyCreateView(view.getSchemaTableName().getTableName());
         }
     }
@@ -289,33 +291,49 @@ public class RangerSystemAccessControl
     public void checkCanDropView(Identity identity, CatalogSchemaTableName view)
     {
         if (!authorizer.canDropResource(createResource(view), identity) ||
-                !writeableCatalogs.contains(view.getCatalogName())) {
+            !writeableCatalogs.contains(view.getCatalogName())) {
             denyDropView(view.getSchemaTableName().getTableName());
         }
     }
 
+    @Override
+    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName view, Set<String> columns)
+    {
+        RangerAccessResult accessResult =
+            authorizer.checkPermission(createResource(view, StringUtils.join(columns.toArray(), COLUMN_SEP)), identity, PrestoAccessType.SELECT);
+        if (!accessResult.getIsAllowed()) {
+            denySelectColumns(view.toString(), columns, accessResult.getReason());
+        }
+    }
+
+
     private static RangerPrestoResource createResource(CatalogSchemaName catalogSchema)
     {
-        return createResource(catalogSchema.getSchemaName());
+        return createResource(catalogSchema.getCatalogName(), catalogSchema.getSchemaName());
     }
 
     private static RangerPrestoResource createResource(CatalogSchemaTableName catalogSchema)
     {
-        return createResource(catalogSchema.getSchemaTableName().getSchemaName(), catalogSchema.getSchemaTableName().getTableName());
+        return createResource(catalogSchema.getCatalogName(), catalogSchema.getSchemaTableName().getSchemaName(), catalogSchema.getSchemaTableName().getTableName());
     }
 
-    private static RangerPrestoResource createResource(SchemaTableName tableName)
+    private static RangerPrestoResource createResource(CatalogSchemaTableName catalogSchema, String columns)
     {
-        return createResource(tableName.getSchemaName(), tableName.getTableName());
+        return createResource(catalogSchema.getCatalogName(), catalogSchema.getSchemaTableName().getSchemaName(), catalogSchema.getSchemaTableName().getTableName(), columns);
     }
 
-    private static RangerPrestoResource createResource(final String schemaName)
+    private static RangerPrestoResource createResource(final String catalogName ,final String schemaName)
     {
-        return new RangerPrestoResource(schemaName, Optional.empty());
+        return new RangerPrestoResource(catalogName, Optional.of(schemaName));
     }
 
-    private static RangerPrestoResource createResource(final String schemaName, final String tableName)
+    private static RangerPrestoResource createResource(final String catalogName, final String schemaName, final String tableName)
     {
-        return new RangerPrestoResource(schemaName, Optional.of(tableName));
+        return new RangerPrestoResource(catalogName, schemaName, Optional.of(tableName));
+    }
+
+    private static RangerPrestoResource createResource(final String catalogName, final String schemaName, final String tableName, final String columns)
+    {
+        return new RangerPrestoResource(catalogName, schemaName, tableName, Optional.of(columns));
     }
 }

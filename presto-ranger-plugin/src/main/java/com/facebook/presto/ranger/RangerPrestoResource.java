@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.ranger;
 
+import com.facebook.presto.ranger.PrestoAuthorizer.PrestoObjectType;
 import com.facebook.presto.spi.SchemaTableName;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 
@@ -21,14 +22,48 @@ import java.util.Optional;
 public class RangerPrestoResource
         extends RangerAccessResourceImpl
 {
+    public static final String KEY_CATALOG = "catalog";
     public static final String KEY_DATABASE = "database";
     public static final String KEY_TABLE = "table";
+    public static final String KEY_COLUMN = "column";
 
-    public RangerPrestoResource(String database, Optional<String> table)
+
+
+  private PrestoObjectType objectType = null;
+
+    public RangerPrestoResource(Optional<String>  catalog)
     {
-        setValue(KEY_DATABASE, database);
-        table.ifPresent(t -> setValue(KEY_TABLE, t));
+      this(PrestoObjectType.CATALOG, catalog , null, null, null);
     }
+
+    public RangerPrestoResource(String catalog, Optional<String>  database)
+    {
+      this(PrestoObjectType.DATABASE, Optional.of(catalog) , database, null, null);
+    }
+
+    public RangerPrestoResource(String catalog, String database, Optional<String> table)
+    {
+      this(PrestoObjectType.TABLE, Optional.of(catalog), Optional.of(database), table, null);
+    }
+
+    public RangerPrestoResource(String catalog, String database, String table, Optional<String> column)
+    {
+      this(PrestoObjectType.COLUMN, Optional.of(catalog), Optional.of(database), Optional.of(table), column);
+    }
+
+    public RangerPrestoResource(PrestoObjectType objectType ,Optional<String> catalog, Optional<String> database, Optional<String> table , Optional<String> column)
+    {
+      this.objectType = objectType;
+      catalog.ifPresent(t -> setValue(KEY_CATALOG, t));
+      database.ifPresent(t -> setValue(KEY_DATABASE, t));
+      table.ifPresent(t -> setValue(KEY_TABLE, t));
+      column.ifPresent(t -> setValue(KEY_COLUMN, t));
+    }
+
+    public String getColumn()
+  {
+    return getValue(KEY_COLUMN);
+  }
 
     public String getTable()
     {
@@ -40,8 +75,16 @@ public class RangerPrestoResource
         return getValue(KEY_DATABASE);
     }
 
+    public String getCatalog()
+    {
+      return getValue(KEY_CATALOG);
+    }
+
     public SchemaTableName getSchemaTable()
     {
         return new SchemaTableName(getDatabase(), Optional.ofNullable(getTable()).orElse("*"));
     }
+  public PrestoObjectType getObjectType() {
+    return objectType;
+  }
 }

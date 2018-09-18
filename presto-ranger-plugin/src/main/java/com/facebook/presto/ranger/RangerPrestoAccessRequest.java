@@ -15,24 +15,46 @@ package com.facebook.presto.ranger;
 
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerPolicyEngine;
+import org.apache.ranger.plugin.util.RangerAccessRequestUtil;
 
 import java.util.Locale;
 import java.util.Set;
 
 public class RangerPrestoAccessRequest
-        extends RangerAccessRequestImpl
+    extends RangerAccessRequestImpl
 {
+    public RangerPrestoAccessRequest() {
+        super();
+    }
     public RangerPrestoAccessRequest(RangerPrestoResource resource,
                                      String user,
                                      Set<String> userGroups,
                                      PrestoAccessType prestoAccessType)
-
     {
         super(resource,
-              prestoAccessType == PrestoAccessType.USE ? RangerPolicyEngine.ANY_ACCESS :
-              prestoAccessType == PrestoAccessType.ADMIN ? RangerPolicyEngine.ADMIN_ACCESS :
-              prestoAccessType.name().toLowerCase(Locale.ENGLISH),
-              user,
-              userGroups);
+            prestoAccessType == PrestoAccessType.USE ? RangerPolicyEngine.ANY_ACCESS :
+                prestoAccessType == PrestoAccessType.ADMIN ? RangerPolicyEngine.ADMIN_ACCESS :
+                    prestoAccessType.name().toLowerCase(Locale.ENGLISH),
+            user,
+            userGroups);
+    }
+
+    public RangerPrestoAccessRequest copy() {
+        RangerPrestoAccessRequest ret = new RangerPrestoAccessRequest();
+        ret.setResource(getResource());
+        ret.setAccessType(getAccessType());
+        ret.setUser(getUser());
+        ret.setUserGroups(getUserGroups());
+        ret.setAccessTime(getAccessTime());
+        ret.setAction(getAction());
+        ret.setClientIPAddress(getClientIPAddress());
+        ret.setRemoteIPAddress(getRemoteIPAddress());
+        ret.setForwardedAddresses(getForwardedAddresses());
+        ret.setRequestData(getRequestData());
+        ret.setClientType(getClientType());
+        ret.setSessionId(getSessionId());
+        ret.setContext(RangerAccessRequestUtil.copyContext(getContext()));
+        ret.setClusterName(getClusterName());
+        return ret;
     }
 }

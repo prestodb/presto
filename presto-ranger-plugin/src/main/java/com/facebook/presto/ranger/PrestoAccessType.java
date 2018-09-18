@@ -15,5 +15,5 @@ package com.facebook.presto.ranger;
 
 public enum PrestoAccessType
 {
-    NONE, CREATE, DROP, SELECT, UPDATE, USE, READ, WRITE, ALL, ADMIN;
+    CREATE, DROP, SELECT, UPDATE, USE, ADMIN;
 }

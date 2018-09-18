@@ -94,6 +94,7 @@
         <module>presto-mongodb</module>
         <module>presto-client</module>
         <module>presto-parser</module>
+        <module>presto-ranger-plugin</module>
         <module>presto-main</module>
         <module>presto-ml</module>
         <module>presto-geospatial</module>
@@ -120,7 +121,6 @@
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
         <module>presto-kudu</module>
-        <module>presto-ranger-plugin</module>
     </modules>
 
     <dependencyManagement>
