@@ -16,9 +16,13 @@ package com.facebook.presto.tests;
 import io.prestodb.tempto.ProductTest;
 import org.testng.annotations.Test;
 
+import java.sql.JDBCType;
+
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.SYSTEM_CONNECTOR;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
@@ -55,8 +59,9 @@ public class SystemConnectorTests
                 "  last_heartbeat," +
                 "  'end' " +
                 "FROM system.runtime.queries";
+        JDBCType arrayType = usingTeradataJdbcDriver(defaultQueryExecutor().getConnection()) ? VARCHAR : ARRAY;
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, ARRAY,
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, arrayType,
                         BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                 .hasAnyRows();
     }
