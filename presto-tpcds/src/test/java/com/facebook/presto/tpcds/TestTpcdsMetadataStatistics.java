@@ -53,7 +53,7 @@ public class TestTpcdsMetadataStatistics
                             SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
                             ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
                             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-                            assertTrue(tableStatistics.getRowCount().isValueUnknown());
+                            assertTrue(tableStatistics.getRowCount().isUnknown());
                             assertTrue(tableStatistics.getColumnStatistics().isEmpty());
                         }));
     }
@@ -67,7 +67,7 @@ public class TestTpcdsMetadataStatistics
                             SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
                             ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
                             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-                            assertFalse(tableStatistics.getRowCount().isValueUnknown());
+                            assertFalse(tableStatistics.getRowCount().isUnknown());
                             for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
                                 assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
                                 assertNotNull(tableStatistics.getColumnStatistics().get(column));
@@ -92,7 +92,7 @@ public class TestTpcdsMetadataStatistics
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
         TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
 
-        estimateAssertion.assertClose(tableStatistics.getRowCount(), new Estimate(6), "Row count does not match");
+        estimateAssertion.assertClose(tableStatistics.getRowCount(), Estimate.of(6), "Row count does not match");
 
         // all columns have stats
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
@@ -105,8 +105,8 @@ public class TestTpcdsMetadataStatistics
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CALL_CENTER_SK.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(0))
-                        .setDistinctValuesCount(new Estimate(6))
+                        .setNullsFraction(Estimate.of(0))
+                        .setDistinctValuesCount(Estimate.of(6))
                         .setLowValue(Optional.of(1L))
                         .setHighValue(Optional.of(6L))
                         .build());
@@ -115,30 +115,30 @@ public class TestTpcdsMetadataStatistics
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CALL_CENTER_ID.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(0))
-                        .setDistinctValuesCount(new Estimate(3))
+                        .setNullsFraction(Estimate.of(0))
+                        .setDistinctValuesCount(Estimate.of(3))
                         .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
                         .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
-                        .setDataSize(new Estimate(48.0))
+                        .setDataSize(Estimate.of(48.0))
                         .build());
 
         // char
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_ZIP.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(0))
-                        .setDistinctValuesCount(new Estimate(1))
+                        .setNullsFraction(Estimate.of(0))
+                        .setDistinctValuesCount(Estimate.of(1))
                         .setLowValue(Optional.of(Slices.utf8Slice("31904")))
                         .setHighValue(Optional.of(Slices.utf8Slice("31904")))
-                        .setDataSize(new Estimate(5.0))
+                        .setDataSize(Estimate.of(5.0))
                         .build());
 
         // decimal
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_GMT_OFFSET.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(0))
-                        .setDistinctValuesCount(new Estimate(1))
+                        .setNullsFraction(Estimate.of(0))
+                        .setDistinctValuesCount(Estimate.of(1))
                         .setLowValue(Optional.of(-500L))
                         .setHighValue(Optional.of(-500L))
                         .build());
@@ -147,8 +147,8 @@ public class TestTpcdsMetadataStatistics
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_REC_START_DATE.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(0))
-                        .setDistinctValuesCount(new Estimate(4))
+                        .setNullsFraction(Estimate.of(0))
+                        .setDistinctValuesCount(Estimate.of(4))
                         .setLowValue(Optional.of(10227L))
                         .setHighValue(Optional.of(11688L))
                         .build());
@@ -157,8 +157,8 @@ public class TestTpcdsMetadataStatistics
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CLOSED_DATE_SK.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(1))
-                        .setDistinctValuesCount(new Estimate(0))
+                        .setNullsFraction(Estimate.of(1))
+                        .setDistinctValuesCount(Estimate.of(0))
                         .setLowValue(Optional.empty())
                         .setHighValue(Optional.empty())
                         .build());
@@ -177,8 +177,8 @@ public class TestTpcdsMetadataStatistics
         assertColumnStatistics(
                 tableStatistics.getColumnStatistics().get(columnHandles.get(WebSiteColumn.WEB_REC_END_DATE.getName())),
                 ColumnStatistics.builder()
-                        .setNullsFraction(new Estimate(0.5))
-                        .setDistinctValuesCount(new Estimate(3))
+                        .setNullsFraction(Estimate.of(0.5))
+                        .setDistinctValuesCount(Estimate.of(3))
                         .setLowValue(Optional.of(10819L))
                         .setHighValue(Optional.of(11549L))
                         .build());

@@ -53,7 +53,7 @@ public class TpcdsTableStatisticsFactory
     {
         long rowCount = statisticsData.getRowCount();
         TableStatistics.Builder tableStatistics = TableStatistics.builder()
-                .setRowCount(new Estimate(rowCount));
+                .setRowCount(Estimate.of(rowCount));
 
         if (rowCount > 0) {
             Map<String, ColumnStatisticsData> columnsData = statisticsData.getColumns();
@@ -70,11 +70,11 @@ public class TpcdsTableStatisticsFactory
     {
         ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
         long nullCount = columnStatisticsData.getNullsCount();
-        columnStatistics.setNullsFraction(new Estimate((double) nullCount / rowCount));
+        columnStatistics.setNullsFraction(Estimate.of((double) nullCount / rowCount));
         columnStatistics.setLowValue(columnStatisticsData.getMin().map(value -> toPrestoValue(value, type)));
         columnStatistics.setHighValue(columnStatisticsData.getMax().map(value -> toPrestoValue(value, type)));
-        columnStatistics.setDistinctValuesCount(new Estimate(columnStatisticsData.getDistinctValuesCount()));
-        columnStatistics.setDataSize(columnStatisticsData.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()));
+        columnStatistics.setDistinctValuesCount(Estimate.of(columnStatisticsData.getDistinctValuesCount()));
+        columnStatistics.setDataSize(columnStatisticsData.getDataSize().map(Estimate::of).orElse(Estimate.unknown()));
         return columnStatistics.build();
     }
 

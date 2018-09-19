@@ -1309,7 +1309,7 @@ public abstract class AbstractTestHiveClient
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
 
-            assertFalse(tableStatistics.getRowCount().isValueUnknown(), "row count is unknown");
+            assertFalse(tableStatistics.getRowCount().isUnknown(), "row count is unknown");
 
             Map<String, ColumnStatistics> columnsStatistics = tableStatistics
                     .getColumnStatistics()
@@ -1328,21 +1328,21 @@ public abstract class AbstractTestHiveClient
                 Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
 
                 assertFalse(
-                        columnStatistics.getNullsFraction().isValueUnknown(),
+                        columnStatistics.getNullsFraction().isUnknown(),
                         "unknown nulls fraction for " + columnName);
 
                 assertFalse(
-                        columnStatistics.getDistinctValuesCount().isValueUnknown(),
+                        columnStatistics.getDistinctValuesCount().isUnknown(),
                         "unknown distinct values count for " + columnName);
 
                 if (isVarcharType(columnType)) {
                     assertFalse(
-                            columnStatistics.getDataSize().isValueUnknown(),
+                            columnStatistics.getDataSize().isUnknown(),
                             "unknown data size for " + columnName);
                 }
                 else {
                     assertTrue(
-                            columnStatistics.getDataSize().isValueUnknown(),
+                            columnStatistics.getDataSize().isUnknown(),
                             "unknown data size for" + columnName);
                 }
             });

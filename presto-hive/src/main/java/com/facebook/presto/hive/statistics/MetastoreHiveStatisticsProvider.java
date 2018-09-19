@@ -207,9 +207,9 @@ public class MetastoreHiveStatisticsProvider
     private Estimate calculateRowsCount(OptionalDouble rowsPerPartition, int queriedPartitionsCount)
     {
         if (!rowsPerPartition.isPresent()) {
-            return Estimate.unknownValue();
+            return Estimate.unknown();
         }
-        return new Estimate(rowsPerPartition.getAsDouble() * queriedPartitionsCount);
+        return Estimate.of(rowsPerPartition.getAsDouble() * queriedPartitionsCount);
     }
 
     private Estimate calculateDistinctValuesCount(Map<String, PartitionStatistics> statisticsSample, String column)
@@ -235,11 +235,11 @@ public class MetastoreHiveStatisticsProvider
 
     private Estimate calculateNullsFraction(Map<String, PartitionStatistics> statisticsSample, int totalPartitionsCount, String column, Estimate rowCount)
     {
-        if (rowCount.isValueUnknown()) {
-            return Estimate.unknownValue();
+        if (rowCount.isUnknown()) {
+            return Estimate.unknown();
         }
         if (rowCount.getValue() == 0.0) {
-            return Estimate.zeroValue();
+            return Estimate.zero();
         }
 
         Estimate totalNullsCount = summarizePartitionStatistics(
@@ -265,16 +265,16 @@ public class MetastoreHiveStatisticsProvider
                     return OptionalDouble.of(totalPartitionsCount / partitionsWithStatisticsCount * nullsCount);
                 });
 
-        if (totalNullsCount.isValueUnknown()) {
-            return Estimate.unknownValue();
+        if (totalNullsCount.isUnknown()) {
+            return Estimate.unknown();
         }
-        return new Estimate(totalNullsCount.getValue() / rowCount.getValue());
+        return Estimate.of(totalNullsCount.getValue() / rowCount.getValue());
     }
 
     private Estimate calculateDataSize(Map<String, PartitionStatistics> statisticsSample, String columnName, Estimate rowCount)
     {
-        if (rowCount.isValueUnknown()) {
-            return Estimate.unknownValue();
+        if (rowCount.isUnknown()) {
+            return Estimate.unknown();
         }
 
         int knownPartitionCount = 0;
@@ -299,20 +299,20 @@ public class MetastoreHiveStatisticsProvider
         }
 
         if (knownPartitionCount == 0) {
-            return Estimate.unknownValue();
+            return Estimate.unknown();
         }
 
         if (knownDataSize == 0) {
-            return Estimate.zeroValue();
+            return Estimate.zero();
         }
 
         verify(knownRowCount > 0);
-        return new Estimate(knownDataSize / knownRowCount * rowCount.getValue());
+        return Estimate.of(knownDataSize / knownRowCount * rowCount.getValue());
     }
 
     private Estimate countDistinctPartitionKeys(HiveColumnHandle partitionColumn, List<HivePartition> partitions)
     {
-        return new Estimate(partitions.stream()
+        return Estimate.of(partitions.stream()
                 .map(HivePartition::getKeys)
                 .map(keys -> keys.get(partitionColumn))
                 .distinct()
@@ -326,14 +326,14 @@ public class MetastoreHiveStatisticsProvider
             Estimate rowCount,
             OptionalDouble rowsPerPartition)
     {
-        if (rowCount.isValueUnknown()) {
-            return Estimate.unknownValue();
+        if (rowCount.isUnknown()) {
+            return Estimate.unknown();
         }
         if (rowCount.getValue() == 0.0) {
-            return Estimate.zeroValue();
+            return Estimate.zero();
         }
         if (!rowsPerPartition.isPresent()) {
-            return Estimate.unknownValue();
+            return Estimate.unknown();
         }
 
         double estimatedNullsCount = queriedPartitions.stream()
@@ -341,7 +341,7 @@ public class MetastoreHiveStatisticsProvider
                 .map(HivePartition::getPartitionId)
                 .mapToDouble(partitionId -> orElse(statisticsSample.get(partitionId).getBasicStatistics().getRowCount(), rowsPerPartition.getAsDouble()))
                 .sum();
-        return new Estimate(estimatedNullsCount / rowCount.getValue());
+        return Estimate.of(estimatedNullsCount / rowCount.getValue());
     }
 
     private Estimate calculateDataSizeForPartitioningKey(
@@ -351,14 +351,14 @@ public class MetastoreHiveStatisticsProvider
             Estimate rowCount,
             OptionalDouble rowsPerPartition)
     {
-        if (rowCount.isValueUnknown() || !rowsPerPartition.isPresent()) {
-            return Estimate.unknownValue();
+        if (rowCount.isUnknown() || !rowsPerPartition.isPresent()) {
+            return Estimate.unknown();
         }
 
         String baseType = partitionColumn.getTypeSignature().getBase();
         if (!VARCHAR.equals(baseType) && !CHAR.equalsIgnoreCase(baseType)) {
             // TODO support VARBINARY
-            return Estimate.unknownValue();
+            return Estimate.unknown();
         }
 
         double knownRowCount = 0;
@@ -379,10 +379,10 @@ public class MetastoreHiveStatisticsProvider
         }
 
         if (knownRowCount == 0) {
-            return Estimate.unknownValue();
+            return Estimate.unknown();
         }
 
-        return new Estimate(knownDataSize / knownRowCount * rowCount.getValue());
+        return Estimate.of(knownDataSize / knownRowCount * rowCount.getValue());
     }
 
     private Estimate summarizePartitionStatistics(
@@ -402,9 +402,9 @@ public class MetastoreHiveStatisticsProvider
         OptionalDouble statisticsValue = valueAggregateFunction.apply(intermediateStream);
 
         if (!statisticsValue.isPresent()) {
-            return Estimate.unknownValue();
+            return Estimate.unknown();
         }
-        return new Estimate(statisticsValue.getAsDouble());
+        return Estimate.of(statisticsValue.getAsDouble());
     }
 
     private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions)

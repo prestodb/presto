@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysFalse;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
-import static com.facebook.presto.spi.statistics.Estimate.zeroValue;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -140,7 +139,7 @@ public class TestTpchMetadata
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
 
         double actualRowCountValue = tableStatistics.getRowCount().getValue();
-        assertEquals(tableStatistics.getRowCount(), new Estimate(actualRowCountValue));
+        assertEquals(tableStatistics.getRowCount(), Estimate.of(actualRowCountValue));
         assertEquals(actualRowCountValue, expectedRowCount, expectedRowCount * TOLERANCE);
     }
 
@@ -148,7 +147,7 @@ public class TestTpchMetadata
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, alwaysTrue());
-        assertTrue(tableStatistics.getRowCount().isValueUnknown());
+        assertTrue(tableStatistics.getRowCount().isUnknown());
     }
 
     @Test
@@ -407,7 +406,7 @@ public class TestTpchMetadata
     private static ColumnStatistics createColumnStatistics(Optional<Double> distinctValuesCount, Optional<Object> min, Optional<Object> max, Optional<Double> dataSize)
     {
         return ColumnStatistics.builder()
-                .setNullsFraction(zeroValue())
+                .setNullsFraction(Estimate.zero())
                 .setDistinctValuesCount(toEstimate(distinctValuesCount))
                 .setLowValue(min)
                 .setHighValue(max)
@@ -418,7 +417,7 @@ public class TestTpchMetadata
     private static Estimate toEstimate(Optional<Double> value)
     {
         return value
-                .map(Estimate::new)
-                .orElse(Estimate.unknownValue());
+                .map(Estimate::of)
+                .orElse(Estimate.unknown());
     }
 }

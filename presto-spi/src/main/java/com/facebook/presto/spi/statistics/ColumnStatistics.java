@@ -35,17 +35,17 @@ public final class ColumnStatistics
             Optional<Object> highValue)
     {
         this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
-        if (!nullsFraction.isValueUnknown()) {
+        if (!nullsFraction.isUnknown()) {
             if (nullsFraction.getValue() < 0 || nullsFraction.getValue() > 1) {
                 throw new IllegalArgumentException(format("nullsFraction must be between 0 and 1: %s", nullsFraction.getValue()));
             }
         }
         this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
-        if (!distinctValuesCount.isValueUnknown() && distinctValuesCount.getValue() < 0) {
+        if (!distinctValuesCount.isUnknown() && distinctValuesCount.getValue() < 0) {
             throw new IllegalArgumentException(format("distinctValuesCount must be greater than or equal to 0: %s", distinctValuesCount.getValue()));
         }
         this.dataSize = requireNonNull(dataSize, "dataSize is null");
-        if (!dataSize.isValueUnknown() && dataSize.getValue() < 0) {
+        if (!dataSize.isUnknown() && dataSize.getValue() < 0) {
             throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
         }
         this.lowValue = requireNonNull(lowValue, "lowValue is null");
@@ -119,9 +119,9 @@ public final class ColumnStatistics
 
     public static final class Builder
     {
-        private Estimate nullsFraction = Estimate.unknownValue();
-        private Estimate distinctValuesCount = Estimate.unknownValue();
-        private Estimate dataSize = Estimate.unknownValue();
+        private Estimate nullsFraction = Estimate.unknown();
+        private Estimate distinctValuesCount = Estimate.unknown();
+        private Estimate dataSize = Estimate.unknown();
         private Optional<Object> lowValue = Optional.empty();
         private Optional<Object> highValue = Optional.empty();
 

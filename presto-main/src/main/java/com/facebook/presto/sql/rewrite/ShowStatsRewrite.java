@@ -347,7 +347,7 @@ public class ShowStatsRewrite
 
         private static Expression createStatisticValueOrNull(Estimate estimate)
         {
-            if (estimate.isValueUnknown()) {
+            if (estimate.isUnknown()) {
                 return NULL_DOUBLE;
             }
             return new DoubleLiteral(Double.toString(estimate.getValue()));

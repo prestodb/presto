@@ -362,7 +362,7 @@ public class TpchMetadata
     private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles)
     {
         TableStatistics.Builder builder = TableStatistics.builder()
-                .setRowCount(new Estimate(tableStatisticsData.getRowCount()));
+                .setRowCount(Estimate.of(tableStatisticsData.getRowCount()));
         tableStatisticsData.getColumns().forEach((columnName, stats) -> {
             TpchColumnHandle columnHandle = (TpchColumnHandle) getColumnHandle(tpchTableHandle, columnHandles, columnName);
             builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
@@ -379,9 +379,9 @@ public class TpchMetadata
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
     {
         return ColumnStatistics.builder()
-                .setNullsFraction(Estimate.zeroValue())
-                .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::new).orElse(Estimate.unknownValue()))
-                .setDataSize(stats.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()))
+                .setNullsFraction(Estimate.zero())
+                .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::of).orElse(Estimate.unknown()))
+                .setDataSize(stats.getDataSize().map(Estimate::of).orElse(Estimate.unknown()))
                 .setLowValue(stats.getMin().map(value -> toPrestoValue(value, columnType)))
                 .setHighValue(stats.getMax().map(value -> toPrestoValue(value, columnType)))
                 .build();
