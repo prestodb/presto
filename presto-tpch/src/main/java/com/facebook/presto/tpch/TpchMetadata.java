@@ -275,7 +275,7 @@ public class TpchMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column)));
+            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column), null, null, false, emptyMap(), false, null));
         }
         columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
 

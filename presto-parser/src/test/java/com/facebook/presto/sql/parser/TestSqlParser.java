@@ -153,6 +153,7 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.CurrentTime.Function.DATE;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -1135,21 +1136,28 @@ public class TestSqlParser
     public void testCreateTableWithNotNull()
     {
         assertStatement("CREATE TABLE foo (" +
-                        "a VARCHAR DEFAULT 'default', " +
+                        "a VARCHAR DEFAULT 'default' NOT NULL COMMENT 'column a', " +
                         "b BIGINT COMMENT 'hello world', " +
                         "c IPADDRESS, " +
                         "d DATE DEFAULT '2001-01-01'," +
                         "e DATE DEFAULT DATE '2001-01-01')",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(new NodeLocation(0, 1), identifier("a"), "VARCHAR", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("default"))),
+                                new ColumnDefinition(identifier("a"), "VARCHAR", emptyList(), Optional.of("column a"), false, Optional.of(new StringLiteral("default"))),
                                 new ColumnDefinition(identifier("b"), "BIGINT", emptyList(), Optional.of("hello world")),
                                 new ColumnDefinition(identifier("c"), "IPADDRESS", emptyList(), Optional.empty()),
-                                new ColumnDefinition(new NodeLocation(0, 4), identifier("d"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2001-01-01"))),
-                                new ColumnDefinition(new NodeLocation(0, 5), identifier("e"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new GenericLiteral("DATE", "2001-01-01")))),
+                                new ColumnDefinition(identifier("d"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2001-01-01"))),
+                                new ColumnDefinition(identifier("e"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new GenericLiteral("DATE", "2001-01-01"))),
+                                new ColumnDefinition(identifier("f"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new CurrentTime(DATE)))),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
+    }
+
+    @Test(expectedExceptions = ParsingException.class)
+    public void testDefaultValueWithFunctionFails()
+    {
+        SQL_PARSER.createStatement("CREATE TABLE foo (a DATE DEFAULT CURRENT_DATE)");
     }
 
     @Test

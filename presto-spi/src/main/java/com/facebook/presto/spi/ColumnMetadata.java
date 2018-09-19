@@ -31,30 +31,30 @@ public class ColumnMetadata
     private final String extraInfo;
     private final boolean hidden;
     private final Map<String, Object> properties;
-    private final Object defaultValue;
     private final boolean nullable;
+    private final Object defaultValue;
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, null, null, false, emptyMap(), null, true);
+        this(name, type, null, null, false, emptyMap(), true, null);
     }
 
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
-        this(name, type, comment, null, hidden, emptyMap(), null, true);
+        this(name, type, comment, null, hidden, emptyMap(), true, null);
     }
 
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
-        this(name, type, comment, extraInfo, hidden, emptyMap(), null, true);
+        this(name, type, comment, extraInfo, hidden, emptyMap(), true, null);
     }
 
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
-        this(name, type, comment, extraInfo, hidden, properties, null, true);
+        this(name, type, comment, extraInfo, hidden, properties, true, null);
     }
 
-    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties, Object defaultValue, boolean nullable)
+    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties, boolean nullable, Object defaultValue)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");

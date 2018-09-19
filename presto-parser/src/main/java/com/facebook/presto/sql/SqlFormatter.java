@@ -862,16 +862,16 @@ public final class SqlFormatter
         {
             StringBuilder sb = new StringBuilder(formatExpression(column.getName(), parameters))
                     .append(" ").append(column.getType());
+            if (column.getDefaultValue().isPresent()) {
+                sb.append(" DEFAULT ").append(column.getDefaultValue().get());
+            }
+            if (!column.isNullable()) {
+                sb.append(" NOT NULL");
+            }
             if (column.getComment().isPresent()) {
                 sb.append(" COMMENT ").append(formatStringLiteral(column.getComment().get()));
             }
             sb.append(formatPropertiesSingleLine(column.getProperties()));
-            if (!column.isNullable()) {
-                sb.append(" NOT NULL ");
-            }
-            if (column.getDefaultValue().isPresent()) {
-                sb.append(" DEFAULT ").append(column.getDefaultValue().get());
-            }
             return sb.toString();
         }
 

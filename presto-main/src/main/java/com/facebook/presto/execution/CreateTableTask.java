@@ -25,7 +25,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.LiteralInterpreter;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
@@ -60,6 +60,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Collections.emptyList;
 
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
@@ -129,11 +130,22 @@ public class CreateTableTask
                         metadata,
                         parameters);
 
-                Optional<Object> maybeDefaultValue = column.getDefaultValue()
-                        .map(val -> LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), val));
+                Optional<Object> defaultValue = column.getDefaultValue()
+                        .map(value -> ExpressionInterpreter.evaluateConstantExpression(value,
+                                type,
+                                metadata,
+                                session,
+                                emptyList()));
 
-                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), null, false, columnProperties,
-                        maybeDefaultValue.orElse(null), column.isNullable()));
+                columns.put(name, new ColumnMetadata(
+                        name,
+                        type,
+                        column.getComment().orElse(null),
+                        null,
+                        false,
+                        columnProperties,
+                        column.isNullable(),
+                        defaultValue.orElse(null)));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;

@@ -87,7 +87,6 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
-import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -1451,20 +1450,22 @@ class AstBuilder
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
         Optional<String> comment = Optional.empty();
-        List<Property> properties = ImmutableList.of();
-        boolean nullable = true;
-        Optional<Literal> defaultValue = Optional.empty();
-
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
-        else if (context.properties() != null) {
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
         }
-        else if (context.defaultValue != null) {
-            defaultValue = Optional.of((Literal) visit(context.defaultValue));
+
+        Optional<Expression> defaultValue = Optional.empty();
+        if (context.defaultValue != null) {
+            defaultValue = Optional.of(new Cast(getLocation(context), (Expression) visit(context.defaultValue), getType(context.type())));
         }
-        else if (context.NOT() != null) {
+
+        boolean nullable = true;
+        if (context.NOT() != null) {
             nullable = false;
         }
 

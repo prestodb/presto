@@ -33,6 +33,8 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.LiteralEncoder;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -43,6 +45,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -387,11 +390,26 @@ final class ShowQueriesRewrite
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
 
+                LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
-                            return new ColumnDefinition(new Identifier(column.getName()), column.getType().getDisplayName(), propertyNodes, Optional.ofNullable(column.getComment()));
+                            final Optional<Expression> expression;
+                            if (column.getDefaultValue() == null) {
+                                expression = Optional.empty();
+                            }
+                            else {
+                                GenericLiteral genericLiteral = new GenericLiteral(column.getType().getDisplayName(), column.getDefaultValue().toString());
+                                Object literalAsObject = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), genericLiteral);
+                                expression = Optional.of(literalEncoder.toExpression(literalAsObject, column.getType()));
+                            }
+                            return new ColumnDefinition(new Identifier(column.getName()),
+                                    column.getType().getDisplayName(),
+                                    propertyNodes,
+                                    Optional.ofNullable(column.getComment()),
+                                    column.isNullable(),
+                                    expression);
                         })
                         .collect(toImmutableList());
 

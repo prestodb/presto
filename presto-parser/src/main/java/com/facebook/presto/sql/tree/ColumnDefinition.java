@@ -30,19 +30,23 @@ public final class ColumnDefinition
     private final List<Property> properties;
     private final Optional<String> comment;
     private final boolean nullable;
-    private final Optional<Literal> defaultValue;
+    private final Optional<Expression> defaultValue;
 
     public ColumnDefinition(Identifier name, String type, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, type, properties, comment, true, Optional.empty());
     }
 
-    public ColumnDefinition(NodeLocation location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Literal> defaultValue)
+    public ColumnDefinition(Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Expression> defaultValue)
+    {
+        this(Optional.empty(), name, type, properties, comment, nullable, defaultValue);
+    }
+
+    public ColumnDefinition(NodeLocation location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Expression> defaultValue)
     {
         this(Optional.of(location), name, type, properties, comment, nullable, defaultValue);
     }
-
-    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Literal> defaultValue)
+    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Expression> defaultValue)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -50,7 +54,7 @@ public final class ColumnDefinition
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.nullable = nullable;
-        this.defaultValue = defaultValue;
+        this.defaultValue = requireNonNull(defaultValue, "Default value is null");
     }
 
     public Identifier getName()
@@ -78,7 +82,7 @@ public final class ColumnDefinition
         return nullable;
     }
 
-    public Optional<Literal> getDefaultValue()
+    public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
     }

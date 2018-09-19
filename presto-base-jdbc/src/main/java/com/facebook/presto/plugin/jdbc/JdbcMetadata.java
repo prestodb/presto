@@ -174,6 +174,13 @@ public class JdbcMetadata
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
+        jdbcClient.commitCreateTable(handle);
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;

@@ -83,33 +83,33 @@ public class TestBaseJdbcClient
         try (Connection connection = DriverManager.getConnection(properties.get("connection-url"))) {
             handle = client.beginCreateTable(getConnectorTableMetadata(UUID.randomUUID().toString(),
                     new ColumnMetadata("columnA", VarcharType.VARCHAR, null, null, false, emptyMap()),
-                    new ColumnMetadata("columnB", VarcharType.VARCHAR, null, null, false, emptyMap(), Slices.utf8Slice("a"), true),
-                    new ColumnMetadata("columnC", VarcharType.VARCHAR, null, null, false, emptyMap(), null, false),
-                    new ColumnMetadata("columnD", DateType.DATE, null, null, false, emptyMap(), 1, false),
-                    new ColumnMetadata("columnE", TimeType.TIME, null, null, false, emptyMap(), 1, false),
-                    new ColumnMetadata("columnF", TimestampType.TIMESTAMP, null, null, false, emptyMap(), 1, false)));
+                    new ColumnMetadata("columnB", VarcharType.VARCHAR, null, null, false, emptyMap(), true, Slices.utf8Slice("a")),
+                    new ColumnMetadata("columnC", VarcharType.VARCHAR, null, null, false, emptyMap(), false, null),
+                    new ColumnMetadata("columnD", DateType.DATE, null, null, false, emptyMap(), false, 1),
+                    new ColumnMetadata("columnE", TimeType.TIME, null, null, false, emptyMap(), false, 1),
+                    new ColumnMetadata("columnF", TimestampType.TIMESTAMP, null, null, false, emptyMap(), false, 1)));
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnA")) {
-                assertNull(rs.getString("COLUMN_DEFAULT"), "Column default wasn't null");
+                assertNull(rs.getString("COLUMN_DEF"), "Column default wasn't null");
                 assertTrue(rs.getBoolean("NULLABLE"), "Expected nullable");
             }
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnB")) {
-                assertEquals(rs.getString("COLUMN_DEFAULT"), "'a'", "Column default mismatch");
+                assertEquals(rs.getString("COLUMN_DEF"), "'a'", "Column default mismatch");
                 assertTrue(rs.getBoolean("NULLABLE"), "Expected nullable");
             }
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnC")) {
-                assertNull(rs.getString("COLUMN_DEFAULT"), "Column default wasn't null");
+                assertNull(rs.getString("COLUMN_DEF"), "Column default wasn't null");
                 assertFalse(rs.getBoolean("NULLABLE"), "Expected nullable");
             }
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnD")) {
-                assertEquals(rs.getString("COLUMN_DEFAULT"), "'1970-01-02'", "Column default mismatch");
+                assertEquals(rs.getString("COLUMN_DEF"), "'1970-01-02'", "Column default mismatch");
                 assertFalse(rs.getBoolean("NULLABLE"), "Expected nullable");
             }
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnE")) {
-                assertEquals(rs.getString("COLUMN_DEFAULT"), "'00:00:01'", "Column default mismatch");
+                assertEquals(rs.getString("COLUMN_DEF"), "'00:00:01'", "Column default mismatch");
                 assertFalse(rs.getBoolean("NULLABLE"), "Expected nullable");
             }
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnF")) {
-                assertEquals(rs.getString("COLUMN_DEFAULT"), "'1970-01-01 00:00:00.001'", "Column default mismatch");
+                assertEquals(rs.getString("COLUMN_DEF"), "'1970-01-01 00:00:00.001'", "Column default mismatch");
                 assertFalse(rs.getBoolean("NULLABLE"), "Expected nullable");
             }
         }
@@ -126,8 +126,8 @@ public class TestBaseJdbcClient
         ResultSet rs = connection.getMetaData().getColumns(
                 connection.getCatalog(),
                 handle.getSchemaName().toUpperCase(ENGLISH),
-                // Hack: H2 seems to force table names to lower case, but other identifiers like the schema and columns
-                // to upper case
+                // Hack: H2 seems to force table names to lower case, but other
+                // identifiers like the schema and columns to upper case
                 handle.getTemporaryTableName().toLowerCase(ENGLISH),
                 columnName.toUpperCase(ENGLISH));
         assertTrue(rs.next(), format("Column %s not found in table %s", columnName, handle.getTableName()));

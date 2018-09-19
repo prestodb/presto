@@ -24,7 +24,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.LiteralInterpreter;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
@@ -44,6 +44,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask
@@ -96,11 +97,22 @@ public class AddColumnTask
                 metadata,
                 parameters);
 
-        Optional<Object> maybeDefaultValue = element.getDefaultValue()
-                .map(val -> LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), val));
+        Optional<Object> defaultValue = element.getDefaultValue()
+                .map(value -> ExpressionInterpreter.evaluateConstantExpression(value,
+                        type,
+                        metadata,
+                        session,
+                        emptyList()));
 
-        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), null, false, columnProperties,
-                maybeDefaultValue.orElse(null), element.isNullable());
+        ColumnMetadata column = new ColumnMetadata(
+                element.getName().getValue(),
+                type,
+                element.getComment().orElse(null),
+                null,
+                false,
+                columnProperties,
+                element.isNullable(),
+                defaultValue.orElse(null));
 
         metadata.addColumn(session, tableHandle.get(), column);
 

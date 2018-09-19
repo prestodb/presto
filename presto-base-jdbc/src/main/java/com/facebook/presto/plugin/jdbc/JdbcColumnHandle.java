@@ -19,7 +19,9 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +33,8 @@ public final class JdbcColumnHandle
     private final String columnName;
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
+    private final boolean nullable;
+    private final Optional<String> defaultValue;
 
     @JsonCreator
     public JdbcColumnHandle(
@@ -39,10 +43,24 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType)
     {
+        this(connectorId, columnName, jdbcTypeHandle, columnType, true, null);
+    }
+
+    @JsonCreator
+    public JdbcColumnHandle(
+            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
+            @JsonProperty("columnType") Type columnType,
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("defaultValue") String defaultValue)
+    {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
+        this.nullable = nullable;
+        this.defaultValue = Optional.ofNullable(defaultValue);
     }
 
     @JsonProperty
@@ -69,9 +87,21 @@ public final class JdbcColumnHandle
         return columnType;
     }
 
+    @JsonProperty
+    public boolean isNullable()
+    {
+        return nullable;
+    }
+
+    @JsonProperty
+    public Optional<String> getDefaultValue()
+    {
+        return defaultValue;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType);
+        return new ColumnMetadata(columnName, columnType, null, null, false, Collections.emptyMap(), nullable, defaultValue.orElse(null));
     }
 
     @Override

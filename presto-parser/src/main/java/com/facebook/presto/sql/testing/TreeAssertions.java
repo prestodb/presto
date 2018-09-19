@@ -65,7 +65,7 @@ public final class TreeAssertions
         catch (ParsingException e) {
             throw new AssertionError(format(
                     "failed to parse formatted SQL: %s\nerror: %s\ntree: %s",
-                    sql, e.getMessage(), tree));
+                    sql, e.getMessage(), tree), e);
         }
     }
 

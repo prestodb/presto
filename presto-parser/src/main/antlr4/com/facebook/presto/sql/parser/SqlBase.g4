@@ -112,7 +112,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (DEFAULT defaultValue=primaryExpression)? (NOT? NULL)? (COMMENT string)? (WITH properties)?
+    : identifier type (DEFAULT defaultValue=primaryExpression)? (NOT NULL)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause

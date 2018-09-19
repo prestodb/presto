@@ -27,6 +27,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -36,7 +37,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.transaction.TransactionManager;
@@ -137,11 +137,12 @@ public class TestCreateTableTask
     }
 
     @Test
-    public void testStringLiteralDoesNotCoerceDate()
+    public void testStringColumnsWithDefaults()
     {
         ImmutableList<ColumnDefinition> inputColumns = ImmutableList.of(
-                new ColumnDefinition(new NodeLocation(0, 1), identifier("a"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2011-01-1"))),
-                new ColumnDefinition(new NodeLocation(0, 2), identifier("b"), "VARCHAR", emptyList(), Optional.empty(), false, Optional.of(new GenericLiteral("DATE", "2011-01-1"))));
+                new ColumnDefinition(identifier("a"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2011-01-1"))),
+                new ColumnDefinition(identifier("b"), "VARCHAR", emptyList(), Optional.empty(), false, Optional.of(new GenericLiteral("DATE", "2011-01-1"))),
+                new ColumnDefinition(identifier("c"), "VARBINARY", emptyList(), Optional.empty(), false, Optional.of(new GenericLiteral("VARBINARY", "2011-01-1"))));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 inputColumns,
                 true,
@@ -150,17 +151,23 @@ public class TestCreateTableTask
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
         assertEquals(metadata.getCreateTableCallCount(), 1);
-        ConnectorTableMetadata receivedTableMetadata = metadata.getReceivedTableMetadata().get(0);
+        List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
+        assertEquals(columns.size(), 3);
 
-        assertEquals(receivedTableMetadata.getColumns().get(0).getName(), inputColumns.get(0).getName().getValue());
-        assertEquals(receivedTableMetadata.getColumns().get(0).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(0).getType());
-        assertEquals(receivedTableMetadata.getColumns().get(0).isNullable(), inputColumns.get(0).isNullable());
-        assertEquals(((Slice) receivedTableMetadata.getColumns().get(0).getDefaultValue()).toStringUtf8(), "2011-01-1");
+        assertEquals(columns.get(0).getName(), inputColumns.get(0).getName().getValue());
+        assertEquals(columns.get(0).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(0).getType());
+        assertEquals(columns.get(0).isNullable(), inputColumns.get(0).isNullable());
+        assertEquals(columns.get(0).getDefaultValue(), 14975L);
 
-        assertEquals(receivedTableMetadata.getColumns().get(1).getName(), inputColumns.get(1).getName().getValue());
-        assertEquals(receivedTableMetadata.getColumns().get(1).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(1).getType());
-        assertEquals(receivedTableMetadata.getColumns().get(1).isNullable(), inputColumns.get(1).isNullable());
-        assertEquals(receivedTableMetadata.getColumns().get(1).getDefaultValue(), 14975L);
+        assertEquals(columns.get(1).getName(), inputColumns.get(1).getName().getValue());
+        assertEquals(columns.get(1).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(1).getType());
+        assertEquals(columns.get(1).isNullable(), inputColumns.get(1).isNullable());
+        assertEquals(((Slice) columns.get(1).getDefaultValue()).toStringUtf8(), "2011-01-01");
+
+        assertEquals(columns.get(2).getName(), inputColumns.get(2).getName().getValue());
+        assertEquals(columns.get(2).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(2).getType());
+        assertEquals(columns.get(2).isNullable(), inputColumns.get(2).isNullable());
+        assertEquals(((Slice) columns.get(2).getDefaultValue()).toStringUtf8(), "2011-01-1");
     }
 
     private static class MockMetadata
