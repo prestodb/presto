@@ -120,7 +120,7 @@ public class SqlQueryManager
     private final EmbedVersion embedVersion;
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
     private final Optional<String> path;
@@ -169,7 +169,7 @@ public class SqlQueryManager
             QueryManagerConfig queryManagerConfig,
             SqlEnvironmentConfig sqlEnvironmentConfig,
             QueryMonitor queryMonitor,
-            ResourceGroupManager resourceGroupManager,
+            @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
@@ -225,52 +225,47 @@ public class SqlQueryManager
     @PostConstruct
     public void start()
     {
-        queryManagementExecutor.scheduleWithFixedDelay(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    failAbandonedQueries();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error cancelling abandoned queries");
-                }
+        queryManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                failAbandonedQueries();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error cancelling abandoned queries");
+            }
 
-                try {
-                    enforceMemoryLimits();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error enforcing memory limits");
-                }
+            try {
+                enforceMemoryLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing memory limits");
+            }
 
-                try {
-                    enforceTimeLimits();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error enforcing query timeout limits");
-                }
+            try {
+                enforceTimeLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query timeout limits");
+            }
 
-                try {
-                    enforceCpuLimits();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error enforcing query CPU time limits");
-                }
+            try {
+                enforceCpuLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query CPU time limits");
+            }
 
-                try {
-                    removeExpiredQueries();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error removing expired queries");
-                }
+            try {
+                removeExpiredQueries();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error removing expired queries");
+            }
 
-                try {
-                    pruneExpiredQueries();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error pruning expired queries");
-                }
+            try {
+                pruneExpiredQueries();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error pruning expired queries");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -389,7 +384,7 @@ public class SqlQueryManager
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
         queryExecutor.submit(embedVersion.embedVersion(() -> {
             try {
-                createQueryInternal(queryId, sessionContext, query);
+                createQueryInternal(queryId, sessionContext, query, resourceGroupManager);
                 queryCreationFuture.set(null);
             }
             catch (Throwable e) {
@@ -399,7 +394,7 @@ public class SqlQueryManager
         return queryCreationFuture;
     }
 
-    private void createQueryInternal(QueryId queryId, SessionContext sessionContext, String query)
+    private <C> void createQueryInternal(QueryId queryId, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
@@ -408,7 +403,7 @@ public class SqlQueryManager
         checkArgument(!queries.containsKey(queryId), "query %s already exists", queryId);
 
         Session session = null;
-        SelectionContext<?> selectionContext;
+        SelectionContext<C> selectionContext;
         QueryExecution queryExecution;
         Statement statement;
         try {
@@ -420,7 +415,7 @@ public class SqlQueryManager
                 if (nanosSince(initialNanos).compareTo(initializationTimeout) < 0 && activeWorkerCount < initializationRequiredWorkers) {
                     throw new PrestoException(
                             SERVER_STARTING_UP,
-                            String.format("Cluster is still initializing, there are insufficient active worker nodes (%s) to run query", activeWorkerCount));
+                            format("Cluster is still initializing, there are insufficient active worker nodes (%s) to run query", activeWorkerCount));
                 }
                 acceptQueries.set(true);
             }
@@ -608,7 +603,7 @@ public class SqlQueryManager
     /**
      * Enforce memory limits at the query level
      */
-    public void enforceMemoryLimits()
+    private void enforceMemoryLimits()
     {
         List<QueryExecution> runningQueries = queries.values().stream()
                 .filter(query -> query.getState() == RUNNING)
@@ -619,7 +614,7 @@ public class SqlQueryManager
     /**
      * Enforce query max runtime/execution time limits
      */
-    public void enforceTimeLimits()
+    private void enforceTimeLimits()
     {
         for (QueryExecution query : queries.values()) {
             if (query.getState().isDone()) {
@@ -641,7 +636,7 @@ public class SqlQueryManager
     /**
      * Enforce query CPU time limits
      */
-    public void enforceCpuLimits()
+    private void enforceCpuLimits()
     {
         for (QueryExecution query : queries.values()) {
             Duration cpuTime = query.getTotalCpuTime();
@@ -682,11 +677,20 @@ public class SqlQueryManager
 
         // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
         while (expirationQueue.size() > maxQueryHistory) {
-            QueryInfo queryInfo = expirationQueue.peek().getQueryInfo();
+            QueryExecution query = expirationQueue.peek();
+            if (query == null) {
+                return;
+            }
+            QueryInfo queryInfo = query.getQueryInfo();
 
             // expirationQueue is FIFO based on query end time. Stop when we see the
             // first query that's too young to expire
-            if (queryInfo.getQueryStats().getEndTime().isAfter(timeHorizon)) {
+            DateTime endTime = queryInfo.getQueryStats().getEndTime();
+            if (endTime == null) {
+                // this shouldn't happen but it is better to be safe here
+                continue;
+            }
+            if (endTime.isAfter(timeHorizon)) {
                 return;
             }
 
@@ -696,11 +700,11 @@ public class SqlQueryManager
 
             log.debug("Remove query %s", queryId);
             queries.remove(queryId);
-            expirationQueue.remove();
+            expirationQueue.remove(query);
         }
     }
 
-    public void failAbandonedQueries()
+    private void failAbandonedQueries()
     {
         for (QueryExecution queryExecution : queries.values()) {
             try {

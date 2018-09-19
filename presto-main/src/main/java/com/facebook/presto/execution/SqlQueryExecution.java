@@ -125,7 +125,7 @@ public class SqlQueryExecution
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
-    public SqlQueryExecution(QueryId queryId,
+    private SqlQueryExecution(QueryId queryId,
             String query,
             Session session,
             URI self,
@@ -390,7 +390,7 @@ public class SqlQueryExecution
         return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
     }
 
-    private Set<ConnectorId> extractConnectors(Analysis analysis)
+    private static Set<ConnectorId> extractConnectors(Analysis analysis)
     {
         ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
 
@@ -553,12 +553,7 @@ public class SqlQueryExecution
             // the query finishes.
             SqlQueryScheduler scheduler = queryScheduler.get();
 
-            Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
-            if (finalQueryInfo.isPresent()) {
-                return finalQueryInfo.get();
-            }
-
-            return buildQueryInfo(scheduler);
+            return stateMachine.getFinalQueryInfo().orElseGet(() -> buildQueryInfo(scheduler));
         }
     }
 
@@ -580,6 +575,7 @@ public class SqlQueryExecution
         stateMachine.setResourceGroup(resourceGroupId);
     }
 
+    @Override
     public Plan getQueryPlan()
     {
         return queryPlan.get();

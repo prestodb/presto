@@ -203,6 +203,6 @@ public class FailedQueryExecution
     @Override
     public void setResourceGroup(ResourceGroupId resourceGroupId)
     {
-        throw new UnsupportedOperationException("setResouceGroup is not supported for FailedQueryExecution");
+        throw new UnsupportedOperationException("setResourceGroup is not supported for FailedQueryExecution");
     }
 }

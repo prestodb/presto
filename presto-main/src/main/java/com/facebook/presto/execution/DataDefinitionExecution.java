@@ -231,11 +231,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public QueryInfo getQueryInfo()
     {
-        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
-        if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get();
-        }
-        return stateMachine.updateQueryInfo(Optional.empty());
+        return stateMachine.getFinalQueryInfo().orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
     }
 
     @Override
