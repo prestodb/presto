@@ -29,7 +29,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreHiveStatisticsProvider
@@ -54,8 +53,7 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3), 2), ImmutableList.of(p1, p3));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
-        assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3)).contains(p1, p4);
-        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3).size(), 3);
+        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3), ImmutableList.of(p1, p5, p4));
     }
 
     private static HivePartition partition(String name)

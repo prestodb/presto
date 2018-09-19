@@ -72,7 +72,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
-import static com.google.common.hash.Hashing.goodFastHash;
+import static com.google.common.hash.Hashing.murmur3_128;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -454,7 +454,6 @@ public class MetastoreHiveStatisticsProvider
             }
         }
 
-        verify(samplesLeft > 0);
         result.add(min);
         samplesLeft--;
         if (samplesLeft > 0) {
@@ -463,16 +462,16 @@ public class MetastoreHiveStatisticsProvider
         }
 
         if (samplesLeft > 0) {
-            HashFunction hashFunction = goodFastHash(32);
-            Comparator<Map.Entry<HivePartition, Integer>> hashComparator = Comparator
-                    .<Map.Entry<HivePartition, Integer>, Integer>comparing(Map.Entry::getValue)
+            HashFunction hashFunction = murmur3_128();
+            Comparator<Map.Entry<HivePartition, Long>> hashComparator = Comparator
+                    .<Map.Entry<HivePartition, Long>, Long>comparing(Map.Entry::getValue)
                     .thenComparing(entry -> entry.getKey().getPartitionId());
             partitions.stream()
                     .filter(partition -> !result.contains(partition))
-                    .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asInt()))
+                    .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asLong()))
                     .sorted(hashComparator)
                     .limit(samplesLeft)
-                    .forEach(entry -> result.add(entry.getKey()));
+                    .forEachOrdered(entry -> result.add(entry.getKey()));
         }
 
         return unmodifiableList(result);
