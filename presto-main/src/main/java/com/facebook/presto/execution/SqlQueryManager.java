@@ -73,8 +73,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
-import static com.facebook.presto.execution.FailedQueryExecution.createFailedQueryExecution;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryStateMachine.QUERY_STATE_LOG;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -403,14 +403,24 @@ public class SqlQueryManager
                         .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
-            QueryExecution execution = createFailedQueryExecution(
-                    query,
+            QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
+
+            try {
+                metadata.cleanupQuery(session);
+            }
+            catch (Throwable t) {
+                QUERY_STATE_LOG.error("Error cleaning up query: %s", t);
+            }
+
+            // query failure fails the transaction
+            session.getTransactionId().ifPresent(transactionManager::fail);
+
+            QueryExecution execution = new FailedQueryExecution(
                     session,
+                    query,
                     locationFactory.createQueryLocation(queryId),
                     Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
-                    transactionManager,
                     queryExecutor,
-                    metadata,
                     e);
 
             try {
