@@ -46,6 +46,7 @@ public class TestMetastoreHiveStatisticsProvider
         HivePartition p2 = partition("p1=string2/p2=2345");
         HivePartition p3 = partition("p1=string3/p2=3456");
         HivePartition p4 = partition("p1=string4/p2=4567");
+        HivePartition p5 = partition("p1=string5/p2=5678");
 
         assertEquals(getPartitionsSample(ImmutableList.of(p1), 1), ImmutableList.of(p1));
         assertEquals(getPartitionsSample(ImmutableList.of(p1), 2), ImmutableList.of(p1));
@@ -54,6 +55,7 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
         assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3)).contains(p1, p4);
+        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3).size(), 3);
     }
 
     private static HivePartition partition(String name)

@@ -471,7 +471,7 @@ public class MetastoreHiveStatisticsProvider
                     .filter(partition -> !result.contains(partition))
                     .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asInt()))
                     .sorted(hashComparator)
-                    .limit(sampleSize)
+                    .limit(samplesLeft)
                     .forEach(entry -> result.add(entry.getKey()));
         }
 
