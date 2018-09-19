@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryPreparer;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -21,7 +23,6 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -33,15 +34,12 @@ import com.facebook.presto.sql.tree.Statement;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
-import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 final class ExplainRewrite
@@ -65,7 +63,7 @@ final class ExplainRewrite
             extends AstVisitor<Node, Void>
     {
         private final Session session;
-        private final SqlParser parser;
+        private final QueryPreparer queryPreparer;
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
 
@@ -76,7 +74,7 @@ final class ExplainRewrite
                 WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
-            this.parser = parser;
+            this.queryPreparer = new QueryPreparer(requireNonNull(parser, "queryPreparer is null"));
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
@@ -118,26 +116,23 @@ final class ExplainRewrite
         private Node getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
                 throws IllegalArgumentException
         {
-            Statement wrappedStatement = node.getStatement();
-            Statement statement = unwrapExecuteStatement(wrappedStatement, parser, session);
-            List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
-            validateParameters(statement, parameters);
+            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement());
 
             if (planType == VALIDATE) {
-                queryExplainer.get().analyze(session, statement, parameters, warningCollector);
+                queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
                 return singleValueQuery("Valid", true);
             }
 
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
-                    plan = queryExplainer.get().getGraphvizPlan(session, statement, planType, parameters, warningCollector);
+                    plan = queryExplainer.get().getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
                     break;
                 case JSON:
-                    plan = queryExplainer.get().getJsonPlan(session, statement, planType, parameters, warningCollector);
+                    plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
                     break;
                 case TEXT:
-                    plan = queryExplainer.get().getPlan(session, statement, planType, parameters, warningCollector);
+                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());

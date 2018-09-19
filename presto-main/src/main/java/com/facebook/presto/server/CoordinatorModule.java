@@ -44,6 +44,7 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
+import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameSchemaTask;
@@ -195,6 +196,7 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();

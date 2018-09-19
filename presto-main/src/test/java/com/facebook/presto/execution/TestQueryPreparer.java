@@ -14,18 +14,15 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
-import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
@@ -35,15 +32,16 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestUnwrapExecute
+public class TestQueryPreparer
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final QueryPreparer QUERY_PREPARER = new QueryPreparer(SQL_PARSER);
 
     @Test
     public void testSelectStatement()
     {
-        Statement statement = SQL_PARSER.createStatement("SELECT * FROM foo");
-        assertEquals(unwrapExecuteStatement(statement, SQL_PARSER, TEST_SESSION),
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "SELECT * FROM foo");
+        assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
 
@@ -53,8 +51,8 @@ public class TestUnwrapExecute
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT * FROM foo")
                 .build();
-        Statement statement = SQL_PARSER.createStatement("EXECUTE my_query");
-        assertEquals(unwrapExecuteStatement(statement, SQL_PARSER, session),
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query");
+        assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
 
@@ -62,8 +60,7 @@ public class TestUnwrapExecute
     public void testExecuteStatementDoesNotExist()
     {
         try {
-            Statement statement = SQL_PARSER.createStatement("execute my_query");
-            unwrapExecuteStatement(statement, SQL_PARSER, TEST_SESSION);
+            QUERY_PREPARER.prepareQuery(TEST_SESSION, "execute my_query");
             fail("expected exception");
         }
         catch (PrestoException e) {
@@ -78,8 +75,7 @@ public class TestUnwrapExecute
             Session session = testSessionBuilder()
                     .addPreparedStatement("my_query", "SELECT * FROM foo where col1 = ?")
                     .build();
-            Statement statement = SQL_PARSER.createStatement("EXECUTE my_query USING 1,2");
-            validateParameters(unwrapExecuteStatement(statement, SQL_PARSER, session), ((Execute) statement).getParameters());
+            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2");
             fail("expected exception");
         }
         catch (SemanticException e) {
@@ -94,8 +90,7 @@ public class TestUnwrapExecute
             Session session = testSessionBuilder()
                     .addPreparedStatement("my_query", "SELECT ? FROM foo where col1 = ?")
                     .build();
-            Statement statement = SQL_PARSER.createStatement("EXECUTE my_query USING 1");
-            validateParameters(unwrapExecuteStatement(statement, SQL_PARSER, session), ((Execute) statement).getParameters());
+            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1");
             fail("expected exception");
         }
         catch (SemanticException e) {

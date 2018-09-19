@@ -19,6 +19,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -33,7 +34,6 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
@@ -41,15 +41,9 @@ import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.tree.Execute;
-import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.util.StatementUtils;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -67,7 +61,6 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -86,7 +79,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
-import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
@@ -95,18 +87,13 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
-import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -116,7 +103,7 @@ public class SqlQueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
-    private final SqlParser sqlParser;
+    private final QueryPreparer queryPreparer;
 
     private final EmbedVersion embedVersion;
     private final ExecutorService queryExecutor;
@@ -165,7 +152,7 @@ public class SqlQueryManager
 
     @Inject
     public SqlQueryManager(
-            SqlParser sqlParser,
+            QueryPreparer queryPreparer,
             EmbedVersion embedVersion,
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
@@ -183,7 +170,7 @@ public class SqlQueryManager
             Metadata metadata,
             WarningCollectorFactory warningCollectorFactory)
     {
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
 
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
@@ -409,7 +396,7 @@ public class SqlQueryManager
         Session session = null;
         SelectionContext<C> selectionContext;
         QueryExecution queryExecution;
-        Statement statement;
+        PreparedQuery preparedQuery;
         try {
             if (!acceptQueries.get()) {
                 int activeWorkerCount = internalNodeManager.getNodes(ACTIVE).size();
@@ -430,7 +417,14 @@ public class SqlQueryManager
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
 
-            Optional<String> queryType = getQueryType(query);
+            // decode session
+            session = sessionSupplier.createSession(queryId, sessionContext);
+
+            // prepare query
+            preparedQuery = queryPreparer.prepareQuery(session, query);
+
+            // select resource group
+            Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);
             selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -439,29 +433,25 @@ public class SqlQueryManager
                     sessionContext.getResourceEstimates(),
                     queryType));
 
-            session = sessionSupplier.createSession(queryId, sessionContext);
+            // apply system defaults for query
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType, selectionContext.getResourceGroupId());
-            Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
-            statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
-            List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
-            validateParameters(statement, parameters);
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
+
+            // create query execution
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
             if (queryExecutionFactory == null) {
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
-            if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-                Statement innerStatement = ((Explain) statement).getStatement();
-                Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
-                if (!innerQueryType.isPresent() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
-                    throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
-                }
-            }
-            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters, warningCollectorFactory.create());
+            queryExecution = queryExecutionFactory.createQueryExecution(
+                    queryId,
+                    query,
+                    session,
+                    preparedQuery.getStatement(),
+                    preparedQuery.getParameters(),
+                    warningCollectorFactory.create());
         }
         catch (ParsingException | PrestoException | SemanticException e) {
             // This is intentionally not a method, since after the state change listener is registered
             // it's not safe to do any of this, and we had bugs before where people reused this code in a method
-            URI self = locationFactory.createQueryLocation(queryId);
 
             // if session creation failed, create a minimal session object
             if (session == null) {
@@ -476,7 +466,7 @@ public class SqlQueryManager
                     query,
                     Optional.empty(),
                     session,
-                    self,
+                    locationFactory.createQueryLocation(queryId),
                     transactionManager,
                     queryExecutor,
                     metadata,
@@ -524,34 +514,7 @@ public class SqlQueryManager
         }
 
         // start the query in the background
-        resourceGroupManager.submit(statement, queryExecution, selectionContext, queryExecutor);
-    }
-
-    private Optional<String> getQueryType(String query)
-    {
-        Statement statement = sqlParser.createStatement(query, new ParsingOptions(AS_DECIMAL));
-        return StatementUtils.getQueryType(statement.getClass()).map(Enum::name);
-    }
-
-    public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
-    {
-        if ((!(statement instanceof Execute))) {
-            return statement;
-        }
-
-        String sql = session.getPreparedStatementFromExecute((Execute) statement);
-        return sqlParser.createStatement(sql, createParsingOptions(session));
-    }
-
-    public static void validateParameters(Statement node, List<Expression> parameterValues)
-    {
-        int parameterCount = getParameterCount(node);
-        if (parameterValues.size() != parameterCount) {
-            throw new SemanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, parameterValues.size());
-        }
-        for (Expression expression : parameterValues) {
-            verifyExpressionIsConstant(emptySet(), expression);
-        }
+        resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
     }
 
     @Override

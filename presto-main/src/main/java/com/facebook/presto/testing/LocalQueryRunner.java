@@ -47,6 +47,8 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.QueryPreparer;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -137,8 +139,6 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
-import com.facebook.presto.sql.tree.Execute;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -181,8 +181,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
-import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
-import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -198,7 +196,6 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -779,9 +776,9 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector)
     {
-        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql, createParsingOptions(session)), sqlParser, session);
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
-        assertFormattedSql(sqlParser, createParsingOptions(session), statement);
+        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
     }
@@ -812,16 +809,9 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector)
     {
-        Statement wrapped = sqlParser.createStatement(sql, createParsingOptions(session));
-        Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
-        List<Expression> parameters = emptyList();
-        if (wrapped instanceof Execute) {
-            parameters = ((Execute) wrapped).getParameters();
-        }
-        validateParameters(statement, parameters);
-
-        assertFormattedSql(sqlParser, createParsingOptions(session), statement);
+        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -835,11 +825,11 @@ public class LocalQueryRunner
                 statsCalculator,
                 costCalculator,
                 dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters, warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 
-        Analysis analysis = analyzer.analyze(statement);
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);
     }
 
