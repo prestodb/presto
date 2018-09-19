@@ -21,10 +21,17 @@ import static java.util.Objects.requireNonNull;
 
 public final class ColumnStatistics
 {
+    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty());
+
     private final Estimate nullsFraction;
     private final Estimate distinctValuesCount;
     private final Estimate dataSize;
     private final Optional<DoubleRange> range;
+
+    public static ColumnStatistics empty()
+    {
+        return EMPTY;
+    }
 
     public ColumnStatistics(
             Estimate nullsFraction,

@@ -15,6 +15,7 @@ package com.facebook.presto.spi.statistics;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.statistics.DoubleRange.union;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -55,6 +56,16 @@ public class TestDoubleRange
         assertThatThrownBy(() -> new DoubleRange(Double.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new DoubleRange(Double.POSITIVE_INFINITY, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new DoubleRange(Float.POSITIVE_INFINITY, 0)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void testUnion()
+    {
+        assertEquals(union(new DoubleRange(1, 2), new DoubleRange(4, 5)), new DoubleRange(1, 5));
+        assertEquals(union(new DoubleRange(1, 2), new DoubleRange(1, 2)), new DoubleRange(1, 2));
+        assertEquals(union(new DoubleRange(4, 5), new DoubleRange(1, 2)), new DoubleRange(1, 5));
+        assertEquals(union(new DoubleRange(Double.NEGATIVE_INFINITY, 0), new DoubleRange(0, Double.POSITIVE_INFINITY)), new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        assertEquals(union(new DoubleRange(0, Double.POSITIVE_INFINITY), new DoubleRange(Double.NEGATIVE_INFINITY, 0)), new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
     }
 
     private static void assertRange(double min, double max)

@@ -16,7 +16,10 @@ package com.facebook.presto.spi.statistics;
 import java.util.Objects;
 
 import static java.lang.Double.isNaN;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class DoubleRange
 {
@@ -46,6 +49,13 @@ public class DoubleRange
     public double getMax()
     {
         return max;
+    }
+
+    public static DoubleRange union(DoubleRange first, DoubleRange second)
+    {
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
+        return new DoubleRange(min(first.min, second.min), max(first.max, second.max));
     }
 
     @Override

@@ -108,6 +108,7 @@ public class TestHiveClientConfig
                 .setCreatesOfNonManagedTablesEnabled(true)
                 .setHdfsWireEncryptionEnabled(false)
                 .setPartitionStatisticsSampleSize(100)
+                .setIgnoreCorruptedStatistics(false)
                 .setCollectColumnStatisticsOnWrite(false));
     }
 
@@ -185,6 +186,7 @@ public class TestHiveClientConfig
                 .put("hive.non-managed-table-creates-enabled", "false")
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.partition-statistics-sample-size", "1234")
+                .put("hive.ignore-corrupted-statistics", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
                 .build();
 
@@ -259,6 +261,7 @@ public class TestHiveClientConfig
                 .setCreatesOfNonManagedTablesEnabled(false)
                 .setHdfsWireEncryptionEnabled(true)
                 .setPartitionStatisticsSampleSize(1234)
+                .setIgnoreCorruptedStatistics(true)
                 .setCollectColumnStatisticsOnWrite(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

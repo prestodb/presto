@@ -81,4 +81,32 @@ public class PartitionStatistics
                 .add("columnStatistics", columnStatistics)
                 .toString();
     }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private HiveBasicStatistics basicStatistics = HiveBasicStatistics.createEmptyStatistics();
+        private Map<String, HiveColumnStatistics> columnStatistics = ImmutableMap.of();
+
+        public Builder setBasicStatistics(HiveBasicStatistics basicStatistics)
+        {
+            this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
+            return this;
+        }
+
+        public Builder setColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+        {
+            this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+            return this;
+        }
+
+        public PartitionStatistics build()
+        {
+            return new PartitionStatistics(basicStatistics, columnStatistics);
+        }
+    }
 }
