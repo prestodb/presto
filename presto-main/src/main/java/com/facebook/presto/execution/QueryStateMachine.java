@@ -102,7 +102,6 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
-    private final boolean autoCommit;
     private final TransactionManager transactionManager;
     private final Ticker ticker;
     private final Metadata metadata;
@@ -163,13 +162,21 @@ public class QueryStateMachine
 
     private final WarningCollector warningCollector;
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata, WarningCollector warningCollector)
+    private QueryStateMachine(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            TransactionManager transactionManager,
+            Executor executor,
+            Ticker ticker,
+            Metadata metadata,
+            WarningCollector warningCollector)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
         this.session = requireNonNull(session, "session is null");
         this.self = requireNonNull(self, "self is null");
-        this.autoCommit = autoCommit;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.ticker = ticker;
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -215,8 +222,7 @@ public class QueryStateMachine
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
         Session querySession;
-        boolean autoCommit = !session.getTransactionId().isPresent() && !transactionControl;
-        if (autoCommit) {
+        if (!session.getTransactionId().isPresent() && !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
             querySession = session.beginTransactionId(transactionId, transactionManager, accessControl);
@@ -225,7 +231,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata, warningCollector);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, transactionManager, executor, ticker, metadata, warningCollector);
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryId, newState);
             if (newState.isDone()) {
@@ -255,7 +261,7 @@ public class QueryStateMachine
             Metadata metadata,
             Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata, WarningCollector.NOOP);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, transactionManager, executor, ticker, metadata, WarningCollector.NOOP);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -268,11 +274,6 @@ public class QueryStateMachine
     public Session getSession()
     {
         return session;
-    }
-
-    public boolean isAutoCommit()
-    {
-        return autoCommit;
     }
 
     public long getPeakUserMemoryInBytes()
@@ -767,8 +768,9 @@ public class QueryStateMachine
             return false;
         }
 
-        if (autoCommit) {
-            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(session.getTransactionId().get());
+        Optional<TransactionId> transactionId = session.getTransactionId();
+        if (transactionId.isPresent() && transactionManager.transactionExists(transactionId.get()) && transactionManager.isAutoCommit(transactionId.get())) {
+            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transactionId.get());
             Futures.addCallback(commitFuture, new FutureCallback<Object>()
             {
                 @Override
@@ -812,7 +814,14 @@ public class QueryStateMachine
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
-            session.getTransactionId().ifPresent(autoCommit ? transactionManager::asyncAbort : transactionManager::fail);
+            session.getTransactionId().ifPresent(transactionId -> {
+                if (transactionManager.isAutoCommit(transactionId)) {
+                    transactionManager.asyncAbort(transactionId);
+                }
+                else {
+                    transactionManager.fail(transactionId);
+                }
+            });
         }
         else {
             QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
@@ -833,7 +842,14 @@ public class QueryStateMachine
 
         boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (canceled) {
-            session.getTransactionId().ifPresent(autoCommit ? transactionManager::asyncAbort : transactionManager::fail);
+            session.getTransactionId().ifPresent(transactionId -> {
+                if (transactionManager.isAutoCommit(transactionId)) {
+                    transactionManager.asyncAbort(transactionId);
+                }
+                else {
+                    transactionManager.fail(transactionId);
+                }
+            });
         }
 
         return canceled;

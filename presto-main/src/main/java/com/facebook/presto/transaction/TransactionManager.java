@@ -30,6 +30,11 @@ public interface TransactionManager
 
     boolean transactionExists(TransactionId transactionId);
 
+    default boolean isAutoCommit(TransactionId transactionId)
+    {
+        return getTransactionInfo(transactionId).isAutoCommitContext();
+    }
+
     TransactionInfo getTransactionInfo(TransactionId transactionId);
 
     List<TransactionInfo> getAllTransactionInfos();
