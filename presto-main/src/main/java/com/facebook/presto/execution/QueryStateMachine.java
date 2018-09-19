@@ -901,6 +901,26 @@ public class QueryStateMachine
         distributedPlanningTime.compareAndSet(null, nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit());
     }
 
+    public DateTime getCreateTime()
+    {
+        return createTime;
+    }
+
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(executionStartTime.get());
+    }
+
+    public DateTime getLastHeartbeat()
+    {
+        return lastHeartbeat.get();
+    }
+
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(endTime.get());
+    }
+
     private static boolean isScheduled(Optional<StageInfo> rootStage)
     {
         if (!rootStage.isPresent()) {

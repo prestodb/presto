@@ -26,6 +26,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
@@ -114,6 +115,30 @@ public class FailedQueryExecution
     public Session getSession()
     {
         return session;
+    }
+
+    @Override
+    public DateTime getCreateTime()
+    {
+        return queryInfo.getQueryStats().getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(queryInfo.getQueryStats().getExecutionStartTime());
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return queryInfo.getQueryStats().getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(queryInfo.getQueryStats().getEndTime());
     }
 
     @Override

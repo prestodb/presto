@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
@@ -51,7 +50,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -66,12 +64,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -81,11 +75,8 @@ import java.util.function.Consumer;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -113,18 +104,13 @@ public class SqlQueryManager
 
     private final Optional<String> path;
     private final boolean isIncludeCoordinator;
-    private final int maxQueryHistory;
-    private final Duration minQueryExpireAge;
     private final int maxQueryLength;
     private final int initializationRequiredWorkers;
     private final Duration initializationTimeout;
     private final long initialNanos;
     private final Duration maxQueryCpuTime;
 
-    private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
-    private final Queue<QueryExecution> expirationQueue = new LinkedBlockingQueue<>();
-
-    private final Duration clientTimeout;
+    private final QueryTracker<QueryExecution> queryTracker;
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
@@ -198,9 +184,6 @@ public class SqlQueryManager
 
         this.path = sqlEnvironmentConfig.getPath();
         this.isIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
-        this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
-        this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
-        this.clientTimeout = queryManagerConfig.getClientTimeout();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
@@ -211,19 +194,15 @@ public class SqlQueryManager
 
         queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
+
+        this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
     }
 
     @PostConstruct
     public void start()
     {
+        queryTracker.start();
         queryManagementExecutor.scheduleWithFixedDelay(() -> {
-            try {
-                failAbandonedQueries();
-            }
-            catch (Throwable e) {
-                log.error(e, "Error cancelling abandoned queries");
-            }
-
             try {
                 enforceMemoryLimits();
             }
@@ -232,31 +211,10 @@ public class SqlQueryManager
             }
 
             try {
-                enforceTimeLimits();
-            }
-            catch (Throwable e) {
-                log.error(e, "Error enforcing query timeout limits");
-            }
-
-            try {
                 enforceCpuLimits();
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query CPU time limits");
-            }
-
-            try {
-                removeExpiredQueries();
-            }
-            catch (Throwable e) {
-                log.error(e, "Error removing expired queries");
-            }
-
-            try {
-                pruneExpiredQueries();
-            }
-            catch (Throwable e) {
-                log.error(e, "Error pruning expired queries");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -264,24 +222,7 @@ public class SqlQueryManager
     @PreDestroy
     public void stop()
     {
-        boolean queryCancelled = false;
-        for (QueryExecution queryExecution : queries.values()) {
-            if (queryExecution.getState().isDone()) {
-                continue;
-            }
-
-            log.info("Server shutting down. Query %s has been cancelled", queryExecution.getQueryId());
-            queryExecution.fail(new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Query " + queryExecution.getQueryId() + " has been cancelled"));
-            queryCancelled = true;
-        }
-        if (queryCancelled) {
-            try {
-                TimeUnit.SECONDS.sleep(5);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        queryTracker.stop();
         queryManagementExecutor.shutdownNow();
         queryExecutor.shutdownNow();
     }
@@ -289,7 +230,7 @@ public class SqlQueryManager
     @Override
     public List<BasicQueryInfo> getQueries()
     {
-        return queries.values().stream()
+        return queryTracker.getAllQueries().stream()
                 .map(queryExecution -> {
                     try {
                         return queryExecution.getBasicQueryInfo();
@@ -307,7 +248,7 @@ public class SqlQueryManager
     {
         requireNonNull(listener, "listener is null");
 
-        getQueryExecution(queryId).addOutputInfoListener(listener);
+        queryTracker.getQuery(queryId).addOutputInfoListener(listener);
     }
 
     @Override
@@ -315,13 +256,13 @@ public class SqlQueryManager
     {
         requireNonNull(listener, "listener is null");
 
-        getQueryExecution(queryId).addStateChangeListener(listener);
+        queryTracker.getQuery(queryId).addStateChangeListener(listener);
     }
 
     @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
-        return tryGetQueryExecution(queryId)
+        return queryTracker.tryGetQuery(queryId)
                 .map(query -> query.getStateChange(currentState))
                 .orElseGet(() -> immediateFailedFuture(new NoSuchElementException()));
     }
@@ -329,37 +270,37 @@ public class SqlQueryManager
     @Override
     public BasicQueryInfo getQueryInfo(QueryId queryId)
     {
-        return getQueryExecution(queryId).getBasicQueryInfo();
+        return queryTracker.getQuery(queryId).getBasicQueryInfo();
     }
 
     @Override
     public QueryInfo getFullQueryInfo(QueryId queryId)
     {
-        return getQueryExecution(queryId).getQueryInfo();
+        return queryTracker.getQuery(queryId).getQueryInfo();
     }
 
     @Override
     public Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId)
     {
-        return tryGetQueryExecution(queryId)
+        return queryTracker.tryGetQuery(queryId)
                 .flatMap(QueryExecution::getResourceGroup);
     }
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return getQueryExecution(queryId).getQueryPlan();
+        return queryTracker.getQuery(queryId).getQueryPlan();
     }
 
     @Override
     public QueryState getQueryState(QueryId queryId)
     {
-        return getQueryExecution(queryId).getState();
+        return queryTracker.getQuery(queryId).getState();
     }
 
     @Override
     public void recordHeartbeat(QueryId queryId)
     {
-        tryGetQueryExecution(queryId)
+        queryTracker.tryGetQuery(queryId)
                 .ifPresent(QueryExecution::recordHeartbeat);
     }
 
@@ -391,7 +332,7 @@ public class SqlQueryManager
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
-        checkArgument(!queries.containsKey(queryId), "query %s already exists", queryId);
+        checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
 
         Session session = null;
         SelectionContext<C> selectionContext;
@@ -473,7 +414,7 @@ public class SqlQueryManager
                     e);
 
             try {
-                queries.putIfAbsent(queryId, execution);
+                queryTracker.addQuery(execution);
 
                 QueryInfo queryInfo = execution.getQueryInfo();
                 queryMonitor.queryCreatedEvent(queryInfo);
@@ -485,7 +426,7 @@ public class SqlQueryManager
             }
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
-                expirationQueue.add(execution);
+                queryTracker.expireQuery(queryId);
             }
 
             return;
@@ -502,13 +443,13 @@ public class SqlQueryManager
             }
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
-                expirationQueue.add(queryExecution);
+                queryTracker.expireQuery(queryId);
             }
         });
 
         addStatsListeners(queryExecution);
 
-        if (queries.putIfAbsent(queryId, queryExecution) != null) {
+        if (!queryTracker.addQuery(queryExecution)) {
             // query already created, so just exit
             return;
         }
@@ -522,7 +463,7 @@ public class SqlQueryManager
     {
         requireNonNull(cause, "cause is null");
 
-        tryGetQueryExecution(queryId)
+        queryTracker.tryGetQuery(queryId)
                 .ifPresent(query -> query.fail(cause));
     }
 
@@ -531,7 +472,7 @@ public class SqlQueryManager
     {
         log.debug("Cancel query %s", queryId);
 
-        tryGetQueryExecution(queryId)
+        queryTracker.tryGetQuery(queryId)
                 .ifPresent(QueryExecution::cancelQuery);
     }
 
@@ -542,7 +483,7 @@ public class SqlQueryManager
 
         log.debug("Cancel stage %s", stageId);
 
-        tryGetQueryExecution(stageId.getQueryId())
+        queryTracker.tryGetQuery(stageId.getQueryId())
                 .ifPresent(query -> query.cancelStage(stageId));
     }
 
@@ -561,7 +502,7 @@ public class SqlQueryManager
         return queryExecutorMBean;
     }
 
-    @Managed(description = "Query garbage collector executor")
+    @Managed(description = "Query query management executor")
     @Nested
     public ThreadPoolExecutorMBean getManagementExecutor()
     {
@@ -573,32 +514,10 @@ public class SqlQueryManager
      */
     private void enforceMemoryLimits()
     {
-        List<QueryExecution> runningQueries = queries.values().stream()
+        List<QueryExecution> runningQueries = queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList());
         memoryManager.process(runningQueries, this::getQueries);
-    }
-
-    /**
-     * Enforce query max runtime/execution time limits
-     */
-    private void enforceTimeLimits()
-    {
-        for (QueryExecution query : queries.values()) {
-            if (query.getState().isDone()) {
-                continue;
-            }
-            Duration queryMaxRunTime = SystemSessionProperties.getQueryMaxRunTime(query.getSession());
-            Duration queryMaxExecutionTime = SystemSessionProperties.getQueryMaxExecutionTime(query.getSession());
-            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getExecutionStartTime();
-            DateTime createTime = query.getQueryInfo().getQueryStats().getCreateTime();
-            if (executionStartTime != null && executionStartTime.plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
-            }
-            if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
-            }
-        }
     }
 
     /**
@@ -606,7 +525,7 @@ public class SqlQueryManager
      */
     private void enforceCpuLimits()
     {
-        for (QueryExecution query : queries.values()) {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
             Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
@@ -614,90 +533,6 @@ public class SqlQueryManager
                 query.fail(new ExceededCpuLimitException(limit));
             }
         }
-    }
-
-    /**
-     * Prune extraneous info from old queries
-     */
-    private void pruneExpiredQueries()
-    {
-        if (expirationQueue.size() <= maxQueryHistory) {
-            return;
-        }
-
-        int count = 0;
-        // we're willing to keep full info for up to maxQueryHistory queries
-        for (QueryExecution query : expirationQueue) {
-            if (expirationQueue.size() - count <= maxQueryHistory) {
-                break;
-            }
-            query.pruneInfo();
-            count++;
-        }
-    }
-
-    /**
-     * Remove completed queries after a waiting period
-     */
-    private void removeExpiredQueries()
-    {
-        DateTime timeHorizon = DateTime.now().minus(minQueryExpireAge.toMillis());
-
-        // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
-        while (expirationQueue.size() > maxQueryHistory) {
-            QueryExecution query = expirationQueue.peek();
-            if (query == null) {
-                return;
-            }
-            QueryInfo queryInfo = query.getQueryInfo();
-
-            // expirationQueue is FIFO based on query end time. Stop when we see the
-            // first query that's too young to expire
-            DateTime endTime = queryInfo.getQueryStats().getEndTime();
-            if (endTime == null) {
-                // this shouldn't happen but it is better to be safe here
-                continue;
-            }
-            if (endTime.isAfter(timeHorizon)) {
-                return;
-            }
-
-            // only expire them if they are older than minQueryExpireAge. We need to keep them
-            // around for a while in case clients come back asking for status
-            QueryId queryId = queryInfo.getQueryId();
-
-            log.debug("Remove query %s", queryId);
-            queries.remove(queryId);
-            expirationQueue.remove(query);
-        }
-    }
-
-    private void failAbandonedQueries()
-    {
-        for (QueryExecution queryExecution : queries.values()) {
-            try {
-                QueryInfo queryInfo = queryExecution.getQueryInfo();
-                if (queryInfo.getState().isDone()) {
-                    continue;
-                }
-
-                if (isAbandoned(queryInfo)) {
-                    log.info("Failing abandoned query %s", queryExecution.getQueryId());
-                    queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
-                }
-            }
-            catch (RuntimeException e) {
-                log.error(e, "Exception failing abandoned query %s", queryExecution.getQueryId());
-            }
-        }
-    }
-
-    private boolean isAbandoned(QueryInfo queryInfo)
-    {
-        DateTime oldestAllowedHeartbeat = DateTime.now().minus(clientTimeout.toMillis());
-        DateTime lastHeartbeat = queryInfo.getQueryStats().getLastHeartbeat();
-
-        return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
 
     private void addStatsListeners(QueryExecution queryExecution)
@@ -736,18 +571,6 @@ public class SqlQueryManager
                 stats.queryStopped();
             }
         }
-    }
-
-    private QueryExecution getQueryExecution(QueryId queryId)
-    {
-        return tryGetQueryExecution(queryId)
-                .orElseThrow(NoSuchElementException::new);
-    }
-
-    private Optional<QueryExecution> tryGetQueryExecution(QueryId queryId)
-    {
-        requireNonNull(queryId, "queryId is null");
-        return Optional.ofNullable(queries.get(queryId));
     }
 
     private static class QueryCreationFuture

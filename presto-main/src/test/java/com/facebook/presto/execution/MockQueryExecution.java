@@ -225,6 +225,30 @@ public class MockQueryExecution
     }
 
     @Override
+    public DateTime getCreateTime()
+    {
+        return getQueryInfo().getQueryStats().getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(getQueryInfo().getQueryStats().getExecutionStartTime());
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return getQueryInfo().getQueryStats().getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(getQueryInfo().getQueryStats().getEndTime());
+    }
+
+    @Override
     public Optional<ErrorCode> getErrorCode()
     {
         return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);

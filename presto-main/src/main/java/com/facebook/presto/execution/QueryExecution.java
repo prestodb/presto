@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -36,10 +37,8 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 
 public interface QueryExecution
-        extends ManagedQueryExecution
+        extends ManagedQueryExecution, TrackedQuery
 {
-    QueryId getQueryId();
-
     QueryState getState();
 
     ListenableFuture<QueryState> getStateChange(QueryState currentState);
@@ -61,11 +60,6 @@ public interface QueryExecution
     void cancelStage(StageId stageId);
 
     void recordHeartbeat();
-
-    // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
-    void pruneInfo();
-
-    void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
 
