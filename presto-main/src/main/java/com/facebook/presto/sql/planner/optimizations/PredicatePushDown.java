@@ -490,7 +490,10 @@ public class PredicatePushDown
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
 
-            output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+            if (!node.getOutputSymbols().equals(output.getOutputSymbols())) {
+                output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+            }
+
             return output;
         }
 

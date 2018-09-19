@@ -1,8 +1,8 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        final aggregation over (custkey, name, orderdate, orderkey_3, totalprice)
+        final aggregation over (custkey, name, orderdate, orderkey, totalprice)
             local exchange (GATHER, SINGLE, [])
-                partial aggregation over (custkey, name, orderdate, orderkey_3, totalprice)
+                partial aggregation over (custkey, name, orderdate, orderkey, totalprice)
                     semijoin (PARTITIONED):
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["orderkey_3"])
