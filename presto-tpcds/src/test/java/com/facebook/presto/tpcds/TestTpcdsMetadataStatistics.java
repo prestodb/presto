@@ -19,17 +19,15 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.google.common.primitives.Primitives;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
 import com.teradata.tpcds.column.WebSiteColumn;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
@@ -71,16 +69,6 @@ public class TestTpcdsMetadataStatistics
                             for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
                                 assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
                                 assertNotNull(tableStatistics.getColumnStatistics().get(column));
-
-                                TpcdsColumnHandle tpcdsColumn = (TpcdsColumnHandle) column;
-                                Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getLowValue();
-                                if (low.isPresent()) {
-                                    assertEquals(low.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
-                                }
-                                Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getLowValue();
-                                if (high.isPresent()) {
-                                    assertEquals(high.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
-                                }
                             }
                         }));
     }
@@ -107,8 +95,7 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(6))
-                        .setLowValue(Optional.of(1L))
-                        .setHighValue(Optional.of(6L))
+                        .setRange(new DoubleRange(1, 6))
                         .build());
 
         // varchar
@@ -117,8 +104,6 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(3))
-                        .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
-                        .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
                         .setDataSize(Estimate.of(48.0))
                         .build());
 
@@ -128,8 +113,6 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(1))
-                        .setLowValue(Optional.of(Slices.utf8Slice("31904")))
-                        .setHighValue(Optional.of(Slices.utf8Slice("31904")))
                         .setDataSize(Estimate.of(5.0))
                         .build());
 
@@ -139,8 +122,7 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(1))
-                        .setLowValue(Optional.of(-500L))
-                        .setHighValue(Optional.of(-500L))
+                        .setRange(new DoubleRange(-5, -5))
                         .build());
 
         // date
@@ -149,8 +131,7 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(4))
-                        .setLowValue(Optional.of(10227L))
-                        .setHighValue(Optional.of(11688L))
+                        .setRange(new DoubleRange(10227L, 11688L))
                         .build());
 
         // only null values
@@ -159,8 +140,6 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(1))
                         .setDistinctValuesCount(Estimate.of(0))
-                        .setLowValue(Optional.empty())
-                        .setHighValue(Optional.empty())
                         .build());
     }
 
@@ -179,8 +158,7 @@ public class TestTpcdsMetadataStatistics
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0.5))
                         .setDistinctValuesCount(Estimate.of(3))
-                        .setLowValue(Optional.of(10819L))
-                        .setHighValue(Optional.of(11549L))
+                        .setRange(new DoubleRange(10819L, 11549L))
                         .build());
     }
 
@@ -189,7 +167,6 @@ public class TestTpcdsMetadataStatistics
         estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "Nulls fraction");
         estimateAssertion.assertClose(actual.getDataSize(), expected.getDataSize(), "Data size");
         estimateAssertion.assertClose(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "Distinct values count");
-        assertEquals(actual.getLowValue(), expected.getLowValue());
-        assertEquals(actual.getHighValue(), expected.getHighValue());
+        assertEquals(actual.getRange(), expected.getRange());
     }
 }

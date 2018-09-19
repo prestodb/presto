@@ -24,15 +24,13 @@ public final class ColumnStatistics
     private final Estimate nullsFraction;
     private final Estimate distinctValuesCount;
     private final Estimate dataSize;
-    private final Optional<Object> lowValue;
-    private final Optional<Object> highValue;
+    private final Optional<DoubleRange> range;
 
     public ColumnStatistics(
             Estimate nullsFraction,
             Estimate distinctValuesCount,
             Estimate dataSize,
-            Optional<Object> lowValue,
-            Optional<Object> highValue)
+            Optional<DoubleRange> range)
     {
         this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
         if (!nullsFraction.isUnknown()) {
@@ -48,8 +46,7 @@ public final class ColumnStatistics
         if (!dataSize.isUnknown() && dataSize.getValue() < 0) {
             throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
         }
-        this.lowValue = requireNonNull(lowValue, "lowValue is null");
-        this.highValue = requireNonNull(highValue, "highValue is null");
+        this.range = requireNonNull(range, "range is null");
     }
 
     public Estimate getNullsFraction()
@@ -67,14 +64,9 @@ public final class ColumnStatistics
         return dataSize;
     }
 
-    public Optional<Object> getLowValue()
+    public Optional<DoubleRange> getRange()
     {
-        return lowValue;
-    }
-
-    public Optional<Object> getHighValue()
-    {
-        return highValue;
+        return range;
     }
 
     @Override
@@ -90,14 +82,13 @@ public final class ColumnStatistics
         return Objects.equals(nullsFraction, that.nullsFraction) &&
                 Objects.equals(distinctValuesCount, that.distinctValuesCount) &&
                 Objects.equals(dataSize, that.dataSize) &&
-                Objects.equals(lowValue, that.lowValue) &&
-                Objects.equals(highValue, that.highValue);
+                Objects.equals(range, that.range);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, lowValue, highValue);
+        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range);
     }
 
     @Override
@@ -107,8 +98,7 @@ public final class ColumnStatistics
                 "nullsFraction=" + nullsFraction +
                 ", distinctValuesCount=" + distinctValuesCount +
                 ", dataSize=" + dataSize +
-                ", lowValue=" + lowValue +
-                ", highValue=" + highValue +
+                ", range=" + range +
                 '}';
     }
 
@@ -122,8 +112,7 @@ public final class ColumnStatistics
         private Estimate nullsFraction = Estimate.unknown();
         private Estimate distinctValuesCount = Estimate.unknown();
         private Estimate dataSize = Estimate.unknown();
-        private Optional<Object> lowValue = Optional.empty();
-        private Optional<Object> highValue = Optional.empty();
+        private Optional<DoubleRange> range = Optional.empty();
 
         public Builder setNullsFraction(Estimate nullsFraction)
         {
@@ -143,21 +132,21 @@ public final class ColumnStatistics
             return this;
         }
 
-        public Builder setLowValue(Optional<Object> lowValue)
+        public Builder setRange(DoubleRange range)
         {
-            this.lowValue = requireNonNull(lowValue, "lowValue is null");
+            this.range = Optional.of(requireNonNull(range, "range is null"));
             return this;
         }
 
-        public Builder setHighValue(Optional<Object> highValue)
+        public Builder setRange(Optional<DoubleRange> range)
         {
-            this.highValue = requireNonNull(highValue, "highValue is null");
+            this.range = requireNonNull(range, "range is null");
             return this;
         }
 
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, lowValue, highValue);
+            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range);
         }
     }
 }

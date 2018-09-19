@@ -28,9 +28,11 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
@@ -59,6 +61,8 @@ import static com.facebook.presto.hive.util.Statistics.getMinMaxAsPrestoNativeVa
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -72,6 +76,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.hash.Hashing.murmur3_128;
+import static java.lang.Double.parseDouble;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -165,8 +171,11 @@ public class MetastoreHiveStatisticsProvider
                 Block rightBlock = nativeValueToBlock(prestoType, rightValue);
                 return prestoType.compareTo(leftBlock, 0, rightBlock, 0);
             };
-            columnStatistics.setLowValue(lowValueCandidates.stream().min(comparator));
-            columnStatistics.setHighValue(highValueCandidates.stream().max(comparator));
+            Optional<Object> min = lowValueCandidates.stream().min(comparator);
+            Optional<Object> max = highValueCandidates.stream().max(comparator);
+            if (min.isPresent() && max.isPresent()) {
+                columnStatistics.setRange(createPrestoRange(prestoType, min.get(), max.get()));
+            }
             columnStatistics.setDataSize(dataSize);
 
             columnStatistics.setNullsFraction(nullsFraction);
@@ -190,6 +199,38 @@ public class MetastoreHiveStatisticsProvider
             return true;
         }
         return false;
+    }
+
+    public static DoubleRange createPrestoRange(Type type, Object min, Object max)
+    {
+        return new DoubleRange(convertPrestoValueToStatsRepresentation(type, min), convertPrestoValueToStatsRepresentation(type, max));
+    }
+
+    private static double convertPrestoValueToStatsRepresentation(Type type, Object value)
+    {
+        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            return (Long) value;
+        }
+        if (type.equals(DOUBLE)) {
+            return (Double) value;
+        }
+        if (type.equals(REAL)) {
+            return intBitsToFloat(((Long) value).intValue());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (isShortDecimal(decimalType)) {
+                return parseDouble(Decimals.toString((Long) value, decimalType.getScale()));
+            }
+            if (isLongDecimal(decimalType)) {
+                return parseDouble(Decimals.toString((Slice) value, decimalType.getScale()));
+            }
+            throw new IllegalArgumentException("Unexpected decimal type: " + decimalType);
+        }
+        if (type.equals(DATE)) {
+            return (Long) value;
+        }
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     private OptionalDouble calculateRowsPerPartition(Map<String, PartitionStatistics> statisticsSample)
