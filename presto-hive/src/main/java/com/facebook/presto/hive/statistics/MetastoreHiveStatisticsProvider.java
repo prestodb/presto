@@ -65,7 +65,6 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.CHAR;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -187,8 +186,7 @@ public class MetastoreHiveStatisticsProvider
                 || type.equals(BIGINT)
                 || type.equals(REAL)
                 || type.equals(DOUBLE)
-                || type.equals(DATE)
-                || type.equals(TIMESTAMP)) {
+                || type.equals(DATE)) {
             return true;
         }
         return false;
