@@ -96,7 +96,7 @@ public class MetastoreHiveStatisticsProvider
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<HivePartition> queriedPartitions, Map<String, ColumnHandle> tableColumns)
     {
         if (!isStatisticsEnabled(session)) {
-            return TableStatistics.EMPTY_STATISTICS;
+            return TableStatistics.empty();
         }
 
         int queriedPartitionsCount = queriedPartitions.size();

@@ -26,10 +26,15 @@ import static java.util.Objects.requireNonNull;
 
 public final class TableStatistics
 {
-    public static final TableStatistics EMPTY_STATISTICS = TableStatistics.builder().build();
+    private static final TableStatistics EMPTY = TableStatistics.builder().build();
 
     private final Estimate rowCount;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
+
+    public static TableStatistics empty()
+    {
+        return EMPTY;
+    }
 
     public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {

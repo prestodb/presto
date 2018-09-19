@@ -46,7 +46,7 @@ public class TpcdsTableStatisticsFactory
     {
         Optional<TableStatisticsData> statisticsDataOptional = statisticsDataRepository.load(schemaName, table);
         return statisticsDataOptional.map(statisticsData -> toTableStatistics(columnHandles, statisticsData))
-                .orElse(TableStatistics.EMPTY_STATISTICS);
+                .orElse(TableStatistics.empty());
     }
 
     private TableStatistics toTableStatistics(Map<String, ColumnHandle> columnHandles, TableStatisticsData statisticsData)
