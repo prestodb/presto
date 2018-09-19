@@ -25,7 +25,6 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
@@ -119,7 +118,6 @@ public class SqlQueryManager
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
-    private final Metadata metadata;
     private final TransactionManager transactionManager;
 
     private final QueryIdGenerator queryIdGenerator;
@@ -154,7 +152,6 @@ public class SqlQueryManager
             SessionPropertyDefaults sessionPropertyDefaults,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            Metadata metadata,
             WarningCollectorFactory warningCollectorFactory)
     {
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
@@ -174,7 +171,6 @@ public class SqlQueryManager
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
 
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadata = requireNonNull(metadata, "transactionManager is null");
 
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
@@ -404,13 +400,6 @@ public class SqlQueryManager
                         .build();
             }
             QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
-
-            try {
-                metadata.cleanupQuery(session);
-            }
-            catch (Throwable t) {
-                QUERY_STATE_LOG.error("Error cleaning up query: %s", t);
-            }
 
             // query failure fails the transaction
             session.getTransactionId().ifPresent(transactionManager::fail);
