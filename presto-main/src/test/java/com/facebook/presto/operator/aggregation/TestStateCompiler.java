@@ -290,7 +290,7 @@ public class TestStateCompiler
         return overhead;
     }
 
-    @Test
+    @Test(invocationCount = 100, successPercentage = 90)
     public void testComplexStateEstimatedSize()
     {
         Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "AnotherBlock", mapType(BIGINT, VARCHAR));
