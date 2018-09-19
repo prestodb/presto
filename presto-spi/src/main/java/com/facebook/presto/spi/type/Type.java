@@ -52,7 +52,7 @@ public interface Type
      * be called on Cursor, RecordSet or RandomAccessBlock to fetch a value of
      * this type.
      * <p>
-     * Currently, this must be boolean, long, double, or Slice.
+     * Currently, this must be boolean, long, double, Slice or Block.
      */
     Class<?> getJavaType();
 
