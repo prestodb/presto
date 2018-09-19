@@ -19,8 +19,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -80,8 +82,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 
 public class ShowStatsRewrite
         implements StatementRewrite.Rewrite
@@ -204,9 +204,9 @@ public class ShowStatsRewrite
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
-            Map<ColumnHandle, String> tableColumnNames = getStatisticsColumnNames(tableStatistics, tableHandle);
-            Map<ColumnHandle, Type> tableColumnTypes = getStatisticsColumnTypes(tableStatistics, tableHandle);
-            List<Expression> resultRows = buildStatisticsRows(tableStatistics, tableColumnNames, tableColumnTypes);
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
 
             return simpleQuery(selectAll(selectItems),
                     aliased(new Values(resultRows),
@@ -246,20 +246,6 @@ public class ShowStatsRewrite
             return new Constraint<>(scanNode.get().getCurrentConstraint());
         }
 
-        private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, TableHandle tableHandle)
-        {
-            return statistics.getColumnStatistics()
-                    .keySet().stream()
-                    .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getName()));
-        }
-
-        private Map<ColumnHandle, Type> getStatisticsColumnTypes(TableStatistics statistics, TableHandle tableHandle)
-        {
-            return statistics.getColumnStatistics()
-                    .keySet().stream()
-                    .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getType()));
-        }
-
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)
         {
             QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
@@ -287,19 +273,26 @@ public class ShowStatsRewrite
                     .collect(toImmutableList());
         }
 
-        private List<Expression> buildStatisticsRows(TableStatistics tableStatistics, Map<ColumnHandle, String> columnNames, Map<ColumnHandle, Type> columnTypes)
+        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, TableStatistics tableStatistics)
         {
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
-
-            // Stats for columns
-            for (Map.Entry<ColumnHandle, ColumnStatistics> columnStats : tableStatistics.getColumnStatistics().entrySet()) {
-                ColumnHandle columnHandle = columnStats.getKey();
-                rowsBuilder.add(createColumnStatsRow(columnNames.get(columnHandle), columnTypes.get(columnHandle), columnStats.getValue()));
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                if (columnMetadata.isHidden()) {
+                    continue;
+                }
+                String columnName = columnMetadata.getName();
+                Type columnType = columnMetadata.getType();
+                ColumnHandle columnHandle = columnHandles.get(columnName);
+                ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(columnHandle);
+                if (columnStatistics != null) {
+                    rowsBuilder.add(createColumnStatsRow(columnName, columnType, columnStatistics));
+                }
+                else {
+                    rowsBuilder.add(createEmptyColumnStatsRow(columnName));
+                }
             }
-
             // Stats for whole table
             rowsBuilder.add(createTableStatsRow(tableStatistics));
-
             return rowsBuilder.build();
         }
 
@@ -313,6 +306,19 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(lowHighAsLiteral(type, columnStatistics.getLowValue()));
             rowValues.add(lowHighAsLiteral(type, columnStatistics.getHighValue()));
+            return new Row(rowValues.build());
+        }
+
+        private Expression createEmptyColumnStatsRow(String columnName)
+        {
+            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
+            rowValues.add(new StringLiteral(columnName));
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_VARCHAR);
+            rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
         }
 
