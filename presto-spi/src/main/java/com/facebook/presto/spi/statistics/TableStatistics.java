@@ -75,6 +75,15 @@ public final class TableStatistics
         return Objects.hash(rowCount, columnStatistics);
     }
 
+    @Override
+    public String toString()
+    {
+        return "TableStatistics{" +
+                "rowCount=" + rowCount +
+                ", columnStatistics=" + columnStatistics +
+                '}';
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -91,11 +100,11 @@ public final class TableStatistics
             return this;
         }
 
-        public Builder setColumnStatistics(ColumnHandle columnName, ColumnStatistics columnStatistics)
+        public Builder setColumnStatistics(ColumnHandle columnHandle, ColumnStatistics columnStatistics)
         {
-            requireNonNull(columnName, "columnName can not be null");
+            requireNonNull(columnHandle, "columnHandle can not be null");
             requireNonNull(columnStatistics, "columnStatistics can not be null");
-            this.columnStatisticsMap.put(columnName, columnStatistics);
+            this.columnStatisticsMap.put(columnHandle, columnStatistics);
             return this;
         }
 
