@@ -336,7 +336,18 @@ public class PredicatePushDown
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
-            return context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            if (!(rewrittenPlan instanceof FilterNode)) {
+                return rewrittenPlan;
+            }
+
+            FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
+            if (!expressionEquivalence.areExpressionsEquivalent(session, rewrittenFilterNode.getPredicate(), node.getPredicate(), types)
+                    || node.getSource() != rewrittenFilterNode.getSource()) {
+                return rewrittenPlan;
+            }
+
+            return node;
         }
 
         @Override

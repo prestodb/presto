@@ -329,7 +329,7 @@ public class TestSpatialJoinPlanning
                         "FROM " + POINTS_SQL + " LEFT JOIN " + POLYGONS_SQL + " " +
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND rand() < 0.5",
                 anyTree(
-                        spatialLeftJoin("rand() < 5e-1 AND st_contains(st_geometryfromtext, st_point)",
+                        spatialLeftJoin("st_contains(st_geometryfromtext, st_point) AND rand() < 5e-1",
                                 project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
                                         anyTree(values(ImmutableMap.of("lng", 0, "lat", 1)))),
                                 anyTree(
