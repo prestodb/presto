@@ -215,10 +215,9 @@ public class PruneUnreferencedOutputs
                         .build();
             }
             else {
-                Set<Symbol> seenSymbol = new HashSet<>();
                 outputSymbols = node.getOutputSymbols().stream()
                         .filter(context.get()::contains)
-                        .filter(seenSymbol::add)
+                        .distinct()
                         .collect(toImmutableList());
             }
 
