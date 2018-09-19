@@ -314,14 +314,22 @@ public final class Statistics
             result.setTotalSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
         }
 
-        // NDV
-        if (computedStatistics.containsKey(NUMBER_OF_DISTINCT_VALUES)) {
-            result.setDistinctValuesCount(BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0));
-        }
-
         // NUMBER OF NULLS
         if (computedStatistics.containsKey(NUMBER_OF_NON_NULL_VALUES)) {
             result.setNullsCount(rowCount - BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0));
+        }
+
+        // NDV
+        if (computedStatistics.containsKey(NUMBER_OF_DISTINCT_VALUES) && computedStatistics.containsKey(NUMBER_OF_NON_NULL_VALUES)) {
+            // number of distinct value is estimated using HLL, and can be higher than the number of non null values
+            long numberOfNonNullValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0);
+            long numberOfDistinctValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0);
+            if (numberOfDistinctValues > numberOfNonNullValues) {
+                result.setDistinctValuesCount(numberOfNonNullValues);
+            }
+            else {
+                result.setDistinctValuesCount(numberOfDistinctValues);
+            }
         }
 
         // NUMBER OF FALSE, NUMBER OF TRUE

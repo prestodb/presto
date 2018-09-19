@@ -231,8 +231,31 @@ public class MetastoreHiveStatisticsProvider
                         rowCount.getAsLong());
             }
         });
-        columnStatistics.getDistinctValuesCount().ifPresent(distinctValuesCount ->
-                checkStatistics(distinctValuesCount >= 0, table, partition, column, "distinctValuesCount must be greater than or equal to zero: %s", distinctValuesCount));
+        columnStatistics.getDistinctValuesCount().ifPresent(distinctValuesCount -> {
+            checkStatistics(distinctValuesCount >= 0, table, partition, column, "distinctValuesCount must be greater than or equal to zero: %s", distinctValuesCount);
+            if (rowCount.isPresent()) {
+                checkStatistics(
+                        distinctValuesCount <= rowCount.getAsLong(),
+                        table,
+                        partition,
+                        column,
+                        "distinctValuesCount must be less than or equal to rowCount. distinctValuesCount: %s. rowCount: %s.",
+                        distinctValuesCount,
+                        rowCount.getAsLong());
+            }
+            if (rowCount.isPresent() && columnStatistics.getNullsCount().isPresent()) {
+                long nonNullsCount = rowCount.getAsLong() - columnStatistics.getNullsCount().getAsLong();
+                checkStatistics(
+                        distinctValuesCount <= nonNullsCount,
+                        table,
+                        partition,
+                        column,
+                        "distinctValuesCount must be less than or equal to nonNullsCount. distinctValuesCount: %s. nonNullsCount: %s.",
+                        distinctValuesCount,
+                        nonNullsCount);
+            }
+        });
+
         columnStatistics.getIntegerStatistics().ifPresent(integerStatistics -> {
             OptionalLong min = integerStatistics.getMin();
             OptionalLong max = integerStatistics.getMax();

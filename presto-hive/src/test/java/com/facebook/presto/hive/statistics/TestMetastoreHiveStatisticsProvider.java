@@ -170,6 +170,18 @@ public class TestMetastoreHiveStatisticsProvider
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(1).build()))
+                        .build(),
+                invalidColumnStatistics("distinctValuesCount must be less than or equal to rowCount. distinctValuesCount: 1. rowCount: 0."));
+        assertInvalidStatistics(
+                PartitionStatistics.builder()
+                        .setBasicStatistics(new HiveBasicStatistics(0, 1, 0, 0))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(1).setNullsCount(1).build()))
+                        .build(),
+                invalidColumnStatistics("distinctValuesCount must be less than or equal to nonNullsCount. distinctValuesCount: 1. nonNullsCount: 0."));
+        assertInvalidStatistics(
+                PartitionStatistics.builder()
+                        .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
                         .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(1), OptionalLong.of(-1), OptionalLong.empty(), OptionalLong.empty())))
                         .build(),
                 invalidColumnStatistics("integerStatistics.min must be less than or equal to integerStatistics.max. integerStatistics.min: 1. integerStatistics.max: -1."));

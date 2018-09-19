@@ -482,7 +482,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_1_1 =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(15), OptionalLong.empty(), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().hashCode() % 2 == 0)
@@ -490,7 +490,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_1_2 =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.of(3), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(15), OptionalLong.of(3), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().hashCode() % 2 == 1)
@@ -519,7 +519,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(20), OptionalLong.empty(), OptionalLong.of(0)),
                     ImmutableMap.<String, HiveColumnStatistics>builder()
                             .put("t_boolean", createBooleanColumnStatistics(OptionalLong.of(4), OptionalLong.of(3), OptionalLong.of(2)))
                             .put("t_bigint", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(4), OptionalLong.of(7)))
@@ -528,10 +528,10 @@ public abstract class AbstractTestHiveClient
                             .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(3)))
                             .put("t_double", createDoubleColumnStatistics(OptionalDouble.empty(), OptionalDouble.empty(), OptionalLong.of(6), OptionalLong.of(3)))
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.empty(), OptionalDouble.empty(), OptionalLong.of(7), OptionalLong.of(11)))
-                            .put("t_string", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(6)))
-                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(1)))
-                            .put("t_char", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(0), OptionalLong.of(3)))
-                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(2)))
+                            .put("t_string", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(7), OptionalLong.of(1)))
+                            .put("t_char", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(3)))
+                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(2)))
                             // https://issues.apache.org/jira/browse/HIVE-20098
                             // .put("t_date", createDateColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(8), OptionalLong.of(7)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(1)))

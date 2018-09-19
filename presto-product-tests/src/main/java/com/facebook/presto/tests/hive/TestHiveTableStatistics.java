@@ -208,7 +208,7 @@ public class TestHiveTableStatistics
                 row("n_nationkey", null, 19.0, 0.0, null, "0", "24"),
                 row("n_name", 177.0, 24.0, 0.0, null, null, null),
                 row("n_regionkey", null, 5.0, 0.0, null, "0", "4"),
-                row("n_comment", 1857.0, 31.0, 0.0, null, null, null),
+                row("n_comment", 1857.0, 25.0, 0.0, null, null, null),
                 row(null, null, null, null, 25.0, null, null));
     }
 
@@ -294,16 +294,16 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 114.0, 6.0, 0.0, null, null, null),
+                row("p_name", 114.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
-                row("p_comment", 1497.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 1497.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 38.0, 6.0, 0.0, null, null, null),
+                row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
-                row("p_comment", 499.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
@@ -319,21 +319,21 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 109.0, 6.0, 0.0, null, null, null),
+                row("p_name", 109.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
-                row("p_comment", 1197.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 38.0, 6.0, 0.0, null, null, null),
+                row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
-                row("p_comment", 499.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, 4.0, 0.0, null, "8", "21"),
-                row("p_name", 31.0, 6.0, 0.0, null, null, null),
+                row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
                 row("p_comment", 351.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
@@ -421,16 +421,16 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 114.0, 6.0, 0.0, null, null, null),
+                row("p_name", 114.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
-                row("p_comment", 1497.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 1497.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 38.0, 6.0, 0.0, null, null, null),
+                row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
-                row("p_comment", 499.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
@@ -446,21 +446,21 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 109.0, 6.0, 0.0, null, null, null),
+                row("p_name", 109.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
-                row("p_comment", 1197.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 38.0, 6.0, 0.0, null, null, null),
+                row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
-                row("p_comment", 499.0, 7.0, 0.0, null, null, null),
+                row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, 4.0, 0.0, null, "8", "21"),
-                row("p_name", 31.0, 6.0, 0.0, null, null, null),
+                row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null),
                 row("p_comment", 351.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
