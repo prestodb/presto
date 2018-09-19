@@ -232,30 +232,6 @@ public class QueryStateMachine
         return queryStateMachine;
     }
 
-    /**
-     * Create a QueryStateMachine that is already in a failed state.
-     */
-    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable throwable)
-    {
-        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), metadata, throwable);
-    }
-
-    private static QueryStateMachine failedWithTicker(
-            QueryId queryId,
-            String query,
-            Session session,
-            URI self,
-            TransactionManager transactionManager,
-            Executor executor,
-            Ticker ticker,
-            Metadata metadata,
-            Throwable throwable)
-    {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, transactionManager, executor, ticker, metadata, WarningCollector.NOOP);
-        queryStateMachine.transitionToFailed(throwable);
-        return queryStateMachine;
-    }
-
     public QueryId getQueryId()
     {
         return queryId;
