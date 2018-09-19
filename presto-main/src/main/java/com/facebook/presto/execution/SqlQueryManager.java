@@ -169,7 +169,7 @@ public class SqlQueryManager
             QueryManagerConfig queryManagerConfig,
             SqlEnvironmentConfig sqlEnvironmentConfig,
             QueryMonitor queryMonitor,
-            @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,

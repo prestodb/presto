@@ -22,7 +22,10 @@ import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+
+import javax.inject.Singleton;
 
 import static com.google.common.reflect.Reflection.newProxy;
 
@@ -48,5 +51,12 @@ public class WorkerModule
         binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
             throw new UnsupportedOperationException();
         }));
+    }
+
+    @Provides
+    @Singleton
+    public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
+    {
+        return manager;
     }
 }

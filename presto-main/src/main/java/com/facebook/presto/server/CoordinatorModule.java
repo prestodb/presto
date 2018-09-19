@@ -307,6 +307,13 @@ public class CoordinatorModule
 
     @Provides
     @Singleton
+    public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
+    {
+        return manager;
+    }
+
+    @Provides
+    @Singleton
     public static QueryPerformanceFetcher createQueryPerformanceFetcher(QueryManager queryManager)
     {
         return queryManager::getFullQueryInfo;
