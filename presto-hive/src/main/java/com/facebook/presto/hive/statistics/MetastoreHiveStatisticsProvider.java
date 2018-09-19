@@ -29,7 +29,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
@@ -113,7 +112,6 @@ public class MetastoreHiveStatisticsProvider
         for (Map.Entry<String, ColumnHandle> columnEntry : tableColumns.entrySet()) {
             String columnName = columnEntry.getKey();
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnEntry.getValue();
-            RangeColumnStatistics.Builder rangeStatistics = RangeColumnStatistics.builder();
 
             List<Object> lowValueCandidates = ImmutableList.of();
             List<Object> highValueCandidates = ImmutableList.of();
@@ -121,8 +119,9 @@ public class MetastoreHiveStatisticsProvider
             Type prestoType = typeManager.getType(hiveColumnHandle.getTypeSignature());
             Estimate nullsFraction;
             Estimate dataSize;
+            ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
             if (hiveColumnHandle.isPartitionKey()) {
-                rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, queriedPartitions));
+                columnStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, queriedPartitions));
                 nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, queriedPartitions, statisticsSample, rowCount, rowsPerPartition);
                 if (isLowHighSupportedForType(prestoType)) {
                     lowValueCandidates = queriedPartitions.stream()
@@ -136,7 +135,7 @@ public class MetastoreHiveStatisticsProvider
                 dataSize = calculateDataSizeForPartitioningKey(hiveColumnHandle, queriedPartitions, statisticsSample, rowCount, rowsPerPartition);
             }
             else {
-                rangeStatistics.setDistinctValuesCount(calculateDistinctValuesCount(statisticsSample, columnName));
+                columnStatistics.setDistinctValuesCount(calculateDistinctValuesCount(statisticsSample, columnName));
                 nullsFraction = calculateNullsFraction(statisticsSample, queriedPartitionsCount, columnName, rowCount);
 
                 if (isLowHighSupportedForType(prestoType)) {
@@ -161,20 +160,17 @@ public class MetastoreHiveStatisticsProvider
                 }
                 dataSize = calculateDataSize(statisticsSample, columnName, rowCount);
             }
-            rangeStatistics.setFraction(nullsFraction.map(value -> 1.0 - value));
 
             Comparator<Object> comparator = (leftValue, rightValue) -> {
                 Block leftBlock = nativeValueToBlock(prestoType, leftValue);
                 Block rightBlock = nativeValueToBlock(prestoType, rightValue);
                 return prestoType.compareTo(leftBlock, 0, rightBlock, 0);
             };
-            rangeStatistics.setLowValue(lowValueCandidates.stream().min(comparator));
-            rangeStatistics.setHighValue(highValueCandidates.stream().max(comparator));
-            rangeStatistics.setDataSize(dataSize);
+            columnStatistics.setLowValue(lowValueCandidates.stream().min(comparator));
+            columnStatistics.setHighValue(highValueCandidates.stream().max(comparator));
+            columnStatistics.setDataSize(dataSize);
 
-            ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
             columnStatistics.setNullsFraction(nullsFraction);
-            columnStatistics.addRange(rangeStatistics.build());
             tableStatistics.setColumnStatistics(hiveColumnHandle, columnStatistics.build());
         }
         return tableStatistics.build();

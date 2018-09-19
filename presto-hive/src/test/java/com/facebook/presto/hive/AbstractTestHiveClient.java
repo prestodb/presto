@@ -76,7 +76,6 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
@@ -1332,23 +1331,19 @@ public abstract class AbstractTestHiveClient
                         columnStatistics.getNullsFraction().isValueUnknown(),
                         "unknown nulls fraction for " + columnName);
 
-                RangeColumnStatistics rangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
                 assertFalse(
-                        rangeColumnStatistics.getDistinctValuesCount().isValueUnknown(),
-                        "unknown range distinct values count for " + columnName);
-                assertFalse(
-                        rangeColumnStatistics.getFraction().isValueUnknown(),
-                        "unknown range non-null fraction for " + columnName);
+                        columnStatistics.getDistinctValuesCount().isValueUnknown(),
+                        "unknown distinct values count for " + columnName);
 
                 if (isVarcharType(columnType)) {
                     assertFalse(
-                            rangeColumnStatistics.getDataSize().isValueUnknown(),
-                            "unknown range data size for " + columnName);
+                            columnStatistics.getDataSize().isValueUnknown(),
+                            "unknown data size for " + columnName);
                 }
                 else {
                     assertTrue(
-                            rangeColumnStatistics.getDataSize().isValueUnknown(),
-                            "known range data size for" + columnName);
+                            columnStatistics.getDataSize().isValueUnknown(),
+                            "unknown data size for" + columnName);
                 }
             });
         }

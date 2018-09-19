@@ -23,7 +23,6 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.tpch.util.PredicateUtils;
 import com.google.common.base.Preconditions;
@@ -245,14 +244,12 @@ public class TestTpchMetadata
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);
 
         EstimateAssertion estimateAssertion = new EstimateAssertion(TOLERANCE);
-        RangeColumnStatistics actualRange = actual.getOnlyRangeColumnStatistics();
-        RangeColumnStatistics expectedRange = expected.getOnlyRangeColumnStatistics();
 
-        estimateAssertion.assertClose(actualRange.getDistinctValuesCount(), expectedRange.getDistinctValuesCount(), "distinctValuesCount");
-        estimateAssertion.assertClose(actualRange.getDataSize(), expectedRange.getDataSize(), "dataSize");
+        estimateAssertion.assertClose(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "distinctValuesCount");
+        estimateAssertion.assertClose(actual.getDataSize(), expected.getDataSize(), "dataSize");
         estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction");
-        estimateAssertion.assertClose(actualRange.getLowValue(), expectedRange.getLowValue(), "lowValue");
-        estimateAssertion.assertClose(actualRange.getHighValue(), expectedRange.getHighValue(), "highValue");
+        estimateAssertion.assertClose(actual.getLowValue(), expected.getLowValue(), "lowValue");
+        estimateAssertion.assertClose(actual.getHighValue(), expected.getHighValue(), "highValue");
     }
 
     @Test
@@ -410,13 +407,11 @@ public class TestTpchMetadata
     private static ColumnStatistics createColumnStatistics(Optional<Double> distinctValuesCount, Optional<Object> min, Optional<Object> max, Optional<Double> dataSize)
     {
         return ColumnStatistics.builder()
-                .addRange(rb -> rb
-                        .setDistinctValuesCount(toEstimate(distinctValuesCount))
-                        .setLowValue(min)
-                        .setHighValue(max)
-                        .setDataSize(toEstimate(dataSize))
-                        .setFraction(new Estimate(1.0)))
                 .setNullsFraction(zeroValue())
+                .setDistinctValuesCount(toEstimate(distinctValuesCount))
+                .setLowValue(min)
+                .setHighValue(max)
+                .setDataSize(toEstimate(dataSize))
                 .build();
     }
 

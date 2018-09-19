@@ -379,13 +379,11 @@ public class TpchMetadata
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
     {
         return ColumnStatistics.builder()
-                .addRange(rangeBuilder -> rangeBuilder
-                        .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::new).orElse(Estimate.unknownValue()))
-                        .setDataSize(stats.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()))
-                        .setLowValue(stats.getMin().map(value -> toPrestoValue(value, columnType)))
-                        .setHighValue(stats.getMax().map(value -> toPrestoValue(value, columnType)))
-                        .setFraction(new Estimate((1))))
                 .setNullsFraction(Estimate.zeroValue())
+                .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::new).orElse(Estimate.unknownValue()))
+                .setDataSize(stats.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()))
+                .setLowValue(stats.getMin().map(value -> toPrestoValue(value, columnType)))
+                .setHighValue(stats.getMax().map(value -> toPrestoValue(value, columnType)))
                 .build();
     }
 

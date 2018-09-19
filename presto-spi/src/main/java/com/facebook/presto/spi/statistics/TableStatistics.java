@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +35,9 @@ public final class TableStatistics
     public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
+        if (!rowCount.isValueUnknown() && rowCount.getValue() < 0) {
+            throw new IllegalArgumentException(format("rowCount must be greater than or equal to 0: %s", rowCount.getValue()));
+        }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
     }
 

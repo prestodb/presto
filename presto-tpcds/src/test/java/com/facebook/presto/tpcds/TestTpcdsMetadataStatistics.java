@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.primitives.Primitives;
 import com.teradata.tpcds.Table;
@@ -74,11 +73,11 @@ public class TestTpcdsMetadataStatistics
                                 assertNotNull(tableStatistics.getColumnStatistics().get(column));
 
                                 TpcdsColumnHandle tpcdsColumn = (TpcdsColumnHandle) column;
-                                Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                                Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getLowValue();
                                 if (low.isPresent()) {
                                     assertEquals(low.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
                                 }
-                                Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                                Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getLowValue();
                                 if (high.isPresent()) {
                                     assertEquals(high.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
                                 }
@@ -107,12 +106,9 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CALL_CENTER_SK.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(0))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(1.0))
-                                .setDistinctValuesCount(new Estimate(6))
-                                .setLowValue(Optional.of(1L))
-                                .setHighValue(Optional.of(6L))
-                                .build())
+                        .setDistinctValuesCount(new Estimate(6))
+                        .setLowValue(Optional.of(1L))
+                        .setHighValue(Optional.of(6L))
                         .build());
 
         // varchar
@@ -120,13 +116,10 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CALL_CENTER_ID.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(0))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(1.0))
-                                .setDistinctValuesCount(new Estimate(3))
-                                .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
-                                .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
-                                .setDataSize(new Estimate(48.0))
-                                .build())
+                        .setDistinctValuesCount(new Estimate(3))
+                        .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
+                        .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
+                        .setDataSize(new Estimate(48.0))
                         .build());
 
         // char
@@ -134,13 +127,10 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_ZIP.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(0))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(1.0))
-                                .setDistinctValuesCount(new Estimate(1))
-                                .setLowValue(Optional.of(Slices.utf8Slice("31904")))
-                                .setHighValue(Optional.of(Slices.utf8Slice("31904")))
-                                .setDataSize(new Estimate(5.0))
-                                .build())
+                        .setDistinctValuesCount(new Estimate(1))
+                        .setLowValue(Optional.of(Slices.utf8Slice("31904")))
+                        .setHighValue(Optional.of(Slices.utf8Slice("31904")))
+                        .setDataSize(new Estimate(5.0))
                         .build());
 
         // decimal
@@ -148,12 +138,9 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_GMT_OFFSET.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(0))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(1.0))
-                                .setDistinctValuesCount(new Estimate(1))
-                                .setLowValue(Optional.of(-500L))
-                                .setHighValue(Optional.of(-500L))
-                                .build())
+                        .setDistinctValuesCount(new Estimate(1))
+                        .setLowValue(Optional.of(-500L))
+                        .setHighValue(Optional.of(-500L))
                         .build());
 
         // date
@@ -161,12 +148,9 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_REC_START_DATE.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(0))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(1))
-                                .setDistinctValuesCount(new Estimate(4))
-                                .setLowValue(Optional.of(10227L))
-                                .setHighValue(Optional.of(11688L))
-                                .build())
+                        .setDistinctValuesCount(new Estimate(4))
+                        .setLowValue(Optional.of(10227L))
+                        .setHighValue(Optional.of(11688L))
                         .build());
 
         // only null values
@@ -174,12 +158,9 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CLOSED_DATE_SK.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(1))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(0))
-                                .setDistinctValuesCount(new Estimate(0))
-                                .setLowValue(Optional.empty())
-                                .setHighValue(Optional.empty())
-                                .build())
+                        .setDistinctValuesCount(new Estimate(0))
+                        .setLowValue(Optional.empty())
+                        .setHighValue(Optional.empty())
                         .build());
     }
 
@@ -197,24 +178,18 @@ public class TestTpcdsMetadataStatistics
                 tableStatistics.getColumnStatistics().get(columnHandles.get(WebSiteColumn.WEB_REC_END_DATE.getName())),
                 ColumnStatistics.builder()
                         .setNullsFraction(new Estimate(0.5))
-                        .addRange(range -> range
-                                .setFraction(new Estimate(0.5))
-                                .setDistinctValuesCount(new Estimate(3))
-                                .setLowValue(Optional.of(10819L))
-                                .setHighValue(Optional.of(11549L))
-                                .build())
+                        .setDistinctValuesCount(new Estimate(3))
+                        .setLowValue(Optional.of(10819L))
+                        .setHighValue(Optional.of(11549L))
                         .build());
     }
 
     private void assertColumnStatistics(ColumnStatistics actual, ColumnStatistics expected)
     {
         estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "Nulls fraction");
-        RangeColumnStatistics actualRange = actual.getOnlyRangeColumnStatistics();
-        RangeColumnStatistics expectedRange = expected.getOnlyRangeColumnStatistics();
-        estimateAssertion.assertClose(actualRange.getFraction(), expectedRange.getFraction(), "Fraction");
-        estimateAssertion.assertClose(actualRange.getDataSize(), expectedRange.getDataSize(), "Data size");
-        estimateAssertion.assertClose(actualRange.getDistinctValuesCount(), expectedRange.getDistinctValuesCount(), "Distinct values count");
-        assertEquals(actualRange.getLowValue(), expectedRange.getLowValue());
-        assertEquals(actualRange.getHighValue(), expectedRange.getHighValue());
+        estimateAssertion.assertClose(actual.getDataSize(), expected.getDataSize(), "Data size");
+        estimateAssertion.assertClose(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "Distinct values count");
+        assertEquals(actual.getLowValue(), expected.getLowValue());
+        assertEquals(actual.getHighValue(), expected.getHighValue());
     }
 }

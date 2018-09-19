@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -306,16 +305,14 @@ public class ShowStatsRewrite
 
         private Row createColumnStatsRow(String columnName, Type type, ColumnStatistics columnStatistics)
         {
-            RangeColumnStatistics onlyRangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
-
             ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
             rowValues.add(new StringLiteral(columnName));
-            rowValues.add(createStatisticValueOrNull(onlyRangeColumnStatistics.getDataSize()));
-            rowValues.add(createStatisticValueOrNull(onlyRangeColumnStatistics.getDistinctValuesCount()));
+            rowValues.add(createStatisticValueOrNull(columnStatistics.getDataSize()));
+            rowValues.add(createStatisticValueOrNull(columnStatistics.getDistinctValuesCount()));
             rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
-            rowValues.add(lowHighAsLiteral(type, onlyRangeColumnStatistics.getLowValue()));
-            rowValues.add(lowHighAsLiteral(type, onlyRangeColumnStatistics.getHighValue()));
+            rowValues.add(lowHighAsLiteral(type, columnStatistics.getLowValue()));
+            rowValues.add(lowHighAsLiteral(type, columnStatistics.getHighValue()));
             return new Row(rowValues.build());
         }
 
