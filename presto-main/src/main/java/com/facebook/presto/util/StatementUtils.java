@@ -59,7 +59,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class StatementUtils
+public final class StatementUtils
 {
     private StatementUtils() {}
 
@@ -122,5 +122,10 @@ public class StatementUtils
     public static Optional<QueryType> getQueryType(Class<? extends Statement> statement)
     {
         return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement));
+    }
+
+    public static boolean isTransactionControlStatement(Statement statement)
+    {
+        return statement instanceof StartTransaction || statement instanceof Commit || statement instanceof Rollback;
     }
 }

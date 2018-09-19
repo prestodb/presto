@@ -26,6 +26,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionPropertyDefaults;
@@ -79,6 +80,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
+import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -119,6 +121,7 @@ public class SqlQueryManager
     private final LocationFactory locationFactory;
 
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     private final QueryIdGenerator queryIdGenerator;
 
@@ -147,6 +150,7 @@ public class SqlQueryManager
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
+            AccessControl accessControl,
             QueryIdGenerator queryIdGenerator,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
@@ -171,6 +175,7 @@ public class SqlQueryManager
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
 
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
 
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
@@ -374,6 +379,9 @@ public class SqlQueryManager
             // apply system defaults for query
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType, selectionContext.getResourceGroupId());
 
+            // mark existing transaction as active
+            transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
+
             // create query execution
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
             if (queryExecutionFactory == null) {
@@ -386,6 +394,13 @@ public class SqlQueryManager
                     preparedQuery.getStatement(),
                     preparedQuery.getParameters(),
                     warningCollectorFactory.create());
+
+            // mark existing transaction as inactive
+            queryExecution.addStateChangeListener(newState -> {
+                if (newState.isDone()) {
+                    queryExecution.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+                }
+            });
         }
         catch (ParsingException | PrestoException | SemanticException e) {
             // This is intentionally not a method, since after the state change listener is registered

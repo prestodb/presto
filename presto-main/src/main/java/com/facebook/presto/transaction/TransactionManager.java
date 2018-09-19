@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.CatalogMetadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -66,4 +68,20 @@ public interface TransactionManager
     ListenableFuture<?> asyncAbort(TransactionId transactionId);
 
     void fail(TransactionId transactionId);
+
+    default void activateTransaction(Session session, boolean transactionControl, AccessControl accessControl)
+    {
+        if (!session.getTransactionId().isPresent()) {
+            return;
+        }
+
+        // reactivate existing transaction
+        TransactionId transactionId = session.getTransactionId().get();
+        if (transactionControl) {
+            trySetActive(transactionId);
+        }
+        else {
+            checkAndSetActive(transactionId);
+        }
+    }
 }

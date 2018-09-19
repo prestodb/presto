@@ -219,25 +219,15 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector)
     {
-        session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
-
-        Session querySession;
+        // If there is not an existing transaction, begin an auto commit transaction
         if (!session.getTransactionId().isPresent() && !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
-            querySession = session.beginTransactionId(transactionId, transactionManager, accessControl);
-        }
-        else {
-            querySession = session;
+            session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, transactionManager, executor, ticker, metadata, warningCollector);
-        queryStateMachine.addStateChangeListener(newState -> {
-            QUERY_STATE_LOG.debug("Query %s is %s", queryId, newState);
-            if (newState.isDone()) {
-                session.getTransactionId().ifPresent(transactionManager::trySetInactive);
-            }
-        });
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, transactionManager, executor, ticker, metadata, warningCollector);
+        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryId, newState));
 
         return queryStateMachine;
     }
