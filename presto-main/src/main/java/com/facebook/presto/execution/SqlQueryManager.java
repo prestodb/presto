@@ -29,6 +29,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -150,6 +151,7 @@ public class SqlQueryManager
     private final QueryIdGenerator queryIdGenerator;
 
     private final SessionSupplier sessionSupplier;
+    private final SessionPropertyDefaults sessionPropertyDefaults;
 
     private final InternalNodeManager internalNodeManager;
 
@@ -175,6 +177,7 @@ public class SqlQueryManager
             TransactionManager transactionManager,
             QueryIdGenerator queryIdGenerator,
             SessionSupplier sessionSupplier,
+            SessionPropertyDefaults sessionPropertyDefaults,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             Metadata metadata,
@@ -202,6 +205,7 @@ public class SqlQueryManager
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
+        this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
 
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
 
@@ -435,7 +439,8 @@ public class SqlQueryManager
                     sessionContext.getResourceEstimates(),
                     queryType));
 
-            session = sessionSupplier.createSession(queryId, sessionContext, queryType, selectionContext.getResourceGroupId());
+            session = sessionSupplier.createSession(queryId, sessionContext);
+            session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType, selectionContext.getResourceGroupId());
             Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
