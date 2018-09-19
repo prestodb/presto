@@ -13,41 +13,51 @@
  */
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HivePartitionManager.parsePartition;
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreHiveStatisticsProvider
 {
+    private static final SchemaTableName TABLE = new SchemaTableName("schema", "table");
+
+    private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR.getTypeSignature(), 0, PARTITION_KEY, Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty());
+
     @Test
     public void testGetPartitionsSample()
     {
-        assertEquals(getPartitionsSample(ImmutableList.of(partition("p1")), 1), ImmutableList.of(partition("p1")));
-        assertEquals(getPartitionsSample(ImmutableList.of(partition("p1")), 2), ImmutableList.of(partition("p1")));
-        assertEquals(
-                getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2")), 2),
-                ImmutableList.of(partition("p1"), partition("p2")));
-        assertEquals(
-                getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2"), partition("p3")), 2),
-                ImmutableList.of(partition("p1"), partition("p3")));
-        assertEquals(
-                getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2"), partition("p3"), partition("p4")), 1),
-                getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2"), partition("p3"), partition("p4")), 1));
-        assertEquals(
-                getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2"), partition("p3"), partition("p4")), 3),
-                getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2"), partition("p3"), partition("p4")), 3));
-        assertThat(getPartitionsSample(ImmutableList.of(partition("p1"), partition("p2"), partition("p3"), partition("p4")), 3))
-                .contains(partition("p1"), partition("p3"));
+        HivePartition p1 = partition("p1=string1/p2=1234");
+        HivePartition p2 = partition("p1=string2/p2=2345");
+        HivePartition p3 = partition("p1=string3/p2=3456");
+        HivePartition p4 = partition("p1=string4/p2=4567");
+
+        assertEquals(getPartitionsSample(ImmutableList.of(p1), 1), ImmutableList.of(p1));
+        assertEquals(getPartitionsSample(ImmutableList.of(p1), 2), ImmutableList.of(p1));
+        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2), 2), ImmutableList.of(p1, p2));
+        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3), 2), ImmutableList.of(p1, p3));
+        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
+        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
+        assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3)).contains(p1, p4);
     }
 
     private static HivePartition partition(String name)
     {
-        return new HivePartition(new SchemaTableName("schema", "table"), name, ImmutableMap.of());
+        return parsePartition(TABLE, name, ImmutableList.of(PARTITION_COLUMN_1, PARTITION_COLUMN_2), ImmutableList.of(VARCHAR, BIGINT), DateTimeZone.getDefault());
     }
 }

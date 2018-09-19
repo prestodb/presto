@@ -79,7 +79,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
-import static com.facebook.presto.hive.HivePartitionManager.extractPartitionKeyValues;
+import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -302,7 +302,7 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         ImmutableMap.Builder<String, PartitionStatistics> statistics = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
-            List<String> partitionValues = extractPartitionKeyValues(partitionName);
+            List<String> partitionValues = extractPartitionValues(partitionName);
             Path partitionDirectory = getPartitionMetadataDirectory(table, ImmutableList.copyOf(partitionValues));
             PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
                     .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
@@ -352,7 +352,7 @@ public class FileHiveMetastore
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
         Table table = getRequiredTable(databaseName, tableName);
-        List<String> partitionValues = extractPartitionKeyValues(partitionName);
+        List<String> partitionValues = extractPartitionValues(partitionName);
         Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
         PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
                 .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
