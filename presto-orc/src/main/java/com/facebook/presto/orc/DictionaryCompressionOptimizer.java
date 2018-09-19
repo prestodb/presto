@@ -300,6 +300,21 @@ public class DictionaryCompressionOptimizer
         return toIntExact(Math.min(stripeMaxBytes, stripeMaxBytes - bufferedBytes + DIRECT_COLUMN_SIZE_RANGE.toBytes()));
     }
 
+    public static int estimateIndexBytesPerValue(int dictionaryEntries)
+    {
+        // assume basic byte packing
+        if (dictionaryEntries <= 256) {
+            return 1;
+        }
+        if (dictionaryEntries <= 65_536) {
+            return 2;
+        }
+        if (dictionaryEntries <= 16_777_216) {
+            return 3;
+        }
+        return 4;
+    }
+
     public interface DictionaryColumn
     {
         long getValueCount();

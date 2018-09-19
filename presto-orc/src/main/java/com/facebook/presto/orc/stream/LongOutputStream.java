@@ -34,9 +34,4 @@ public interface LongOutputStream
     }
 
     void writeLong(long value);
-
-    /**
-     * Used for rewriting dictionary output ids after sorting in {@link com.facebook.presto.orc.writer.SliceDictionaryColumnWriter}
-     */
-    LongInputStream getLongInputStream();
 }
