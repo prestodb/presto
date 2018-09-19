@@ -73,6 +73,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
+import static com.facebook.presto.execution.FailedQueryExecution.createFailedQueryExecution;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -335,7 +336,7 @@ public class SqlQueryManager
         checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
 
         Session session = null;
-        SelectionContext<C> selectionContext;
+        SelectionContext<C> selectionContext = null;
         QueryExecution queryExecution;
         PreparedQuery preparedQuery;
         try {
@@ -402,12 +403,11 @@ public class SqlQueryManager
                         .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
-            QueryExecution execution = new FailedQueryExecution(
-                    queryId,
+            QueryExecution execution = createFailedQueryExecution(
                     query,
-                    Optional.empty(),
                     session,
                     locationFactory.createQueryLocation(queryId),
+                    Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
                     transactionManager,
                     queryExecutor,
                     metadata,

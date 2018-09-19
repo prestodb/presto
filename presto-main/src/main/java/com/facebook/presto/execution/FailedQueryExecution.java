@@ -33,6 +33,9 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.execution.QueryInfo.immediateFailureQueryInfo;
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryStateMachine.QUERY_STATE_LOG;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -44,17 +47,41 @@ public class FailedQueryExecution
 {
     private final QueryInfo queryInfo;
     private final Session session;
-    private final Executor executor;
     private final Optional<ResourceGroupId> resourceGroup;
+    private final Executor executor;
 
-    public FailedQueryExecution(QueryId queryId, String query, Optional<ResourceGroupId> resourceGroup, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable cause)
+    public static FailedQueryExecution createFailedQueryExecution(
+            String query,
+            Session session,
+            URI self,
+            Optional<ResourceGroupId> resourceGroup,
+            TransactionManager transactionManager,
+            Executor executor,
+            Metadata metadata,
+            Throwable cause)
+    {
+        QUERY_STATE_LOG.debug(cause, "Query %s failed", session.getQueryId());
+
+        try {
+            metadata.cleanupQuery(session);
+        }
+        catch (Throwable t) {
+            QUERY_STATE_LOG.error("Error cleaning up query: %s", t);
+        }
+
+        // query failure fails the transaction
+        session.getTransactionId().ifPresent(transactionManager::fail);
+
+        return new FailedQueryExecution(session, query, self, resourceGroup, executor, cause);
+    }
+
+    private FailedQueryExecution(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroup, Executor executor, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
         this.session = requireNonNull(session, "session is null");
-        this.executor = requireNonNull(executor, "executor is null");
-        QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, executor, metadata, cause);
-        queryInfo = queryStateMachine.updateQueryInfo(Optional.empty());
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.queryInfo = immediateFailureQueryInfo(session, query, self, cause);
     }
 
     @Override
@@ -174,7 +201,7 @@ public class FailedQueryExecution
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        executor.execute(() -> stateChangeListener.stateChanged(QueryState.FAILED));
+        executor.execute(() -> stateChangeListener.stateChanged(FAILED));
     }
 
     @Override
