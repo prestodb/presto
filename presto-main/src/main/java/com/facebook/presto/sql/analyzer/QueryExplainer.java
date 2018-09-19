@@ -28,9 +28,8 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.PlanOptimizersProvider;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.ExplainType.Type;
@@ -51,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
 {
-    private final List<PlanOptimizer> planOptimizers;
+    private final PlanOptimizersProvider planOptimizersProvider;
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
@@ -65,7 +64,7 @@ public class QueryExplainer
 
     @Inject
     public QueryExplainer(
-            PlanOptimizers planOptimizers,
+            PlanOptimizersProvider planOptimizersProvider,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
@@ -77,34 +76,7 @@ public class QueryExplainer
             NodeSchedulerConfig nodeSchedulerConfig,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
-        this(
-                planOptimizers.get(),
-                planFragmenter,
-                metadata,
-                nodePartitioningManager,
-                accessControl,
-                sqlParser,
-                statsCalculator,
-                costCalculator,
-                nodeManager,
-                nodeSchedulerConfig,
-                dataDefinitionTask);
-    }
-
-    public QueryExplainer(
-            List<PlanOptimizer> planOptimizers,
-            PlanFragmenter planFragmenter,
-            Metadata metadata,
-            NodePartitioningManager nodePartitioningManager,
-            AccessControl accessControl,
-            SqlParser sqlParser,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig nodeSchedulerConfig,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
-    {
-        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -192,7 +164,7 @@ public class QueryExplainer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizersProvider, idAllocator, metadata, sqlParser);
         return logicalPlanner.plan(analysis);
     }
 

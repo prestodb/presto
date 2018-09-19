@@ -123,6 +123,7 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.PlanOptimizersProvider;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -783,7 +784,7 @@ public class LocalQueryRunner
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
     }
 
-    public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
+    public PlanOptimizersProvider getPlanOptimizers(boolean forceSingleNode)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
@@ -797,15 +798,20 @@ public class LocalQueryRunner
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                new CostComparator(featuresConfig)).get();
+                new CostComparator(featuresConfig));
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
     {
-        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, processor -> optimizers.forEach(processor::process), LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
+    {
+        return createPlan(session, sql, processor -> optimizers.forEach(processor::process), stage);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, PlanOptimizersProvider optimizers, LogicalPlanner.Stage stage)
     {
         Statement wrapped = sqlParser.createStatement(sql, createParsingOptions(session));
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);

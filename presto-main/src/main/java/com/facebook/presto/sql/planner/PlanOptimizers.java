@@ -122,15 +122,25 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 public class PlanOptimizers
+        implements PlanOptimizersProvider
 {
-    private final List<PlanOptimizer> optimizers;
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
+
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
+    private final FeaturesConfig featuresConfig;
+    private final boolean forceSingleNode;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
+    private final CostCalculator estimatedExchangesCostCalculator;
+    private final CostComparator costComparator;
 
     @Inject
     public PlanOptimizers(
@@ -180,8 +190,19 @@ public class PlanOptimizers
             CostComparator costComparator)
     {
         this.exporter = exporter;
-        ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.forceSingleNode = forceSingleNode;
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.estimatedExchangesCostCalculator = requireNonNull(estimatedExchangesCostCalculator, "estimatedExchangesCostCalculator is null");
+        this.costComparator = requireNonNull(costComparator, "costComparator is null");
+    }
 
+    @Override
+    public void provide(PlanOptimizersProcessor processor)
+    {
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters());
 
@@ -229,7 +250,7 @@ public class PlanOptimizers
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
 
-        builder.add(
+        processor.process(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
                         ruleStats,
@@ -241,12 +262,14 @@ public class PlanOptimizers
                                 .addAll(new DesugarCurrentUser().rules())
                                 .addAll(new DesugarCurrentPath().rules())
                                 .addAll(new DesugarTryExpression().rules())
-                                .build()),
+                                .build()));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new CanonicalizeExpressions().rules()),
+                        new CanonicalizeExpressions().rules()));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -273,30 +296,34 @@ public class PlanOptimizers
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(),
                                         new PruneOrderByInAggregation(metadata.getFunctionRegistry())))
-                                .build()),
-                simplifyOptimizer,
-                new UnaliasSymbolReferences(),
+                                .build()));
+        processor.process(simplifyOptimizer);
+        processor.process(new UnaliasSymbolReferences());
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new SetFlatteningOptimizer(),
-                new ImplementIntersectAndExceptAsUnion(),
-                new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PruneUnreferencedOutputs(),
-                inlineProjections,
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+        processor.process(new SetFlatteningOptimizer());
+        processor.process(new ImplementIntersectAndExceptAsUnion());
+        processor.process(new LimitPushDown()); // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+        processor.process(new PruneUnreferencedOutputs());
+        processor.process(inlineProjections);
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        columnPruningRules),
+                        columnPruningRules));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionRegistry()))),
-                new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
+                        ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionRegistry()))));
+        processor.process(new TransformQuantifiedComparisonApplyToLateralJoin(metadata));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -306,7 +333,8 @@ public class PlanOptimizers
                                 new TransformUncorrelatedLateralToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()),
-                                new TransformCorrelatedLateralJoinToJoin())),
+                                new TransformCorrelatedLateralJoinToJoin())));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -316,7 +344,8 @@ public class PlanOptimizers
                                 new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
                                 new TransformCorrelatedScalarSubquery(), // must be run after TransformCorrelatedScalarAggregationToJoin
                                 new TransformCorrelatedLateralJoinToJoin(),
-                                new ImplementFilteredAggregations())),
+                                new ImplementFilteredAggregations())));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -326,34 +355,38 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new InlineProjections(),
                                 new RemoveRedundantIdentityProjections(),
-                                new TransformCorrelatedSingleRowSubqueryToProject())),
-                new CheckSubqueryNodesAreRewritten(),
-                predicatePushDown,
+                                new TransformCorrelatedSingleRowSubqueryToProject())));
+        processor.process(new CheckSubqueryNodesAreRewritten());
+        processor.process(predicatePushDown);
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata, sqlParser).rules()),
-                new PruneUnreferencedOutputs(),
+                        new PickTableLayout(metadata, sqlParser).rules()));
+        processor.process(new PruneUnreferencedOutputs());
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin())),
-                inlineProjections,
-                simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
-                projectionPushDown,
-                new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
-                new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
-                new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
+                                new PushAggregationThroughOuterJoin())));
+        processor.process(inlineProjections);
+        processor.process(simplifyOptimizer); // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
+        processor.process(projectionPushDown);
+        processor.process(new UnaliasSymbolReferences()); // Run again because predicate pushdown and projection pushdown might add more projections
+        processor.process(new PruneUnreferencedOutputs()); // Make sure to run this before index join. Filtered projections may not have all the columns.
+        processor.process(new IndexJoinOptimizer(metadata)); // Run this after projections and filters have been fully simplified and pushed down
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new SimplifyCountOverConstant())),
-                new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                        ImmutableSet.of(new SimplifyCountOverConstant())));
+        processor.process(new WindowFilterPushDown(metadata)); // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -362,47 +395,52 @@ public class PlanOptimizers
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
-                                .build()),
-                inlineProjections,
-                new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+                                .build()));
+        processor.process(inlineProjections);
+        processor.process(new PruneUnreferencedOutputs()); // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new MetadataQueryOptimizer(metadata),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+        processor.process(new MetadataQueryOptimizer(metadata));
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
-                predicatePushDown,
-                simplifyOptimizer, // Should be always run after PredicatePushDown
+                        ImmutableSet.of(new EliminateCrossJoins()))); // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+        processor.process(predicatePushDown);
+        processor.process(simplifyOptimizer); // Should be always run after PredicatePushDown
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata, sqlParser).rules()),
-                projectionPushDown,
-                new PruneUnreferencedOutputs(),
+                        new PickTableLayout(metadata, sqlParser).rules()));
+        processor.process(projectionPushDown);
+        processor.process(new PruneUnreferencedOutputs());
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-                // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
-                // need to run beforehand in order to produce an optimal join order
-                // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
+        // Because ReorderJoins runs only once,
+        // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+        // need to run beforehand in order to produce an optimal join order
+        // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(costComparator))));
 
-        builder.add(new OptimizeMixedDistinctAggregations(metadata));
-        builder.add(new IterativeOptimizer(
+        processor.process(new OptimizeMixedDistinctAggregations(metadata));
+        processor.process(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -411,39 +449,37 @@ public class PlanOptimizers
                         new PushTopNThroughUnion())));
 
         if (!forceSingleNode) {
-            builder.add((new IterativeOptimizer(
+            processor.process((new IterativeOptimizer(
                     ruleStats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
                     ImmutableSet.of(new DetermineJoinDistributionType(costComparator))))); // Must run before AddExchanges
-            builder.add(new DetermineSemiJoinDistributionType()); // Must run before AddExchanges
-            builder.add(
+            processor.process(new DetermineSemiJoinDistributionType()); // Must run before AddExchanges
+            processor.process(
                     new IterativeOptimizer(
                             ruleStats,
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser)));
+            processor.process(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser)));
         }
-        //noinspection UnusedAssignment
-        estimatedExchangesCostCalculator = null; // Prevent accidental use after AddExchanges
 
-        builder.add(
+        processor.process(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
-        builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
-        builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
-        builder.add(projectionPushDown);
-        builder.add(inlineProjections);
-        builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(new PruneUnreferencedOutputs());
+        processor.process(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        processor.process(simplifyOptimizer); // Should be always run after PredicatePushDown
+        processor.process(projectionPushDown);
+        processor.process(inlineProjections);
+        processor.process(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
+        processor.process(new PruneUnreferencedOutputs());
         // TODO Make PredicatePushDown aware of spatial joins, move TransformSpatialPredicateToJoin
         // before AddExchanges and update AddExchanges to set REPLICATED distribution for the build side.
-        builder.add(new IterativeOptimizer(
+        processor.process(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -455,11 +491,11 @@ public class PlanOptimizers
                         .build()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser));
+        processor.process(new AddLocalExchanges(metadata, sqlParser));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
-        builder.add(new IterativeOptimizer(
+        processor.process(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -467,7 +503,7 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionRegistry()),
                         new PruneJoinColumns())));
-        builder.add(new IterativeOptimizer(
+        processor.process(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -477,19 +513,12 @@ public class PlanOptimizers
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
         // Precomputed hashes - this assumes that partitioning will not change
-        builder.add(new HashGenerationOptimizer());
+        processor.process(new HashGenerationOptimizer());
 
-        builder.add(new MetadataDeleteOptimizer(metadata));
-        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
+        processor.process(new MetadataDeleteOptimizer(metadata));
+        processor.process(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
-
-        this.optimizers = builder.build();
-    }
-
-    public List<PlanOptimizer> get()
-    {
-        return optimizers;
     }
 }

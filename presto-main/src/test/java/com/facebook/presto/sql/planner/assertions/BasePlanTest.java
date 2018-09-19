@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanOptimizersProcessor;
+import com.facebook.presto.sql.planner.PlanOptimizersProvider;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
@@ -40,7 +42,6 @@ import java.util.function.Predicate;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class BasePlanTest
 {
@@ -110,26 +111,36 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
+        PlanOptimizersProvider optimizers = queryRunner.getPlanOptimizers(true);
 
         assertPlan(sql, stage, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
+        assertPlan(sql, pattern, processor -> optimizers.forEach(processor::process));
+    }
+
+    protected void assertPlan(String sql, PlanMatchPattern pattern, PlanOptimizersProvider optimizers)
+    {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
     {
-        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true).stream()
-                .filter(optimizerPredicate)
-                .collect(toList());
+        PlanOptimizersProvider optimizers = queryRunner.getPlanOptimizers(true);
 
-        assertPlan(sql, stage, pattern, optimizers);
+        assertPlan(sql, stage, pattern, processor -> {
+            PlanOptimizersProcessor filteringProcessor = planOptimizer -> {
+                if (optimizerPredicate.test(planOptimizer)) {
+                    processor.process(planOptimizer);
+                }
+            };
+            optimizers.provide(filteringProcessor);
+        });
     }
 
-    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, PlanOptimizersProvider optimizers)
     {
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage);
@@ -159,7 +170,9 @@ public class BasePlanTest
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, processor -> {
+            optimizers.forEach(processor::process);
+        });
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)

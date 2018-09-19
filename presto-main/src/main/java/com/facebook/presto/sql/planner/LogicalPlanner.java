@@ -95,7 +95,7 @@ public class LogicalPlanner
     private final PlanNodeIdAllocator idAllocator;
 
     private final Session session;
-    private final List<PlanOptimizer> planOptimizers;
+    private final PlanOptimizersProvider planOptimizersProvider;
     private final PlanSanityChecker planSanityChecker;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
@@ -103,30 +103,30 @@ public class LogicalPlanner
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
 
     public LogicalPlanner(Session session,
-            List<PlanOptimizer> planOptimizers,
+            PlanOptimizersProvider planOptimizersProvider,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
             SqlParser sqlParser)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser);
+        this(session, planOptimizersProvider, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser);
     }
 
     public LogicalPlanner(Session session,
-            List<PlanOptimizer> planOptimizers,
+            PlanOptimizersProvider planOptimizersProvider,
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
             SqlParser sqlParser)
     {
         requireNonNull(session, "session is null");
-        requireNonNull(planOptimizers, "planOptimizers is null");
+        requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
         requireNonNull(planSanityChecker, "planSanityChecker is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
 
         this.session = session;
-        this.planOptimizers = planOptimizers;
+        this.planOptimizersProvider = planOptimizersProvider;
         this.planSanityChecker = planSanityChecker;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
@@ -146,10 +146,9 @@ public class LogicalPlanner
         planSanityChecker.validateIntermediatePlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
-            for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
-            }
+            PlanOptimizerProcessorImplementation planOptimizerProcessor = new PlanOptimizerProcessorImplementation(root);
+            planOptimizersProvider.provide(planOptimizerProcessor);
+            root = planOptimizerProcessor.root;
         }
 
         if (stage.ordinal() >= Stage.OPTIMIZED_AND_VALIDATED.ordinal()) {
@@ -158,6 +157,24 @@ public class LogicalPlanner
         }
 
         return new Plan(root, symbolAllocator.getTypes());
+    }
+
+    private class PlanOptimizerProcessorImplementation
+            implements PlanOptimizersProcessor
+    {
+        PlanNode root;
+
+        PlanOptimizerProcessorImplementation(PlanNode root)
+        {
+            this.root = root;
+        }
+
+        @Override
+        public void process(PlanOptimizer optimizer)
+        {
+            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+            requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+        }
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
