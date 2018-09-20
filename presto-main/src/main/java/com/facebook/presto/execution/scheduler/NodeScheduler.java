@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.scheduler.group.BucketedSplitAssignment;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
@@ -45,6 +46,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -266,7 +268,7 @@ public class NodeScheduler
             int maxPendingSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
-            NodePartitionMap partitioning)
+            BucketedSplitAssignment bucketedSplitAssignment)
     {
         Multimap<Node, Split> assignments = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
@@ -274,7 +276,7 @@ public class NodeScheduler
         Set<Node> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the partitioning
-            Node node = partitioning.getNode(split);
+            Node node = bucketedSplitAssignment.getAssignedNode(split).get();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||

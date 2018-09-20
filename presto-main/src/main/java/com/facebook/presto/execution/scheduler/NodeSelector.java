@@ -14,13 +14,18 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.scheduler.SplitPlacementPolicy.SplitPlacementSet;
+import com.facebook.presto.execution.scheduler.group.BucketedSplitAssignment;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public interface NodeSelector
 {
@@ -55,5 +60,19 @@ public interface NodeSelector
      * If we cannot find an assignment for a split, it is not included in the map. Also returns a future indicating when
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
-    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning);
+    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketedSplitAssignment bucketedSplitAssignment);
+
+    default SplitPlacementResult computeAssignments(SplitPlacementSet splits, List<RemoteTask> existingTasks, BucketedSplitAssignment bucketedSplitAssignment)
+    {
+        checkArgument(!splits.getLifespan().isTaskWide());
+
+        int bucketId = splits.getLifespan().getId();
+        Optional<Node> node = bucketedSplitAssignment.getAssignedNode(bucketId);
+        if (!node.isPresent()) {
+            // TODO: this just randomly choose a node and doesn't consider load. This is a super hack...
+            bucketedSplitAssignment.assignOrChangeBucketToNode(bucketId, getOnlyElement(selectRandomNodes(1)));
+        }
+
+        return computeAssignments(splits.getSplits(), existingTasks, bucketedSplitAssignment);
+    }
 }
