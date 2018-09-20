@@ -168,8 +168,10 @@ public class TestLogicalPlanner
                         markDistinct(
                                 "is_distinct",
                                 ImmutableList.of("orderstatus"),
+                                "hash",
                                 anyTree(
-                                        tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus"))))));
+                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus), 0))")),
+                                                tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus")))))));
     }
 
     @Test
@@ -419,14 +421,13 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
                 anyTree(
                         filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
-                                project(
-                                        markDistinct("is_distinct", ImmutableList.of("unique"), "hash",
-                                                project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(unique), 0))")),
-                                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                                assignUniqueId("unique",
-                                                                        exchange(REMOTE, REPARTITION,
-                                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
-                                                                anyTree(tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))))));
+                                markDistinct("is_distinct", ImmutableList.of("unique"),
+                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                assignUniqueId("unique",
+                                                        exchange(REMOTE, REPARTITION,
+                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))));
     }
 
     @Test

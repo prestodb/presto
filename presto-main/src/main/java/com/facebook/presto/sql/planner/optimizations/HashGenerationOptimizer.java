@@ -202,7 +202,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitDistinctLimit(DistinctLimitNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (!canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctSymbols())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
@@ -223,7 +223,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (!canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctSymbols())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
