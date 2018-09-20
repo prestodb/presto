@@ -15,8 +15,11 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
+
+import java.util.Set;
 
 /**
  * Created by localadmin on 9/11/18.
@@ -26,6 +29,16 @@ public class TestFilteringMaskingAccessControl
         extends AllowAllAccessControl
 {
     @Override
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    {
+        if (tableName.getObjectName().equals("t3")) {
+            if (columnNames.contains("b")) {
+                throw new AccessDeniedException("cannot access col b");
+            }
+        }
+    }
+
+    @Override
     public String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         if (tableName.getObjectName().equals("t1")) {
@@ -34,6 +47,11 @@ public class TestFilteringMaskingAccessControl
         if (tableName.getObjectName().equals("t2")) {
             return new String("abs(b)>3");
         }
+
+        if (tableName.getObjectName().equals("t3")) {
+            return new String("abs(a)>3");
+        }
+
         if (tableName.getObjectName().equals("t5")) {
             return new String("abs(a)>3");
         }
@@ -46,6 +64,10 @@ public class TestFilteringMaskingAccessControl
     {
         if (tableName.getObjectName().equals("t1") && columnName.equals("b")) {
             return new String("ceil(b)");
+        }
+
+        if (tableName.getObjectName().equals("t3") && columnName.equals("a")) {
+            return new String("ceil(a)");
         }
 
         if (tableName.getObjectName().equals("t5") && columnName.equals("a")) {

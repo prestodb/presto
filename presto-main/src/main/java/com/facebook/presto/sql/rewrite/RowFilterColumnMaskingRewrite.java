@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -52,8 +53,10 @@ import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
+import io.airlift.log.Logger;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,6 +69,8 @@ import static java.util.Objects.requireNonNull;
 public class RowFilterColumnMaskingRewrite
         implements StatementRewrite.Rewrite
 {
+    private static final Logger log = Logger.get(RowFilterColumnMaskingRewrite.class);
+
     @Override
     public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer>
             queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl)
@@ -202,6 +207,11 @@ public class RowFilterColumnMaskingRewrite
         {
             // TODO: Handle views
             boolean hasColumnMasking = false;
+
+            if (!MetadataUtil.tableExists(metadata, session, table.getName().getSuffix())) {
+                return table;
+            }
+
             QualifiedObjectName qualifiedObjectName = MetadataUtil.createQualifiedObjectName(session, table, table.getName());
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedObjectName);
 
@@ -214,7 +224,6 @@ public class RowFilterColumnMaskingRewrite
                     });
 
             // Adding column based masking policies
-            // TODO: Add column blacklisting in case the user does not have permission on that column
             if (tableHandle.isPresent()) {
                 List<SelectItem> selectItems = new ArrayList<SelectItem>();
                 Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
@@ -223,6 +232,15 @@ public class RowFilterColumnMaskingRewrite
                     ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandleEntry.getValue());
                     if (!columnMetadata.isHidden()) {
                         String columnName = columnMetadata.getName();
+                        // TODO: Remove hack of exception check
+                        try {
+                            accessControl.checkCanSelectFromColumns(session.getTransactionId().get(), session.getIdentity(), qualifiedObjectName, new HashSet<String>()
+                            {{ add(columnName); }});
+                        }
+                        catch (AccessDeniedException e) {
+                            log.debug("ignoring column " + columnName + " for column masking as user " + session.getUser() + " does not have access ", e);
+                            continue;
+                        }
                         String expStr = accessControl.applyColumnMasking(session.getTransactionId().get(), session.getIdentity(), qualifiedObjectName, columnName);
                         if (expStr == null) {
                             selectItems.add(new SingleColumn(new Identifier(columnName)));
@@ -302,13 +320,18 @@ public class RowFilterColumnMaskingRewrite
         @Override
         protected Node visitQuery(Query node, Void context)
         {
+            Optional<With> with = node.getWith();
+            if (with.isPresent()) {
+                with = Optional.of((With) visitWith(with.get(), context));
+            }
+
             if (node.getLocation().isPresent()) {
-                return new Query(node.getLocation().get(), node.getWith(), (QueryBody) visitQueryBody(node.getQueryBody(),
+                return new Query(node.getLocation().get(), with, (QueryBody) visitQueryBody(node.getQueryBody(),
                         context), node
                         .getOrderBy(), node.getLimit());
             }
             else {
-                return new Query(node.getWith(), (QueryBody) visitQueryBody(node.getQueryBody(),
+                return new Query(with, (QueryBody) visitQueryBody(node.getQueryBody(),
                         context), node
                         .getOrderBy(), node.getLimit());
             }

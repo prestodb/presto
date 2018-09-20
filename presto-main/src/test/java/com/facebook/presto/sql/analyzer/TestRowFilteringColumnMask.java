@@ -173,7 +173,7 @@ public class TestRowFilteringColumnMask
     public void testWithCaseInsensitiveResolution()
     {
         // TODO: verify output
-        analyzeWithRowColRewrite("WITH AB AS (SELECT * FROM t1) SELECT * FROM ab");
+        analyzeWithRowColRewrite("WITH AB AS (SELECT * FROM t1 ) SELECT * FROM ab");
     }
 
     @Test
@@ -349,12 +349,14 @@ public class TestRowFilteringColumnMask
     }
 
     @Test
-    public void testJoinUnnest()
+    public void testWith()
     {
+        analyzeWithRowColRewrite("with Test as ( select a from t1 ) select a from Test ");
     }
 
     @Test
-    public void testJoinLateral()
+    public void testColWithoutPerms()
     {
+        analyzeWithRowColRewrite(" select a from t3", " select a from ( select ceil(a) a from t3 where abs(a)> 3 ) t3 ");
     }
 }
