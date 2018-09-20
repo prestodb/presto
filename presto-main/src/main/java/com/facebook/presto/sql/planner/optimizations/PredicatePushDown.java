@@ -67,6 +67,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -76,6 +77,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
@@ -87,8 +89,10 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -1112,9 +1116,31 @@ public class PredicatePushDown
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Expression> context)
         {
-            Expression predicate = simplifyExpression(context.get());
+            Expression inheritedPredicate = context.get();
 
-            if (!TRUE_LITERAL.equals(predicate)) {
+            Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
+            Expression nonDeterministicInheritedPredicate = filterNonDeterministicConjuncts(inheritedPredicate);
+
+            // table scan effective predicate is always deterministic
+            Expression tableScanEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node));
+
+            EqualityInference inference = createEqualityInference(tableScanEffectivePredicate);
+            List<Expression> notSimplifiedExpressions = extractConjuncts(deterministicInheritedPredicate).stream()
+                    .filter(expression -> inference.rewriteExpression(deterministicInheritedPredicate, alwaysFalse()) == null)
+                    .collect(toImmutableList());
+            List<Expression> simplifiedExpressions = extractConjuncts(deterministicInheritedPredicate).stream()
+                    .map(expression -> inference.rewriteExpression(deterministicInheritedPredicate, alwaysFalse()))
+                    .filter(Objects::nonNull)
+                    .map(this::simplifyExpression)
+                    .filter(expression -> !BooleanLiteral.TRUE_LITERAL.equals(expression))
+                    .collect(toImmutableList());
+
+            if (!simplifiedExpressions.isEmpty() || !notSimplifiedExpressions.isEmpty() || !BooleanLiteral.TRUE_LITERAL.equals(nonDeterministicInheritedPredicate)) {
+                Expression predicate = combineConjuncts(ImmutableList.<Expression>builder()
+                        .add(nonDeterministicInheritedPredicate)
+                        .addAll(notSimplifiedExpressions)
+                        .addAll(simplifiedExpressions)
+                        .build());
                 return new FilterNode(idAllocator.getNextId(), node, predicate);
             }
 
