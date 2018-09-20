@@ -416,8 +416,24 @@ The columns listed in the DDL (``id`` in the above example) will be ignored if `
 The table schema will match the schema in the Avro schema file. Before any read operation, the Avro schema is
 accessed so query result reflects any changes in schema. Thus Presto takes advantage of Avro's backward compatibility abilities.
 
-If the schema of the table changes in the Avro schema file, the user can use still use the new schema to read old
-data. The schema evolution behavior follows the rules :doc:`here </connector/avro-schema-evolution>`.
+If the schema of the table changes in the Avro schema file, the new schema can still be used to read old data.
+Newly added/renamed fields *must* have a default value in the Avro schema file.
+
+The schema evolution behavior is as follows:
+
+* Column added in new schema:
+  Data created with an older schema will produce a *default* value when table is using the new schema.
+
+* Column removed in new schema:
+  Data created with an older schema will no longer output the data from the column that was removed.
+
+* Column is renamed in the new schema:
+  This is equivalent to removing the column and adding a new one, and data created with an older schema
+  will produce a *default* value when table is using the new schema.
+
+* Changing type of column in the new schema:
+  If the type coercion is supported by Avro or the Hive connector, then the conversion happens.
+  An error is thrown for incompatible types.
 
 Limitations
 ^^^^^^^^^^^
