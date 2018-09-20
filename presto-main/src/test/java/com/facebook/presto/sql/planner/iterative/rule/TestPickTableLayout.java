@@ -49,6 +49,7 @@ public class TestPickTableLayout
 {
     private PickTableLayout pickTableLayout;
     private TableHandle nationTableHandle;
+    private TableHandle ordersTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
     private ConnectorId connectorId;
 
@@ -61,8 +62,12 @@ public class TestPickTableLayout
         nationTableHandle = new TableHandle(
                 connectorId,
                 new TpchTableHandle(connectorId.toString(), "nation", 1.0));
+        TableHandle ordersTableHandle = new TableHandle(
+                connectorId,
+                new TpchTableHandle(connectorId.toString(), "orders", 1.0));
 
-        nationTableLayoutHandle = new TableLayoutHandle(connectorId,
+        nationTableLayoutHandle = new TableLayoutHandle(
+                connectorId,
                 TestingTransactionHandle.create(),
                 new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
     }
@@ -188,9 +193,6 @@ public class TestPickTableLayout
     @Test
     public void ruleWithPushdownableToTableLayoutPredicate()
     {
-        TableHandle ordersTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle(connectorId.toString(), "orders", 1.0));
         Type orderStatusType = createVarcharType(1);
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("orderstatus = 'O'"),
@@ -207,9 +209,6 @@ public class TestPickTableLayout
     @Test
     public void nonDeterministicPredicate()
     {
-        TableHandle ordersTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle(connectorId.toString(), "orders", 1.0));
         Type orderStatusType = createVarcharType(1);
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("orderstatus = 'O' AND rand() = 0"),
