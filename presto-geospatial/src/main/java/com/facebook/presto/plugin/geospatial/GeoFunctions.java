@@ -1093,7 +1093,7 @@ public final class GeoFunctions
         requireNonNull(input, "input is null");
         OGCGeometry geometry;
         try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer());
+            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
         }
         catch (IllegalArgumentException | IndexOutOfBoundsException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
