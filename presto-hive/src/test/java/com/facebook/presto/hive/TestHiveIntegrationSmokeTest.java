@@ -75,7 +75,6 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
-import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -167,15 +166,6 @@ public class TestHiveIntegrationSmokeTest
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 ImmutableSet.of(
-                                        new ColumnConstraint(
-                                                "custkey",
-                                                BIGINT.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
                                         new ColumnConstraint(
                                                 "orderkey",
                                                 BIGINT.getTypeSignature(),

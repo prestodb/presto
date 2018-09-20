@@ -317,7 +317,7 @@ public class PickTableLayout
                             node.getOutputSymbols(),
                             node.getAssignments(),
                             Optional.of(layout.getLayout().getHandle()),
-                            newDomain.intersect(layout.getLayout().getPredicate()),
+                            layout.getLayout().getPredicate(),
                             computeEnforced(newDomain, layout.getUnenforcedConstraint()));
 
                     // The order of the arguments to combineConjuncts matters:
