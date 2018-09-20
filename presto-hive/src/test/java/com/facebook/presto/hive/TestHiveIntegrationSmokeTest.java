@@ -76,7 +76,6 @@ import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPER
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
-import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -161,32 +160,34 @@ public class TestHiveIntegrationSmokeTest
     {
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 10");
 
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM orders where orderkey > 5 AND custkey <= 10");
-        TableColumnInfo input = new TableColumnInfo(
-                new CatalogSchemaTableName(catalog, "tpch", "orders"),
-                ImmutableSet.of(
-                        new ColumnConstraint(
-                                "custkey",
-                                BIGINT.getTypeSignature(),
-                                new FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
-                        new ColumnConstraint(
-                                "orderkey",
-                                BIGINT.getTypeSignature(),
-                                new FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("5"), ABOVE),
-                                                        new FormattedMarker(Optional.empty(), BELOW)))))));
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where orderkey > 5 AND custkey <= 10");
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
-                        ImmutableSet.of(input),
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                ImmutableSet.of(
+                                        new ColumnConstraint(
+                                                "custkey",
+                                                BIGINT.getTypeSignature(),
+                                                new FormattedDomain(
+                                                        false,
+                                                        ImmutableSet.of(
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                                        new ColumnConstraint(
+                                                "orderkey",
+                                                BIGINT.getTypeSignature(),
+                                                new FormattedDomain(
+                                                        false,
+                                                        ImmutableSet.of(
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("6"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("6"), EXACTLY)),
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("7"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("7"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
