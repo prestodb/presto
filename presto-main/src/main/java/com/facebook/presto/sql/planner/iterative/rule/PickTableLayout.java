@@ -295,7 +295,7 @@ public class PickTableLayout
                         .map(node.getAssignments()::get)
                         .collect(toImmutableSet())));
 
-        if (layouts.isEmpty()) {
+        if (layouts.isEmpty() || layouts.stream().allMatch(layout -> newDomain.intersect(layout.getLayout().getPredicate()).isNone())) {
             return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
