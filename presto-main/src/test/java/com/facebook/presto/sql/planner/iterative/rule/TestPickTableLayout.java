@@ -51,6 +51,7 @@ public class TestPickTableLayout
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
+    private TableLayoutHandle ordersTableLayoutHandle;
     private ConnectorId connectorId;
 
     @BeforeClass
@@ -70,6 +71,10 @@ public class TestPickTableLayout
                 connectorId,
                 TestingTransactionHandle.create(),
                 new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
+        ordersTableLayoutHandle = new TableLayoutHandle(
+                connectorId,
+                TestingTransactionHandle.create(),
+                new TpchTableLayoutHandle((TpchTableHandle) ordersTableHandle.getConnectorHandle(), TupleDomain.all()));
     }
 
     @Test
@@ -98,18 +103,13 @@ public class TestPickTableLayout
     public void eliminateTableScanWhenNoLayoutExist()
     {
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
-                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
+                .on(p -> p.filter(expression("orderstatus = 'G'"),
                         p.tableScan(
-                                nationTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                Optional.of(nationTableLayoutHandle))))
-                .matches(
-                        filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout(
-                                        "nation",
-                                        ImmutableMap.of("nationkey", singleValue(BIGINT, 44L)),
-                                        ImmutableMap.of("nationkey", "nationkey"))));
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
+                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))),
+                                Optional.of(ordersTableLayoutHandle))))
+                .matches(values("A"));
     }
 
     @Test
