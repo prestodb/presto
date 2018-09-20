@@ -35,8 +35,8 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestGeoFunctions
         extends AbstractTestFunctions
@@ -1066,6 +1066,9 @@ public class TestGeoFunctions
         assertGeomFromBinary("POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))");
         assertGeomFromBinary("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
         assertGeomFromBinary("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0)))");
+
+        // array of geometries
+        assertFunction("transform(array[ST_AsBinary(ST_Point(1, 2)), ST_AsBinary(ST_Point(3, 4))], wkb -> ST_AsText(ST_GeomFromBinary(wkb)))", new ArrayType(VARCHAR), ImmutableList.of("POINT (1 2)", "POINT (3 4)"));
 
         // invalid geometries
         assertGeomFromBinary("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
