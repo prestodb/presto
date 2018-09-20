@@ -257,6 +257,18 @@ public class ExpressionEquivalence
                 Object leftValue = leftConstant.getValue();
                 Object rightValue = rightConstant.getValue();
 
+                if (leftValue == null) {
+                    if (rightValue == null) {
+                        return 0;
+                    }
+                    else {
+                        return -1;
+                    }
+                }
+                else if (rightValue == null) {
+                    return 1;
+                }
+
                 Class<?> javaType = leftConstant.getType().getJavaType();
                 if (javaType == boolean.class) {
                     return ((Boolean) leftValue).compareTo((Boolean) rightValue);
