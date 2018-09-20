@@ -85,9 +85,9 @@ public class TestBaseJdbcClient
                     new ColumnMetadata("columnA", VarcharType.VARCHAR, null, null, false, emptyMap()),
                     new ColumnMetadata("columnB", VarcharType.VARCHAR, null, null, false, emptyMap(), true, Slices.utf8Slice("a")),
                     new ColumnMetadata("columnC", VarcharType.VARCHAR, null, null, false, emptyMap(), false, null),
-                    new ColumnMetadata("columnD", DateType.DATE, null, null, false, emptyMap(), false, 1),
-                    new ColumnMetadata("columnE", TimeType.TIME, null, null, false, emptyMap(), false, 1),
-                    new ColumnMetadata("columnF", TimestampType.TIMESTAMP, null, null, false, emptyMap(), false, 1)));
+                    new ColumnMetadata("columnD", DateType.DATE, null, null, false, emptyMap(), false, 1L),
+                    new ColumnMetadata("columnE", TimeType.TIME, null, null, false, emptyMap(), false, 1L),
+                    new ColumnMetadata("columnF", TimestampType.TIMESTAMP, null, null, false, emptyMap(), false, 1L)));
             try (ResultSet rs = getColumnMetadata(handle, connection, "columnA")) {
                 assertNull(rs.getString("COLUMN_DEF"), "Column default wasn't null");
                 assertTrue(rs.getBoolean("NULLABLE"), "Expected nullable");

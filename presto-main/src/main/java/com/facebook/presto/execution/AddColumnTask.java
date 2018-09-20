@@ -24,8 +24,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
@@ -42,6 +42,7 @@ import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.emptyList;
@@ -98,11 +99,7 @@ public class AddColumnTask
                 parameters);
 
         Optional<Object> defaultValue = element.getDefaultValue()
-                .map(value -> ExpressionInterpreter.evaluateConstantExpression(value,
-                        type,
-                        metadata,
-                        session,
-                        emptyList()));
+                .map(value -> evaluateConstantExpression(new Cast(value, type.getDisplayName()), type, metadata, session, emptyList()));
 
         ColumnMetadata column = new ColumnMetadata(
                 element.getName().getValue(),

@@ -30,10 +30,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -93,12 +95,14 @@ public class TestCreateTableTask
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, new FeaturesConfig());
         metadata = new MockMetadata(typeManager,
                 tablePropertyManager,
                 columnPropertyManager,
                 testCatalog.getConnectorId(),
-                functionRegistry);
+                functionRegistry,
+                blockEncodingSerde);
     }
 
     @Test
@@ -141,7 +145,7 @@ public class TestCreateTableTask
     {
         ImmutableList<ColumnDefinition> inputColumns = ImmutableList.of(
                 new ColumnDefinition(identifier("a"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2011-01-1"))),
-                new ColumnDefinition(identifier("b"), "VARCHAR", emptyList(), Optional.empty(), false, Optional.of(new GenericLiteral("DATE", "2011-01-1"))),
+                new ColumnDefinition(identifier("b"), "VARCHAR", emptyList(), Optional.empty(), false, Optional.of(new GenericLiteral("VARCHAR", "2011-01-1"))),
                 new ColumnDefinition(identifier("c"), "VARBINARY", emptyList(), Optional.empty(), false, Optional.of(new GenericLiteral("VARBINARY", "2011-01-1"))));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 inputColumns,
@@ -162,7 +166,7 @@ public class TestCreateTableTask
         assertEquals(columns.get(1).getName(), inputColumns.get(1).getName().getValue());
         assertEquals(columns.get(1).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(1).getType());
         assertEquals(columns.get(1).isNullable(), inputColumns.get(1).isNullable());
-        assertEquals(((Slice) columns.get(1).getDefaultValue()).toStringUtf8(), "2011-01-01");
+        assertEquals(((Slice) columns.get(1).getDefaultValue()).toStringUtf8(), "2011-01-1");
 
         assertEquals(columns.get(2).getName(), inputColumns.get(2).getName().getValue());
         assertEquals(columns.get(2).getType().getDisplayName().toUpperCase(ENGLISH), inputColumns.get(2).getType());
@@ -178,6 +182,7 @@ public class TestCreateTableTask
         private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
         private final FunctionRegistry functionRegistry;
+        private final BlockEncodingSerde blockEncodingSerde;
         private List<ConnectorTableMetadata> metadatas = new CopyOnWriteArrayList<>();
 
         public MockMetadata(
@@ -185,13 +190,15 @@ public class TestCreateTableTask
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
                 ConnectorId catalogHandle,
-                FunctionRegistry functionRegistry)
+                FunctionRegistry functionRegistry,
+                BlockEncodingSerde blockEncodingSerde)
         {
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+            this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         }
 
         @Override
@@ -256,6 +263,18 @@ public class TestCreateTableTask
         public FunctionRegistry getFunctionRegistry()
         {
             return functionRegistry;
+        }
+
+        @Override
+        public TypeManager getTypeManager()
+        {
+            return typeManager;
+        }
+
+        @Override
+        public BlockEncodingSerde getBlockEncodingSerde()
+        {
+            return blockEncodingSerde;
         }
     }
 }

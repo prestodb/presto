@@ -30,23 +30,23 @@ public final class ColumnDefinition
     private final List<Property> properties;
     private final Optional<String> comment;
     private final boolean nullable;
-    private final Optional<Expression> defaultValue;
+    private final Optional<Literal> defaultValue;
 
     public ColumnDefinition(Identifier name, String type, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, type, properties, comment, true, Optional.empty());
     }
 
-    public ColumnDefinition(Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Expression> defaultValue)
+    public ColumnDefinition(Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Literal> defaultValue)
     {
         this(Optional.empty(), name, type, properties, comment, nullable, defaultValue);
     }
 
-    public ColumnDefinition(NodeLocation location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Expression> defaultValue)
+    public ColumnDefinition(NodeLocation location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Literal> defaultValue)
     {
         this(Optional.of(location), name, type, properties, comment, nullable, defaultValue);
     }
-    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Expression> defaultValue)
+    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, List<Property> properties, Optional<String> comment, boolean nullable, Optional<Literal> defaultValue)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -82,7 +82,7 @@ public final class ColumnDefinition
         return nullable;
     }
 
-    public Optional<Expression> getDefaultValue()
+    public Optional<Literal> getDefaultValue()
     {
         return defaultValue;
     }

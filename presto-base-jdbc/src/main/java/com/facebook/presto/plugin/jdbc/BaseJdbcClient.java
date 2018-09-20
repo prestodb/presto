@@ -222,7 +222,7 @@ public class BaseJdbcClient
                         String columnName = resultSet.getString("COLUMN_NAME");
                         boolean nullable = resultSet.getBoolean("NULLABLE");
                         // Per https://docs.oracle.com/javase/7/docs/api/java/sql/DatabaseMetaData.html COLUMN_DEF is a String value
-                        String defaultValue = resultSet.getString("COLUMN_DEF");
+                        String defaultValue = getColumnDefaultValue(resultSet, columnMapping.get().getType());
                         columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType(), nullable, defaultValue));
                     }
                 }
@@ -236,6 +236,12 @@ public class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    protected String getColumnDefaultValue(ResultSet resultSet, Type type)
+            throws SQLException
+    {
+        return resultSet.getString("COLUMN_DEF");
     }
 
     @Override

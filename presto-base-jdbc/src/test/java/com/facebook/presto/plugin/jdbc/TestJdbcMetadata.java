@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -176,13 +177,21 @@ public class TestJdbcMetadata
                 new ColumnMetadata("text", VARCHAR));
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test
     public void testCreateTable()
     {
+        SchemaTableName table = new SchemaTableName("example", "foo");
         metadata.createTable(SESSION, new ConnectorTableMetadata(
-                new SchemaTableName("example", "foo"),
+                        table,
                 ImmutableList.of(new ColumnMetadata("text", VARCHAR))),
                 false);
+
+        JdbcTableHandle handle = metadata.getTableHandle(SESSION, table);
+        ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
+
+        assertEquals(layout.getTable(), table);
+        assertEquals(layout.getColumns().size(), 1);
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
     }
 
     @Test

@@ -25,7 +25,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
@@ -57,6 +57,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -131,11 +132,7 @@ public class CreateTableTask
                         parameters);
 
                 Optional<Object> defaultValue = column.getDefaultValue()
-                        .map(value -> ExpressionInterpreter.evaluateConstantExpression(value,
-                                type,
-                                metadata,
-                                session,
-                                emptyList()));
+                        .map(value -> evaluateConstantExpression(new Cast(value, type.getDisplayName()), type, metadata, session, emptyList()));
 
                 columns.put(name, new ColumnMetadata(
                         name,

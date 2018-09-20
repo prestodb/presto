@@ -36,12 +36,11 @@ public final class JdbcColumnHandle
     private final boolean nullable;
     private final Optional<String> defaultValue;
 
-    @JsonCreator
     public JdbcColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
-            @JsonProperty("columnType") Type columnType)
+            String connectorId,
+            String columnName,
+            JdbcTypeHandle jdbcTypeHandle,
+            Type columnType)
     {
         this(connectorId, columnName, jdbcTypeHandle, columnType, true, null);
     }

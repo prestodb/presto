@@ -77,7 +77,6 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -153,7 +152,6 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static com.facebook.presto.sql.tree.CurrentTime.Function.DATE;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -1147,8 +1145,7 @@ public class TestSqlParser
                                 new ColumnDefinition(identifier("b"), "BIGINT", emptyList(), Optional.of("hello world")),
                                 new ColumnDefinition(identifier("c"), "IPADDRESS", emptyList(), Optional.empty()),
                                 new ColumnDefinition(identifier("d"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2001-01-01"))),
-                                new ColumnDefinition(identifier("e"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new GenericLiteral("DATE", "2001-01-01"))),
-                                new ColumnDefinition(identifier("f"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new CurrentTime(DATE)))),
+                                new ColumnDefinition(identifier("e"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new GenericLiteral("DATE", "2001-01-01")))),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));

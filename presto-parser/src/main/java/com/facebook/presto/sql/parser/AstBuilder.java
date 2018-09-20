@@ -87,6 +87,7 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -1449,6 +1450,7 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
+        Identifier columnIdentifier = (Identifier) visit(context.identifier());
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -1459,9 +1461,13 @@ class AstBuilder
             properties = visit(context.properties().property(), Property.class);
         }
 
-        Optional<Expression> defaultValue = Optional.empty();
+        Optional<Literal> defaultValue = Optional.empty();
         if (context.defaultValue != null) {
-            defaultValue = Optional.of(new Cast(getLocation(context), (Expression) visit(context.defaultValue), getType(context.type())));
+            Node defaultValueNode = visit(context.defaultValue);
+            if (!(defaultValueNode instanceof Literal)) {
+                throw parseError(format("Default value (%s) for column %s is not a literal expression", context.defaultValue.getText(), columnIdentifier.getValue()), context);
+            }
+            defaultValue = Optional.of((Literal) defaultValueNode);
         }
 
         boolean nullable = true;
@@ -1471,7 +1477,7 @@ class AstBuilder
 
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                columnIdentifier,
                 getType(context.type()),
                 properties,
                 comment,

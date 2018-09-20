@@ -158,7 +158,7 @@ public class TestMySqlIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE tpch.mysql_test_show_table_with_default (" +
                 "column_a DATE DEFAULT '2011-01-01'," +
-                "column_b DATE DEFAULT CURRENT_DATE" +
+                "column_b DATE DEFAULT DATE '2011-01-01'" +
                 ")");
         MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE tpch.mysql_test_show_table_with_default");
         assertNotNull(materializedRows);
