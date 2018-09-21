@@ -193,7 +193,7 @@ public class IterativeOptimizer
     private Rule.Context ruleContext(Context context)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session, context.symbolAllocator.getTypes());
 
         return new Rule.Context()
         {

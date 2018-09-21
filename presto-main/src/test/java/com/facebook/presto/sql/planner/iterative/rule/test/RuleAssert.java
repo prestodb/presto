@@ -204,7 +204,7 @@ public class RuleAssert
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
 
         return new Rule.Context()
         {

@@ -79,7 +79,6 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -450,7 +449,7 @@ public class TestCostCalculator
                     .map(this::getCumulativeCost)
                     .reduce(ZERO_COST, PlanNodeCostEstimate::add);
 
-            return costCalculator.calculateCost(node, statsProvider, noLookup(), session, types).add(sourcesCost);
+            return costCalculator.calculateCost(node, statsProvider, session, types).add(sourcesCost);
         }
     }
 
@@ -512,7 +511,6 @@ public class TestCostCalculator
         PlanNodeCostEstimate localCost = costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
-                noLookup(),
                 session,
                 TypeProvider.copyOf(types.entrySet().stream()
                         .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
@@ -528,7 +526,7 @@ public class TestCostCalculator
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), noLookup(), session, typeProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
         return costProvider.getCumulativeCost(node);
     }
 
@@ -537,7 +535,7 @@ public class TestCostCalculator
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), noLookup(), session, typeProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), UNKNOWN_COST);
     }
