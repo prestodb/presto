@@ -27,7 +27,7 @@ public class TestThriftIntegrationSmokeTest
 {
     public TestThriftIntegrationSmokeTest()
     {
-        super(() -> createThriftQueryRunner(2, 2, false, ImmutableMap.of()));
+        super(() -> createThriftQueryRunner(2, 2, ThriftQueryRunner.EnableExtraPrestoFeature.NONE, ImmutableMap.of()));
     }
 
     @Override

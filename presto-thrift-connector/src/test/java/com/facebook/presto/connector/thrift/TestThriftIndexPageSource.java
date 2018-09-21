@@ -18,6 +18,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableTableMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
+import com.facebook.presto.connector.thrift.api.PrestoThriftPage;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
@@ -312,6 +313,24 @@ public class TestThriftIndexPageSource
 
         @Override
         public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ListenableFuture<Void> addRows(PrestoThriftSchemaTableName schemaTableName, PrestoThriftPage page, String insertId)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ListenableFuture<Void> finishAddRows(String insertId)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ListenableFuture<Void> abortAddRows(String insertId)
         {
             throw new UnsupportedOperationException();
         }

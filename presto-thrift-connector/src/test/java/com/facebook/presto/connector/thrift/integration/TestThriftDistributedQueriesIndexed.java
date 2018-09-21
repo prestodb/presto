@@ -23,7 +23,7 @@ public class TestThriftDistributedQueriesIndexed
 {
     public TestThriftDistributedQueriesIndexed()
     {
-        super(() -> createThriftQueryRunner(2, 2, true, ImmutableMap.of()));
+        super(() -> createThriftQueryRunner(2, 2, ThriftQueryRunner.EnableExtraPrestoFeature.INDEX_JOIN, ImmutableMap.of()));
     }
 
     @Override

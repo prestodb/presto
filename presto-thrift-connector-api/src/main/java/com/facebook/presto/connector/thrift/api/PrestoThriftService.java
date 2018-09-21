@@ -118,4 +118,41 @@ public interface PrestoThriftService
             @ThriftField(name = "columns") List<String> columns,
             @ThriftField(name = "maxBytes") long maxBytes,
             @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken);
+
+    /**
+     * Adds a page of rows to be stored in a given table.
+     *
+     * @param schemaTableName schema and table name
+     * @param page data to store
+     * @param insertId unique identifier for an insertion which may span multiple calls to prestoAddRows
+     */
+    @ThriftMethod(
+            value = "prestoAddRows",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
+    ListenableFuture<Void> addRows(
+            @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName,
+            @ThriftField(name = "page") PrestoThriftPage page,
+            @ThriftField(name = "insertId") String insertId);
+
+    /**
+     * Signals the end of sending data to be stored.
+     *
+     * @param insertId unique identifier to notify which insertion should be committed
+     */
+    @ThriftMethod(
+            value = "prestoFinishAddRows",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
+    ListenableFuture<Void> finishAddRows(
+            @ThriftField(name = "insertId") String insertId);
+
+    /**
+     * Signals the abort of an insertion of rows
+     *
+     * @param insertId unique identifier to notify the insertion that should be aborted
+     */
+    @ThriftMethod(
+            value = "prestoAbortAddRows",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
+    ListenableFuture<Void> abortAddRows(
+            @ThriftField(name = "insertId") String insertId);
 }

@@ -23,7 +23,7 @@ public class TestThriftDistributedQueries
 {
     public TestThriftDistributedQueries()
     {
-        super(() -> createThriftQueryRunner(3, 3, false, ImmutableMap.of()));
+        super(() -> createThriftQueryRunner(3, 3, ThriftQueryRunner.EnableExtraPrestoFeature.NONE, ImmutableMap.of()));
     }
 
     @Override

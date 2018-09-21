@@ -20,6 +20,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableTableMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
+import com.facebook.presto.connector.thrift.api.PrestoThriftPage;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
@@ -106,7 +107,7 @@ public class ThriftTpchService
             columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column), null, false));
         }
         List<Set<String>> indexableKeys = getIndexableKeys(schemaName, tableName);
-        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null));
+        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null, null));
     }
 
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)
@@ -201,6 +202,24 @@ public class ThriftTpchService
             pageSource = createLookupPageSource(splitInfo, outputColumns);
         }
         return getRowsInternal(pageSource, splitInfo.getTableName(), outputColumns, nextToken.getToken());
+    }
+
+    @Override
+    public ListenableFuture<Void> addRows(PrestoThriftSchemaTableName schemaTableName, PrestoThriftPage page, String insertId)
+    {
+        throw new UnsupportedOperationException("Insert not supported");
+    }
+
+    @Override
+    public ListenableFuture<Void> finishAddRows(String insertId)
+    {
+        throw new UnsupportedOperationException("Insert not supported");
+    }
+
+    @Override
+    public ListenableFuture<Void> abortAddRows(String insertId)
+    {
+        throw new UnsupportedOperationException("Insert not supported");
     }
 
     protected ConnectorPageSource createLookupPageSource(SplitInfo splitInfo, List<String> outputColumnNames)
