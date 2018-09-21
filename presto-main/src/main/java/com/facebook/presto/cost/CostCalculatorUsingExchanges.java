@@ -21,7 +21,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -93,7 +92,7 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, TypeProvider types)
+    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
     {
         CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, types);
         return node.accept(costEstimator, null);

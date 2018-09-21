@@ -80,7 +80,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -168,7 +167,7 @@ public class LogicalPlanner
 
         TypeProvider types = symbolAllocator.getTypes();
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), noLookup(), session, types);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
         return new Plan(root, types, StatsAndCosts.create(root, statsProvider, costProvider));
     }
 
