@@ -39,8 +39,7 @@ function stop_application_runner_containers() {
     echo "Container stopped: ${CONTAINER_NAME}"
   done
   echo "Removing dead application-runner containers"
-  local CONTAINERS=`docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner`
-  for CONTAINER in ${CONTAINERS};
+  for CONTAINER in $(docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner);
   do
     docker rm -v "${CONTAINER}"
   done

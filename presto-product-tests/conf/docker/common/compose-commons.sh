@@ -6,7 +6,8 @@ function export_canonical_path() {
     local PATH_REFERENCE=$1
     # when ref=var; var=value; then ${!ref} returns value
     # echo the variable to resolve any wildcards in paths
-    local PATH=$( echo ${!PATH_REFERENCE} )
+    local PATH
+    PATH=$( echo ${!PATH_REFERENCE} )
     if [[ ${PATH} != /* ]] ; then
       PATH=./${PATH}
     fi
