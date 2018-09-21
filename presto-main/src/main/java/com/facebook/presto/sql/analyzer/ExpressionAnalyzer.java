@@ -1610,17 +1610,6 @@ public class ExpressionAnalyzer
                 analyzer.getWindowFunctions());
     }
 
-    // TODO: this function is not used anywhere, can it be removed?
-    public static ExpressionAnalyzer create(
-            Analysis analysis,
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            AccessControl accessControl)
-    {
-        return create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), WarningCollector.NOOP);
-    }
-
     public static ExpressionAnalyzer create(
             Analysis analysis,
             Session session,
