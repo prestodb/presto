@@ -444,7 +444,7 @@ public class TestEffectivePredicateExtractor
                         .addAll(left.getOutputSymbols())
                         .addAll(right.getOutputSymbols())
                         .build(),
-                Optional.empty(),
+                Optional.of(lessThanOrEqual(BE, EE)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -458,7 +458,96 @@ public class TestEffectivePredicateExtractor
                         equals(DE, EE),
                         lessThan(FE, bigintLiteral(100)),
                         equals(AE, DE),
-                        equals(BE, EE)));
+                        equals(BE, EE),
+                        lessThanOrEqual(BE, EE)));
+    }
+
+    @Test
+    public void testInnerJoinPropagatesPredicatesViaEquiConditions()
+    {
+        Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
+        TableScanNode leftScan = new TableScanNode(
+                newId(),
+                DUAL_TABLE_HANDLE,
+                ImmutableList.copyOf(leftAssignments.keySet()),
+                leftAssignments,
+                Optional.empty(),
+                TupleDomain.all(),
+                TupleDomain.all());
+
+        Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
+        TableScanNode rightScan = new TableScanNode(
+                newId(),
+                DUAL_TABLE_HANDLE,
+                ImmutableList.copyOf(rightAssignments.keySet()),
+                rightAssignments,
+                Optional.empty(),
+                TupleDomain.all(),
+                TupleDomain.all());
+
+        FilterNode left = filter(leftScan, equals(AE, bigintLiteral(10)));
+
+        // predicates on "a" column should be propagated to output symbols via join equi conditions
+        PlanNode node = new JoinNode(newId(),
+                JoinNode.Type.INNER,
+                left,
+                rightScan,
+                ImmutableList.of(new JoinNode.EquiJoinClause(A, D)),
+                ImmutableList.<Symbol>builder()
+                        .addAll(rightScan.getOutputSymbols())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        Expression effectivePredicate = effectivePredicateExtractor.extract(node);
+
+        assertEquals(
+                normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(equals(DE, bigintLiteral(10))));
+    }
+
+    @Test
+    public void testInnerJoinWithFalseFilter()
+    {
+        Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
+        TableScanNode leftScan = new TableScanNode(
+                newId(),
+                DUAL_TABLE_HANDLE,
+                ImmutableList.copyOf(leftAssignments.keySet()),
+                leftAssignments,
+                Optional.empty(),
+                TupleDomain.all(),
+                TupleDomain.all());
+
+        Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
+        TableScanNode rightScan = new TableScanNode(
+                newId(),
+                DUAL_TABLE_HANDLE,
+                ImmutableList.copyOf(rightAssignments.keySet()),
+                rightAssignments,
+                Optional.empty(),
+                TupleDomain.all(),
+                TupleDomain.all());
+
+        PlanNode node = new JoinNode(newId(),
+                JoinNode.Type.INNER,
+                leftScan,
+                rightScan,
+                ImmutableList.of(new JoinNode.EquiJoinClause(A, D)),
+                ImmutableList.<Symbol>builder()
+                        .addAll(leftScan.getOutputSymbols())
+                        .addAll(rightScan.getOutputSymbols())
+                        .build(),
+                Optional.of(FALSE_LITERAL),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        Expression effectivePredicate = effectivePredicateExtractor.extract(node);
+
+        assertEquals(effectivePredicate, FALSE_LITERAL);
     }
 
     @Test
@@ -738,6 +827,11 @@ public class TestEffectivePredicateExtractor
     private static ComparisonExpression lessThan(Expression expression1, Expression expression2)
     {
         return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, expression1, expression2);
+    }
+
+    private static ComparisonExpression lessThanOrEqual(Expression expression1, Expression expression2)
+    {
+        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
     }
 
     private static ComparisonExpression greaterThan(Expression expression1, Expression expression2)
