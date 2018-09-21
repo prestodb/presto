@@ -57,7 +57,7 @@ public class TestJdbcConnection
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
-            statement.execute("CREATE SCHEMA default");
+            statement.execute("CREATE SCHEMA default_schema");
             statement.execute("CREATE SCHEMA fruit");
         }
     }
@@ -118,7 +118,7 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection()) {
             assertThat(connection.getCatalog()).isEqualTo("hive");
-            assertThat(connection.getSchema()).isEqualTo("default");
+            assertThat(connection.getSchema()).isEqualTo("default_schema");
 
             // change schema
             try (Statement statement = connection.createStatement()) {
@@ -202,7 +202,7 @@ public class TestJdbcConnection
     private Connection createConnection(String extra)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/hive/default?%s", server.getAddress(), extra);
+        String url = format("jdbc:presto://%s/hive/default_schema?%s", server.getAddress(), extra);
         return DriverManager.getConnection(url, "test", null);
     }
 

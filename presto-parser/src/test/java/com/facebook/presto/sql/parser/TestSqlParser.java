@@ -1131,6 +1131,33 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCreateTableWithNotNull()
+    {
+        assertStatement("CREATE TABLE foo (" +
+                        "a VARCHAR DEFAULT 'default' NOT NULL COMMENT 'column a', " +
+                        "b BIGINT COMMENT 'hello world', " +
+                        "c IPADDRESS, " +
+                        "d DATE DEFAULT '2001-01-01'," +
+                        "e DATE DEFAULT DATE '2001-01-01')",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", emptyList(), Optional.of("column a"), false, Optional.of(new StringLiteral("default"))),
+                                new ColumnDefinition(identifier("b"), "BIGINT", emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "IPADDRESS", emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("d"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new StringLiteral("2001-01-01"))),
+                                new ColumnDefinition(identifier("e"), "DATE", emptyList(), Optional.empty(), true, Optional.of(new GenericLiteral("DATE", "2001-01-01")))),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
+    @Test(expectedExceptions = ParsingException.class)
+    public void testDefaultValueWithFunctionFails()
+    {
+        SQL_PARSER.createStatement("CREATE TABLE foo (a DATE DEFAULT CURRENT_DATE)");
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));

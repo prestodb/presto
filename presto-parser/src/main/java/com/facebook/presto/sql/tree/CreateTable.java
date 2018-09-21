@@ -31,17 +31,17 @@ public class CreateTable
     private final List<Property> properties;
     private final Optional<String> comment;
 
-    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
+    public CreateTable(QualifiedName name, List<? extends TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, elements, notExists, properties, comment);
     }
 
-    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
+    public CreateTable(NodeLocation location, QualifiedName name, List<? extends TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         this(Optional.of(location), name, elements, notExists, properties, comment);
     }
 
-    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<? extends TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "table is null");

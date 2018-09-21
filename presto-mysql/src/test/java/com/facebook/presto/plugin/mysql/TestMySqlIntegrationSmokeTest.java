@@ -33,6 +33,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -149,6 +150,22 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(row.getField(0), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
+    }
+
+    @Test
+    public void testShowCreateTableWithDefaults()
+            throws SQLException
+    {
+        assertUpdate("CREATE TABLE tpch.mysql_test_show_table_with_default (" +
+                "column_a DATE DEFAULT '2011-01-01'," +
+                "column_b DATE DEFAULT DATE '2011-01-01'" +
+                ")");
+        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE tpch.mysql_test_show_table_with_default");
+        assertNotNull(materializedRows);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getFields().get(0),
+                "CREATE TABLE mysql.tpch.mysql_test_show_table_with_default (\n" +
+                "   column_a date DEFAULT DATE '2011-01-01'\n" +
+                ")");
     }
 
     private void execute(String sql)

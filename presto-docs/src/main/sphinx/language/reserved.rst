@@ -27,6 +27,7 @@ Keyword                        SQL:2016      SQL-92
 ``CURRENT_USER``               reserved
 ``DEALLOCATE``                 reserved      reserved
 ``DELETE``                     reserved      reserved
+``DEFAULT``                    reserved      reserved
 ``DESCRIBE``                   reserved      reserved
 ``DISTINCT``                   reserved      reserved
 ``DROP``                       reserved      reserved

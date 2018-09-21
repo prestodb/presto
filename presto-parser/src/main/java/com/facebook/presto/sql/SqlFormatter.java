@@ -860,11 +860,19 @@ public final class SqlFormatter
 
         private String formatColumnDefinition(ColumnDefinition column)
         {
-            return formatExpression(column.getName(), parameters) + " " + column.getType() +
-                    column.getComment()
-                            .map(comment -> " COMMENT " + formatStringLiteral(comment))
-                            .orElse("") +
-                    formatPropertiesSingleLine(column.getProperties());
+            StringBuilder sb = new StringBuilder(formatExpression(column.getName(), parameters))
+                    .append(" ").append(column.getType());
+            if (column.getDefaultValue().isPresent()) {
+                sb.append(" DEFAULT ").append(column.getDefaultValue().get());
+            }
+            if (!column.isNullable()) {
+                sb.append(" NOT NULL");
+            }
+            if (column.getComment().isPresent()) {
+                sb.append(" COMMENT ").append(formatStringLiteral(column.getComment().get()));
+            }
+            sb.append(formatPropertiesSingleLine(column.getProperties()));
+            return sb.toString();
         }
 
         @Override

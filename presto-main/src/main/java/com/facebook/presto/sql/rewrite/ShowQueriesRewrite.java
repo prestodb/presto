@@ -33,6 +33,8 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.LiteralEncoder;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -43,8 +45,10 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -387,11 +391,37 @@ final class ShowQueriesRewrite
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
 
+                LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
-                            return new ColumnDefinition(new Identifier(column.getName()), column.getType().getDisplayName(), propertyNodes, Optional.ofNullable(column.getComment()));
+                            final Optional<Literal> expression;
+                            if (column.getDefaultValue() == null) {
+                                expression = Optional.empty();
+                            }
+                            else {
+                                // Hack: we presume that the default value is either a String, or is easily convertible to a String
+                                final Object literalAsObject;
+                                if (column.getDefaultValue() instanceof String) {
+                                    GenericLiteral genericLiteral = new GenericLiteral(column.getType().getDisplayName(), (String) column.getDefaultValue());
+                                    literalAsObject = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), genericLiteral);
+                                }
+                                else {
+                                    literalAsObject = column.getDefaultValue();
+                                }
+                                Expression literalExpression = literalEncoder.toExpression(literalAsObject, column.getType());
+                                if (!(literalExpression instanceof Literal)) {
+                                    throw new PrestoException(INVALID_TABLE_PROPERTY, format("Default value did not evaluate into a literal: %s", column.getDefaultValue().toString()));
+                                }
+                                expression = Optional.of((Literal) literalExpression);
+                            }
+                            return new ColumnDefinition(new Identifier(column.getName()),
+                                    column.getType().getDisplayName(),
+                                    propertyNodes,
+                                    Optional.ofNullable(column.getComment()),
+                                    column.isNullable(),
+                                    expression);
                         })
                         .collect(toImmutableList());
 

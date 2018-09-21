@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
@@ -171,6 +172,13 @@ public class JdbcMetadata
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(handle));
         return handle;
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
+        finishCreateTable(session, handle, emptyList(), emptyList());
     }
 
     @Override
