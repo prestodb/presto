@@ -132,24 +132,15 @@ public class LogicalPlanner
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
-        requireNonNull(session, "session is null");
-        requireNonNull(planOptimizers, "planOptimizers is null");
-        requireNonNull(planSanityChecker, "planSanityChecker is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
-        requireNonNull(statsCalculator, "statsCalculator is null");
-        requireNonNull(costCalculator, "costCalculator is null");
-
-        this.session = session;
-        this.planOptimizers = planOptimizers;
-        this.planSanityChecker = planSanityChecker;
-        this.idAllocator = idAllocator;
-        this.metadata = metadata;
-        this.sqlParser = sqlParser;
+        this.session = requireNonNull(session, "session is null");
+        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
-        this.statsCalculator = statsCalculator;
-        this.costCalculator = costCalculator;
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
     public Plan plan(Analysis analysis)
