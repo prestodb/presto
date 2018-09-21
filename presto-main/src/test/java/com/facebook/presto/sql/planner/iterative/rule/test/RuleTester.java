@@ -20,6 +20,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -47,6 +48,7 @@ public class RuleTester
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
+    private final SqlParser sqlParser;
 
     public RuleTester()
     {
@@ -89,6 +91,7 @@ public class RuleTester
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.accessControl = queryRunner.getAccessControl();
+        this.sqlParser = queryRunner.getSqlParser();
     }
 
     public RuleAssert assertThat(Rule rule)
@@ -115,6 +118,11 @@ public class RuleTester
     public PageSourceManager getPageSourceManager()
     {
         return pageSourceManager;
+    }
+
+    public SqlParser getSqlParser()
+    {
+        return sqlParser;
     }
 
     public ConnectorId getCurrentConnectorId()
