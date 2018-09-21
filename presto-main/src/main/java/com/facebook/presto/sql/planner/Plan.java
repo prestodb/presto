@@ -26,13 +26,9 @@ public class Plan
 
     public Plan(PlanNode root, TypeProvider types, StatsAndCosts statsAndCosts)
     {
-        requireNonNull(root, "root is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(statsAndCosts, "statsAndCosts is null");
-
-        this.root = root;
-        this.types = types;
-        this.statsAndCosts = statsAndCosts;
+        this.root = requireNonNull(root, "root is null");
+        this.types = requireNonNull(types, "types is null");
+        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
     }
 
     public PlanNode getRoot()
