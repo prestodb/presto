@@ -27,9 +27,9 @@ env:
 sudo: required
 dist: trusty
 
-cache:
-  directories:
-    - $HOME/.m2/repository
+#cache:
+#  directories:
+#   - $HOME/.m2/repository
 
 services:
   - docker
