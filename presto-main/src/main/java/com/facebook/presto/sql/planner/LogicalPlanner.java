@@ -15,6 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CachingCostProvider;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -73,6 +80,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -101,14 +109,18 @@ public class LogicalPlanner
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     public LogicalPlanner(Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
     }
 
     public LogicalPlanner(Session session,
@@ -116,7 +128,9 @@ public class LogicalPlanner
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
         requireNonNull(session, "session is null");
         requireNonNull(planOptimizers, "planOptimizers is null");
@@ -124,6 +138,8 @@ public class LogicalPlanner
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(statsCalculator, "statsCalculator is null");
+        requireNonNull(costCalculator, "costCalculator is null");
 
         this.session = session;
         this.planOptimizers = planOptimizers;
@@ -132,6 +148,8 @@ public class LogicalPlanner
         this.metadata = metadata;
         this.sqlParser = sqlParser;
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
+        this.statsCalculator = statsCalculator;
+        this.costCalculator = costCalculator;
     }
 
     public Plan plan(Analysis analysis)
@@ -157,7 +175,10 @@ public class LogicalPlanner
             planSanityChecker.validateFinalPlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
         }
 
-        return new Plan(root, symbolAllocator.getTypes());
+        TypeProvider types = symbolAllocator.getTypes();
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), noLookup(), session, types);
+        return new Plan(root, types, StatsAndCosts.create(root, statsProvider, costProvider));
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)

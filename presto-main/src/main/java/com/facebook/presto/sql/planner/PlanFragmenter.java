@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
@@ -82,7 +83,7 @@ public class PlanFragmenter
 
     public SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
     {
-        Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes());
+        Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
@@ -134,13 +135,15 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final TypeProvider types;
+        private final StatsAndCosts statsAndCosts;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, TypeProvider types)
+        public Fragmenter(Session session, Metadata metadata, TypeProvider types, StatsAndCosts statsAndCosts)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.types = requireNonNull(types, "types is null");
+            this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -168,7 +171,8 @@ public class PlanFragmenter
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
-                    StageExecutionStrategy.ungroupedExecution());
+                    StageExecutionStrategy.ungroupedExecution(),
+                    statsAndCosts.getForSubplan(root));
 
             return new SubPlan(fragment, properties.getChildren());
         }

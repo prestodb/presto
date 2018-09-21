@@ -188,7 +188,8 @@ public class TestFragmentedPlanStatsCalculator
                 partitioningHandle,
                 emptyList(),
                 new PartitioningScheme(Partitioning.create(partitioningHandle, emptyList()), outputLayout),
-                ungroupedExecution());
+                ungroupedExecution(),
+                StatsAndCosts.empty());
     }
 
     private StatsCalculatorAssertion assertStatsFor(PlanNode node, Map<PlanNode, PlanNodeStatsEstimate> stats, List<PlanFragment> fragments, TypeProvider types)

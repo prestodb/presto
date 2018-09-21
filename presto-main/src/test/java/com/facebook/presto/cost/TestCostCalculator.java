@@ -411,7 +411,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        SubPlan subPlan = fragment(new Plan(node, typeProvider));
+        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.empty()));
         FragmentedPlanSourceProvider sourceProvider = FragmentedPlanSourceProvider.create(subPlan.getAllFragments());
         FragmentedPlanCostCalculator costCalculator = new FragmentedPlanCostCalculator(costCalculatorUsingExchanges, sourceProvider, () -> NUMBER_OF_NODES);
         return assertCost(costCalculator, node, costs, stats, types);
@@ -499,7 +499,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        SubPlan subPlan = fragment(new Plan(node, typeProvider));
+        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.empty()));
         FragmentedPlanSourceProvider sourceProvider = FragmentedPlanSourceProvider.create(subPlan.getAllFragments());
         statsCalculator = new FragmentedPlanStatsCalculator(statsCalculator, sourceProvider);
         CostCalculator costCalculator = new FragmentedPlanCostCalculator(costCalculatorUsingExchanges, sourceProvider, () -> NUMBER_OF_NODES);
