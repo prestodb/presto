@@ -15,6 +15,7 @@ if ! test -z ${TEMPTO_EXTRA_CONFIG_FILE:-}; then
 fi
 
 java \
+  `#-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007` \
   "-Djava.util.logging.config.file=${DOCKER_TEMPTO_CONF_DIR}/logging.properties" \
   -Duser.timezone=Asia/Kathmandu \
   -cp "/docker/volumes/jdbc/driver.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
