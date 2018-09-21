@@ -187,4 +187,8 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/ranger">
+        <artifact id="${project.groupId}:presto-ranger-plugin:jar:${project.version}" />
+    </artifactSet>
 </runtime>
