@@ -27,10 +27,6 @@ env:
 sudo: required
 dist: trusty
 
-cache:
-  directories:
-    - $HOME/.m2/repository
-
 services:
   - docker
 
@@ -187,10 +183,6 @@ script:
       presto-kudu/bin/run_kudu_tests.sh 1 ""
       presto-kudu/bin/run_kudu_tests.sh 1 presto::
     fi
-
-before_cache:
-  # Make the cache stable between builds by removing build output
-  - rm -rf $HOME/.m2/repository/com/facebook
 
 notifications:
   slack:
