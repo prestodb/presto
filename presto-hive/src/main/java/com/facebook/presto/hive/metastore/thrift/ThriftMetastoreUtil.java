@@ -435,9 +435,15 @@ public final class ThriftMetastoreUtil
     private static long fromMetastoreDistinctValuesCount(long distinctValuesCount, long nullsCount, long rowCount)
     {
         long nonNullsCount = rowCount - nullsCount;
-        if (nullsCount > 0) {
+        if (nullsCount > 0 && distinctValuesCount > 0) {
             distinctValuesCount--;
         }
+
+        // normalize distinctValuesCount in case there is a non null element
+        if (nonNullsCount > 0 && distinctValuesCount == 0) {
+            distinctValuesCount = 1;
+        }
+
         // the metastore may store an estimate, so the value stored may be higher than the total number of rows
         if (distinctValuesCount > nonNullsCount) {
             return nonNullsCount;
