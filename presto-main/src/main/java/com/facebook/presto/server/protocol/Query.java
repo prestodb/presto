@@ -36,20 +36,22 @@ import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionId;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -61,6 +63,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -110,6 +114,8 @@ class Query
     private final QuerySubmissionFuture submissionFuture;
     private final SessionPropertyManager sessionPropertyManager;
     private final BlockEncodingSerde blockEncodingSerde;
+
+    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
 
     @GuardedBy("this")
     private Session session;
@@ -406,23 +412,30 @@ class Query
         // the pages will be lost.
         Iterable<List<Object>> data = null;
         try {
-            ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
-            long bytes = 0;
-            long rows = 0;
-            while (bytes < DESIRED_RESULT_BYTES) {
+            ImmutableList.Builder<List<Object>> rows = new ImmutableList.Builder<>();
+            long dataSize = 0;
+            while (dataSize < DESIRED_RESULT_BYTES) {
                 SerializedPage serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;
                 }
 
                 Page page = serde.deserialize(serializedPage);
-                bytes += page.getSizeInBytes();
-                rows += page.getPositionCount();
-                pages.add(new RowIterable(session.toConnectorSession(), types, page));
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    List<Object> row = new ArrayList<>(page.getChannelCount());
+                    for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                        Type type = types.get(channel);
+                        Block block = page.getBlock(channel);
+                        row.add(type.getObjectValue(session.toConnectorSession(), block, position));
+                    }
+                    row = Collections.unmodifiableList(row);
+                    rows.add(row);
+                    dataSize += objectMapper.writeValueAsString(row).length();
+                }
             }
-            if (rows > 0) {
+            if (dataSize > 0) {
                 // client implementations do not properly handle empty list of data
-                data = Iterables.concat(pages.build());
+                data = rows.build();
             }
         }
         catch (Throwable cause) {
