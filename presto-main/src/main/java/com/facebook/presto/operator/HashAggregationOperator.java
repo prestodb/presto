@@ -63,7 +63,7 @@ public class HashAggregationOperator
         private final Optional<Integer> groupIdChannel;
 
         private final int expectedGroups;
-        private final DataSize maxPartialMemory;
+        private final Optional<DataSize> maxPartialMemory;
         private final boolean spillEnabled;
         private final DataSize memoryLimitForMerge;
         private final DataSize memoryLimitForMergeWithMemory;
@@ -84,7 +84,7 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
-                DataSize maxPartialMemory,
+                Optional<DataSize> maxPartialMemory,
                 JoinCompiler joinCompiler)
         {
             this(operatorId,
@@ -120,7 +120,7 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
-                DataSize maxPartialMemory,
+                Optional<DataSize> maxPartialMemory,
                 boolean spillEnabled,
                 DataSize unspillMemoryLimit,
                 SpillerFactory spillerFactory,
@@ -158,7 +158,7 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
-                DataSize maxPartialMemory,
+                Optional<DataSize> maxPartialMemory,
                 boolean spillEnabled,
                 DataSize memoryLimitForMerge,
                 DataSize memoryLimitForMergeWithMemory,
@@ -250,7 +250,7 @@ public class HashAggregationOperator
     private final Optional<Integer> hashChannel;
     private final Optional<Integer> groupIdChannel;
     private final int expectedGroups;
-    private final DataSize maxPartialMemory;
+    private final Optional<DataSize> maxPartialMemory;
     private final boolean spillEnabled;
     private final DataSize memoryLimitForMerge;
     private final DataSize memoryLimitForMergeWithMemory;
@@ -280,7 +280,7 @@ public class HashAggregationOperator
             Optional<Integer> hashChannel,
             Optional<Integer> groupIdChannel,
             int expectedGroups,
-            DataSize maxPartialMemory,
+            Optional<DataSize> maxPartialMemory,
             boolean spillEnabled,
             DataSize memoryLimitForMerge,
             DataSize memoryLimitForMergeWithMemory,
