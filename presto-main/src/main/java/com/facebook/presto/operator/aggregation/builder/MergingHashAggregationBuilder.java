@@ -144,7 +144,7 @@ public class MergingHashAggregationBuilder
                 groupByPartialChannels,
                 hashChannel,
                 operatorContext,
-                DataSize.succinctBytes(0),
+                Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),
                 joinCompiler,
                 false);

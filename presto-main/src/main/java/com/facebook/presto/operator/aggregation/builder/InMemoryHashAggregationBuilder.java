@@ -45,6 +45,7 @@ import it.unimi.dsi.fastutil.ints.IntIterators;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
@@ -59,7 +60,7 @@ public class InMemoryHashAggregationBuilder
     private final List<Aggregator> aggregators;
     private final OperatorContext operatorContext;
     private final boolean partial;
-    private final long maxPartialMemory;
+    private final OptionalLong maxPartialMemory;
     private final LocalMemoryContext systemMemoryContext;
     private final LocalMemoryContext localUserMemoryContext;
 
@@ -73,7 +74,7 @@ public class InMemoryHashAggregationBuilder
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
-            DataSize maxPartialMemory,
+            Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
             boolean yieldForMemoryReservation)
     {
@@ -98,7 +99,7 @@ public class InMemoryHashAggregationBuilder
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
-            DataSize maxPartialMemory,
+            Optional<DataSize> maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler,
             boolean yieldForMemoryReservation)
@@ -126,7 +127,7 @@ public class InMemoryHashAggregationBuilder
                 updateMemory);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
-        this.maxPartialMemory = maxPartialMemory.toBytes();
+        this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
@@ -326,9 +327,10 @@ public class InMemoryHashAggregationBuilder
     private boolean updateMemoryWithYieldInfo()
     {
         long memorySize = getSizeInMemory();
-        if (partial) {
+        // if partial limit is not set, memory is considered as user memory
+        if (partial && maxPartialMemory.isPresent()) {
             systemMemoryContext.setBytes(memorySize);
-            full = (memorySize > maxPartialMemory);
+            full = (memorySize > maxPartialMemory.getAsLong());
             return true;
         }
         // Operator/driver will be blocked on memory after we call setBytes.

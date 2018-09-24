@@ -183,7 +183,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -243,7 +243,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -290,7 +290,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -335,7 +335,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
@@ -370,7 +370,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
@@ -395,7 +395,7 @@ public class TestHashAggregationOperator
                         Optional.of(1),
                         Optional.empty(),
                         1,
-                        new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                         joinCompiler);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
@@ -446,7 +446,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
@@ -479,7 +479,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 joinCompiler);
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
@@ -509,7 +509,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(1, KILOBYTE),
+                Optional.of(new DataSize(1, KILOBYTE)),
                 joinCompiler);
 
         DriverContext driverContext = createDriverContext(1024);
@@ -584,7 +584,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 1,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 true,
                 new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
                 succinctBytes(Integer.MAX_VALUE),
@@ -639,7 +639,7 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 true,
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),

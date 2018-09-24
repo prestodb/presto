@@ -2173,7 +2173,14 @@ public class LocalExecutionPlanner
                         new DataSize(0, BYTE),
                         context,
                         2,
-                        outputMapping);
+                        outputMapping,
+                        200,
+                        // This aggregation must behave as INTERMEDIATE.
+                        // Using INTERMEDIATE aggregation directly
+                        // is not possible, as it doesn't accept raw input data.
+                        // Disabling partial pre-aggregation memory limit effectively
+                        // turns PARTIAL aggregation into INTERMEDIATE.
+                        Optional.empty());
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             List<Integer> inputChannels = node.getColumns().stream()
@@ -2227,7 +2234,10 @@ public class LocalExecutionPlanner
                         new DataSize(0, BYTE),
                         context,
                         0,
-                        outputMapping);
+                        outputMapping,
+                        200,
+                        // final aggregation ignores partial pre-aggregation memory limit
+                        Optional.empty());
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             Map<Symbol, Integer> aggregationOutput = outputMapping.build();
@@ -2544,7 +2554,9 @@ public class LocalExecutionPlanner
                     unspillMemoryLimit,
                     context,
                     0,
-                    mappings);
+                    mappings,
+                    10_000,
+                    Optional.of(maxPartialAggregationMemorySize));
             return new PhysicalOperation(operatorFactory, mappings.build(), context, source);
         }
 
@@ -2563,7 +2575,9 @@ public class LocalExecutionPlanner
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
                 int startOutputChannel,
-                ImmutableMap.Builder<Symbol, Integer> outputMappings)
+                ImmutableMap.Builder<Symbol, Integer> outputMappings,
+                int expectedGroups,
+                Optional<DataSize> maxPartialAggregationMemorySize)
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
@@ -2626,7 +2640,7 @@ public class LocalExecutionPlanner
                         accumulatorFactories,
                         hashChannel,
                         groupIdChannel,
-                        10_000,
+                        expectedGroups,
                         maxPartialAggregationMemorySize,
                         spillEnabled,
                         unspillMemoryLimit,
