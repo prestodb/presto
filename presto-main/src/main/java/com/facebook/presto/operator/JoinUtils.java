@@ -19,7 +19,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-final class JoinUtils
+/**
+ * This class must be public as it is accessed via join compiler reflection.
+ */
+public final class JoinUtils
 {
     private JoinUtils() {}
 
