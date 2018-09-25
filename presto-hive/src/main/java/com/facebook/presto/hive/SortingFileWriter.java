@@ -20,6 +20,7 @@ import com.facebook.presto.hive.util.TempFileReader;
 import com.facebook.presto.hive.util.TempFileWriter;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
@@ -71,7 +72,10 @@ public class SortingFileWriter
     private final List<SortOrder> sortOrders;
     private final HiveFileWriter outputWriter;
     private final SortBuffer sortBuffer;
+    private final TempFileWriterFactory tempFileWriterFactory;
+    private final ConnectorSession session;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
+
     private final AtomicLong nextFileId = new AtomicLong();
 
     public SortingFileWriter(
@@ -83,7 +87,9 @@ public class SortingFileWriter
             List<Type> types,
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            TempFileWriterFactory tempFileWriterFactory,
+            ConnectorSession session)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -93,6 +99,8 @@ public class SortingFileWriter
         this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
+        this.tempFileWriterFactory = requireNonNull(tempFileWriterFactory, "tempFileWriterFactory is null");
+        this.session = requireNonNull(session, "session is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
     }
 
@@ -237,7 +245,7 @@ public class SortingFileWriter
     {
         Path tempFile = getTempFileName();
 
-        try (TempFileWriter writer = new TempFileWriter(types, fileSystem.create(tempFile))) {
+        try (TempFileWriter writer = tempFileWriterFactory.createTempFileWriter(session, types, fileSystem, tempFile)) {
             consumer.accept(writer);
             writer.close();
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
