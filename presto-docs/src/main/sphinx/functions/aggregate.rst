@@ -206,6 +206,12 @@ Approximate Aggregate Functions
     Each element of the array must be between zero and one, and the array must
     be constant for all input rows.
 
+.. function:: approx_set(x) -> HyperLogLog
+
+    Returns the :ref:`hyperloglog_type` sketch of the input data set of ``x``. This
+    data sketch underlies :func:`approx_distinct`, and can be stored and used later
+    by calling :func:`cardinality`.
+
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
