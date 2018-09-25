@@ -49,7 +49,6 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.io.Writable;
@@ -99,7 +98,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -319,11 +317,6 @@ public final class HiveUtil
         }
     }
 
-    public static StructObjectInspector getTableObjectInspector(Properties schema)
-    {
-        return getTableObjectInspector(getDeserializer(schema));
-    }
-
     public static StructObjectInspector getTableObjectInspector(@SuppressWarnings("deprecation") Deserializer deserializer)
     {
         try {
@@ -334,11 +327,6 @@ public final class HiveUtil
         catch (SerDeException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public static List<? extends StructField> getTableStructFields(Table table)
-    {
-        return getTableObjectInspector(getHiveSchema(table)).getAllStructFieldRefs();
     }
 
     public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
