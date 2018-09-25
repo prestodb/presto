@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.util.TempFileWriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
@@ -135,6 +136,8 @@ public class HiveWriterFactory
 
     private final HiveWriterStats hiveWriterStats;
 
+    private final TempFileWriterFactory tempFileWriterFactory;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -159,7 +162,8 @@ public class HiveWriterFactory
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
-            HiveWriterStats hiveWriterStats)
+            HiveWriterStats hiveWriterStats,
+            TempFileWriterFactory tempFileWriterFactory)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -248,6 +252,8 @@ public class HiveWriterFactory
         }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
+
+        this.tempFileWriterFactory = requireNonNull(tempFileWriterFactory, "tempFileWriterFactory is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -519,7 +525,9 @@ public class HiveWriterFactory
                     types,
                     sortFields,
                     sortOrders,
-                    pageSorter);
+                    pageSorter,
+                    tempFileWriterFactory,
+                    session);
         }
 
         return new HiveWriter(

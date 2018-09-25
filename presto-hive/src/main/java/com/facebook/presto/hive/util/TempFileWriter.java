@@ -35,6 +35,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TempFileWriter
@@ -42,9 +43,9 @@ public class TempFileWriter
 {
     private final OrcWriter orcWriter;
 
-    public TempFileWriter(List<Type> types, OutputStream output)
+    public TempFileWriter(OrcWriter orcWriter)
     {
-        this.orcWriter = createOrcFileWriter(output, types);
+        this.orcWriter = requireNonNull(orcWriter, "orcWriter is null");
     }
 
     public void writePage(Page page)
@@ -67,29 +68,5 @@ public class TempFileWriter
     public long getWrittenBytes()
     {
         return orcWriter.getWrittenBytes();
-    }
-
-    private static OrcWriter createOrcFileWriter(OutputStream output, List<Type> types)
-    {
-        List<String> columnNames = IntStream.range(0, types.size())
-                .mapToObj(String::valueOf)
-                .collect(toImmutableList());
-
-        return new OrcWriter(
-                new OutputStreamOrcDataSink(output),
-                columnNames,
-                types,
-                ORC,
-                LZ4,
-                new OrcWriterOptions()
-                        .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
-                        .withStripeMinSize(new DataSize(4, MEGABYTE))
-                        .withStripeMaxSize(new DataSize(4, MEGABYTE))
-                        .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
-                ImmutableMap.of(),
-                UTC,
-                false,
-                OrcWriteValidationMode.BOTH,
-                new OrcWriterStats());
     }
 }
