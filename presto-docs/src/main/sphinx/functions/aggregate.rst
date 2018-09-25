@@ -206,6 +206,16 @@ Approximate Aggregate Functions
     Each element of the array must be between zero and one, and the array must
     be constant for all input rows.
 
+.. function:: approx_set(x) -> HyperLogLog
+    :noindex:
+
+    See :doc:`hyperloglog`.
+
+.. function:: merge(x) -> HyperLogLog
+    :noindex:
+
+    See :doc:`hyperloglog`.
+
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
