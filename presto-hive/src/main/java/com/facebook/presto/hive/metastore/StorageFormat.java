@@ -21,6 +21,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -122,5 +123,15 @@ public class StorageFormat
     public int hashCode()
     {
         return Objects.hash(serDe, inputFormat, outputFormat);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("serDe", serDe)
+                .add("inputFormat", inputFormat)
+                .add("outputFormat", outputFormat)
+                .toString();
     }
 }
