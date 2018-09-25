@@ -449,7 +449,8 @@ public class HiveWriterFactory
                     schema,
                     partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
-                    typeManager);
+                    typeManager,
+                    session);
         }
 
         String writerImplementation = hiveFileWriter.getClass().getName();

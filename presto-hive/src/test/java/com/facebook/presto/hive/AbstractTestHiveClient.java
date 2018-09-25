@@ -776,7 +776,7 @@ public abstract class AbstractTestHiveClient
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig()),
+                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
@@ -793,7 +793,7 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()
@@ -2890,7 +2890,7 @@ public abstract class AbstractTestHiveClient
     {
         HiveSessionProperties properties = new HiveSessionProperties(
                 getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
-                new OrcFileWriterConfig());
+                new OrcFileWriterConfig(), new ParquetFileWriterConfig());
         return new TestingConnectorSession(properties.getSessionProperties());
     }
 
