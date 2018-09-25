@@ -223,16 +223,16 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void createPartitionedTable()
+    public void testCreatePartitionedTable()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             if (insertOperationsSupported(storageFormat.getFormat())) {
-                createPartitionedTable(storageFormat.getSession(), storageFormat.getFormat());
+                testCreatePartitionedTable(storageFormat.getSession(), storageFormat.getFormat());
             }
         }
     }
 
-    private void createPartitionedTable(Session session, HiveStorageFormat storageFormat)
+    private void testCreatePartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_partitioned_table (" +
@@ -471,16 +471,16 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void createTableAs()
+    public void testCreateTableAs()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             if (insertOperationsSupported(storageFormat.getFormat())) {
-                createTableAs(storageFormat.getSession(), storageFormat.getFormat());
+                testCreateTableAs(storageFormat.getSession(), storageFormat.getFormat());
             }
         }
     }
 
-    private void createTableAs(Session session, HiveStorageFormat storageFormat)
+    private void testCreateTableAs(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
@@ -521,14 +521,14 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void createPartitionedTableAs()
+    public void testCreatePartitionedTableAs()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            createPartitionedTableAs(storageFormat.getSession(), storageFormat.getFormat());
+            testCreatePartitionedTableAs(storageFormat.getSession(), storageFormat.getFormat());
         }
     }
 
-    private void createPartitionedTableAs(Session session, HiveStorageFormat storageFormat)
+    private void testCreatePartitionedTableAs(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as " +
@@ -1034,16 +1034,16 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void insertTable()
+    public void testInsert()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             if (insertOperationsSupported(storageFormat.getFormat())) {
-                insertTable(storageFormat.getSession(), storageFormat.getFormat());
+                testInsert(storageFormat.getSession(), storageFormat.getFormat());
             }
         }
     }
 
-    private void insertTable(Session session, HiveStorageFormat storageFormat)
+    private void testInsert(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_format_table " +
@@ -1120,14 +1120,14 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void insertPartitionedTable()
+    public void testInsertPartitionedTable()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            insertPartitionedTable(storageFormat.getSession(), storageFormat.getFormat());
+            testInsertPartitionedTable(storageFormat.getSession(), storageFormat.getFormat());
         }
     }
 
-    private void insertPartitionedTable(Session session, HiveStorageFormat storageFormat)
+    private void testInsertPartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_partitioned_table " +
@@ -1920,11 +1920,11 @@ public class TestHiveIntegrationSmokeTest
     public void testPathHiddenColumn()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            doTestPathHiddenColumn(storageFormat.getSession(), storageFormat.getFormat());
+            testPathHiddenColumn(storageFormat.getSession(), storageFormat.getFormat());
         }
     }
 
-    private void doTestPathHiddenColumn(Session session, HiveStorageFormat storageFormat)
+    private void testPathHiddenColumn(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "CREATE TABLE test_path " +
                 "WITH (" +
