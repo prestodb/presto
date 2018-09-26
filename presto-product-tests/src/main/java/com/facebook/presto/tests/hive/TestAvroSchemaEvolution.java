@@ -27,7 +27,7 @@ import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContex
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
-public class TestAvroSchemaDefinedTable
+public class TestAvroSchemaEvolution
         extends ProductTest
 {
     private static final String TABLE_NAME = "product_tests_avro_table";
