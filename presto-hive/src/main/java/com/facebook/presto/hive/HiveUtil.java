@@ -98,6 +98,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -342,12 +343,12 @@ public final class HiveUtil
     }
 
     @SuppressWarnings("deprecation")
-    public static Deserializer getDeserializer(Properties schema)
+    public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
-        initializeDeserializer(deserializer, schema);
+        initializeDeserializer(configuration, deserializer, schema);
         return deserializer;
     }
 
@@ -382,10 +383,11 @@ public final class HiveUtil
     }
 
     @SuppressWarnings("deprecation")
-    private static void initializeDeserializer(Deserializer deserializer, Properties schema)
+    private static void initializeDeserializer(Configuration configuration, Deserializer deserializer, Properties schema)
     {
         try {
-            deserializer.initialize(new Configuration(false), schema);
+            configuration = copy(configuration); // Some SerDes (e.g. Avro) modify passed configuration
+            deserializer.initialize(configuration, schema);
         }
         catch (SerDeException e) {
             throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName());
