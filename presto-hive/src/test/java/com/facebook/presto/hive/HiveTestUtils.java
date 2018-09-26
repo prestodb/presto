@@ -92,14 +92,20 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
-                .add(new OrcFileWriterFactory(
-                        testHdfsEnvironment,
-                        TYPE_MANAGER,
-                        new NodeVersion("test_version"),
-                        hiveClientConfig,
-                        new FileFormatDataSourceStats(),
-                        new OrcFileWriterConfig()))
+                .add(getDefaultOrcFileWriterFactory(hiveClientConfig))
                 .build();
+    }
+
+    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return new OrcFileWriterFactory(
+                testHdfsEnvironment,
+                TYPE_MANAGER,
+                new NodeVersion("test_version"),
+                hiveClientConfig,
+                new FileFormatDataSourceStats(),
+                new OrcFileWriterConfig());
     }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
