@@ -37,9 +37,14 @@ public final class ConfigurationUtils
 
     public static Configuration getInitialConfiguration()
     {
-        Configuration configuration = new Configuration(false);
-        copy(INITIAL_CONFIGURATION, configuration);
-        return configuration;
+        return copy(INITIAL_CONFIGURATION);
+    }
+
+    public static Configuration copy(Configuration configuration)
+    {
+        Configuration copy = new Configuration(false);
+        copy(configuration, copy);
+        return copy;
     }
 
     public static void copy(Configuration from, Configuration to)

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -114,6 +115,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private boolean closed;
 
     public GenericHiveRecordCursor(
+            Configuration configuration,
             Path path,
             RecordReader<K, V> recordReader,
             long totalBytes,
@@ -136,7 +138,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         this.value = recordReader.createValue();
         this.hiveStorageTimeZone = hiveStorageTimeZone;
 
-        this.deserializer = getDeserializer(splitSchema);
+        this.deserializer = getDeserializer(configuration, splitSchema);
         this.rowInspector = getTableObjectInspector(deserializer);
 
         int size = columns.size();
