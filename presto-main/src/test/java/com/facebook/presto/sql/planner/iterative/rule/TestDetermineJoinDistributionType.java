@@ -18,6 +18,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.SymbolStatsEstimate;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
@@ -66,11 +67,6 @@ public class TestDetermineJoinDistributionType
         tester = null;
     }
 
-    private RuleTester tester()
-    {
-        return tester;
-    }
-
     @Test
     public void testDetermineDistributionType()
     {
@@ -89,7 +85,7 @@ public class TestDetermineJoinDistributionType
 
     private void testDetermineDistributionType(JoinDistributionType sessionDistributedJoin, Type joinType, DistributionType expectedDistribution)
     {
-        tester().assertThat(new DetermineJoinDistributionType(COST_COMPARATOR))
+        assertDetermineJoinDistributionType()
                 .on(p ->
                         p.join(
                                 joinType,
@@ -121,7 +117,7 @@ public class TestDetermineJoinDistributionType
 
     private void testRepartitionRightOuter(JoinDistributionType sessionDistributedJoin, Type joinType)
     {
-        tester().assertThat(new DetermineJoinDistributionType(COST_COMPARATOR))
+        assertDetermineJoinDistributionType()
                 .on(p ->
                         p.join(
                                 joinType,
@@ -143,7 +139,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testReplicateScalar()
     {
-        tester().assertThat(new DetermineJoinDistributionType(COST_COMPARATOR))
+        assertDetermineJoinDistributionType()
                 .on(p ->
                         p.join(
                                 INNER,
@@ -172,7 +168,7 @@ public class TestDetermineJoinDistributionType
 
     private void testReplicateNoEquiCriteria(Type joinType)
     {
-        tester().assertThat(new DetermineJoinDistributionType(COST_COMPARATOR))
+        assertDetermineJoinDistributionType()
                 .on(p ->
                         p.join(
                                 joinType,
@@ -194,7 +190,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testRetainDistributionType()
     {
-        tester().assertThat(new DetermineJoinDistributionType(COST_COMPARATOR))
+        assertDetermineJoinDistributionType()
                 .on(p ->
                         p.join(
                                 INNER,
@@ -214,7 +210,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 100;
         int bRows = 10_000;
-        tester.assertThat(new DetermineJoinDistributionType(COST_COMPARATOR))
+        assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -246,7 +242,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 100;
         int bRows = 10_000;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+        assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -279,7 +275,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 10_000;
         int bRows = 10_000;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+        assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -311,7 +307,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 10_000;
         int bRows = 10_000;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+        assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -344,7 +340,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 10_000;
         int bRows = 10;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+        assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -376,7 +372,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 10_000;
         int bRows = 10;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+        assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -408,7 +404,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 10_000;
         int bRows = 10;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(75, 10, 15)))
+        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -440,7 +436,7 @@ public class TestDetermineJoinDistributionType
     {
         int aRows = 10;
         int bRows = 1_000_000;
-        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(75, 10, 15)))
+        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -465,5 +461,15 @@ public class TestDetermineJoinDistributionType
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
+    }
+
+    private RuleAssert assertDetermineJoinDistributionType()
+    {
+        return assertDetermineJoinDistributionType(COST_COMPARATOR);
+    }
+
+    private RuleAssert assertDetermineJoinDistributionType(CostComparator costComparator)
+    {
+        return tester.assertThat(new DetermineJoinDistributionType(costComparator));
     }
 }
