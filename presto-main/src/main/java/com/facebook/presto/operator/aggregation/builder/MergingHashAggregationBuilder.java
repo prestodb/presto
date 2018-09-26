@@ -147,6 +147,7 @@ public class MergingHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),
                 joinCompiler,
+                false,
                 false);
     }
 }

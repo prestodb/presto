@@ -63,6 +63,7 @@ public class InMemoryHashAggregationBuilder
     private final OptionalLong maxPartialMemory;
     private final LocalMemoryContext systemMemoryContext;
     private final LocalMemoryContext localUserMemoryContext;
+    private final boolean useSystemMemory;
 
     private boolean full;
 
@@ -76,7 +77,8 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
-            boolean yieldForMemoryReservation)
+            boolean yieldForMemoryReservation,
+            boolean useSystemMemory)
     {
         this(accumulatorFactories,
                 step,
@@ -88,12 +90,13 @@ public class InMemoryHashAggregationBuilder
                 maxPartialMemory,
                 Optional.empty(),
                 joinCompiler,
-                yieldForMemoryReservation);
+                yieldForMemoryReservation,
+                useSystemMemory);
     }
 
     public InMemoryHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
-            AggregationNode.Step step,
+            Step step,
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
@@ -102,7 +105,8 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler,
-            boolean yieldForMemoryReservation)
+            boolean yieldForMemoryReservation,
+            boolean useSystemMemory)
     {
         UpdateMemory updateMemory;
         if (yieldForMemoryReservation) {
@@ -130,6 +134,7 @@ public class InMemoryHashAggregationBuilder
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.useSystemMemory = useSystemMemory;
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -148,12 +153,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void close()
     {
-        if (partial) {
-            systemMemoryContext.setBytes(0);
-        }
-        else {
-            localUserMemoryContext.setBytes(0);
-        }
+        updateMemory(0);
     }
 
     @Override
@@ -327,17 +327,26 @@ public class InMemoryHashAggregationBuilder
     private boolean updateMemoryWithYieldInfo()
     {
         long memorySize = getSizeInMemory();
-        // if partial limit is not set, memory is considered as user memory
         if (partial && maxPartialMemory.isPresent()) {
-            systemMemoryContext.setBytes(memorySize);
+            updateMemory(memorySize);
             full = (memorySize > maxPartialMemory.getAsLong());
             return true;
         }
         // Operator/driver will be blocked on memory after we call setBytes.
         // If memory is not available, once we return, this operator will be blocked until memory is available.
-        localUserMemoryContext.setBytes(memorySize);
+        updateMemory(memorySize);
         // If memory is not available, inform the caller that we cannot proceed for allocation.
         return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private void updateMemory(long memorySize)
+    {
+        if (useSystemMemory) {
+            systemMemoryContext.setBytes(memorySize);
+        }
+        else {
+            localUserMemoryContext.setBytes(memorySize);
+        }
     }
 
     private IntIterator consecutiveGroupIds()
