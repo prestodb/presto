@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -49,6 +50,10 @@ public class AggregationStatsRule
     protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
     {
         if (node.getGroupingSetCount() != 1) {
+            return Optional.empty();
+        }
+
+        if (node.getStep() != SINGLE) {
             return Optional.empty();
         }
 

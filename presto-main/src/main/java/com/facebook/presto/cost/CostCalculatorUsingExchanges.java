@@ -51,6 +51,8 @@ import java.util.function.IntSupplier;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -157,6 +159,9 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitAggregation(AggregationNode node, Void context)
         {
+            if (node.getStep() != FINAL && node.getStep() != SINGLE) {
+                return UNKNOWN_COST;
+            }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
             double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);

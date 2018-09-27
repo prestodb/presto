@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
@@ -55,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -438,7 +440,7 @@ public class DistributedQueryRunner
 
     public static class Builder
     {
-        private final Session defaultSession;
+        private Session defaultSession;
         private int nodeCount = 4;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -447,7 +449,14 @@ public class DistributedQueryRunner
 
         protected Builder(Session defaultSession)
         {
-            this.defaultSession = defaultSession;
+            this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+        }
+
+        public Builder amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
+        {
+            SessionBuilder builder = Session.builder(defaultSession);
+            this.defaultSession = amendSession.apply(builder).build();
+            return this;
         }
 
         public Builder setNodeCount(int nodeCount)
