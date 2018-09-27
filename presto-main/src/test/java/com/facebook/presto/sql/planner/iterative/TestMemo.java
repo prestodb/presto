@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -238,8 +238,8 @@ public class TestMemo
         Memo memo = new Memo(idAllocator, x);
         int xGroup = memo.getRootGroup();
         int yGroup = getChildGroup(memo, memo.getRootGroup());
-        PlanNodeCostEstimate yCost = PlanNodeCostEstimate.cpuCost(42);
-        PlanNodeCostEstimate xCost = yCost.add(PlanNodeCostEstimate.networkCost(37));
+        PlanCostEstimate yCost = new PlanCostEstimate(42, 0, 0, 0);
+        PlanCostEstimate xCost = new PlanCostEstimate(42, 0, 0, 37);
 
         memo.storeCumulativeCost(yGroup, yCost);
         memo.storeCumulativeCost(xGroup, xCost);
