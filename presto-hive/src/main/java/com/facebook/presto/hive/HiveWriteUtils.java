@@ -122,6 +122,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Float.intBitsToFloat;
@@ -551,10 +552,7 @@ public final class HiveWriteUtils
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = "/tmp/presto-" + context.getIdentity().getUser();
 
-        // use relative temporary directory on ViewFS
-        if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
-            temporaryPrefix = ".hive-staging";
-        }
+        checkState(!isViewFileSystem(context, hdfsEnvironment, targetPath), "Special support for viewfs has been removed, because it was erratic");
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
