@@ -538,6 +538,15 @@ public class TestGeoFunctions
         assertFunction("ST_Distance(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'), ST_GeometryFromText('LINESTRING (10 20, 20 50)'))", DOUBLE, 17.08800749063506);
         assertFunction("ST_Distance(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))'))", DOUBLE, 1.4142135623730951);
         assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((10 100, 30 10))'))", DOUBLE, 27.892651361962706);
+
+        assertFunction("ST_Distance(ST_GeometryFromText('POINT EMPTY'), ST_Point(150, 150))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_Point(50, 100), ST_GeometryFromText('POINT EMPTY'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('POINT EMPTY'), ST_GeometryFromText('POINT EMPTY'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOINT EMPTY'), ST_GeometryFromText('Point (50 100)'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('LINESTRING (50 100, 50 200)'), ST_GeometryFromText('LINESTRING EMPTY'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('MULTILINESTRING EMPTY'), ST_GeometryFromText('LINESTRING (10 20, 20 50)'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOLYGON EMPTY'), ST_GeometryFromText('POLYGON ((10 100, 30 10))'))", DOUBLE, null);
     }
 
     @Test

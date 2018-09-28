@@ -822,15 +822,16 @@ public final class GeoFunctions
         return serialize(leftGeometry.difference(rightGeometry));
     }
 
+    @SqlNullable
     @Description("Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units")
     @ScalarFunction("ST_Distance")
     @SqlType(DOUBLE)
-    public static double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    public static Double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.distance(rightGeometry);
+        return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
     }
 
     @SqlNullable
