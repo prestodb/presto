@@ -440,10 +440,14 @@ public class MetastoreHiveStatisticsProvider
             double averageRowsPerPartition,
             double rowCount)
     {
+        List<HivePartition> nonEmptyPartitions = partitions.stream()
+                .filter(partition -> getPartitionRowCount(partition.getPartitionId(), statistics).orElse(averageRowsPerPartition) != 0)
+                .collect(toImmutableList());
+
         return ColumnStatistics.builder()
-                .setDistinctValuesCount(Estimate.of(calculateDistinctPartitionKeys(column, partitions, statistics, averageRowsPerPartition)))
+                .setDistinctValuesCount(Estimate.of(calculateDistinctPartitionKeys(column, nonEmptyPartitions)))
                 .setNullsFraction(Estimate.of(calculateNullsFractionForPartitioningKey(column, partitions, statistics, averageRowsPerPartition, rowCount)))
-                .setRange(calculateRangeForPartitioningKey(column, type, partitions))
+                .setRange(calculateRangeForPartitioningKey(column, type, nonEmptyPartitions))
                 .setDataSize(calculateDataSizeForPartitioningKey(column, type, partitions, statistics, averageRowsPerPartition))
                 .build();
     }
@@ -451,13 +455,9 @@ public class MetastoreHiveStatisticsProvider
     @VisibleForTesting
     static long calculateDistinctPartitionKeys(
             HiveColumnHandle column,
-            List<HivePartition> partitions,
-            Map<String, PartitionStatistics> statistics,
-            double averageRowsPerPartition)
+            List<HivePartition> partitions)
     {
         return partitions.stream()
-                // consider only non empty partitions
-                .filter(partition -> getPartitionRowCount(partition.getPartitionId(), statistics).orElse(averageRowsPerPartition) > 0)
                 .map(partition -> partition.getKeys().get(column))
                 .filter(value -> !value.isNull())
                 .distinct()
