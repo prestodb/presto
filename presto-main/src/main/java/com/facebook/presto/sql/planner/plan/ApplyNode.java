@@ -62,6 +62,7 @@ public class ApplyNode
      * <p>
      */
     private final Assignments subqueryAssignments;
+    private final List<Symbol> outputSymbols;
 
     /**
      * HACK!
@@ -95,6 +96,14 @@ public class ApplyNode
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
         this.originSubquery = originSubquery;
+
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        outputSymbols.addAll(input.getOutputSymbols());
+        subqueryAssignments.getOutputs()
+                .stream()
+                .filter(symbol -> !input.getOutputSymbols().contains(symbol))
+                .forEach(outputSymbols::add);
+        this.outputSymbols = outputSymbols.build();
     }
 
     private static boolean isSupportedSubqueryExpression(Expression expression)
@@ -144,10 +153,7 @@ public class ApplyNode
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.getOutputs())
-                .build();
+        return outputSymbols;
     }
 
     @Override
