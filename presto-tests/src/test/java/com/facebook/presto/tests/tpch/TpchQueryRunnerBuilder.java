@@ -19,6 +19,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
@@ -28,6 +29,7 @@ public final class TpchQueryRunnerBuilder
             .setSource("test")
             .setCatalog("tpch")
             .setSchema("tiny")
+            .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
             .build();
 
     private TpchQueryRunnerBuilder()

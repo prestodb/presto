@@ -18,6 +18,7 @@ import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.DynamicFilters;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -60,6 +61,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -142,6 +144,22 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
+            return visitScanAndFilter(node, Optional.empty());
+        }
+
+        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode node, Optional<FilterNode> filter)
+        {
+            List<DynamicFilters.Descriptor> dynamicFilters = filter
+                    .map(FilterNode::getPredicate)
+                    .map(DynamicFilters::extractDynamicFilters)
+                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                    .orElse(ImmutableList.of());
+
+            // TODO: Execution must be plugged in here
+            if (!dynamicFilters.isEmpty()) {
+                log.debug("Dynamic filters: %s", dynamicFilters);
+            }
+
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
@@ -209,6 +227,11 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
+            if (node.getSource() instanceof TableScanNode) {
+                TableScanNode scan = (TableScanNode) node.getSource();
+                return visitScanAndFilter(scan, Optional.of(node));
+            }
+
             return node.getSource().accept(this, context);
         }
 

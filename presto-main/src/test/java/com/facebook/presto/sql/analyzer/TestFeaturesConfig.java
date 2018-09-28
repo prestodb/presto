@@ -104,7 +104,8 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
-                .setPreAllocateMemoryThreshold(succinctBytes(0)));
+                .setPreAllocateMemoryThreshold(succinctBytes(0))
+                .setEnableDynamicFiltering(false));
     }
 
     @Test
@@ -168,6 +169,7 @@ public class TestFeaturesConfig
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("deprecated.legacy-unnest-array-rows", "true")
                 .put("experimental.preallocate-memory-threshold", "5TB")
+                .put("experimental.enable-dynamic-filtering", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -227,7 +229,8 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setLegacyUnnestArrayRows(true)
-                .setPreAllocateMemoryThreshold(DataSize.valueOf("5TB"));
+                .setPreAllocateMemoryThreshold(DataSize.valueOf("5TB"))
+                .setEnableDynamicFiltering(true);
         assertFullMapping(properties, expected);
     }
 

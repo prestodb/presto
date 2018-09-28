@@ -349,7 +349,30 @@ public final class PlanMatchPattern
                         joinType,
                         expectedEquiCriteria,
                         expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
-                        expectedDistributionType));
+                        expectedDistributionType,
+                        Optional.empty()));
+    }
+
+    public static PlanMatchPattern join(
+            JoinNode.Type joinType,
+            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
+            Map<String, String> expectedDynamicFilter,
+            Optional<JoinNode.DistributionType> expectedDistributionType,
+            PlanMatchPattern left,
+            PlanMatchPattern right)
+    {
+        Map<SymbolAlias, SymbolAlias> expectedDynamicFilterAliases = expectedDynamicFilter.entrySet().stream()
+                .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), entry -> new SymbolAlias(entry.getValue())));
+        DynamicFilterMatcher dynamicFilterMatcher = new DynamicFilterMatcher(expectedDynamicFilterAliases);
+        JoinMatcher joinMatcher = new JoinMatcher(
+                joinType,
+                expectedEquiCriteria,
+                Optional.empty(),
+                expectedDistributionType,
+                Optional.of(dynamicFilterMatcher));
+
+        return node(JoinNode.class, node(FilterNode.class, left).with(dynamicFilterMatcher), right)
+                .with(joinMatcher);
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)

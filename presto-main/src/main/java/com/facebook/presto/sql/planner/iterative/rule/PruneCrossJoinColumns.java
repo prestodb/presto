@@ -60,6 +60,7 @@ public class PruneCrossJoinColumns
                 joinNode.getFilter(),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType()));
+                joinNode.getDistributionType(),
+                joinNode.getDynamicFilters()));
     }
 }

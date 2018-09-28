@@ -109,6 +109,8 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.DynamicFilters;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -1188,9 +1190,18 @@ public class LocalExecutionPlanner
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
+            Optional<DynamicFilters.ExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
+            Optional<Expression> staticFilters = extractDynamicFilterResult.map(DynamicFilters.ExtractResult::getStaticConjuncts).map(ExpressionUtils::combineConjuncts);
+
+            // TODO: Execution must be plugged in here
+            Optional<List<DynamicFilters.Descriptor>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilters.ExtractResult::getDynamicConjuncts);
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
+            }
+
             // compiler uses inputs instead of symbols, so rewrite the expressions first
             SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
-            Optional<Expression> rewrittenFilter = filterExpression.map(symbolToInputRewriter::rewrite);
+            Optional<Expression> rewrittenFilter = staticFilters.map(symbolToInputRewriter::rewrite);
 
             List<Expression> rewrittenProjections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -1572,6 +1583,12 @@ public class LocalExecutionPlanner
             }
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+
+            // TODO: Execution must be plugged in here
+            if (!node.getDynamicFilters().isEmpty()) {
+                log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
+            }
+
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 

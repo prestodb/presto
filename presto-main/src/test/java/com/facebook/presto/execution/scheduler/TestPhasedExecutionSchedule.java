@@ -198,7 +198,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(REPLICATED));
+                Optional.of(REPLICATED),
+                ImmutableMap.of());
 
         return createFragment(join);
     }
@@ -220,7 +221,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         return createFragment(planNode);
     }
