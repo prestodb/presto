@@ -15,6 +15,7 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -79,5 +80,11 @@ public class ThriftIndexHandle
                 .add("schemaTableName", schemaTableName)
                 .add("tupleDomain", tupleDomain)
                 .toString();
+    }
+
+    @Override
+    public String toString(ConnectorSession session)
+    {
+        return schemaTableName + ":" + tupleDomain.toString(session);
     }
 }

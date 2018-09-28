@@ -608,7 +608,7 @@ public class PlanPrinter
         @Override
         public Void visitIndexSource(IndexSourceNode node, Integer indent)
         {
-            print(indent, "- IndexSource[%s, lookup = %s] => [%s]", node.getIndexHandle(), node.getLookupSymbols(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- IndexSource[%s, lookup = %s] => [%s]", node.getIndexHandle().toString(session.toConnectorSession()), node.getLookupSymbols(), formatOutputs(node.getOutputSymbols()));
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
