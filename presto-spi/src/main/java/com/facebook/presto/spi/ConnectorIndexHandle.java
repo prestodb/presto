@@ -15,4 +15,5 @@ package com.facebook.presto.spi;
 
 public interface ConnectorIndexHandle
 {
+    String toString(ConnectorSession session);
 }

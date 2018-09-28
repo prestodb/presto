@@ -14,9 +14,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSession;
 
 public enum TestingConnectorIndexHandle
         implements ConnectorIndexHandle
 {
-    INSTANCE
+    INSTANCE;
+
+    @Override
+    public String toString(ConnectorSession session)
+    {
+        return "";
+    }
 }

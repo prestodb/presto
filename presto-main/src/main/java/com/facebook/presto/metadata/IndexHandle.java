@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -83,5 +84,10 @@ public final class IndexHandle
     public String toString()
     {
         return connectorId + ":" + transactionHandle + ":" + connectorHandle;
+    }
+
+    public String toString(ConnectorSession session)
+    {
+        return connectorId + ":" + connectorHandle.toString(session);
     }
 }
