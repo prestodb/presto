@@ -15,6 +15,8 @@ package com.facebook.presto.ranger;
 
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+
 public class TestRangerSystemAccessControlFactory
 {
     @Test
@@ -25,5 +27,15 @@ public class TestRangerSystemAccessControlFactory
     @Test
     public void testCreate() throws Exception
     {
+        RangerSystemAccessControlFactory rangerSystemAccessControlFactory = new RangerSystemAccessControlFactory();
+        rangerSystemAccessControlFactory.create(new HashMap<String, String>());
+
+        rangerSystemAccessControlFactory.create(new HashMap<String, String>()
+        {
+            {
+                put("login-to-ranger-principal", "");
+                put("login-to-ranger-keytab", "");
+            }
+        });
     }
 }

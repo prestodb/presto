@@ -13,12 +13,25 @@
  */
 package com.facebook.presto.ranger;
 
+import com.facebook.presto.spi.SchemaTableName;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestRangerPrestoResource
 {
     @Test
     public void testGetSchemaTable() throws Exception
     {
+        String catalog = "catalog";
+        String database = "database";
+        String table = "table";
+        String columns = "columns";
+        RangerPrestoResource rangerPrestoResource = new RangerPrestoResource(catalog, database, table, Optional.of(columns));
+        SchemaTableName schemaTable = rangerPrestoResource.getSchemaTable();
+        assertEquals(schemaTable.getSchemaName(), database);
+        assertEquals(schemaTable.getTableName(), table);
     }
 }

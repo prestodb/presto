@@ -31,17 +31,17 @@ public class RangerPrestoResource
 
     public RangerPrestoResource(Optional<String> catalog)
     {
-        this(PrestoObjectType.CATALOG, catalog, null, null, null);
+        this(PrestoObjectType.CATALOG, catalog, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public RangerPrestoResource(String catalog, Optional<String> database)
     {
-        this(PrestoObjectType.DATABASE, Optional.of(catalog), database, null, null);
+        this(PrestoObjectType.DATABASE, Optional.of(catalog), database, Optional.empty(), Optional.empty());
     }
 
     public RangerPrestoResource(String catalog, String database, Optional<String> table)
     {
-        this(PrestoObjectType.TABLE, Optional.of(catalog), Optional.of(database), table, null);
+        this(PrestoObjectType.TABLE, Optional.of(catalog), Optional.of(database), table, Optional.empty());
     }
 
     public RangerPrestoResource(String catalog, String database, String table, Optional<String> column)

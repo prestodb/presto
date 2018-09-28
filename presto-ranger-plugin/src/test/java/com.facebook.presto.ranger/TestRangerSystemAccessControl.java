@@ -13,117 +13,85 @@
  */
 package com.facebook.presto.ranger;
 
+import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.BasicPrincipal;
+import com.facebook.presto.spi.security.Identity;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import java.security.Principal;
+import java.util.HashMap;
+import java.util.Optional;
 
 public class TestRangerSystemAccessControl
 {
-    @Test
+    private PrestoAuthorizer prestoAuthorizer;
+    private RangerSystemAccessControl normalRangerSystemAccessControl;
+    private RangerSystemAccessControl writeableRangerSystemAccessControl;
+    private RangerSystemAccessControl powerUserRangerSystemAccessControl;
+    private RangerSystemAccessControl powerPrincipalRangerSystemAccessControl;
+    @BeforeTest
+    public void setUp()
+    {
+        UserGroups userGroups = new UserGroups(new HashMap<String, String>());
+
+        RangerPrestoPlugin rangerPrestoPlugin = new RangerPrestoPlugin("presto", "presto");
+        this.prestoAuthorizer = new PrestoAuthorizer(userGroups, rangerPrestoPlugin);
+
+        this.normalRangerSystemAccessControl = new RangerSystemAccessControl(prestoAuthorizer, new HashMap<String, String>());
+
+        this.writeableRangerSystemAccessControl = new RangerSystemAccessControl(prestoAuthorizer, new HashMap<String, String>()
+        {
+            {
+                put("writeable-catalogs", "writeable1,writeable2");
+            }
+        });
+
+        this.powerUserRangerSystemAccessControl = new RangerSystemAccessControl(prestoAuthorizer, new HashMap<String, String>()
+        {
+            {
+                put("power-users", "user1,user2");
+            }
+        });
+
+        this.powerPrincipalRangerSystemAccessControl = new RangerSystemAccessControl(prestoAuthorizer, new HashMap<String, String>()
+        {
+            {
+                put("power-principals", "principal1,principal2");
+            }
+        });
+    }
+
+    @Test(expectedExceptions = AccessDeniedException.class)
     public void testCheckCanSetUser() throws Exception
     {
+        Principal principal = new BasicPrincipal("principal1");
+        normalRangerSystemAccessControl.checkCanSetUser(Optional.of(principal), "user1");
     }
 
-    @Test
-    public void testFilterCatalogs() throws Exception
-    {
-    }
-
-    @Test
+    @Test(expectedExceptions = AccessDeniedException.class)
     public void testCheckCanSetSystemSessionProperty() throws Exception
     {
+        Identity identity = new Identity("user1", Optional.empty());
+        normalRangerSystemAccessControl.checkCanSetSystemSessionProperty(identity, "property");
     }
 
-    @Test
+    @Test(expectedExceptions = AccessDeniedException.class)
     public void testCheckCanSetCatalogSessionProperty() throws Exception
     {
-    }
-
-    @Test
-    public void testCheckCanAccessCatalog() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanShowSchemas() throws Exception
-    {
+        Identity identity = new Identity("user1", Optional.empty());
+        normalRangerSystemAccessControl.checkCanSetCatalogSessionProperty(identity, "catalog", "property");
     }
 
     @Test
     public void testCheckCanShowTablesMetadata() throws Exception
     {
-    }
-
-    @Test
-    public void testFilterTables() throws Exception
-    {
-    }
-
-    @Test
-    public void testFilterSchemas() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanCreateSchema() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanDropSchema() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanRenameSchema() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanCreateTable() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanDropTable() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanRenameTable() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanAddColumn() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanRenameColumn() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanInsertIntoTable() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanDeleteFromTable() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanCreateView() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanDropView() throws Exception
-    {
-    }
-
-    @Test
-    public void testCheckCanSelectFromColumns() throws Exception
-    {
+        Identity identity = new Identity("user1", Optional.empty());
+        CatalogSchemaName catalogSchemaName = new CatalogSchemaName("catalog", "database");
+        normalRangerSystemAccessControl.checkCanShowTablesMetadata(identity, catalogSchemaName);
+        writeableRangerSystemAccessControl.checkCanShowTablesMetadata(identity, catalogSchemaName);
+        powerUserRangerSystemAccessControl.checkCanShowTablesMetadata(identity, catalogSchemaName);
+        powerPrincipalRangerSystemAccessControl.checkCanShowTablesMetadata(identity, catalogSchemaName);
     }
 }

@@ -15,10 +15,14 @@ package com.facebook.presto.ranger;
 
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+
 public class TestUserGroups
 {
     @Test
     public void testGetUserGroups() throws Exception
     {
+        UserGroups userGroups = new UserGroups(new HashMap<>());
+        userGroups.getUserGroups("presto");
     }
 }
