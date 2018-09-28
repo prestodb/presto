@@ -220,10 +220,6 @@
                                     <pattern>javax.ws</pattern>
                                     <shadedPattern>com.facebook.internal.shaded.javax.ws</shadedPattern>
                                 </relocation>
-                                <relocation>
-                                    <pattern>com.sun.jersey</pattern>
-                                    <shadedPattern>com.facebook.internal.shaded.com.sun.jersey</shadedPattern>
-                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
