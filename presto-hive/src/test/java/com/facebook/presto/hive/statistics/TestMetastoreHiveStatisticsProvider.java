@@ -253,76 +253,41 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDistinctPartitionKeys()
     {
-        assertEquals(calculateDistinctPartitionKeys(PARTITION_COLUMN_1, ImmutableList.of(), ImmutableMap.of(), 1000), 0);
+        assertEquals(calculateDistinctPartitionKeys(PARTITION_COLUMN_1, ImmutableList.of()), 0);
         assertEquals(
                 calculateDistinctPartitionKeys(
                         PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        2000),
+                        ImmutableList.of(partition("p1=string1/p2=1234"))),
                 1);
         assertEquals(
                 calculateDistinctPartitionKeys(
                         PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=string2/p2=1234", rowsCount(1)),
-                        2000),
+                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234"))),
+                2);
+        assertEquals(
+                calculateDistinctPartitionKeys(
+                        PARTITION_COLUMN_2,
+                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234"))),
+                1);
+        assertEquals(
+                calculateDistinctPartitionKeys(
+                        PARTITION_COLUMN_2,
+                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string1/p2=1235"))),
                 2);
         assertEquals(
                 calculateDistinctPartitionKeys(
                         PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=string2/p2=1234", rowsCount(0)),
-                        2000),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        2000),
-                2);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        0),
+                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=string1/p2=1235"))),
                 1);
         assertEquals(
                 calculateDistinctPartitionKeys(
                         PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=string2/p2=1234", rowsCount(1)),
-                        2000),
+                        ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=1235"))),
                 1);
         assertEquals(
                 calculateDistinctPartitionKeys(
                         PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string1/p2=1235")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=string1/p2=1235", rowsCount(1)),
-                        2000),
-                2);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=string1/p2=1235")),
-                        ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=string1/p2=1235", rowsCount(1)),
-                        2000),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=1235")),
-                        ImmutableMap.of("p1=123/p2=__HIVE_DEFAULT_PARTITION__", rowsCount(1000), "p1=string1/p2=1235", rowsCount(1)),
-                        2000),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__")),
-                        ImmutableMap.of("p1=123/p2=__HIVE_DEFAULT_PARTITION__", rowsCount(1000), "p1=string1/p2=__HIVE_DEFAULT_PARTITION__", rowsCount(1)),
-                        2000),
+                        ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"))),
                 0);
     }
 
@@ -489,12 +454,6 @@ public class TestMetastoreHiveStatisticsProvider
                         BIGINT,
                         ImmutableList.of(partition("p1=string1/p2=2"), partition("p1=string1/p2=1"))),
                 Optional.of(new DoubleRange(1, 2)));
-        assertEquals(
-                calculateRangeForPartitioningKey(
-                        PARTITION_COLUMN_2,
-                        BIGINT,
-                        ImmutableList.of(partition("p1=string1/p2=2"), partition("p1=string1/p2=3"), partition("p1=string1/p2=1"))),
-                Optional.of(new DoubleRange(1, 3)));
     }
 
     @Test
