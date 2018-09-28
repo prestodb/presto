@@ -63,6 +63,7 @@ public class LateralJoinNode
      */
     private final List<Symbol> correlation;
     private final Type type;
+    private final List<Symbol> outputSymbols;
 
     /**
      * HACK!
@@ -92,6 +93,14 @@ public class LateralJoinNode
         this.correlation = ImmutableList.copyOf(correlation);
         this.type = type;
         this.originSubquery = originSubquery;
+
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        outputSymbols.addAll(input.getOutputSymbols());
+        subquery.getOutputSymbols()
+                .stream()
+                .filter(symbol -> !input.getOutputSymbols().contains(symbol))
+                .forEach(outputSymbols::add);
+        this.outputSymbols = outputSymbols.build();
     }
 
     @JsonProperty("input")
@@ -134,10 +143,7 @@ public class LateralJoinNode
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subquery.getOutputSymbols())
-                .build();
+        return outputSymbols;
     }
 
     @Override
