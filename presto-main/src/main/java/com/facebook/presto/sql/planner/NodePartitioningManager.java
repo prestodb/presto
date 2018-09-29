@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.group.DynamicBucketedSplitAssignment;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
@@ -36,6 +38,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -110,6 +113,11 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
     }
 
+    public boolean hasBucketToNodeMapping(PartitioningHandle partitioningHandle)
+    {
+        return partitioningProviders.get(partitioningHandle.getConnectorId().get()).hasBucketToNodeMapping();
+    }
+
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
     {
         requireNonNull(session, "session is null");
@@ -149,19 +157,27 @@ public class NodePartitioningManager
             bucketToPartition[entry.getKey()] = partitionId;
         }
 
+        return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, getSplitBucketFunction(session, partitioningHandle));
+    }
+
+    public ToIntFunction<Split> getSplitBucketFunction(Session session, PartitioningHandle partitioningHandle)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", partitioningHandle.getConnectorId().get());
+
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElse(null),
                 session.toConnectorSession(),
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
-        return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, split -> {
+        return split -> {
             // Assign EmptySplit to bucket 0.
             // More details about EmptySplit can be found in SourcePartitionedScheduler.
             if (split.getConnectorSplit() instanceof EmptySplit) {
                 return 0;
             }
             return splitBucketFunction.applyAsInt(split.getConnectorSplit());
-        });
+        };
     }
 }

@@ -17,6 +17,11 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
+import com.facebook.presto.execution.scheduler.group.BucketedSplitAssignment;
+import com.facebook.presto.execution.scheduler.group.DynamicBucketedSplitAssignment;
+import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
+import com.facebook.presto.execution.scheduler.group.DynamicLifespanSplitPlacementPolicy;
+import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.Node;
@@ -45,15 +50,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +67,7 @@ public class FixedSourcePartitionedScheduler
     private static final Logger log = Logger.get(FixedSourcePartitionedScheduler.class);
 
     private final SqlStageExecution stage;
-    private final NodePartitionMap partitioning;
+    private final List<Node> stageNodeList;
     private final List<SourceScheduler> sourceSchedulers;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private boolean scheduledTasks;
@@ -74,7 +78,8 @@ public class FixedSourcePartitionedScheduler
             Map<PlanNodeId, SplitSource> splitSources,
             StageExecutionStrategy stageExecutionStrategy,
             List<PlanNodeId> schedulingOrder,
-            NodePartitionMap partitioning,
+            Optional<NodePartitionMap> nodePartitionMap,
+            ToIntFunction<Split> splitToBucket,
             int splitBatchSize,
             OptionalInt concurrentLifespans,
             NodeSelector nodeSelector,
@@ -82,16 +87,42 @@ public class FixedSourcePartitionedScheduler
     {
         requireNonNull(stage, "stage is null");
         requireNonNull(splitSources, "splitSources is null");
-        requireNonNull(partitioning, "partitioning is null");
         requireNonNull(partitionHandles, "partitionHandles is null");
 
         this.stage = stage;
-        this.partitioning = partitioning;
         this.partitionHandles = ImmutableList.copyOf(partitionHandles);
 
         checkArgument(splitSources.keySet().equals(ImmutableSet.copyOf(schedulingOrder)));
 
-        FixedSplitPlacementPolicy splitPlacementPolicy = new FixedSplitPlacementPolicy(nodeSelector, partitioning, stage::getAllTasks);
+        BucketedSplitAssignment bucketedSplitAssignment;
+        SplitPlacementPolicy splitPlacementPolicy;
+        if (nodePartitionMap.isPresent()) {
+            // nodes are pre determined by the nodePartitionMap
+            int nodeCount = nodePartitionMap.get().getPartitionToNode().size();
+            this.stageNodeList = new ArrayList<>(nodeCount);
+            for (int i = 0; i < nodeCount; i++) {
+                Node node = nodePartitionMap.get().getPartitionToNode().get(i);
+                checkState(node != null);
+                this.stageNodeList.add(node);
+            }
+
+            bucketedSplitAssignment = nodePartitionMap.get().asBucketedSplitAssignment();
+            splitPlacementPolicy = new BucketedSplitPlacementPolicy(
+                    nodeSelector,
+                    stageNodeList,
+                    bucketedSplitAssignment,
+                    stage::getAllTasks);
+        }
+        else {
+            // dynamic lifespan scheduler
+            this.stageNodeList = nodeSelector.allNodes();
+            bucketedSplitAssignment = new DynamicBucketedSplitAssignment(splitToBucket);
+            splitPlacementPolicy = new DynamicLifespanSplitPlacementPolicy(
+                    nodeSelector,
+                    stageNodeList,
+                    bucketedSplitAssignment,
+                    stage::getAllTasks);
+        }
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
         checkArgument(
@@ -127,7 +158,14 @@ public class FixedSourcePartitionedScheduler
                     sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
                 }
                 else {
-                    LifespanScheduler lifespanScheduler = new LifespanScheduler(partitioning, partitionHandles);
+                    LifespanScheduler lifespanScheduler;
+                    if (nodePartitionMap.isPresent()) {
+                        lifespanScheduler = new FixedNodeLifespanScheduler(nodePartitionMap.get(), partitionHandles);
+                    }
+                    else {
+                        lifespanScheduler = new DynamicLifespanScheduler(bucketedSplitAssignment, stageNodeList, partitionHandles);
+                    }
+
                     // Schedule the first few lifespans
                     lifespanScheduler.scheduleInitial(sourceScheduler);
                     // Schedule new lifespans for finished ones
@@ -154,10 +192,13 @@ public class FixedSourcePartitionedScheduler
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
         if (!scheduledTasks) {
-            OptionalInt totalPartitions = OptionalInt.of(partitioning.getPartitionToNode().size());
-            newTasks = partitioning.getPartitionToNode().entrySet().stream()
-                    .map(entry -> stage.scheduleTask(entry.getValue(), entry.getKey(), totalPartitions))
-                    .collect(toImmutableList());
+            OptionalInt totalPartitions = OptionalInt.of(stageNodeList.size());
+            ImmutableList.Builder<RemoteTask> newTasksBuilder = ImmutableList.builderWithExpectedSize(stageNodeList.size());
+            for (int taskId = 0; taskId < stageNodeList.size(); taskId++) {
+                newTasksBuilder.add(stage.scheduleTask(stageNodeList.get(taskId), taskId, totalPartitions));
+            }
+
+            newTasks = newTasksBuilder.build();
             scheduledTasks = true;
         }
 
@@ -226,26 +267,30 @@ public class FixedSourcePartitionedScheduler
         sourceSchedulers.clear();
     }
 
-    public static class FixedSplitPlacementPolicy
+    public static class BucketedSplitPlacementPolicy
             implements SplitPlacementPolicy
     {
         private final NodeSelector nodeSelector;
-        private final NodePartitionMap partitioning;
+        private final List<Node> allNodes;
+        private final BucketedSplitAssignment bucketedSplitAssignment;
         private final Supplier<? extends List<RemoteTask>> remoteTasks;
 
-        public FixedSplitPlacementPolicy(NodeSelector nodeSelector,
-                NodePartitionMap partitioning,
+        public BucketedSplitPlacementPolicy(
+                NodeSelector nodeSelector,
+                List<Node> allNodes,
+                BucketedSplitAssignment bucketedSplitAssignment,
                 Supplier<? extends List<RemoteTask>> remoteTasks)
         {
             this.nodeSelector = nodeSelector;
-            this.partitioning = partitioning;
+            this.allNodes = allNodes;
+            this.bucketedSplitAssignment = bucketedSplitAssignment;
             this.remoteTasks = remoteTasks;
         }
 
         @Override
-        public SplitPlacementResult computeAssignments(Set<Split> splits)
+        public SplitPlacementResult computeAssignments(SplitPlacementSet splits)
         {
-            return nodeSelector.computeAssignments(splits, remoteTasks.get(), partitioning);
+            return nodeSelector.computeAssignments(splits.getSplits(), remoteTasks.get(), bucketedSplitAssignment);
         }
 
         @Override
@@ -256,16 +301,19 @@ public class FixedSourcePartitionedScheduler
         @Override
         public List<Node> allNodes()
         {
-            return ImmutableList.copyOf(partitioning.getPartitionToNode().values());
+            return ImmutableList.copyOf(allNodes);
         }
 
-        public Node getNodeForBucket(int bucketId)
+        @Override
+        public Node getNodeForLifespan(Lifespan lifespan)
         {
-            return partitioning.getPartitionToNode().get(partitioning.getBucketToPartition()[bucketId]);
+            checkArgument(!lifespan.isTaskWide());
+            return bucketedSplitAssignment.getAssignedNode(lifespan.getId()).get();
         }
     }
 
-    private static class LifespanScheduler
+    private static class FixedNodeLifespanScheduler
+        implements LifespanScheduler
     {
         private final Int2ObjectMap<Node> driverGroupToNodeMap;
         private final Map<Node, IntListIterator> nodeToDriverGroupsMap;
@@ -276,12 +324,16 @@ public class FixedSourcePartitionedScheduler
         @GuardedBy("this")
         private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
 
-        public LifespanScheduler(NodePartitionMap nodePartitionMap, List<ConnectorPartitionHandle> partitionHandles)
+        public FixedNodeLifespanScheduler(NodePartitionMap nodePartitionMap, List<ConnectorPartitionHandle> partitionHandles)
         {
+            checkArgument(!partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)));
+
             Map<Node, IntList> nodeToDriverGroupMap = new HashMap<>();
             Int2ObjectMap<Node> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
             int[] bucketToPartition = nodePartitionMap.getBucketToPartition();
             Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
+
+            checkArgument(partitionHandles.size() == bucketToPartition.length);
             for (int bucket = 0; bucket < bucketToPartition.length; bucket++) {
                 int partition = bucketToPartition[bucket];
                 Node node = partitionToNode.get(partition);
@@ -295,6 +347,7 @@ public class FixedSourcePartitionedScheduler
             this.partitionHandles = requireNonNull(partitionHandles, "partitionHandles is null");
         }
 
+        @Override
         public void scheduleInitial(SourceScheduler scheduler)
         {
             checkState(!initialScheduled);
@@ -306,6 +359,7 @@ public class FixedSourcePartitionedScheduler
             }
         }
 
+        @Override
         public void onLifespanFinished(Iterable<Lifespan> newlyCompletedDriverGroups)
         {
             checkState(initialScheduled);
@@ -319,6 +373,7 @@ public class FixedSourcePartitionedScheduler
             }
         }
 
+        @Override
         public SettableFuture schedule(SourceScheduler scheduler)
         {
             // Return a new future even if newDriverGroupReady has not finished.

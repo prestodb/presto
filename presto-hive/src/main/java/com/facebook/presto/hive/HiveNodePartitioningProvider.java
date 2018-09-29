@@ -63,6 +63,13 @@ public class HiveNodePartitioningProvider
     }
 
     @Override
+    public boolean hasBucketToNodeMapping()
+    {
+        return false;
+    }
+
+    // TODO: Make the following method returns Optional
+    @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;

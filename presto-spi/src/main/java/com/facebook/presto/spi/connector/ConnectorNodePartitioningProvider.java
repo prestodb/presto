@@ -42,6 +42,12 @@ public interface ConnectorNodePartitioningProvider
         return singletonList(NOT_PARTITIONED);
     }
 
+    default boolean hasBucketToNodeMapping()
+    {
+        return true;
+    }
+
+    // TODO: Make this returns an optional, and consider remove `hasBucketToNodeMapping` method
     Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
 
     ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);

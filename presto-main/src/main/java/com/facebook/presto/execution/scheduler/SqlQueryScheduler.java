@@ -29,7 +29,11 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.scheduler.group.DynamicBucketedSplitAssignment;
+import com.facebook.presto.execution.scheduler.group.DynamicLifespanSplitPlacementPolicy;
 import com.facebook.presto.failureDetector.FailureDetector;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -69,6 +73,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
@@ -288,36 +293,74 @@ public class SqlQueryScheduler
             bucketToPartition = Optional.of(new int[1]);
         }
         else {
-            // nodes are pre determined by the nodePartitionMap
-            NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
-            long nodeCount = nodePartitionMap.getPartitionToNode().values().stream().distinct().count();
             OptionalInt concurrentLifespansPerTask = getConcurrentLifespansPerNode(session);
-
             Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
+
             if (!splitSources.isEmpty()) {
+                // bucket processing
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
-                if (plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution()) {
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
+
+                StageExecutionStrategy stageExecutionStrategy = plan.getFragment().getStageExecutionStrategy();
+                boolean groupedExecutionForStage = stageExecutionStrategy.isAnyScanGroupedExecution();
+                if (groupedExecutionForStage) {
                     connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
-                    checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
                     checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
                 }
                 else {
                     connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
                 }
-                stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
-                        stage,
-                        splitSources,
-                        plan.getFragment().getStageExecutionStrategy(),
-                        schedulingOrder,
-                        nodePartitionMap,
-                        splitBatchSize,
-                        concurrentLifespansPerTask.isPresent() ? OptionalInt.of(toIntExact(concurrentLifespansPerTask.getAsInt() * nodeCount)) : OptionalInt.empty(),
-                        nodeScheduler.createNodeSelector(null),
-                        connectorPartitionHandles));
-                bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
+
+                ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitBucketFunction(session, partitioningHandle);
+
+                boolean noRemoteSource = plan.getSubStages().isEmpty();
+                if (noRemoteSource && groupedExecutionForStage
+                        && !nodePartitioningManager.hasBucketToNodeMapping(plan.getFragment().getPartitioning())) {
+                    // no remote source + grouped execution + bucket has no pre-assigned node
+                    // dynamically assign lifespan to worker node
+                    // TODO: should control this (dynamic lifespan allocation) by an session property
+
+                    int nodeCount = nodeSelector.allNodes().size();
+
+                    stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
+                            stage,
+                            splitSources,
+                            stageExecutionStrategy,
+                            schedulingOrder,
+                            Optional.empty(),
+                            splitToBucket,
+                            splitBatchSize,
+                            // TODO: this is not accurate in theory, if nodes are added/removed before tasks are scheduled.
+                            concurrentLifespansPerTask.isPresent() ? OptionalInt.of(toIntExact(concurrentLifespansPerTask.getAsInt() * nodeCount)) : OptionalInt.empty(),
+                            nodeSelector,
+                            connectorPartitionHandles));
+                    bucketToPartition = Optional.empty();
+                }
+                else {
+                    // nodes are pre determined by the nodePartitionMap
+                    NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
+                    int nodeCount = toIntExact(nodePartitionMap.getPartitionToNode().values().stream().distinct().count());
+                    if (groupedExecutionForStage) {
+                        checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
+                    }
+
+                    stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
+                            stage,
+                            splitSources,
+                            stageExecutionStrategy,
+                            schedulingOrder,
+                            Optional.of(nodePartitionMap),
+                            splitToBucket,
+                            splitBatchSize,
+                            concurrentLifespansPerTask.isPresent() ? OptionalInt.of(toIntExact(concurrentLifespansPerTask.getAsInt() * nodeCount)) : OptionalInt.empty(),
+                            nodeSelector,
+                            connectorPartitionHandles));
+                    bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
+                }
             }
             else {
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
                 Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");

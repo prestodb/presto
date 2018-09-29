@@ -14,13 +14,12 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicSplitPlacementPolicy
@@ -36,9 +35,10 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(Set<Split> splits)
+    public SplitPlacementResult computeAssignments(SplitPlacementSet splits)
     {
-        return nodeSelector.computeAssignments(splits, remoteTasks.get());
+        checkArgument(splits.getLifespan().isTaskWide());
+        return nodeSelector.computeAssignments(splits.getSplits(), remoteTasks.get());
     }
 
     @Override

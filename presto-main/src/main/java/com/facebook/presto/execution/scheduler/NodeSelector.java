@@ -14,13 +14,20 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.scheduler.SplitPlacementPolicy.SplitPlacementSet;
+import com.facebook.presto.execution.scheduler.group.BucketedSplitAssignment;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public interface NodeSelector
 {
@@ -48,12 +55,12 @@ public interface NodeSelector
     SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks);
 
     /**
-     * Identifies the nodes for running the specified splits based on a precomputed fixed partitioning.
+     * Identifies the nodes for running the specified splits based on a precomputed fixed partitioning
      *
      * @param splits the splits that need to be assigned to nodes
      * @return a multimap from node to splits only for splits for which we could identify a node with free space.
      * If we cannot find an assignment for a split, it is not included in the map. Also returns a future indicating when
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
-    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning);
+    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketedSplitAssignment bucketedSplitAssignment);
 }

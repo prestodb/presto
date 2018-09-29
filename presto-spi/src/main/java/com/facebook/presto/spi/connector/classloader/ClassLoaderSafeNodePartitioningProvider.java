@@ -64,6 +64,14 @@ public final class ClassLoaderSafeNodePartitioningProvider
     }
 
     @Override
+    public boolean hasBucketToNodeMapping()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.hasBucketToNodeMapping();
+        }
+    }
+
+    @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
