@@ -1,0 +1,43 @@
+{
+	"ktable": {
+		"tables": [{
+				"name": "sample_topic",
+				"columns": [{
+						"name": "Id",
+						"type": "VARCHAR",
+						"jsonPath": "$.data[0].Id"
+					},
+					{
+						"name": "UniqueName",
+						"type": "VARCHAR",
+						"jsonPath": "$.data[0].UniqueName"
+					},
+					{
+						"name": "Name",
+						"type": "VARCHAR",
+						"jsonPath": "$.data[0].Name"
+					},
+					{
+						"name": "Age",
+						"type": "VARCHAR",
+						"jsonPath": "$.data[0].Age"
+					},
+					{
+						"name": "TimeCreated",
+						"type": "VARCHAR",
+						"jsonPath": "$.data[0].TimeCreated"
+					}
+				],
+				"source": "localhost:9092",
+				"entityName": "sample_topic",
+				"keyDeserializer": "org.apache.kafka.common.serialization.Serdes$StringSerde",
+				"valueDeserializer": "org.apache.kafka.common.serialization.Serdes$StringSerde",
+				"groupId": "test",
+				"applicationId": "presto-connector",
+				"enableAutoCommit": true,
+				"storeName": "idStore"
+			}
+
+		]
+	}
+}
