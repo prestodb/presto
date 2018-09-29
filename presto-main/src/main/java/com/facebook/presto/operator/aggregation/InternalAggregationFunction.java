@@ -39,18 +39,6 @@ public final class InternalAggregationFunction
     private final boolean orderSensitive;
     private final AccumulatorFactoryBinder factory;
 
-    public InternalAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean orderSensitive, AccumulatorFactoryBinder factory)
-    {
-        this.name = requireNonNull(name, "name is null");
-        checkArgument(!name.isEmpty(), "name is empty");
-        this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
-        this.intermediateType = requireNonNull(ImmutableList.of(intermediateType), "intermediateType is null");
-        this.finalType = requireNonNull(finalType, "finalType is null");
-        this.decomposable = decomposable;
-        this.orderSensitive = orderSensitive;
-        this.factory = requireNonNull(factory, "factory is null");
-    }
-
     public InternalAggregationFunction(
             String name,
             List<Type> parameterTypes,
