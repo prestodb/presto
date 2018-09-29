@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftIndexHandle
@@ -75,9 +74,6 @@ public class ThriftIndexHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("schemaTableName", schemaTableName)
-                .add("tupleDomain", tupleDomain)
-                .toString();
+        return schemaTableName.toString();
     }
 }

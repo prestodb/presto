@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftTableLayoutHandle
@@ -97,11 +96,6 @@ public class ThriftTableLayoutHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("columns", columns)
-                .add("constraint", constraint)
-                .toString();
+        return schemaName + ":" + tableName;
     }
 }
