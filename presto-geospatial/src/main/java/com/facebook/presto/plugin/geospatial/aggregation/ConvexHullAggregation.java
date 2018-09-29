@@ -28,15 +28,8 @@ import com.facebook.presto.spi.function.SqlType;
 import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
 
-import java.util.EnumSet;
 import java.util.Set;
 
-import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
-import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
-import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
-import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
-import static com.facebook.presto.geospatial.GeometryType.POINT;
-import static com.facebook.presto.geospatial.GeometryType.POLYGON;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -58,8 +51,6 @@ public class ConvexHullAggregation
             @SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = GeometrySerde.deserialize(input);
-        // There is a bug when the input is of GEOMETRY_COLLECTION. see https://github.com/Esri/geometry-api-java/issues/194
-        validateType("convex_hull_agg", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
         if (state.getGeometry() == null) {
             state.setGeometry(geometry.convexHull());
         }

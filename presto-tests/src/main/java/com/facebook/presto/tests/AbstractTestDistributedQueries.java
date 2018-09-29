@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -758,8 +759,9 @@ public abstract class AbstractTestDistributedQueries
         executeExclusively(() -> {
             assertUntilTimeout(
                     () -> assertEquals(
-                            queryManager.getAllQueryInfo()
-                                    .stream()
+                            queryManager.getQueries().stream()
+                                    .map(BasicQueryInfo::getQueryId)
+                                    .map(queryManager::getFullQueryInfo)
                                     .filter(info -> !info.isFinalQueryInfo())
                                     .collect(toList()),
                             ImmutableList.of()),

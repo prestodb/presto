@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -56,7 +57,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -89,6 +89,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -249,7 +250,7 @@ public class PredicatePushDown
             // TryExpressions should not be pushed down. However they are now being handled as lambda
             // passed to a FunctionCall now and should not affect predicate push down. So we want to make
             // sure the conjuncts are not TryExpressions.
-            Verify.verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
+            verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
 
             // candidate symbols for inlining are
             //   1. references to simple constants
@@ -489,6 +490,94 @@ public class PredicatePushDown
             }
 
             output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+            return output;
+        }
+
+        @Override
+        public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Expression> context)
+        {
+            Expression inheritedPredicate = context.get();
+
+            // See if we can rewrite left join in terms of a plain inner join
+            if (node.getType() == SpatialJoinNode.Type.LEFT && canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate)) {
+                node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter());
+            }
+
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(node.getRight());
+            Expression joinPredicate = node.getFilter();
+
+            Expression leftPredicate;
+            Expression rightPredicate;
+            Expression postJoinPredicate;
+            Expression newJoinPredicate;
+
+            switch (node.getType()) {
+                case INNER:
+                    InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
+                            inheritedPredicate,
+                            leftEffectivePredicate,
+                            rightEffectivePredicate,
+                            joinPredicate,
+                            node.getLeft().getOutputSymbols());
+                    leftPredicate = innerJoinPushDownResult.getLeftPredicate();
+                    rightPredicate = innerJoinPushDownResult.getRightPredicate();
+                    postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
+                    newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
+                    break;
+                case LEFT:
+                    OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
+                            inheritedPredicate,
+                            leftEffectivePredicate,
+                            rightEffectivePredicate,
+                            joinPredicate,
+                            node.getLeft().getOutputSymbols());
+                    leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
+                    rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
+                    postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
+                    newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+            }
+
+            newJoinPredicate = simplifyExpression(newJoinPredicate);
+            verify(!newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL), "Spatial join predicate is missing");
+
+            PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
+            PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
+
+            PlanNode output = node;
+            if (leftSource != node.getLeft() ||
+                    rightSource != node.getRight() ||
+                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
+                // Create identity projections for all existing symbols
+                Assignments.Builder leftProjections = Assignments.builder();
+                leftProjections.putAll(node.getLeft()
+                        .getOutputSymbols().stream()
+                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+
+                Assignments.Builder rightProjections = Assignments.builder();
+                rightProjections.putAll(node.getRight()
+                        .getOutputSymbols().stream()
+                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+
+                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
+                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
+
+                output = new SpatialJoinNode(
+                        node.getId(),
+                        node.getType(),
+                        leftSource,
+                        rightSource,
+                        node.getOutputSymbols(),
+                        newJoinPredicate);
+            }
+
+            if (!postJoinPredicate.equals(TRUE_LITERAL)) {
+                output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
+            }
+
             return output;
         }
 

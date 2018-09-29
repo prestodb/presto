@@ -61,6 +61,7 @@ import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
@@ -263,7 +264,8 @@ public class TestHivePageSink
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig()),
-                stats);
+                stats,
+                getDefaultOrcFileWriterFactory(config));
         return provider.createPageSink(transaction, getSession(config), handle);
     }
 

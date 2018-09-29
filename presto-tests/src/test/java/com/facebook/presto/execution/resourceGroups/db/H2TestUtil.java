@@ -94,7 +94,7 @@ class H2TestUtil
             throws InterruptedException
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        while (queryManager.getAllQueryInfo().stream()
+        while (queryManager.getQueries().stream()
                 .filter(q -> countingStates.contains(q.getState())).count() != expectedCount) {
             MILLISECONDS.sleep(500);
         }

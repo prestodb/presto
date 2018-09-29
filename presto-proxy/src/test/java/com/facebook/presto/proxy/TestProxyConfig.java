@@ -31,12 +31,7 @@ public class TestProxyConfig
     {
         assertRecordedDefaults(recordDefaults(ProxyConfig.class)
                 .setUri(null)
-                .setSharedSecretFile(null)
-                .setJwtKeyFile(null)
-                .setJwtKeyFilePassword(null)
-                .setJwtKeyId(null)
-                .setJwtIssuer(null)
-                .setJwtAudience(null));
+                .setSharedSecretFile(null));
     }
 
     @Test
@@ -45,21 +40,11 @@ public class TestProxyConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("proxy.uri", "http://example.net/")
                 .put("proxy.shared-secret-file", "test.secret")
-                .put("proxy.jwt.key-file", "test.key")
-                .put("proxy.jwt.key-file-password", "password")
-                .put("proxy.jwt.key-id", "testkeyid")
-                .put("proxy.jwt.issuer", "testissuer")
-                .put("proxy.jwt.audience", "testaudience")
                 .build();
 
         ProxyConfig expected = new ProxyConfig()
                 .setUri(URI.create("http://example.net/"))
-                .setSharedSecretFile(new File("test.secret"))
-                .setJwtKeyFile(new File("test.key"))
-                .setJwtKeyFilePassword("password")
-                .setJwtKeyId("testkeyid")
-                .setJwtIssuer("testissuer")
-                .setJwtAudience("testaudience");
+                .setSharedSecretFile(new File("test.secret"));
 
         assertFullMapping(properties, expected);
     }

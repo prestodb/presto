@@ -233,7 +233,7 @@ public class TestQueuesDb
         QueryId firstQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, RUNNING);
 
-        Optional<ResourceGroupId> resourceGroup = queryManager.getQueryInfo(firstQuery).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroup = queryManager.getFullQueryInfo(firstQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
         assertEquals(resourceGroup.get().toString(), "global.user-user.dashboard-user");
 
@@ -249,7 +249,7 @@ public class TestQueuesDb
         QueryId secondQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondQuery, FAILED);
 
-        resourceGroup = queryManager.getQueryInfo(secondQuery).getResourceGroupId();
+        resourceGroup = queryManager.getFullQueryInfo(secondQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
         assertEquals(resourceGroup.get(), createResourceGroupId("global", "user-user", "reject-all-queries"));
     }
@@ -269,8 +269,8 @@ public class TestQueuesDb
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         QueryId firstQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, FAILED);
-        assertEquals(queryManager.getQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
-        assertContains(queryManager.getQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
+        assertEquals(queryManager.getFullQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
+        assertContains(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
@@ -279,7 +279,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondQuery, QUEUED);
         // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running
         Thread.sleep(5_000);
-        assertEquals(queryManager.getQueryInfo(secondQuery).getState(), QUEUED);
+        assertEquals(queryManager.getQueryState(secondQuery), QUEUED);
         // reconfigure the resource group to run the second query
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
@@ -299,7 +299,7 @@ public class TestQueuesDb
                 .build();
         QueryId queryId = createQuery(queryRunner, session, "EXPLAIN " + LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), createResourceGroupId("explain"));
     }
@@ -323,7 +323,7 @@ public class TestQueuesDb
                 .build();
         QueryId queryId = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
     }

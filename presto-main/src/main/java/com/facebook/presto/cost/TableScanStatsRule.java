@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -29,13 +28,9 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalDouble;
 
-import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
-import static java.lang.Double.NEGATIVE_INFINITY;
-import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanStatsRule
@@ -68,9 +63,8 @@ public class TableScanStatsRule
 
         for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Symbol symbol = entry.getKey();
-            Type symbolType = types.get(symbol);
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
-            outputSymbolStats.put(symbol, columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics, session, symbolType)).orElse(UNKNOWN_STATS));
+            outputSymbolStats.put(symbol, columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics)).orElse(UNKNOWN_STATS));
         }
 
         return Optional.of(PlanNodeStatsEstimate.builder()
@@ -79,23 +73,19 @@ public class TableScanStatsRule
                 .build());
     }
 
-    private SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics, Session session, Type type)
+    private SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
     {
         double nullsFraction = columnStatistics.getNullsFraction().getValue();
         double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
-        return SymbolStatsEstimate.builder()
-                .setLowValue(asDouble(session, type, columnStatistics.getOnlyRangeColumnStatistics().getLowValue()).orElse(NEGATIVE_INFINITY))
-                .setHighValue(asDouble(session, type, columnStatistics.getOnlyRangeColumnStatistics().getHighValue()).orElse(POSITIVE_INFINITY))
-                .setNullsFraction(nullsFraction)
-                .setDistinctValuesCount(columnStatistics.getOnlyRangeColumnStatistics().getDistinctValuesCount().getValue())
-                .setAverageRowSize(columnStatistics.getOnlyRangeColumnStatistics().getDataSize().getValue() / nonNullRowsCount)
-                .build();
-    }
-
-    private OptionalDouble asDouble(Session session, Type type, Optional<Object> optionalValue)
-    {
-        return optionalValue
-                .map(value -> toStatsRepresentation(metadata, session, type, value))
-                .orElseGet(OptionalDouble::empty);
+        double averageRowSize = nonNullRowsCount == 0 ? 0 : columnStatistics.getDataSize().getValue() / nonNullRowsCount;
+        SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder();
+        result.setNullsFraction(nullsFraction);
+        result.setDistinctValuesCount(columnStatistics.getDistinctValuesCount().getValue());
+        result.setAverageRowSize(averageRowSize);
+        columnStatistics.getRange().ifPresent(range -> {
+            result.setLowValue(range.getMin());
+            result.setHighValue(range.getMax());
+        });
+        return result.build();
     }
 }

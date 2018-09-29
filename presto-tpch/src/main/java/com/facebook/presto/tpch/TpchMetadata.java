@@ -33,6 +33,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
@@ -323,7 +324,7 @@ public class TpchMetadata
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tpchTableHandle);
         return optionalTableStatisticsData
                 .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.get(), tpchTableHandle, columnHandles))
-                .orElse(TableStatistics.EMPTY_STATISTICS);
+                .orElse(TableStatistics.empty());
     }
 
     private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, Constraint<ColumnHandle> constraint)
@@ -362,7 +363,7 @@ public class TpchMetadata
     private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles)
     {
         TableStatistics.Builder builder = TableStatistics.builder()
-                .setRowCount(new Estimate(tableStatisticsData.getRowCount()));
+                .setRowCount(Estimate.of(tableStatisticsData.getRowCount()));
         tableStatisticsData.getColumns().forEach((columnName, stats) -> {
             TpchColumnHandle columnHandle = (TpchColumnHandle) getColumnHandle(tpchTableHandle, columnHandles, columnName);
             builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
@@ -379,29 +380,34 @@ public class TpchMetadata
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
     {
         return ColumnStatistics.builder()
-                .addRange(rangeBuilder -> rangeBuilder
-                        .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::new).orElse(Estimate.unknownValue()))
-                        .setDataSize(stats.getDataSize().map(Estimate::new).orElse(Estimate.unknownValue()))
-                        .setLowValue(stats.getMin().map(value -> toPrestoValue(value, columnType)))
-                        .setHighValue(stats.getMax().map(value -> toPrestoValue(value, columnType)))
-                        .setFraction(new Estimate((1))))
-                .setNullsFraction(Estimate.zeroValue())
+                .setNullsFraction(Estimate.zero())
+                .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::of).orElse(Estimate.unknown()))
+                .setDataSize(stats.getDataSize().map(Estimate::of).orElse(Estimate.unknown()))
+                .setRange(toRange(stats.getMin(), stats.getMax(), columnType))
                 .build();
     }
 
-    private Object toPrestoValue(Object tpchValue, Type columnType)
+    private static Optional<DoubleRange> toRange(Optional<Object> min, Optional<Object> max, Type columnType)
     {
         if (columnType instanceof VarcharType) {
-            return Slices.utf8Slice((String) tpchValue);
+            return Optional.empty();
         }
-        if (tpchValue instanceof String && columnType.equals(DATE)) {
-            return LocalDate.parse((CharSequence) tpchValue).toEpochDay();
+        if (!min.isPresent() || !max.isPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of(new DoubleRange(toDouble(min.get(), columnType), toDouble(max.get(), columnType)));
+    }
+
+    private static double toDouble(Object value, Type columnType)
+    {
+        if (value instanceof String && columnType.equals(DATE)) {
+            return LocalDate.parse((CharSequence) value).toEpochDay();
         }
         if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
-            return ((Number) tpchValue).longValue();
+            return ((Number) value).longValue();
         }
         if (columnType.equals(DOUBLE)) {
-            return ((Number) tpchValue).doubleValue();
+            return ((Number) value).doubleValue();
         }
         throw new IllegalArgumentException("unsupported column type " + columnType);
     }

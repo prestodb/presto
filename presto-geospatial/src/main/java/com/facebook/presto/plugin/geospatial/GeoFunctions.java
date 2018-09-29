@@ -304,27 +304,13 @@ public final class GeoFunctions
     public static Slice stConvexHull(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-        validateType("ST_ConvexHull", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
         if (geometry.isEmpty()) {
             return input;
         }
         if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
             return input;
         }
-        OGCGeometry convexHull = geometry.convexHull();
-        if (convexHull.isEmpty()) {
-            // This happens for a single-point multi-point because of a bug in ESRI library - https://github.com/Esri/geometry-api-java/issues/172
-            return serialize(createFromEsriGeometry(((MultiVertexGeometry) geometry.getEsriGeometry()).getPoint(0), null));
-        }
-        if (GeometryType.getForEsriGeometryType(convexHull.geometryType()) == MULTI_POLYGON) {
-            MultiVertexGeometry multiVertex = (MultiVertexGeometry) convexHull.getEsriGeometry();
-            if (multiVertex.getPointCount() == 2) {
-                // This happens when all points of the input geometry are on the same line because of a bug in ESRI library - https://github.com/Esri/geometry-api-java/issues/172
-                OGCGeometry linestring = createFromEsriGeometry(new Polyline(multiVertex.getPoint(0), multiVertex.getPoint(1)), null);
-                return serialize(linestring);
-            }
-        }
-        return serialize(convexHull);
+        return serialize(geometry.convexHull());
     }
 
     @Description("Return the coordinate dimension of the Geometry")
@@ -1107,7 +1093,7 @@ public final class GeoFunctions
         requireNonNull(input, "input is null");
         OGCGeometry geometry;
         try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer());
+            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
         }
         catch (IllegalArgumentException | IndexOutOfBoundsException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);

@@ -165,12 +165,13 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     hashChannel,
                     Optional.empty(),
                     100_000,
-                    new DataSize(16, MEGABYTE),
+                    Optional.of(new DataSize(16, MEGABYTE)),
                     false,
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
-                    joinCompiler);
+                    joinCompiler,
+                    false);
         }
 
         private static void repeatToStringBlock(String value, int count, BlockBuilder blockBuilder)

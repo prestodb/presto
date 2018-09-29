@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates.TransformSpatialPredicateToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
@@ -28,10 +28,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatia
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
-public class TestTransformSpatialPredicateToJoin
+public class TestExtractSpatialInnerJoin
         extends BaseRuleTest
 {
-    public TestTransformSpatialPredicateToJoin()
+    public TestExtractSpatialInnerJoin()
     {
         super(new GeoPlugin());
     }
@@ -352,6 +352,6 @@ public class TestTransformSpatialPredicateToJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new TransformSpatialPredicateToJoin(tester().getMetadata()));
+        return tester().assertThat(new ExtractSpatialInnerJoin(tester().getMetadata()));
     }
 }

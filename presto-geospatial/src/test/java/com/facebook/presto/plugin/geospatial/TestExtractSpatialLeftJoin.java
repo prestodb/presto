@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates.TransformSpatialPredicateToLeftJoin;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.google.common.collect.ImmutableMap;
@@ -28,10 +28,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 
-public class TestTransformSpatialPredicateToLeftJoin
+public class TestExtractSpatialLeftJoin
         extends BaseRuleTest
 {
-    public TestTransformSpatialPredicateToLeftJoin()
+    public TestExtractSpatialLeftJoin()
     {
         super(new GeoPlugin());
     }
@@ -46,15 +46,6 @@ public class TestTransformSpatialPredicateToLeftJoin
                                 p.values(),
                                 p.values(p.symbol("b")),
                                 expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)")))
-                .doesNotFire();
-
-        // symbols
-        assertRuleApplication()
-                .on(p ->
-                        p.join(LEFT,
-                                p.values(p.symbol("a")),
-                                p.values(p.symbol("b")),
-                                expression("ST_Contains(a, b)")))
                 .doesNotFire();
 
         // OR operand
@@ -83,6 +74,46 @@ public class TestTransformSpatialPredicateToLeftJoin
                                 p.values(p.symbol("b", GEOMETRY)),
                                 expression("ST_Distance(a, b) > 5")))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testConvertToSpatialJoin()
+    {
+        // symbols
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a")),
+                                p.values(p.symbol("b")),
+                                p.expression("ST_Contains(a, b)")))
+                .matches(
+                        spatialLeftJoin("ST_Contains(a, b)",
+                                values(ImmutableMap.of("a", 0)),
+                                values(ImmutableMap.of("b", 0))));
+
+        // AND
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a"), p.symbol("name_1")),
+                                p.values(p.symbol("b"), p.symbol("name_2")),
+                                p.expression("name_1 != name_2 AND ST_Contains(a, b)")))
+                .matches(
+                        spatialLeftJoin("name_1 != name_2 AND ST_Contains(a, b)",
+                                values(ImmutableMap.of("a", 0, "name_1", 1)),
+                                values(ImmutableMap.of("b", 0, "name_2", 1))));
+
+        // AND
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a1"), p.symbol("a2")),
+                                p.values(p.symbol("b1"), p.symbol("b2")),
+                                p.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)")))
+                .matches(
+                        spatialLeftJoin("ST_Contains(a1, b1) AND ST_Contains(a2, b2)",
+                                values(ImmutableMap.of("a1", 0, "a2", 1)),
+                                values(ImmutableMap.of("b1", 0, "b2", 1))));
     }
 
     @Test
@@ -190,6 +221,6 @@ public class TestTransformSpatialPredicateToLeftJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new TransformSpatialPredicateToLeftJoin(tester().getMetadata()));
+        return tester().assertThat(new ExtractSpatialLeftJoin(tester().getMetadata()));
     }
 }

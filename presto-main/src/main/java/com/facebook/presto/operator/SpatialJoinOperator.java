@@ -18,8 +18,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -27,8 +27,8 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -43,7 +43,7 @@ public class SpatialJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final JoinNode.Type joinType;
+        private final SpatialJoinNode.Type joinType;
         private final List<Type> probeTypes;
         private final List<Integer> probeOutputChannels;
         private final int probeGeometryChannel;
@@ -54,7 +54,7 @@ public class SpatialJoinOperator
         public SpatialJoinOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                JoinNode.Type joinType,
+                SpatialJoinNode.Type joinType,
                 List<Type> probeTypes,
                 List<Integer> probeOutputChannels,
                 int probeGeometryChannel,
@@ -107,7 +107,7 @@ public class SpatialJoinOperator
 
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
-    private final JoinNode.Type joinType;
+    private final SpatialJoinNode.Type joinType;
     private final List<Type> probeTypes;
     private final List<Integer> probeOutputChannels;
     private final int probeGeometryChannel;
@@ -131,7 +131,7 @@ public class SpatialJoinOperator
 
     public SpatialJoinOperator(
             OperatorContext operatorContext,
-            JoinNode.Type joinType,
+            SpatialJoinNode.Type joinType,
             List<Type> probeTypes,
             List<Integer> probeOutputChannels,
             int probeGeometryChannel,

@@ -76,7 +76,6 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
@@ -175,6 +174,7 @@ import static com.facebook.presto.hive.HiveTestUtils.arrayType;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveTestUtils.rowType;
@@ -483,7 +483,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_1_1 =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(15), OptionalLong.empty(), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().hashCode() % 2 == 0)
@@ -491,7 +491,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_1_2 =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.of(3), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(15), OptionalLong.of(3), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().hashCode() % 2 == 1)
@@ -520,7 +520,7 @@ public abstract class AbstractTestHiveClient
 
     private static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
             new PartitionStatistics(
-                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(0)),
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(20), OptionalLong.empty(), OptionalLong.of(0)),
                     ImmutableMap.<String, HiveColumnStatistics>builder()
                             .put("t_boolean", createBooleanColumnStatistics(OptionalLong.of(4), OptionalLong.of(3), OptionalLong.of(2)))
                             .put("t_bigint", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(4), OptionalLong.of(7)))
@@ -529,10 +529,10 @@ public abstract class AbstractTestHiveClient
                             .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(3)))
                             .put("t_double", createDoubleColumnStatistics(OptionalDouble.empty(), OptionalDouble.empty(), OptionalLong.of(6), OptionalLong.of(3)))
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.empty(), OptionalDouble.empty(), OptionalLong.of(7), OptionalLong.of(11)))
-                            .put("t_string", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.of(6)))
-                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(7), OptionalLong.of(1)))
-                            .put("t_char", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(0), OptionalLong.of(3)))
-                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(0), OptionalLong.empty(), OptionalLong.of(2)))
+                            .put("t_string", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_varchar", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(7), OptionalLong.of(1)))
+                            .put("t_char", createStringColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(3)))
+                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(2)))
                             // https://issues.apache.org/jira/browse/HIVE-20098
                             // .put("t_date", createDateColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(8), OptionalLong.of(7)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(1)))
@@ -778,7 +778,8 @@ public abstract class AbstractTestHiveClient
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig()),
-                new HiveWriterStats());
+                new HiveWriterStats(),
+                getDefaultOrcFileWriterFactory(hiveClientConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
@@ -1310,7 +1311,7 @@ public abstract class AbstractTestHiveClient
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
 
-            assertFalse(tableStatistics.getRowCount().isValueUnknown(), "row count is unknown");
+            assertFalse(tableStatistics.getRowCount().isUnknown(), "row count is unknown");
 
             Map<String, ColumnStatistics> columnsStatistics = tableStatistics
                     .getColumnStatistics()
@@ -1329,26 +1330,22 @@ public abstract class AbstractTestHiveClient
                 Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
 
                 assertFalse(
-                        columnStatistics.getNullsFraction().isValueUnknown(),
+                        columnStatistics.getNullsFraction().isUnknown(),
                         "unknown nulls fraction for " + columnName);
 
-                RangeColumnStatistics rangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
                 assertFalse(
-                        rangeColumnStatistics.getDistinctValuesCount().isValueUnknown(),
-                        "unknown range distinct values count for " + columnName);
-                assertFalse(
-                        rangeColumnStatistics.getFraction().isValueUnknown(),
-                        "unknown range non-null fraction for " + columnName);
+                        columnStatistics.getDistinctValuesCount().isUnknown(),
+                        "unknown distinct values count for " + columnName);
 
                 if (isVarcharType(columnType)) {
                     assertFalse(
-                            rangeColumnStatistics.getDataSize().isValueUnknown(),
-                            "unknown range data size for " + columnName);
+                            columnStatistics.getDataSize().isUnknown(),
+                            "unknown data size for " + columnName);
                 }
                 else {
                     assertTrue(
-                            rangeColumnStatistics.getDataSize().isValueUnknown(),
-                            "known range data size for" + columnName);
+                            columnStatistics.getDataSize().isUnknown(),
+                            "unknown data size for" + columnName);
                 }
             });
         }

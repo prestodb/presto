@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = RemoteSourceNode.class, name = "remoteSource"),
         @JsonSubTypes.Type(value = JoinNode.class, name = "join"),
         @JsonSubTypes.Type(value = SemiJoinNode.class, name = "semijoin"),
+        @JsonSubTypes.Type(value = SpatialJoinNode.class, name = "spatialjoin"),
         @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),
         @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),

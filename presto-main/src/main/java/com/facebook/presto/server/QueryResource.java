@@ -53,12 +53,13 @@ public class QueryResource
     }
 
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String queryState)
+    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter)
     {
+        QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
-        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
-            if (queryState == null || queryInfo.getState().equals(QueryState.valueOf(queryState.toUpperCase(Locale.ENGLISH)))) {
-                builder.add(new BasicQueryInfo(queryInfo));
+        for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
+            if (stateFilter == null || queryInfo.getState() == expectedState) {
+                builder.add(queryInfo);
             }
         }
         return builder.build();
@@ -71,7 +72,7 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {
@@ -94,19 +95,17 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            QueryState state = queryManager.getQueryState(queryId);
 
             // check before killing to provide the proper error code (this is racy)
-            if (queryInfo.getState().isDone()) {
+            if (state.isDone()) {
                 return Response.status(Status.CONFLICT).build();
             }
 
             queryManager.failQuery(queryId, createKillQueryException(message));
 
             // verify if the query was killed (if not, we lost the race)
-            queryInfo = queryManager.getQueryInfo(queryId);
-            if ((queryInfo.getState() != QueryState.FAILED) ||
-                    !ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryInfo.getErrorCode())) {
+            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
                 return Response.status(Status.CONFLICT).build();
             }
 

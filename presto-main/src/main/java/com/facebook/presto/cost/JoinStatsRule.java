@@ -36,7 +36,6 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.Double.NaN;
@@ -328,8 +327,6 @@ public class JoinStatsRule
             PlanNodeStatsEstimate baseJoinStats,
             PlanNodeStatsEstimate joinComplementStats)
     {
-        checkState(baseJoinStats.getSymbolsWithKnownStatistics().containsAll(joinComplementStats.getSymbolsWithKnownStatistics()));
-
         double joinOutputRowCount = baseJoinStats.getOutputRowCount();
         double joinComplementOutputRowCount = joinComplementStats.getOutputRowCount();
         double totalRowCount = joinOutputRowCount + joinComplementOutputRowCount;

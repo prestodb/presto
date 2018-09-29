@@ -16,10 +16,10 @@ package com.facebook.presto.memory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -192,7 +192,7 @@ public class ClusterMemoryManager
         changeListeners.computeIfAbsent(poolId, id -> new ArrayList<>()).add(listener);
     }
 
-    public synchronized void process(Iterable<QueryExecution> runningQueries, Supplier<List<QueryInfo>> allQueryInfoSupplier)
+    public synchronized void process(Iterable<QueryExecution> runningQueries, Supplier<List<BasicQueryInfo>> allQueryInfoSupplier)
     {
         if (!enabled) {
             return;

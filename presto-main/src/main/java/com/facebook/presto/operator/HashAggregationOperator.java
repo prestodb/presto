@@ -40,6 +40,7 @@ import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggre
 import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -63,12 +64,13 @@ public class HashAggregationOperator
         private final Optional<Integer> groupIdChannel;
 
         private final int expectedGroups;
-        private final DataSize maxPartialMemory;
+        private final Optional<DataSize> maxPartialMemory;
         private final boolean spillEnabled;
         private final DataSize memoryLimitForMerge;
         private final DataSize memoryLimitForMergeWithMemory;
         private final SpillerFactory spillerFactory;
         private final JoinCompiler joinCompiler;
+        private final boolean useSystemMemory;
 
         private boolean closed;
 
@@ -84,8 +86,9 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
-                DataSize maxPartialMemory,
-                JoinCompiler joinCompiler)
+                Optional<DataSize> maxPartialMemory,
+                JoinCompiler joinCompiler,
+                boolean useSystemMemory)
         {
             this(operatorId,
                     planNodeId,
@@ -105,7 +108,8 @@ public class HashAggregationOperator
                     (types, spillContext, memoryContext) -> {
                         throw new UnsupportedOperationException();
                     },
-                    joinCompiler);
+                    joinCompiler,
+                    useSystemMemory);
         }
 
         public HashAggregationOperatorFactory(
@@ -120,11 +124,12 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
-                DataSize maxPartialMemory,
+                Optional<DataSize> maxPartialMemory,
                 boolean spillEnabled,
                 DataSize unspillMemoryLimit,
                 SpillerFactory spillerFactory,
-                JoinCompiler joinCompiler)
+                JoinCompiler joinCompiler,
+                boolean useSystemMemory)
         {
             this(operatorId,
                     planNodeId,
@@ -142,7 +147,8 @@ public class HashAggregationOperator
                     unspillMemoryLimit,
                     DataSize.succinctBytes((long) (unspillMemoryLimit.toBytes() * MERGE_WITH_MEMORY_RATIO)),
                     spillerFactory,
-                    joinCompiler);
+                    joinCompiler,
+                    useSystemMemory);
         }
 
         @VisibleForTesting
@@ -158,12 +164,13 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
-                DataSize maxPartialMemory,
+                Optional<DataSize> maxPartialMemory,
                 boolean spillEnabled,
                 DataSize memoryLimitForMerge,
                 DataSize memoryLimitForMergeWithMemory,
                 SpillerFactory spillerFactory,
-                JoinCompiler joinCompiler)
+                JoinCompiler joinCompiler,
+                boolean useSystemMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -182,6 +189,7 @@ public class HashAggregationOperator
             this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.useSystemMemory = useSystemMemory;
         }
 
         @Override
@@ -206,7 +214,8 @@ public class HashAggregationOperator
                     memoryLimitForMerge,
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
-                    joinCompiler);
+                    joinCompiler,
+                    useSystemMemory);
             return hashAggregationOperator;
         }
 
@@ -236,7 +245,8 @@ public class HashAggregationOperator
                     memoryLimitForMerge,
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
-                    joinCompiler);
+                    joinCompiler,
+                    useSystemMemory);
         }
     }
 
@@ -250,12 +260,13 @@ public class HashAggregationOperator
     private final Optional<Integer> hashChannel;
     private final Optional<Integer> groupIdChannel;
     private final int expectedGroups;
-    private final DataSize maxPartialMemory;
+    private final Optional<DataSize> maxPartialMemory;
     private final boolean spillEnabled;
     private final DataSize memoryLimitForMerge;
     private final DataSize memoryLimitForMergeWithMemory;
     private final SpillerFactory spillerFactory;
     private final JoinCompiler joinCompiler;
+    private final boolean useSystemMemory;
 
     private final List<Type> types;
     private final HashCollisionsCounter hashCollisionsCounter;
@@ -280,12 +291,13 @@ public class HashAggregationOperator
             Optional<Integer> hashChannel,
             Optional<Integer> groupIdChannel,
             int expectedGroups,
-            DataSize maxPartialMemory,
+            Optional<DataSize> maxPartialMemory,
             boolean spillEnabled,
             DataSize memoryLimitForMerge,
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            boolean useSystemMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(step, "step is null");
@@ -310,6 +322,7 @@ public class HashAggregationOperator
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
         operatorContext.setInfoSupplier(hashCollisionsCounter);
+        this.useSystemMemory = useSystemMemory;
     }
 
     @Override
@@ -365,9 +378,11 @@ public class HashAggregationOperator
                         operatorContext,
                         maxPartialMemory,
                         joinCompiler,
-                        true);
+                        true,
+                        useSystemMemory);
             }
             else {
+                verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
                 aggregationBuilder = new SpillableHashAggregationBuilder(
                         accumulatorFactories,
                         step,

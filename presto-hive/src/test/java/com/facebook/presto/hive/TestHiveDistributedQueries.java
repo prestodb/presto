@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
@@ -30,6 +35,14 @@ public class TestHiveDistributedQueries
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
+    }
+
+    @Test
+    public void testExplainOfCreateTableAs()
+    {
+        String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest

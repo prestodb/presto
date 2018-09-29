@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionT
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
@@ -91,7 +92,6 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarA
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -409,6 +409,15 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new CreatePartialTopN(),
                         new PushTopNThroughUnion())));
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveRedundantIdentityProjections())
+                        .addAll(new ExtractSpatialJoins(metadata).rules())
+                        .add(new InlineProjections())
+                        .build()));
 
         if (!forceSingleNode) {
             builder.add((new IterativeOptimizer(
@@ -441,15 +450,13 @@ public class PlanOptimizers
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
-        // TODO Make PredicatePushDown aware of spatial joins, move TransformSpatialPredicateToJoin
-        // before AddExchanges and update AddExchanges to set REPLICATED distribution for the build side.
+
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new TransformSpatialPredicates(metadata).rules())
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
                         .add(new InlineProjections())
                         .build()));

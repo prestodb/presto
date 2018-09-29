@@ -123,7 +123,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.hive.HivePartitionManager.extractPartitionKeyValues;
+import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
@@ -180,7 +180,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -525,14 +524,16 @@ public class HiveMetadata
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         if (!isStatisticsEnabled(session)) {
-            return EMPTY_STATISTICS;
+            return TableStatistics.empty();
         }
-        List<HivePartition> hivePartitions = getPartitionsAsList(tableHandle, constraint);
-        Map<String, ColumnHandle> tableColumns = getColumnHandles(session, tableHandle)
+        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle)
                 .entrySet().stream()
                 .filter(entry -> !((HiveColumnHandle) entry.getValue()).isHidden())
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-        return hiveStatisticsProvider.getTableStatistics(session, tableHandle, hivePartitions, tableColumns);
+        Map<String, Type> columnTypes = columns.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
+        List<HivePartition> partitions = getPartitionsAsList(tableHandle, constraint);
+        return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
     }
 
     private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
@@ -1272,7 +1273,7 @@ public class HiveMetadata
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
-                .setValues(extractPartitionKeyValues(partitionUpdate.getName()))
+                .setValues(extractPartitionValues(partitionUpdate.getName()))
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, session.getQueryId())

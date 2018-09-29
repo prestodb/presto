@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -70,7 +69,7 @@ public class ClusterStatsResource
         long totalInputBytes = queryManager.getStats().getConsumedInputBytes().getTotalCount();
         long totalCpuTimeSecs = queryManager.getStats().getConsumedCpuTimeSecs().getTotalCount();
 
-        for (QueryInfo query : queryManager.getAllQueryInfo()) {
+        for (BasicQueryInfo query : queryManager.getQueries()) {
             if (query.getState() == QueryState.QUEUED) {
                 queuedQueries++;
             }

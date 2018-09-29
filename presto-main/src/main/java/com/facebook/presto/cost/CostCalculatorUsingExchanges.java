@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
@@ -214,6 +215,12 @@ public class CostCalculatorUsingExchanges
                     node.getSource(),
                     node.getFilteringSource(),
                     node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED).equals(SemiJoinNode.DistributionType.REPLICATED));
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            return calculateJoinCost(node, node.getLeft(), node.getRight(), true);
         }
 
         @Override

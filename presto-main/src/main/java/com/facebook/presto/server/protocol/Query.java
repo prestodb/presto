@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -173,7 +174,7 @@ class Query
 
             result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
                 if (state.isDone()) {
-                    QueryInfo queryInfo = queryManager.getQueryInfo(result.getQueryId());
+                    QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
                     result.closeExchangeClientIfNecessary(queryInfo);
                 }
             });
@@ -322,8 +323,12 @@ class Query
 
         // otherwise, wait for the query to finish
         queryManager.recordHeartbeat(queryId);
-        return queryManager.getQueryState(queryId).map(this::queryDoneFuture)
-                .orElse(immediateFuture(null));
+        try {
+            return queryDoneFuture(queryManager.getQueryState(queryId));
+        }
+        catch (NoSuchElementException e) {
+            return immediateFuture(null);
+        }
     }
 
     private synchronized Optional<QueryResults> getCachedResult(long token, UriInfo uriInfo)
@@ -333,7 +338,6 @@ class Query
         if (requestedPath.equals(lastResultPath)) {
             if (submissionFuture.isDone()) {
                 // tell query manager we are still interested in the query
-                queryManager.getQueryInfo(queryId);
                 queryManager.recordHeartbeat(queryId);
             }
             return Optional.of(lastResult);
@@ -391,7 +395,7 @@ class Query
         }
 
         if (session == null) {
-            session = queryManager.getQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
+            session = queryManager.getFullQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
             serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
         }
 
@@ -427,7 +431,7 @@ class Query
 
         // get the query info before returning
         // force update if query manager is closed
-        QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
         // TODO: figure out a better way to do this

@@ -88,6 +88,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -550,13 +551,7 @@ public class PlanPrinter
             }
             node.getFilter().ifPresent(joinExpressions::add);
 
-            if (node.isSpatialJoin()) {
-                print(indent, "- Spatial%s[%s] => [%s]",
-                        node.getType().getJoinLabel(),
-                        Joiner.on(" AND ").join(joinExpressions),
-                        formatOutputs(node.getOutputSymbols()));
-            }
-            else if (node.isCrossJoin()) {
+            if (node.isCrossJoin()) {
                 checkState(joinExpressions.isEmpty());
                 print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
             }
@@ -570,6 +565,22 @@ public class PlanPrinter
 
             node.getDistributionType().ifPresent(distributionType -> print(indent + 2, "Distribution: %s", distributionType));
             node.getSortExpressionContext().ifPresent(context -> print(indent + 2, "SortExpression[%s]", context.getSortExpression()));
+            printPlanNodesStatsAndCost(indent + 2, node);
+            printStats(indent + 2, node.getId());
+            node.getLeft().accept(this, indent + 1);
+            node.getRight().accept(this, indent + 1);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Integer indent)
+        {
+            print(indent, "- %s[%s] => [%s]",
+                    node.getType().getJoinLabel(),
+                    node.getFilter(),
+                    formatOutputs(node.getOutputSymbols()));
+
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
