@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -42,7 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -53,7 +51,6 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -166,13 +163,15 @@ public class TestLogicalPlanner
     @Test
     public void testDistinctOverConstants()
     {
-        assertPlan("SELECT count(*), count(distinct orderkey) FROM (SELECT * FROM orders WHERE orderkey = 1)",
+        assertPlan("SELECT count(*), count(distinct orderstatus) FROM (SELECT * FROM orders WHERE orderstatus = 'F')",
                 anyTree(
-                        markDistinct("is_distinct", ImmutableList.of("orderkey"), "hash",
+                        markDistinct(
+                                "is_distinct",
+                                ImmutableList.of("orderstatus"),
+                                "hash",
                                 anyTree(
-                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderkey), 0))")),
-                                                filter("orderkey = BIGINT '1'",
-                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus), 0))")),
+                                                tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus")))))));
     }
 
     @Test
@@ -277,23 +276,27 @@ public class TestLogicalPlanner
     @Test
     public void testPushDownJoinConditionConjunctsToInnerSideBasedOnInheritedPredicate()
     {
-        Map<String, Domain> tableScanConstraint = ImmutableMap.<String, Domain>builder()
-                .put("name", singleValue(createVarcharType(25), utf8Slice("blah")))
-                .build();
-
         assertPlan(
                 "SELECT nationkey FROM nation LEFT OUTER JOIN region " +
                         "ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'",
                 anyTree(
                         join(LEFT, ImmutableList.of(equiJoinClause("NATION_NAME", "REGION_NAME"), equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
                                 anyTree(
-                                        constrainedTableScan("nation", tableScanConstraint, ImmutableMap.of(
-                                                "NATION_NAME", "name",
-                                                "NATION_REGIONKEY", "regionkey"))),
+                                        filter("NATION_NAME = CAST ('blah' AS VARCHAR(25))",
+                                                constrainedTableScan(
+                                                        "nation",
+                                                        ImmutableMap.of(),
+                                                        ImmutableMap.of(
+                                                                "NATION_NAME", "name",
+                                                                "NATION_REGIONKEY", "regionkey")))),
                                 anyTree(
-                                        constrainedTableScan("region", tableScanConstraint, ImmutableMap.of(
-                                                "REGION_NAME", "name",
-                                                "REGION_REGIONKEY", "regionkey"))))));
+                                        filter("REGION_NAME = CAST ('blah' AS VARCHAR(25))",
+                                                constrainedTableScan(
+                                                        "region",
+                                                        ImmutableMap.of(),
+                                                        ImmutableMap.of(
+                                                                "REGION_NAME", "name",
+                                                                "REGION_REGIONKEY", "regionkey")))))));
     }
 
     @Test
@@ -418,14 +421,13 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
                 anyTree(
                         filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
-                                project(
-                                        markDistinct("is_distinct", ImmutableList.of("unique"), "hash",
-                                                project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(unique), 0))")),
-                                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                                assignUniqueId("unique",
-                                                                        exchange(REMOTE, REPARTITION,
-                                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
-                                                                anyTree(tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))))));
+                                markDistinct("is_distinct", ImmutableList.of("unique"),
+                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                assignUniqueId("unique",
+                                                        exchange(REMOTE, REPARTITION,
+                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))));
     }
 
     @Test
@@ -628,14 +630,21 @@ public class TestLogicalPlanner
     @Test
     public void testPickTableLayoutWithFilter()
     {
-        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
-                .put("orderkey", singleValue(BIGINT, 5L))
-                .build();
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderkey=5",
                 output(
                         filter("orderkey = BIGINT '5'",
-                                constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderkey", "orderkey")))));
+                                constrainedTableScanWithTableLayout(
+                                        "orders",
+                                        ImmutableMap.of(),
+                                        ImmutableMap.of("orderkey", "orderkey")))));
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE orderstatus='F'",
+                output(
+                        constrainedTableScanWithTableLayout(
+                                "orders",
+                                ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F"))),
+                                ImmutableMap.of("orderkey", "orderkey"))));
     }
 
     @Test

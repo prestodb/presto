@@ -102,12 +102,14 @@ public class TestTableFinishOperator
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(2), Optional.empty()))),
+                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(2), Optional.empty())),
+                        true),
                 descriptor,
                 session);
-        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(createTaskContext(scheduledExecutor, scheduledExecutor, session)
+        DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true)
-                .addDriverContext());
+                .addDriverContext();
+        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
 
         List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
 
@@ -117,6 +119,9 @@ public class TestTableFinishOperator
         operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {2}, null).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
+
+        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
 
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.needsInput());
@@ -146,6 +151,9 @@ public class TestTableFinishOperator
         TableFinishInfo tableFinishInfo = operator.getInfo();
         assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
         assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     private static class TestTableFinisher

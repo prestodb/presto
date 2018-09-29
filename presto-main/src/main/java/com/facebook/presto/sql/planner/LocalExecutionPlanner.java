@@ -2156,7 +2156,8 @@ public class LocalExecutionPlanner
                             2,
                             outputMapping,
                             source,
-                            context);
+                            context,
+                            true);
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
@@ -2173,7 +2174,15 @@ public class LocalExecutionPlanner
                         new DataSize(0, BYTE),
                         context,
                         2,
-                        outputMapping);
+                        outputMapping,
+                        200,
+                        // This aggregation must behave as INTERMEDIATE.
+                        // Using INTERMEDIATE aggregation directly
+                        // is not possible, as it doesn't accept raw input data.
+                        // Disabling partial pre-aggregation memory limit effectively
+                        // turns PARTIAL aggregation into INTERMEDIATE.
+                        Optional.empty(),
+                        true);
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             List<Integer> inputChannels = node.getColumns().stream()
@@ -2210,7 +2219,8 @@ public class LocalExecutionPlanner
                             0,
                             outputMapping,
                             source,
-                            context);
+                            context,
+                            true);
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
@@ -2227,7 +2237,11 @@ public class LocalExecutionPlanner
                         new DataSize(0, BYTE),
                         context,
                         0,
-                        outputMapping);
+                        outputMapping,
+                        200,
+                        // final aggregation ignores partial pre-aggregation memory limit
+                        Optional.empty(),
+                        true);
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             Map<Symbol, Integer> aggregationOutput = outputMapping.build();
@@ -2496,7 +2510,8 @@ public class LocalExecutionPlanner
                     0,
                     outputMappings,
                     source,
-                    context);
+                    context,
+                    node.getStep().isOutputPartial());
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
@@ -2507,7 +2522,8 @@ public class LocalExecutionPlanner
                 int startOutputChannel,
                 ImmutableMap.Builder<Symbol, Integer> outputMappings,
                 PhysicalOperation source,
-                LocalExecutionPlanContext context)
+                LocalExecutionPlanContext context,
+                boolean useSystemMemory)
         {
             int outputChannel = startOutputChannel;
             ImmutableList.Builder<AccumulatorFactory> accumulatorFactories = ImmutableList.builder();
@@ -2518,7 +2534,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
-            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, step, accumulatorFactories.build());
+            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, step, accumulatorFactories.build(), useSystemMemory);
         }
 
         private PhysicalOperation planGroupByAggregation(
@@ -2544,7 +2560,10 @@ public class LocalExecutionPlanner
                     unspillMemoryLimit,
                     context,
                     0,
-                    mappings);
+                    mappings,
+                    10_000,
+                    Optional.of(maxPartialAggregationMemorySize),
+                    node.getStep().isOutputPartial());
             return new PhysicalOperation(operatorFactory, mappings.build(), context, source);
         }
 
@@ -2563,7 +2582,10 @@ public class LocalExecutionPlanner
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
                 int startOutputChannel,
-                ImmutableMap.Builder<Symbol, Integer> outputMappings)
+                ImmutableMap.Builder<Symbol, Integer> outputMappings,
+                int expectedGroups,
+                Optional<DataSize> maxPartialAggregationMemorySize,
+                boolean useSystemMemory)
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
@@ -2626,12 +2648,13 @@ public class LocalExecutionPlanner
                         accumulatorFactories,
                         hashChannel,
                         groupIdChannel,
-                        10_000,
+                        expectedGroups,
                         maxPartialAggregationMemorySize,
                         spillEnabled,
                         unspillMemoryLimit,
                         spillerFactory,
-                        joinCompiler);
+                        joinCompiler,
+                        useSystemMemory);
             }
         }
     }

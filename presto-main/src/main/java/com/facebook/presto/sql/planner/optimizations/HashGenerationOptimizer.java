@@ -202,7 +202,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitDistinctLimit(DistinctLimitNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (!canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctSymbols())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
@@ -214,16 +214,19 @@ public class HashGenerationOptimizer
                     parentPreference.withHashComputation(node, hashComputation));
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
+            // TODO: we need to reason about how pre-computed hashes from child relate to distinct symbols. We should be able to include any precomputed hash
+            // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
+            // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
                     new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
-                    child.getHashSymbols());
+                    ImmutableMap.of(hashComputation.get(), hashSymbol));
         }
 
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (!canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctSymbols())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 

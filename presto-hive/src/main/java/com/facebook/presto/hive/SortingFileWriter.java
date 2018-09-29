@@ -18,6 +18,7 @@ import com.facebook.presto.hive.util.MergingPageIterator;
 import com.facebook.presto.hive.util.SortBuffer;
 import com.facebook.presto.hive.util.TempFileReader;
 import com.facebook.presto.hive.util.TempFileWriter;
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.Page;
@@ -71,6 +72,7 @@ public class SortingFileWriter
     private final List<SortOrder> sortOrders;
     private final HiveFileWriter outputWriter;
     private final SortBuffer sortBuffer;
+    private final TempFileSinkFactory tempFileSinkFactory;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
     private final AtomicLong nextFileId = new AtomicLong();
 
@@ -83,7 +85,8 @@ public class SortingFileWriter
             List<Type> types,
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            TempFileSinkFactory tempFileSinkFactory)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -94,6 +97,7 @@ public class SortingFileWriter
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
+        this.tempFileSinkFactory = tempFileSinkFactory;
     }
 
     @Override
@@ -237,7 +241,7 @@ public class SortingFileWriter
     {
         Path tempFile = getTempFileName();
 
-        try (TempFileWriter writer = new TempFileWriter(types, fileSystem.create(tempFile))) {
+        try (TempFileWriter writer = new TempFileWriter(types, tempFileSinkFactory.createSink(fileSystem, tempFile))) {
             consumer.accept(writer);
             writer.close();
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
@@ -296,5 +300,11 @@ public class SortingFileWriter
                     .add("size", size)
                     .toString();
         }
+    }
+
+    public interface TempFileSinkFactory
+    {
+        OrcDataSink createSink(FileSystem fileSystem, Path path)
+                throws IOException;
     }
 }

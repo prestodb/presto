@@ -44,7 +44,7 @@ public class DoubleSumAggregationBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         InternalAggregationFunction doubleSum = MetadataManager.createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())));
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

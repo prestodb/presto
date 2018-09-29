@@ -25,11 +25,11 @@ import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ContextDsl.executeWith;
-import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
@@ -167,11 +167,6 @@ public class TestGrantRevoke
     private ImmutableList<Row> ownerGrants()
     {
         return ImmutableList.of(row("SELECT", Boolean.TRUE), row("INSERT", Boolean.TRUE), row("UPDATE", Boolean.TRUE), row("DELETE", Boolean.TRUE));
-    }
-
-    public static QueryExecutor onHive()
-    {
-        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 
     private static void assertAccessDeniedOnAllOperationsOnTable(QueryExecutor queryExecutor, String tableName)

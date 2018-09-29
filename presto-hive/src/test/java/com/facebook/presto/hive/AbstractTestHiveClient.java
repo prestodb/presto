@@ -174,6 +174,7 @@ import static com.facebook.presto.hive.HiveTestUtils.arrayType;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveTestUtils.rowType;
@@ -777,7 +778,8 @@ public abstract class AbstractTestHiveClient
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig()),
-                new HiveWriterStats());
+                new HiveWriterStats(),
+                getDefaultOrcFileWriterFactory(hiveClientConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
