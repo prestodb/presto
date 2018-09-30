@@ -16,9 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.tree.StringLiteral;
 
 public class DesugarCurrentUser
         extends ExpressionRewriteRuleSet
@@ -33,15 +31,10 @@ public class DesugarCurrentUser
         return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new com.facebook.presto.sql.tree.ExpressionRewriter<Void>()
         {
             @Override
-            public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteCurrentUser(CurrentUser node, Void ignored, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return DesugarCurrentUser.getCall(node);
+                return new StringLiteral(context.getSession().getUser());
             }
         }, expression);
-    }
-
-    public static FunctionCall getCall(CurrentUser node)
-    {
-        return new FunctionCall(QualifiedName.of("$current_user"), ImmutableList.of());
     }
 }

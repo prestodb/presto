@@ -36,12 +36,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentPath;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -140,6 +139,7 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
     private final ConnectorSession session;
+    private final SqlPath sqlPath;
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
@@ -228,6 +228,7 @@ public class ExpressionInterpreter
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
         this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.sqlPath = session.getPath();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
@@ -1140,13 +1141,13 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node), context);
+            return new StringLiteral(session.getUser());
         }
 
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentPath.getCall(node), context);
+            return new StringLiteral(sqlPath.toString());
         }
 
         @Override

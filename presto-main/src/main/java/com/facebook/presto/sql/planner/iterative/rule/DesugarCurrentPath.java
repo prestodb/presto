@@ -16,9 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.tree.StringLiteral;
 
 import static com.facebook.presto.sql.tree.ExpressionTreeRewriter.rewriteWith;
 
@@ -35,15 +33,10 @@ public class DesugarCurrentPath
         return (expression, context) -> rewriteWith(new com.facebook.presto.sql.tree.ExpressionRewriter<Void>()
         {
             @Override
-            public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteCurrentPath(CurrentPath node, Void ignored, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return DesugarCurrentPath.getCall(node);
+                return new StringLiteral(context.getSession().getPath().toString());
             }
         }, expression);
-    }
-
-    public static FunctionCall getCall(CurrentPath node)
-    {
-        return new FunctionCall(QualifiedName.of("$current_path"), ImmutableList.of());
     }
 }
