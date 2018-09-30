@@ -129,7 +129,11 @@ Array Functions
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
-.. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
+.. function:: ngrams(array<T>, n) -> array<array<T>>
+
+    Returns ``n``-grams for the ``array``.
+
+.. function:: reduce(arraTy<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
 
     Returns a single value reduced from ``array``. ``inputFunction`` will
     be invoked for each element in ``array`` in order. In addition to taking
