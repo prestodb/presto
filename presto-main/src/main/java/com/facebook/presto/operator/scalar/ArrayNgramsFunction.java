@@ -34,7 +34,7 @@ public final class ArrayNgramsFunction
 
     @TypeParameter("T")
     @SqlType("array(array(T))")
-    public static Block ngrams(@TypeParameter("T") Type type, @SqlType("array(E)") Block array, @SqlType(StandardTypes.BIGINT) long n)
+    public static Block ngrams(@TypeParameter("T") Type type, @SqlType("array(T)") Block array, @SqlType(StandardTypes.BIGINT) long n)
     {
         checkCondition(n > 0, INVALID_FUNCTION_ARGUMENT, "N must be positive");
         checkCondition(n <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "N is too large");
