@@ -42,7 +42,6 @@ public class TestingConnectorSession
     public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
 
     private final String queryId;
-    private final String path;
     private final Identity identity;
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
@@ -55,12 +54,11 @@ public class TestingConnectorSession
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", "path", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp());
     }
 
     public TestingConnectorSession(
             String user,
-            String path,
             Optional<String> source,
             Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
@@ -71,7 +69,6 @@ public class TestingConnectorSession
             boolean isLegacyTimestamp)
     {
         this.queryId = queryIdGenerator.createNextQueryId().toString();
-        this.path = requireNonNull(path, "path is null");
         this.identity = new Identity(requireNonNull(user, "user is null"), Optional.empty());
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -93,12 +90,6 @@ public class TestingConnectorSession
     public Optional<String> getSource()
     {
         return source;
-    }
-
-    @Override
-    public String getPath()
-    {
-        return path;
     }
 
     @Override
