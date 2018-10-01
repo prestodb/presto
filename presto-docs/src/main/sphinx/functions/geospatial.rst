@@ -50,6 +50,12 @@ Constructors
     two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
     not be simple, e.g. may self-intersect or may contain duplicate vertexes depending on the input.
 
+.. function:: ST_MultiPoint(array(Point)) -> MultiPoint
+
+    Returns a MultiPoint geometry object formed from the specified points. Return `null` if input array is empty.
+    Throws an exception if any element in the array is `null` or empty.
+    The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
+
 .. function:: ST_Point(double, double) -> Point
 
     Returns a geometry type point object with the given coordinate values.

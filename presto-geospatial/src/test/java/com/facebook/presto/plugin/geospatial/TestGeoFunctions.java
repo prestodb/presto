@@ -25,7 +25,9 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
@@ -1017,6 +1019,62 @@ public class TestGeoFunctions
         assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
         assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
         assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+    }
+
+    @Test
+    public void testMultiPoint()
+    {
+        // General case, 2+ points
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4))", "POINT (1 2)", "POINT (3 4)");
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4), (5 6))", "POINT (1 2)", "POINT (3 4)", "POINT (5 6)");
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4), (5 6), (7 8))", "POINT (1 2)", "POINT (3 4)", "POINT (5 6)", "POINT (7 8)");
+
+        // Duplicate points work
+        assertMultiPoint("MULTIPOINT ((1 2), (1 2))", "POINT (1 2)", "POINT (1 2)");
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4), (1 2))", "POINT (1 2)", "POINT (3 4)", "POINT (1 2)");
+
+        // Single point
+        assertMultiPoint("MULTIPOINT ((1 2))", "POINT (1 2)");
+
+        // Empty array
+        assertFunction("ST_MultiPoint(array[])", GEOMETRY, null);
+
+        // Only points can be passed
+        assertInvalidMultiPoint("geometry is not a point: LineString at index 2", "POINT (7 8)", "LINESTRING (1 2, 3 4)");
+
+        // Null point raises exception
+        assertInvalidFunction("ST_MultiPoint(array[null])", "Invalid input to ST_MultiPoint: null at index 1");
+        assertInvalidMultiPoint("null at index 3", "POINT (1 2)", "POINT (1 2)", null);
+        assertInvalidMultiPoint("null at index 2", "POINT (1 2)", null, "POINT (3 4)");
+        assertInvalidMultiPoint("null at index 2", "POINT (1 2)", null, "POINT (3 4)", null);
+
+        // Empty point raises exception
+        assertInvalidMultiPoint("empty point at index 1", "POINT EMPTY");
+        assertInvalidMultiPoint("empty point at index 2", "POINT (1 2)", "POINT EMPTY");
+    }
+
+    private void assertMultiPoint(String expectedWkt, String... pointWkts)
+    {
+        assertFunction(
+                format(
+                        "ST_MultiPoint(array[%s])",
+                        Arrays.stream(pointWkts)
+                            .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                            .collect(Collectors.joining(","))),
+                GEOMETRY,
+                expectedWkt);
+    }
+
+    private void assertInvalidMultiPoint(String errorMessage, String... pointWkts)
+    {
+        assertInvalidFunction(
+                format(
+                        "ST_MultiPoint(array[%s])",
+                        Arrays.stream(pointWkts)
+                            .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                            .collect(Collectors.joining(","))),
+                INVALID_FUNCTION_ARGUMENT,
+                format("Invalid input to ST_MultiPoint: %s", errorMessage));
     }
 
     @Test
