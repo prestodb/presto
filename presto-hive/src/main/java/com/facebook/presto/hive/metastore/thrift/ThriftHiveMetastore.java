@@ -219,6 +219,54 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public List<org.apache.hadoop.hive.metastore.api.Table> getAllTables(String databaseName, List<String> tableNames)
+    {
+        Callable<List<org.apache.hadoop.hive.metastore.api.Table>> getAllTables = stats.getGetAllTables().wrap(() -> {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                List<org.apache.hadoop.hive.metastore.api.Table> allTables = client.getTableObjectsByName(databaseName, tableNames);
+                ImmutableList.Builder tables = ImmutableList.builder();
+                for (Table table : allTables) {
+                    if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
+                        continue;
+                    }
+                    tables.add(table);
+                }
+                return tables.build();
+            }
+        });
+
+        Callable<Void> getDatabase = stats.getGetDatabase().wrap(() -> {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                client.getDatabase(databaseName);
+                return null;
+            }
+        });
+
+        try {
+            return retry()
+                    .stopOn(NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getTableObjectsByName", () -> {
+                        List<org.apache.hadoop.hive.metastore.api.Table> tables = getAllTables.call();
+                        if (tables.isEmpty()) {
+                            // Check to see if the database exists
+                            getDatabase.call();
+                        }
+                        return tables;
+                    });
+        }
+        catch (NoSuchObjectException e) {
+            return ImmutableList.of();
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         try {

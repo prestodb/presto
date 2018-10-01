@@ -123,6 +123,16 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public List<Table> getAllTables(String databaseName, List<String> tableNames)
+    {
+        List<org.apache.hadoop.hive.metastore.api.Table> tables = delegate.getAllTables(databaseName, tableNames);
+        return tables
+                .stream()
+                .map(ThriftMetastoreUtil::fromMetastoreApiTable)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public Optional<List<String>> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);

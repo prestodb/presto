@@ -211,6 +211,8 @@ public class HiveMetadata
     private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
 
+    public static final int GET_TABLES_BATCH_SIZE = 1000;
+
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -506,15 +508,33 @@ public class HiveMetadata
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
-            try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
-            }
-            catch (HiveViewNotSupportedException e) {
-                // view is not supported
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
+        Map<String, List<String>> schemaTableNamesMap = listTables(session, prefix)
+                .stream()
+                .collect(
+                        Collectors.groupingBy(
+                                SchemaTableName::getSchemaName,
+                                Collectors.mapping(SchemaTableName::getTableName, Collectors.toList())));
+        for (Map.Entry<String, List<String>> entry : schemaTableNamesMap.entrySet()) {
+            String schemaName = entry.getKey();
+            List<String> tableNames = entry.getValue();
+            int batch = 0;
+            for (int tableIndex = 0; tableIndex < tableNames.size(); tableIndex = tableIndex + GET_TABLES_BATCH_SIZE, batch++) {
+                List<Table> tables = metastore.getAllTables(
+                        schemaName,
+                        tableNames.subList(
+                                batch * GET_TABLES_BATCH_SIZE,
+                                Math.min(batch * GET_TABLES_BATCH_SIZE + GET_TABLES_BATCH_SIZE, tableNames.size())));
+                for (Table table : tables) {
+                    if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+                        continue;
+                    }
+                    Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table, typeManager);
+                    ImmutableList.Builder<ColumnMetadata> tableColumns = ImmutableList.builder();
+                    for (HiveColumnHandle columnHandle : hiveColumnHandles(table)) {
+                        tableColumns.add(metadataGetter.apply(columnHandle));
+                    }
+                    columns.put(new SchemaTableName(schemaName, table.getTableName()), tableColumns.build());
+                }
             }
         }
         return columns.build();

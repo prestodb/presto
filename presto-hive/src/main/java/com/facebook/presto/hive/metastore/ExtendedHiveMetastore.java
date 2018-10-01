@@ -17,7 +17,9 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +45,23 @@ public interface ExtendedHiveMetastore
     void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     Optional<List<String>> getAllTables(String databaseName);
+
+    default List<Table> getAllTables(String databaseName, List<String> tableNames)
+    {
+        List<String> allTableNames = getAllTables(databaseName).orElse(new ArrayList());
+
+        ImmutableList.Builder builder = ImmutableList.builder();
+        for (String tableName : allTableNames) {
+            if (tableNames.contains(tableName)) {
+                Optional<Table> table = getTable(databaseName, tableName);
+                if (table.isPresent()) {
+                    builder.add(table.get());
+                }
+            }
+        }
+
+        return builder.build();
+    }
 
     Optional<List<String>> getAllViews(String databaseName);
 

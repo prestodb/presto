@@ -353,6 +353,12 @@ public class CachingHiveMetastore
         return get(tableNamesCache, databaseName);
     }
 
+    @Override
+    public List<Table> getAllTables(String databaseName, List<String> tableNames)
+    {
+        return delegate.getAllTables(databaseName, tableNames);
+    }
+
     private Optional<List<String>> loadAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);

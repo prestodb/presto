@@ -294,4 +294,11 @@ public class ThriftHiveMetastoreClient
     {
         client.set_ugi(userName, new ArrayList<>());
     }
+
+    @Override
+    public List<Table> getTableObjectsByName(String databaseName, List<String> tableNames)
+            throws TException
+    {
+        return client.get_table_objects_by_name(databaseName, tableNames);
+    }
 }

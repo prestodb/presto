@@ -21,12 +21,14 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +57,23 @@ public interface HiveMetastore
     List<String> getAllDatabases();
 
     Optional<List<String>> getAllTables(String databaseName);
+
+    default List<Table> getAllTables(String databaseName, List<String> tableNames)
+    {
+        List<String> allTableNames = getAllTables(databaseName).orElse(new ArrayList());
+
+        ImmutableList.Builder builder = ImmutableList.builder();
+        for (String tableName : allTableNames) {
+            if (tableNames.contains(tableName)) {
+                Optional<Table> table = getTable(databaseName, tableName);
+                if (table.isPresent()) {
+                    builder.add(table.get());
+                }
+            }
+        }
+
+        return builder.build();
+    }
 
     Optional<List<String>> getAllViews(String databaseName);
 

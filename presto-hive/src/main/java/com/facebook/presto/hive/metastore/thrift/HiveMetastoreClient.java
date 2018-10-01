@@ -131,4 +131,10 @@ public interface HiveMetastoreClient
 
     void setUGI(String userName)
             throws TException;
+
+    default List<Table> getTableObjectsByName(String databaseName, List<String> tableNames)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
 }
