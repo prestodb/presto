@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -201,6 +202,12 @@ public class PhasedExecutionSchedule
 
         @Override
         public Set<PlanFragmentId> visitJoin(JoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
+        }
+
+        @Override
+        public Set<PlanFragmentId> visitSpatialJoin(SpatialJoinNode node, PlanFragmentId currentFragmentId)
         {
             return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
         }

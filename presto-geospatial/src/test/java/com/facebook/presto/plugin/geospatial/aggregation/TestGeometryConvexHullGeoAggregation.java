@@ -22,8 +22,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-import static java.lang.String.format;
-
 public class TestGeometryConvexHullGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
@@ -354,6 +352,53 @@ public class TestGeometryConvexHullGeoAggregation
         };
     }
 
+    @DataProvider(name = "geometryCollection")
+    public Object[][] geometryCollection()
+    {
+        return new Object[][] {
+                {
+                        "identity",
+                        "POLYGON ((0 0, 5 0, 5 2, 0 2, 0 0))",
+                        new String[] {"MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+                                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+                                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"},
+                },
+                {
+                        "empty with non-empty",
+                        "POLYGON ((0 0, 5 0, 5 2, 0 2, 0 0))",
+                        new String[] {"GEOMETRYCOLLECTION EMPTY",
+                                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"},
+                },
+                {
+                        "overlapping geometry collections",
+                        "POLYGON ((1 1, 5 1, 4 2, 2 2, 1 1))",
+                        new String[] {"GEOMETRYCOLLECTION ( POLYGON ((2 2, 3 1, 1 1, 2 2)), POLYGON ((3 2, 4 1, 2 1, 3 2)) )",
+                                "GEOMETRYCOLLECTION ( POLYGON ((4 2, 5 1, 3 1, 4 2)) )"},
+                },
+                {
+                        "disjoint geometry collection of polygons",
+                        "POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))",
+                        new String[] {"GEOMETRYCOLLECTION ( POLYGON (( 0 0, 0 2, 2 2, 2 0, 0 0 )), POLYGON (( 0 3, 0 5, 2 5, 2 3, 0 3 )) )",
+                                "GEOMETRYCOLLECTION ( POLYGON (( 3 0, 3 2, 5 2, 5 0, 3 0 )), POLYGON (( 3 3, 3 5, 5 5, 5 3, 3 3 )) )"},
+                },
+                {
+                        "square with a line crossed",
+                        "POLYGON ((0 2, 1 1, 3 1, 5 2, 3 3, 1 3, 0 2))",
+                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)"},
+                },
+                {
+                        "square with adjacent line",
+                        "POLYGON ((0 5, 1 1, 3 1, 5 5, 0 5))",
+                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)"},
+                },
+                {
+                        "square with adjacent point",
+                        "POLYGON ((5 2, 3 3, 1 3, 1 1, 3 1, 5 2))",
+                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)"},
+                },
+        };
+    }
+
     @Test(dataProvider = "point")
     public void testPoint(String testDescription, String expectedWkt, String... wkts)
     {
@@ -396,23 +441,15 @@ public class TestGeometryConvexHullGeoAggregation
         assertAggregatedGeometries(testDescription, expectedWkt, wkt);
     }
 
-    @Test
-    public void testGeometrycollection()
+    @Test(dataProvider = "geometryCollection")
+    public void testGeometryCollection(String testDescription, String expectedWkt, String... wkt)
     {
-        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2)))", "convex_hull_agg only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
-        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2)), POINT(1 1))", "convex_hull_agg only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
-        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2)), LINESTRING(1 1, 3 4))", "convex_hull_agg only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
-        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POLYGON ((2 2, 3 1, 1 1, 2 2)), POLYGON ((3 2, 4 1, 2 1, 3 2)))", "convex_hull_agg only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertAggregatedGeometries(testDescription, expectedWkt, wkt);
     }
 
     @Override
     protected String getFunctionName()
     {
         return "convex_hull_agg";
-    }
-
-    private void assertConvexHullInvalidFunction(String inputWKT, String errorMessage)
-    {
-        assertInvalidFunction(format("convex_hull_agg(ST_GeometryFromText('%s'))", inputWKT), errorMessage);
     }
 }

@@ -75,8 +75,6 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
-import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
-import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -161,32 +159,25 @@ public class TestHiveIntegrationSmokeTest
     {
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 10");
 
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM orders where orderkey > 5 AND custkey <= 10");
-        TableColumnInfo input = new TableColumnInfo(
-                new CatalogSchemaTableName(catalog, "tpch", "orders"),
-                ImmutableSet.of(
-                        new ColumnConstraint(
-                                "custkey",
-                                BIGINT.getTypeSignature(),
-                                new FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
-                        new ColumnConstraint(
-                                "orderkey",
-                                BIGINT.getTypeSignature(),
-                                new FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("5"), ABOVE),
-                                                        new FormattedMarker(Optional.empty(), BELOW)))))));
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where orderkey > 5 AND custkey <= 10");
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
-                        ImmutableSet.of(input),
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                ImmutableSet.of(
+                                        new ColumnConstraint(
+                                                "orderkey",
+                                                BIGINT.getTypeSignature(),
+                                                new FormattedDomain(
+                                                        false,
+                                                        ImmutableSet.of(
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("6"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("6"), EXACTLY)),
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("7"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("7"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -2702,7 +2693,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -2712,7 +2703,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -2759,7 +2750,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -2769,7 +2760,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -2799,8 +2790,8 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar_1 = '2' AND p_varchar_2 = '2')", tableName),
                 "SELECT * FROM VALUES " +
-                        "('c_bigint_1', null, 1.0E0, 0.0E0, null, 1, 1), " +
-                        "('c_bigint_2', null, 1.0E0, 0.0E0, null, 1, 1), " +
+                        "('c_bigint_1', null, 1.0E0, 0.0E0, null, '1', '1'), " +
+                        "('c_bigint_2', null, 1.0E0, 0.0E0, null, '1', '1'), " +
                         "('p_varchar_1', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "('p_varchar_2', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 1.0E0, null, null)");
@@ -2813,8 +2804,8 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar_1 = 'O' AND p_varchar_2 = 'O')", tableName),
                 "SELECT * FROM VALUES " +
-                        "('c_bigint_1', null, 1.0E0, 0.0E0, null, 15008, 15008), " +
-                        "('c_bigint_2', null, 1.0E0, 0.0E0, null, 15008, 15008), " +
+                        "('c_bigint_1', null, 1.0E0, 0.0E0, null, '15008', '15008'), " +
+                        "('c_bigint_2', null, 1.0E0, 0.0E0, null, '15008', '15008'), " +
                         "('p_varchar_1', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "('p_varchar_2', 1.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 1.0E0, null, null)");

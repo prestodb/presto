@@ -1210,7 +1210,7 @@ public class TestHashJoinOperator
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels));
+                .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(

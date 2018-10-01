@@ -119,6 +119,46 @@ public final class GeoFunctions
         return serialize(geometry);
     }
 
+    @Description("Returns a LineString from an array of points")
+    @ScalarFunction("ST_LineString")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stLineString(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
+    {
+        // The number of points added to the LineString
+        int addedPoints = 0;
+
+        MultiPath multipath = new Polyline();
+        for (int i = 0; i < input.getPositionCount(); i++) {
+            Slice slice = GEOMETRY.getSlice(input, i);
+
+            // Ignore null points
+            if (slice.getInput().available() == 0) {
+                continue;
+            }
+
+            OGCGeometry geometry = deserialize(slice);
+            if (!(geometry instanceof OGCPoint)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
+            }
+            OGCPoint point = (OGCPoint) geometry;
+
+            // Empty points are ignored
+            if (point.isEmpty()) {
+                continue;
+            }
+
+            if (addedPoints == 0) {
+                multipath.startPath(point.X(), point.Y());
+            }
+            else {
+                multipath.lineTo(point.X(), point.Y());
+            }
+            addedPoints++;
+        }
+        OGCLineString linestring = new OGCLineString(multipath, 0, null);
+        return serialize(linestring);
+    }
+
     @Description("Returns a Geometry type Point object with the given coordinate values")
     @ScalarFunction("ST_Point")
     @SqlType(GEOMETRY_TYPE_NAME)
@@ -264,27 +304,13 @@ public final class GeoFunctions
     public static Slice stConvexHull(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-        validateType("ST_ConvexHull", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
         if (geometry.isEmpty()) {
             return input;
         }
         if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
             return input;
         }
-        OGCGeometry convexHull = geometry.convexHull();
-        if (convexHull.isEmpty()) {
-            // This happens for a single-point multi-point because of a bug in ESRI library - https://github.com/Esri/geometry-api-java/issues/172
-            return serialize(createFromEsriGeometry(((MultiVertexGeometry) geometry.getEsriGeometry()).getPoint(0), null));
-        }
-        if (GeometryType.getForEsriGeometryType(convexHull.geometryType()) == MULTI_POLYGON) {
-            MultiVertexGeometry multiVertex = (MultiVertexGeometry) convexHull.getEsriGeometry();
-            if (multiVertex.getPointCount() == 2) {
-                // This happens when all points of the input geometry are on the same line because of a bug in ESRI library - https://github.com/Esri/geometry-api-java/issues/172
-                OGCGeometry linestring = createFromEsriGeometry(new Polyline(multiVertex.getPoint(0), multiVertex.getPoint(1)), null);
-                return serialize(linestring);
-            }
-        }
-        return serialize(convexHull);
+        return serialize(geometry.convexHull());
     }
 
     @Description("Return the coordinate dimension of the Geometry")
@@ -1067,7 +1093,7 @@ public final class GeoFunctions
         requireNonNull(input, "input is null");
         OGCGeometry geometry;
         try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer());
+            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
         }
         catch (IllegalArgumentException | IndexOutOfBoundsException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);

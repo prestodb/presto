@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
@@ -156,7 +155,7 @@ public class TestServer
         assertNull(queryResults.getError());
 
         // get the query info
-        QueryInfo queryInfo = server.getQueryManager().getQueryInfo(new QueryId(queryResults.getId()));
+        BasicQueryInfo queryInfo = server.getQueryManager().getQueryInfo(new QueryId(queryResults.getId()));
 
         // verify session properties
         assertEquals(queryInfo.getSession().getSystemProperties(), ImmutableMap.builder()

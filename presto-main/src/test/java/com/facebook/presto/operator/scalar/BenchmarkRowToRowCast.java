@@ -99,7 +99,7 @@ public class BenchmarkRowToRowCast
             Block[] fieldBlocks = fromFieldTypes.stream()
                     .map(type -> createBlock(POSITION_COUNT, type))
                     .toArray(Block[]::new);
-            Block rowBlock = fromFieldBlocks(new boolean[POSITION_COUNT], fieldBlocks);
+            Block rowBlock = fromFieldBlocks(POSITION_COUNT, Optional.empty(), fieldBlocks);
 
             page = new Page(rowBlock);
         }

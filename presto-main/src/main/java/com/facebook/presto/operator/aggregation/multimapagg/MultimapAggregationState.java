@@ -11,24 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation.multimapagg;
 
-import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import com.facebook.presto.spi.type.Type;
 
-@AccumulatorStateMetadata(stateFactoryClass = MultiKeyValuePairsStateFactory.class, stateSerializerClass = MultiKeyValuePairStateSerializer.class)
-public interface MultiKeyValuePairsState
+@AccumulatorStateMetadata(stateFactoryClass = MultimapAggregationStateFactory.class, stateSerializerClass = MultimapAggregationStateSerializer.class)
+public interface MultimapAggregationState
         extends AccumulatorState
 {
-    MultiKeyValuePairs get();
+    void add(Block keyBlock, Block valueBlock, int position);
 
-    void set(MultiKeyValuePairs value);
+    void forEach(MultimapAggregationStateConsumer consumer);
 
-    void addMemoryUsage(long memory);
+    default void merge(MultimapAggregationState otherState)
+    {
+        otherState.forEach(this::add);
+    }
 
-    Type getKeyType();
+    boolean isEmpty();
 
-    Type getValueType();
+    default void reset()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    long getEstimatedSize();
+
+    int getEntryCount();
 }

@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -214,10 +215,9 @@ public class PruneUnreferencedOutputs
                         .build();
             }
             else {
-                Set<Symbol> seenSymbol = new HashSet<>();
                 outputSymbols = node.getOutputSymbols().stream()
                         .filter(context.get()::contains)
-                        .filter(seenSymbol::add)
+                        .distinct()
                         .collect(toImmutableList());
             }
 
@@ -253,6 +253,25 @@ public class PruneUnreferencedOutputs
                     node.getSourceHashSymbol(),
                     node.getFilteringSourceHashSymbol(),
                     node.getDistributionType());
+        }
+
+        @Override
+        public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Set<Symbol>> context)
+        {
+            Set<Symbol> requiredInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(SymbolsExtractor.extractUnique(node.getFilter()))
+                    .addAll(context.get())
+                    .build();
+
+            PlanNode left = context.rewrite(node.getLeft(), requiredInputs);
+            PlanNode right = context.rewrite(node.getRight(), requiredInputs);
+
+            List<Symbol> outputSymbols = node.getOutputSymbols().stream()
+                    .filter(context.get()::contains)
+                    .distinct()
+                    .collect(toImmutableList());
+
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputSymbols, node.getFilter());
         }
 
         @Override

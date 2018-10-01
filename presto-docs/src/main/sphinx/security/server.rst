@@ -118,15 +118,20 @@ Property                                                Description
 
 .. note::
 
-    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java will
-    choose CPU-intensive cipher suites by default. If the CPU usage is
-    unacceptably high after enabling HTTPS, you can configure Java to use
-    specific cipher suites by setting the ``http-server.https.included-cipher``
-    property:
+    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java
+    prefers the more CPU-intensive cipher suites if you allow it to choose from
+    a big list. If the CPU usage is unacceptably high after enabling HTTPS,
+    you can configure Java to use specific cipher suites by setting
+    the ``http-server.https.included-cipher`` property to only allow
+    cheap ciphers. Non forward secrecy (FS) ciphers are disabled by default.
+    As a result, if you want to choose non FS ciphers, you need to set the
+    ``http-server.https.excluded-cipher`` property to an empty list in order to
+    override the default exclusions.
 
     .. code-block:: none
 
         http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
+        http-server.https.excluded-cipher=
 
     The Java documentation lists the `supported cipher suites
     <http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites>`_.

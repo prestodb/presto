@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -363,12 +362,6 @@ public class OrcOutputBuffer
     public Slice getUnderlyingSlice()
     {
         throw new UnsupportedOperationException();
-    }
-
-    public List<Slice> getCompressedSlices()
-    {
-        flushBufferToOutputStream();
-        return compressedOutputStream.getSlices();
     }
 
     @Override

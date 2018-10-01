@@ -96,6 +96,8 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles = ImmutableList.of();
 
+    private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
+
     private boolean useParquetColumnNames;
     private boolean parquetOptimizedReaderEnabled = true;
     private boolean parquetPredicatePushdownEnabled = true;
@@ -135,6 +137,7 @@ public class HiveClientConfig
 
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
+    private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite;
 
     public int getMaxInitialSplits()
@@ -892,6 +895,22 @@ public class HiveClientConfig
         return this;
     }
 
+    @MinDataSize("1B")
+    @MaxDataSize("1GB")
+    @NotNull
+    public DataSize getTextMaxLineLength()
+    {
+        return textMaxLineLength;
+    }
+
+    @Config("hive.text.max-line-length")
+    @ConfigDescription("Maximum line length for text files")
+    public HiveClientConfig setTextMaxLineLength(DataSize textMaxLineLength)
+    {
+        this.textMaxLineLength = textMaxLineLength;
+        return this;
+    }
+
     public boolean isUseParquetColumnNames()
     {
         return useParquetColumnNames;
@@ -1073,6 +1092,19 @@ public class HiveClientConfig
     public HiveClientConfig setPartitionStatisticsSampleSize(int partitionStatisticsSampleSize)
     {
         this.partitionStatisticsSampleSize = partitionStatisticsSampleSize;
+        return this;
+    }
+
+    public boolean isIgnoreCorruptedStatistics()
+    {
+        return ignoreCorruptedStatistics;
+    }
+
+    @Config("hive.ignore-corrupted-statistics")
+    @ConfigDescription("Ignore corrupted statistics rather than failing")
+    public HiveClientConfig setIgnoreCorruptedStatistics(boolean ignoreCorruptedStatistics)
+    {
+        this.ignoreCorruptedStatistics = ignoreCorruptedStatistics;
         return this;
     }
 

@@ -154,6 +154,9 @@ public class PlanNodeStatsSummarizer
         List<PlanNodeStats> stats = new ArrayList<>();
         for (Map.Entry<PlanNodeId, Long> entry : planNodeWallMillis.entrySet()) {
             PlanNodeId planNodeId = entry.getKey();
+            if (!planNodeInputPositions.containsKey(planNodeId)) {
+                continue;
+            }
             stats.add(new PlanNodeStats(
                     planNodeId,
                     new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS),

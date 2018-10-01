@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -59,6 +58,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -83,6 +83,7 @@ public final class SqlStageExecution
     private final AtomicInteger nextTaskId = new AtomicInteger();
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
+    private final Set<TaskId> doneTasks = newConcurrentHashSet();
     private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
     private final Multimap<PlanNodeId, RemoteTask> sourceTasks = HashMultimap.create();
@@ -135,6 +136,13 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+
+        stateMachine.addStateChangeListener(newState -> {
+            // when stage transitions to a done state, check if all tasks have final status information
+            if (newState.isDone() && doneTasks.containsAll(allTasks)) {
+                stateMachine.setAllTasksFinal();
+            }
+        });
     }
 
     public StageId getStageId()
@@ -150,6 +158,11 @@ public final class SqlStageExecution
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
+    }
+
+    public void addFinalStatusListener(StateChangeListener<BasicStageStats> stateChangeListener)
+    {
+        stateMachine.addFinalStatusListener(ignored -> stateChangeListener.stateChanged(getBasicStageStats()));
     }
 
     public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
@@ -231,6 +244,14 @@ public final class SqlStageExecution
                 .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
                 .sum();
         return new Duration(millis, TimeUnit.MILLISECONDS);
+    }
+
+    public BasicStageStats getBasicStageStats()
+    {
+        return stateMachine.getBasicStageStats(
+                () -> getAllTasks().stream()
+                        .map(RemoteTask::getTaskInfo)
+                        .collect(toImmutableList()));
     }
 
     public StageInfo getStageInfo()
@@ -435,37 +456,51 @@ public final class SqlStageExecution
         @Override
         public void stateChanged(TaskStatus taskStatus)
         {
-            updateMemoryUsage(taskStatus);
-            updateCompletedDriverGroups(taskStatus);
-
-            StageState stageState = getState();
-            if (stageState.isDone()) {
-                return;
-            }
-
-            TaskState taskState = taskStatus.getState();
-            if (taskState == TaskState.FAILED) {
-                RuntimeException failure = taskStatus.getFailures().stream()
-                        .findFirst()
-                        .map(this::rewriteTransportFailure)
-                        .map(ExecutionFailureInfo::toException)
-                        .orElse(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                stateMachine.transitionToFailed(failure);
-            }
-            else if (taskState == TaskState.ABORTED) {
-                // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
-            }
-            else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(taskStatus.getTaskId());
-            }
-
-            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
-                if (taskState == TaskState.RUNNING) {
-                    stateMachine.transitionToRunning();
+            try {
+                // always update done tasks before, state transitions to ensure
+                // the transition to "final status info" is not missed
+                if (taskStatus.getState().isDone()) {
+                    doneTasks.add(taskStatus.getTaskId());
                 }
-                if (finishedTasks.containsAll(allTasks)) {
-                    stateMachine.transitionToFinished();
+
+                updateMemoryUsage(taskStatus);
+                updateCompletedDriverGroups(taskStatus);
+
+                StageState stageState = getState();
+                if (stageState.isDone()) {
+                    return;
+                }
+
+                TaskState taskState = taskStatus.getState();
+                if (taskState == TaskState.FAILED) {
+                    RuntimeException failure = taskStatus.getFailures().stream()
+                            .findFirst()
+                            .map(this::rewriteTransportFailure)
+                            .map(ExecutionFailureInfo::toException)
+                            .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                    stateMachine.transitionToFailed(failure);
+                }
+                else if (taskState == TaskState.ABORTED) {
+                    // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
+                    stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                }
+                else if (taskState == TaskState.FINISHED) {
+                    finishedTasks.add(taskStatus.getTaskId());
+                }
+
+                if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
+                    if (taskState == TaskState.RUNNING) {
+                        stateMachine.transitionToRunning();
+                    }
+                    if (finishedTasks.containsAll(allTasks)) {
+                        stateMachine.transitionToFinished();
+                    }
+                }
+            }
+            finally {
+                // after updating state, check if all tasks have final status information
+                if (stateMachine.getState().isDone() && doneTasks.containsAll(allTasks)) {
+                    stateMachine.setAllTasksFinal();
                 }
             }
         }

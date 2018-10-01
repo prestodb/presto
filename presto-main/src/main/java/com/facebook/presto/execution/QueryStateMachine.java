@@ -21,6 +21,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -31,6 +33,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +64,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.FINISHING;
@@ -300,12 +304,82 @@ public class QueryStateMachine
         return Optional.ofNullable(resourceGroup.get());
     }
 
-    public QueryInfo getQueryInfoWithoutDetails()
+    public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
     {
-        return getQueryInfo(Optional.empty());
+        // Query state must be captured first in order to provide a
+        // correct view of the query.  For example, building this
+        // information, the query could finish, and the task states would
+        // never be visible.
+        QueryState state = queryState.get();
+
+        Duration elapsedTime;
+        if (endNanos.get() != 0) {
+            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
+        }
+        else {
+            elapsedTime = nanosSince(createNanos);
+        }
+
+        ErrorCode errorCode = null;
+        if (state == FAILED) {
+            ExecutionFailureInfo failureCause = this.failureCause.get();
+            if (failureCause != null) {
+                errorCode = failureCause.getErrorCode();
+            }
+        }
+
+        Duration queuedTime = this.queuedTime.get();
+
+        Duration executionTime = new Duration(0, NANOSECONDS);
+        // if queue time is not set, the query is still queued
+        if (queuedTime != null) {
+            long executionNanos = (long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS);
+            executionTime = succinctNanos(Math.max(0, executionNanos));
+        }
+
+        BasicStageStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
+        BasicQueryStats queryStats = new BasicQueryStats(
+                createTime,
+                executionStartTime.get(),
+                queuedTime,
+                elapsedTime.convertToMostSuccinctTimeUnit(),
+                executionTime,
+
+                stageStats.getTotalDrivers(),
+                stageStats.getQueuedDrivers(),
+                stageStats.getRunningDrivers(),
+                stageStats.getCompletedDrivers(),
+
+                stageStats.getRawInputDataSize(),
+                stageStats.getRawInputPositions(),
+
+                stageStats.getCumulativeUserMemory(),
+                stageStats.getUserMemoryReservation(),
+                stageStats.getTotalMemoryReservation(),
+                succinctBytes(getPeakUserMemoryInBytes()),
+
+                stageStats.getTotalCpuTime(),
+                stageStats.getTotalScheduledTime(),
+
+                stageStats.isFullyBlocked(),
+                stageStats.getBlockedReasons(),
+                stageStats.getProgressPercentage());
+
+        return new BasicQueryInfo(
+                queryId,
+                session.toSessionRepresentation(),
+                state,
+                memoryPool.get().getId(),
+                stageStats.isScheduled(),
+                self,
+                query,
+                queryStats,
+                errorCode == null ? null : errorCode.getType(),
+                errorCode);
     }
 
-    public QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
+    @VisibleForTesting
+    QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
     {
         // Query state must be captured first in order to provide a
         // correct view of the query.  For example, building this
@@ -823,6 +897,14 @@ public class QueryStateMachine
         return getAllStages(rootStage).stream()
                 .map(StageInfo::getState)
                 .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
+    }
+
+    public Optional<ExecutionFailureInfo> getFailureInfo()
+    {
+        if (queryState.get() != FAILED) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(this.failureCause.get());
     }
 
     public Optional<QueryInfo> getFinalQueryInfo()

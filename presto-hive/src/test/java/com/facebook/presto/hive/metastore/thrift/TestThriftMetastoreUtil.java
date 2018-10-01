@@ -70,7 +70,7 @@ public class TestThriftMetastoreUtil
         longColumnStatsData.setNumNulls(1);
         longColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BIGINT_TYPE_NAME, longStats(longColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
         assertEquals(actual.getIntegerStatistics(), Optional.of(new IntegerStatistics(OptionalLong.of(0), OptionalLong.of(100))));
         assertEquals(actual.getDoubleStatistics(), Optional.empty());
@@ -110,7 +110,7 @@ public class TestThriftMetastoreUtil
         doubleColumnStatsData.setNumNulls(1);
         doubleColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
         assertEquals(actual.getIntegerStatistics(), Optional.empty());
         assertEquals(actual.getDoubleStatistics(), Optional.of(new DoubleStatistics(OptionalDouble.of(0), OptionalDouble.of(100))));
@@ -152,7 +152,7 @@ public class TestThriftMetastoreUtil
         decimalColumnStatsData.setNumNulls(1);
         decimalColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(decimalColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
         assertEquals(actual.getIntegerStatistics(), Optional.empty());
         assertEquals(actual.getDoubleStatistics(), Optional.empty());
@@ -231,7 +231,7 @@ public class TestThriftMetastoreUtil
         dateColumnStatsData.setNumNulls(1);
         dateColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DATE_TYPE_NAME, dateStats(dateColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
         assertEquals(actual.getIntegerStatistics(), Optional.empty());
         assertEquals(actual.getDoubleStatistics(), Optional.empty());
@@ -281,7 +281,7 @@ public class TestThriftMetastoreUtil
         assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.of(100));
         assertEquals(actual.getTotalSizeInBytes(), OptionalLong.of(23));
         assertEquals(actual.getNullsCount(), OptionalLong.of(1));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(19));
+        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(1));
     }
 
     @Test

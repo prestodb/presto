@@ -364,7 +364,8 @@ public class TableWriterOperator
         return new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
+                new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(pageSink.getValidationCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
     }
 
     public static class TableWriterInfo
@@ -373,16 +374,19 @@ public class TableWriterOperator
         private final long pageSinkPeakMemoryUsage;
         private final Duration statisticsWallTime;
         private final Duration statisticsCpuTime;
+        private final Duration validationCpuTime;
 
         @JsonCreator
         public TableWriterInfo(
                 @JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage,
                 @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
-                @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
+                @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime,
+                @JsonProperty("validationCpuTime") Duration validationCpuTime)
         {
             this.pageSinkPeakMemoryUsage = pageSinkPeakMemoryUsage;
             this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
             this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
+            this.validationCpuTime = requireNonNull(validationCpuTime, "validationCpuTime is null");
         }
 
         @JsonProperty
@@ -403,13 +407,20 @@ public class TableWriterOperator
             return statisticsCpuTime;
         }
 
+        @JsonProperty
+        public Duration getValidationCpuTime()
+        {
+            return validationCpuTime;
+        }
+
         @Override
         public TableWriterInfo mergeWith(TableWriterInfo other)
         {
             return new TableWriterInfo(
                     Math.max(pageSinkPeakMemoryUsage, other.pageSinkPeakMemoryUsage),
                     new Duration(statisticsWallTime.getValue(NANOSECONDS) + other.statisticsWallTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new Duration(statisticsCpuTime.getValue(NANOSECONDS) + other.statisticsCpuTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit());
+                    new Duration(statisticsCpuTime.getValue(NANOSECONDS) + other.statisticsCpuTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                    new Duration(validationCpuTime.getValue(NANOSECONDS) + other.validationCpuTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit());
         }
 
         @Override
@@ -425,6 +436,7 @@ public class TableWriterOperator
                     .add("pageSinkPeakMemoryUsage", pageSinkPeakMemoryUsage)
                     .add("statisticsWallTime", statisticsWallTime)
                     .add("statisticsCpuTime", statisticsCpuTime)
+                    .add("validationCpuTime", validationCpuTime)
                     .toString();
         }
     }

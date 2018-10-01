@@ -38,6 +38,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -89,8 +90,8 @@ public class TestStartTransactionTask
         }
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
     }
 
     @Test
@@ -114,8 +115,8 @@ public class TestStartTransactionTask
         }
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
     }
 
     @Test
@@ -130,11 +131,11 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().get());
+        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
         assertFalse(transactionInfo.isAutoCommitContext());
     }
 
@@ -156,11 +157,11 @@ public class TestStartTransactionTask
                 new AllowAllAccessControl(),
                 stateMachine,
                 emptyList()));
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().get());
+        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
         assertEquals(transactionInfo.getIsolationLevel(), IsolationLevel.SERIALIZABLE);
         assertTrue(transactionInfo.isReadOnly());
         assertFalse(transactionInfo.isAutoCommitContext());
@@ -192,8 +193,8 @@ public class TestStartTransactionTask
         }
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
     }
 
     @Test
@@ -222,8 +223,8 @@ public class TestStartTransactionTask
         }
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
     }
 
     @Test
@@ -251,8 +252,8 @@ public class TestStartTransactionTask
                 new AllowAllAccessControl(),
                 stateMachine,
                 emptyList()));
-        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
+        assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         long start = System.nanoTime();
         while (!transactionManager.getAllTransactionInfos().isEmpty()) {

@@ -50,7 +50,6 @@ import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage
@@ -95,12 +94,11 @@ public class TestOrcReaderMemoryUsage
 
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
-                // We also account for the StreamReader local buffers. For SliceDictionaryStreamReader, there are two
-                // buffers: isNullVector and inDictionaryVector, and each buffer has 1024 boolean values.
-                assertGreaterThanOrEqual(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 2048L);
-                // The total retained size and system memory usage should be strictly larger than 2048L because of the instance sizes.
-                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 2048L);
-                assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 2048L);
+                // There are no local buffers needed.
+                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
+                // The total retained size and system memory usage should be greater than 0 byte because of the instance sizes.
+                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
+                assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
             }
         }
         finally {
@@ -143,12 +141,11 @@ public class TestOrcReaderMemoryUsage
 
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
-                // We also account for the StreamReader local buffers. For LongDirectStreamReader, there is one
-                // buffer isNullVector, and it has 1024 boolean values.
-                assertGreaterThanOrEqual(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 1024L);
-                // The total retained size and system memory usage should be strictly larger than 2048L because of the instance sizes.
-                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 1024L);
-                assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 1024L);
+                // There are no local buffers needed.
+                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
+                // The total retained size and system memory usage should be strictly larger than 0L because of the instance sizes.
+                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
+                assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
             }
         }
         finally {
@@ -208,13 +205,11 @@ public class TestOrcReaderMemoryUsage
 
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
-                // We also account the StreamReader local buffers. For MapStreamReader, there is a
-                // keyStreamReader(LongStreamReader) and a valueStreamReader(LongStreamReader), and each of them is
-                // holding a isNullVector buffer which has 1024 boolean values.
-                assertGreaterThanOrEqual(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 2048L);
-                // The total retained size and system memory usage should be strictly larger than 2048L because of the instance sizes.
-                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 2048L);
-                assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 2048L);
+                // There are no local buffers needed.
+                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
+                // The total retained size and system memory usage should be strictly larger than 0L because of the instance sizes.
+                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
+                assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
             }
         }
         finally {

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,7 +26,7 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -64,74 +64,38 @@ public class TestClusterMemoryLeakDetector
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
     }
 
-    private QueryInfo createQueryInfo(String queryId, QueryState state)
+    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state)
     {
-        return new QueryInfo(
+        return new BasicQueryInfo(
                 new QueryId(queryId),
                 TEST_SESSION.toSessionRepresentation(),
                 state,
                 GENERAL_POOL,
                 true,
                 URI.create("1"),
-                ImmutableList.of("2", "3"),
                 "",
-                new QueryStats(
+                new BasicQueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30"),
                         DateTime.parse("1991-09-06T05:01-05:30"),
-                        DateTime.parse("1991-09-06T05:02-05:30"),
-                        DateTime.parse("1991-09-06T06:00-05:30"),
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),
-                        Duration.valueOf("9m"),
-                        Duration.valueOf("10m"),
-                        Duration.valueOf("11m"),
-                        Duration.valueOf("12m"),
                         13,
                         14,
                         15,
                         100,
-                        17,
-                        18,
-                        34,
-                        19,
-                        20.0,
                         DataSize.valueOf("21GB"),
-                        DataSize.valueOf("22GB"),
+                        22,
+                        23,
                         DataSize.valueOf("23GB"),
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),
-                        true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
-                        Duration.valueOf("26m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
-                        DataSize.valueOf("27GB"),
-                        28,
-                        DataSize.valueOf("29GB"),
-                        30,
-                        DataSize.valueOf("31GB"),
-                        32,
-                        DataSize.valueOf("33GB"),
-                        ImmutableList.of(),
-                        ImmutableList.of()),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                false,
-                "33",
-                Optional.empty(),
+                        OptionalDouble.of(20)),
                 null,
-                null,
-                ImmutableSet.of(),
-                Optional.empty(),
-                false,
-                Optional.empty());
+                null);
     }
 }

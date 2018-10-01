@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.211-SNAPSHOT</version>
+    <version>0.212-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -49,8 +49,8 @@
         <dep.slice.version>0.36</dep.slice.version>
         <dep.aws-sdk.version>1.11.293</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
-        <dep.jdbi3.version>3.0.0</dep.jdbi3.version>
-        <dep.drift.version>1.12</dep.drift.version>
+        <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
+        <dep.drift.version>1.14</dep.drift.version>
         <dep.tempto.version>1.49</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -374,7 +374,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-3</version>
+                <version>2.7.4-4</version>
             </dependency>
 
             <dependency>
@@ -597,12 +597,6 @@
 
             <dependency>
                 <groupId>io.airlift.drift</groupId>
-                <artifactId>drift-transport-spi</artifactId>
-                <version>${dep.drift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
@@ -634,7 +628,7 @@
             <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
-                <version>1.4.196</version>
+                <version>1.4.197</version>
             </dependency>
 
             <dependency>
@@ -866,7 +860,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-mysql-server</artifactId>
-                <version>5.7.19-3</version>
+                <version>5.7.22-1</version>
             </dependency>
 
             <dependency>
@@ -1000,7 +994,7 @@
             <dependency>
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
-                <version>2.2.0</version>
+                <version>2.2.1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.fasterxml.jackson.core</groupId>

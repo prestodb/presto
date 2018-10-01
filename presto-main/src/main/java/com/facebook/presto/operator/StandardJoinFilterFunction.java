@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
@@ -33,33 +32,20 @@ public class StandardJoinFilterFunction
     private final LongArrayList addresses;
     private final List<Page> pages;
 
-    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<List<Block>> channels)
+    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<Page> pages)
     {
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
         this.addresses = requireNonNull(addresses, "addresses is null");
-
-        requireNonNull(channels, "channels can not be null");
-        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
-        if (!channels.isEmpty()) {
-            int pagesCount = channels.get(0).size();
-            for (int pageIndex = 0; pageIndex < pagesCount; ++pageIndex) {
-                Block[] blocks = new Block[channels.size()];
-                for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
-                    blocks[channelIndex] = channels.get(channelIndex).get(pageIndex);
-                }
-                pagesBuilder.add(new Page(blocks));
-            }
-        }
-        this.pages = pagesBuilder.build();
+        this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
     }
 
     @Override
     public boolean filter(int leftPosition, int rightPosition, Page rightPage)
     {
         long pageAddress = addresses.getLong(leftPosition);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
+        int pageIndex = decodeSliceIndex(pageAddress);
+        int pagePosition = decodePosition(pageAddress);
 
-        return filterFunction.filter(blockPosition, pages.isEmpty() ? EMPTY_PAGE : pages.get(blockIndex), rightPosition, rightPage);
+        return filterFunction.filter(pagePosition, pages.isEmpty() ? EMPTY_PAGE : pages.get(pageIndex), rightPosition, rightPage);
     }
 }

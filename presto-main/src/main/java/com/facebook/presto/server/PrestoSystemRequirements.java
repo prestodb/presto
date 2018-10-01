@@ -40,7 +40,6 @@ final class PrestoSystemRequirements
 
     public static void verifyJvmRequirements()
     {
-        verifyJvmVendor();
         verifyJavaVersion();
         verify64BitJvm();
         verifyOsArchitecture();
@@ -48,14 +47,6 @@ final class PrestoSystemRequirements
         verifyUsingG1Gc();
         verifyFileDescriptor();
         verifySlice();
-    }
-
-    private static void verifyJvmVendor()
-    {
-        String vendor = StandardSystemProperty.JAVA_VENDOR.value();
-        if (!"Oracle Corporation".equals(vendor)) {
-            failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
-        }
     }
 
     private static void verify64BitJvm()

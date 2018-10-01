@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -306,7 +307,7 @@ public class MapBlockBuilder
         return createMapBlockInternal(
                 0,
                 positionCount,
-                mapIsNull,
+                Optional.of(mapIsNull),
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -144,6 +145,14 @@ public class AllAtOnceExecutionSchedule
         {
             node.getFilteringSource().accept(this, context);
             node.getSource().accept(this, context);
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            node.getRight().accept(this, context);
+            node.getLeft().accept(this, context);
             return null;
         }
 

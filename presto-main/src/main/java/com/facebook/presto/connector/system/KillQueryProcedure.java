@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
@@ -55,19 +54,17 @@ public class KillQueryProcedure
         QueryId query = parseQueryId(queryId);
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(query);
+            QueryState state = queryManager.getQueryState(query);
 
             // check before killing to provide the proper error message (this is racy)
-            if (queryInfo.getState().isDone()) {
+            if (state.isDone()) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
 
             queryManager.failQuery(query, createKillQueryException(message));
 
             // verify if the query was killed (if not, we lost the race)
-            queryInfo = queryManager.getQueryInfo(query);
-            if ((queryInfo.getState() != QueryState.FAILED) ||
-                    !ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryInfo.getErrorCode())) {
+            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(query).getErrorCode())) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
         }

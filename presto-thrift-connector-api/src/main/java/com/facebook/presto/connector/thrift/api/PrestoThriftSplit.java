@@ -36,12 +36,22 @@ public final class PrestoThriftSplit
         this.hosts = requireNonNull(hosts, "hosts is null");
     }
 
+    /**
+     * Encodes all the information needed to identify a batch of rows to return to Presto.
+     * For a basic scan, includes schema name, table name, and output constraint.
+     * For an index scan, includes schema name, table name, set of keys to lookup and output constraint.
+     */
     @ThriftField(1)
     public PrestoThriftId getSplitId()
     {
         return splitId;
     }
 
+    /**
+     * Identifies the set of hosts on which the rows are available. If empty, then the rows
+     * are expected to be available on any host. The hosts in this list may be independent
+     * from the hosts used to serve metadata requests.
+     */
     @ThriftField(2)
     public List<PrestoThriftHostAddress> getHosts()
     {

@@ -128,61 +128,11 @@ public class BooleanInputStream
     /**
      * Sets the vector element to true if the bit is set.
      */
-    public void getSetBits(int batchSize, boolean[] vector)
-            throws IOException
-    {
-        for (int i = 0; i < batchSize; i++) {
-            vector[i] = nextBit();
-        }
-    }
-
-    /**
-     * Sets the vector element to true if the bit is set, skipping the null values.
-     */
-    public void getSetBits(int batchSize, boolean[] vector, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < batchSize; i++) {
-            if (!isNull[i]) {
-                vector[i] = nextBit();
-            }
-        }
-    }
-
-    /**
-     * Sets the vector element to true if the bit is set.
-     */
     public void getSetBits(Type type, int batchSize, BlockBuilder builder)
             throws IOException
     {
         for (int i = 0; i < batchSize; i++) {
             type.writeBoolean(builder, nextBit());
-        }
-    }
-
-    /**
-     * Sets the vector element to true if the bit is set, skipping the null values.
-     */
-    public void getSetBits(Type type, int batchSize, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        getSetBits(type, batchSize, builder, isNull, 0);
-    }
-
-    /**
-     * Sets the vector element to true for the batchSize number of elements starting at offset
-     * if the bit is set, skipping the null values.
-     */
-    public void getSetBits(Type type, int batchSize, BlockBuilder builder, boolean[] isNull, int offset)
-            throws IOException
-    {
-        for (int i = offset; i < batchSize + offset; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeBoolean(builder, nextBit());
-            }
         }
     }
 
@@ -206,6 +156,19 @@ public class BooleanInputStream
         for (int i = offset; i < batchSize + offset; i++) {
             vector[i] = !nextBit();
             count += vector[i] ? 1 : 0;
+        }
+        return count;
+    }
+
+    /**
+     * Return the number of unset bits
+     */
+    public int getUnsetBits(int batchSize)
+            throws IOException
+    {
+        int count = 0;
+        for (int i = 0; i < batchSize; i++) {
+            count += nextBit() ? 0 : 1;
         }
         return count;
     }

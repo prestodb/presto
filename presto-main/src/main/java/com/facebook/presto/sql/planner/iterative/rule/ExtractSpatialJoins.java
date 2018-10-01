@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -106,13 +107,13 @@ import static java.util.Objects.requireNonNull;
  * with st_point_a -> 'ST_Point(a.lon, a.lat)', st_point_b -> 'ST_Point(b.lon, b.lat)'
  * and radius -> '10 / (111.321 * cos(radians(b.lat)))' projections on top of child nodes.
  */
-public class TransformSpatialPredicates
+public class ExtractSpatialJoins
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
 
     private final Metadata metadata;
 
-    public TransformSpatialPredicates(Metadata metadata)
+    public ExtractSpatialJoins(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -120,11 +121,11 @@ public class TransformSpatialPredicates
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new TransformSpatialPredicateToJoin(metadata),
-                new TransformSpatialPredicateToLeftJoin(metadata));
+                new ExtractSpatialInnerJoin(metadata),
+                new ExtractSpatialLeftJoin(metadata));
     }
 
-    public static final class TransformSpatialPredicateToJoin
+    public static final class ExtractSpatialInnerJoin
             implements Rule<FilterNode>
     {
         private static final Capture<JoinNode> JOIN = newCapture();
@@ -133,7 +134,7 @@ public class TransformSpatialPredicates
 
         private final Metadata metadata;
 
-        public TransformSpatialPredicateToJoin(Metadata metadata)
+        public ExtractSpatialInnerJoin(Metadata metadata)
         {
             this.metadata = metadata;
         }
@@ -177,14 +178,14 @@ public class TransformSpatialPredicates
         }
     }
 
-    public static final class TransformSpatialPredicateToLeftJoin
+    public static final class ExtractSpatialLeftJoin
             implements Rule<JoinNode>
     {
-        private static final Pattern<JoinNode> PATTERN = join().matching(node -> node.getCriteria().isEmpty() && node.getFilter().isPresent() && node.getType() == LEFT && !node.isSpatialJoin());
+        private static final Pattern<JoinNode> PATTERN = join().matching(node -> node.getCriteria().isEmpty() && node.getFilter().isPresent() && node.getType() == LEFT);
 
         private final Metadata metadata;
 
-        public TransformSpatialPredicateToLeftJoin(Metadata metadata)
+        public ExtractSpatialLeftJoin(Metadata metadata)
         {
             this.metadata = metadata;
         }
@@ -323,17 +324,13 @@ public class TransformSpatialPredicates
         Expression newSpatialFunction = new FunctionCall(spatialFunction.getName(), ImmutableList.of(newFirstArgument, newSecondArgument));
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
-        return Result.ofPlanNode(new JoinNode(
+        return Result.ofPlanNode(new SpatialJoinNode(
                 nodeId,
-                joinNode.getType(),
+                SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
                 newRightNode,
-                joinNode.getCriteria(),
                 outputSymbols,
-                Optional.of(newFilter),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType()));
+                newFilter));
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)

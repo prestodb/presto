@@ -288,7 +288,7 @@ public class CoordinatorModule
     @Singleton
     public static QueryPerformanceFetcher createQueryPerformanceFetcher(QueryManager queryManager)
     {
-        return queryManager::getQueryInfo;
+        return queryManager::getFullQueryInfo;
     }
 
     @Provides

@@ -317,13 +317,21 @@ public class PickTableLayout
                             node.getOutputSymbols(),
                             node.getAssignments(),
                             Optional.of(layout.getLayout().getHandle()),
-                            newDomain.intersect(layout.getLayout().getPredicate()),
+                            layout.getLayout().getPredicate(),
                             computeEnforced(newDomain, layout.getUnenforcedConstraint()));
 
+                    // The order of the arguments to combineConjuncts matters:
+                    // * Unenforced constraints go first because they can only be simple column references,
+                    //   which are not prone to logic errors such as out-of-bound access, div-by-zero, etc.
+                    // * Conjuncts in non-deterministic expressions and non-TupleDomain-expressible expressions should
+                    //   retain their original (maybe intermixed) order from the input predicate. However, this is not implemented yet.
+                    // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
+                    //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
+                    //   to failures of previously successful queries.
                     Expression resultingPredicate = combineConjuncts(
-                            decomposedPredicate.getRemainingExpression(),
+                            domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
                             filterNonDeterministicConjuncts(predicate),
-                            domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
+                            decomposedPredicate.getRemainingExpression());
 
                     if (!TRUE_LITERAL.equals(resultingPredicate)) {
                         return new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate);

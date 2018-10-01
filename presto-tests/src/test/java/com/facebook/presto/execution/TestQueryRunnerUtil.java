@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -55,14 +56,14 @@ public final class TestQueryRunnerUtil
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         do {
             // Heartbeat all the running queries, so they don't die while we're waiting
-            for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+            for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
                 if (queryInfo.getState() == RUNNING) {
                     queryManager.recordHeartbeat(queryInfo.getQueryId());
                 }
             }
             MILLISECONDS.sleep(500);
         }
-        while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState()));
+        while (!expectedQueryStates.contains(queryManager.getQueryState(queryId)));
     }
 
     public static DistributedQueryRunner createQueryRunner()

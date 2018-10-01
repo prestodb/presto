@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -84,7 +85,6 @@ public class FeaturesConfig
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
-    private boolean legacyRoundNBigint;
     private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
@@ -99,6 +99,7 @@ public class FeaturesConfig
     private RegexLibrary regexLibrary = JONI;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
+    private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
@@ -191,18 +192,6 @@ public class FeaturesConfig
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
         return this;
-    }
-
-    @Config("deprecated.legacy-round-n-bigint")
-    public FeaturesConfig setLegacyRoundNBigint(boolean legacyRoundNBigint)
-    {
-        this.legacyRoundNBigint = legacyRoundNBigint;
-        return this;
-    }
-
-    public boolean isLegacyRoundNBigint()
-    {
-        return legacyRoundNBigint;
     }
 
     @Config("deprecated.legacy-row-field-ordinal-access")
@@ -808,6 +797,18 @@ public class FeaturesConfig
     public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
     {
         this.arrayAggGroupImplementation = groupByMode;
+        return this;
+    }
+
+    public MultimapAggGroupImplementation getMultimapAggGroupImplementation()
+    {
+        return multimapAggGroupImplementation;
+    }
+
+    @Config("multimapagg.implementation")
+    public FeaturesConfig setMultimapAggGroupImplementation(MultimapAggGroupImplementation groupByMode)
+    {
+        this.multimapAggGroupImplementation = groupByMode;
         return this;
     }
 

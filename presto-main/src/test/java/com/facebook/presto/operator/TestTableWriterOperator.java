@@ -163,7 +163,7 @@ public class TestTableWriterOperator
     public void testTableWriterInfo()
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
         TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new DevNullOperatorFactory(1, new PlanNodeId("test")),
@@ -176,12 +176,15 @@ public class TestTableWriterOperator
         List<Page> pages = rowPagesBuilder.build();
 
         long peakMemoryUsage = 0;
+        long validationCpuNanos = 0;
         for (int i = 0; i < pages.size(); i++) {
             Page page = pages.get(i);
             peakMemoryUsage += page.getRetainedSizeInBytes();
+            validationCpuNanos += page.getPositionCount();
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
             assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
+            assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
         }
     }
 
@@ -190,26 +193,34 @@ public class TestTableWriterOperator
             throws Exception
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
         ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
+                .addPipelineContext(0, true, true)
+                .addDriverContext();
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty()))),
+                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty())),
+                        true),
                 outputTypes,
-                session);
+                session,
+                driverContext);
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
         operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
 
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.needsInput());
+
+        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
 
         operator.finish();
         assertFalse(operator.isFinished());
@@ -266,6 +277,19 @@ public class TestTableWriterOperator
 
     private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes, Session session)
     {
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
+                .addPipelineContext(0, true, true)
+                .addDriverContext();
+        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, driverContext);
+    }
+
+    private Operator createTableWriterOperator(
+            PageSinkManager pageSinkManager,
+            OperatorFactory statisticsAggregation,
+            List<Type> outputTypes,
+            Session session,
+            DriverContext driverContext)
+    {
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -279,10 +303,7 @@ public class TestTableWriterOperator
                 session,
                 statisticsAggregation,
                 outputTypes);
-
-        return factory.createOperator(createTaskContext(executor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true)
-                .addDriverContext());
+        return factory.createOperator(driverContext);
     }
 
     private static class ConstantPageSinkProvider
@@ -340,7 +361,7 @@ public class TestTableWriterOperator
         }
     }
 
-    private static class MemoryAccountingTestPageSink
+    private static class TableWriteInfoTestPageSink
             implements ConnectorPageSink
     {
         private final List<Page> pages = new ArrayList<>();
@@ -366,6 +387,16 @@ public class TestTableWriterOperator
                 memoryUsage += page.getRetainedSizeInBytes();
             }
             return memoryUsage;
+        }
+
+        @Override
+        public long getValidationCpuNanos()
+        {
+            long validationCpuNanos = 0;
+            for (Page page : pages) {
+                validationCpuNanos += page.getPositionCount();
+            }
+            return validationCpuNanos;
         }
 
         @Override

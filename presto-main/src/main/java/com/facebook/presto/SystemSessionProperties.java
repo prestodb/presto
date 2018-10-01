@@ -87,7 +87,6 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
-    public static final String LEGACY_ROUND_N_BIGINT = "legacy_round_n_bigint";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
@@ -389,11 +388,6 @@ public final class SystemSessionProperties
                         "Optimize mixed non-distinct and distinct aggregations",
                         featuresConfig.isOptimizeMixedDistinctAggregations(),
                         false),
-                booleanProperty(
-                        LEGACY_ROUND_N_BIGINT,
-                        "Allow ROUND(x, d) to accept d being BIGINT",
-                        featuresConfig.isLegacyRoundNBigint(),
-                        true),
                 booleanProperty(
                         LEGACY_ROW_FIELD_ORDINAL_ACCESS,
                         "Allow accessing anonymous row field with .field0, .field1, ...",
@@ -709,12 +703,6 @@ public final class SystemSessionProperties
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
-    }
-
-    @Deprecated
-    public static boolean isLegacyRoundNBigint(Session session)
-    {
-        return session.getSystemProperty(LEGACY_ROUND_N_BIGINT, Boolean.class);
     }
 
     public static boolean isLegacyRowFieldOrdinalAccessEnabled(Session session)
