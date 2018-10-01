@@ -25,6 +25,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
@@ -955,6 +956,48 @@ public class TestGeoFunctions
         assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
     }
 
+    @Test
+    public void testSTMultiPoint()
+    {
+        // General case, 2+ points
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4))", "POINT (1 2)", "POINT (3 4)");
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4), (5 6))", "POINT (1 2)", "POINT (3 4)", "POINT (5 6)");
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4), (5 6), (7 8))", "POINT (1 2)", "POINT (3 4)", "POINT (5 6)", "POINT (7 8)");
+
+        // Duplicate points work
+        assertMultiPoint("MULTIPOINT ((1 2), (1 2))", "POINT (1 2)", "POINT (1 2)");
+        assertMultiPoint("MULTIPOINT ((1 2), (3 4), (1 2))", "POINT (1 2)", "POINT (3 4)", "POINT (1 2)");
+
+        // Single point
+        assertMultiPoint("MULTIPOINT ((1 2))", "POINT (1 2)");
+
+        // Zero point
+        assertFunction("ST_MultiPoint(array[])", GEOMETRY, null);
+
+        // Only points can be passed
+        assertInvalidMultiPoint("LineString", "Point (7 8)", "LINESTRING (1 2, 3 4)");
+
+        // Nulls point raises exception
+        assertInvalidMultiPoint("NULL point", "null");
+        assertInvalidMultiPoint("NULL point", "POINT (1 2)", "POINT (1 2)", "null");
+        assertInvalidMultiPoint("NULL point", "POINT (1 2)", "null", "POINT (3 4)");
+        assertInvalidMultiPoint("NULL point", "POINT (1 2)", "null", "POINT (3 4)", "null");
+    }
+
+    private void assertMultiPoint(String expectedWkt, String... pointWkts)
+    {
+        assertFunction(format("ST_MultiPoint(array[%s])", ImmutableList.copyOf(pointWkts).stream()
+                .map(wkt -> wkt.equalsIgnoreCase("null") ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                .collect(Collectors.joining(","))), GEOMETRY, expectedWkt);
+    }
+
+    private void assertInvalidMultiPoint(String type, String... pointWkts)
+    {
+        assertInvalidFunction(format("ST_MultiPoint(array[%s])", ImmutableList.copyOf(pointWkts).stream()
+                .map(wkt -> wkt.equalsIgnoreCase("null") ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                .collect(Collectors.joining(","))), INVALID_FUNCTION_ARGUMENT,
+                format("ST_MultiPoint takes only an array of valid points, %s was passed", type));
+    }
     @Test
     public void testSTPointN()
     {
