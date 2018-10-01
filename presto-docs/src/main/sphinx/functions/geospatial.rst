@@ -83,7 +83,7 @@ Relationship Tests
 .. function:: ST_Intersects(Geometry, Geometry) -> boolean
 
     Returns ``true`` if the given geometries spatially intersect in two dimensions
-    (share any portion of space) and ``false`` if they don not (they are disjoint).
+    (share any portion of space) and ``false`` if they do not (they are disjoint).
 
 .. function:: ST_Overlaps(Geometry, Geometry) -> boolean
 
