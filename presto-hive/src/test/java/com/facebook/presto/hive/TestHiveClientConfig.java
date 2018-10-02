@@ -70,7 +70,7 @@ public class TestHiveClientConfig
                 .setDomainSocketPath(null)
                 .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles("")
-                .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
+                .setHiveStorageFormat(HiveStorageFormat.ORC)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
