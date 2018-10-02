@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
@@ -911,6 +912,15 @@ public final class SqlFormatter
                     .append(" DROP COLUMN ")
                     .append(formatExpression(node.getColumn(), parameters));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitAnalyze(Analyze node, Integer context)
+        {
+            builder.append("ANALYZE ")
+                    .append(formatName(node.getTableName()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
             return null;
         }
 

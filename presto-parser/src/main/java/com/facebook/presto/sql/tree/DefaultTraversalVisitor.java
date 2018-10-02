@@ -545,6 +545,15 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitAnalyze(Analyze node, C context)
+    {
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitCreateView(CreateView node, C context)
     {
         process(node.getQuery(), context);
