@@ -52,6 +52,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
@@ -260,6 +262,9 @@ public abstract class AbstractMinMaxAggregationFunction
         try {
             if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
                 state.setDouble(value);
+            }
+            else if (isNaN(value)) {
+                state.setDouble(NaN);
             }
         }
         catch (Throwable t) {

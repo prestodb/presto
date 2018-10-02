@@ -859,6 +859,24 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testMinMaxOfNaN()
+    {
+        assertQuery("SELECT max(a) FROM (VALUES nan()) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT max(a) FROM (VALUES nan(), nan(), nan()) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT max(a) FROM (VALUES nan(), 2.0, 3.0) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT max(a) FROM (VALUES null, nan(), 1.0) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT max(a) FROM (VALUES nan(), null, 3.0) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT max(a) FROM (VALUES 1, nan(), 3.0) t(a)", "SELECT cast('NaN' as double)");
+
+        assertQuery("SELECT min(a) FROM (VALUES nan()) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT min(a) FROM (VALUES nan(), nan(), nan()) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT min(a) FROM (VALUES nan(), 2.0, 3.0) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT min(a) FROM (VALUES null, nan(), 1.0) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT min(a) FROM (VALUES nan(), null, 3.0) t(a)", "SELECT cast('NaN' as double)");
+        assertQuery("SELECT min(a) FROM (VALUES 1, nan(), 3.0) t(a)", "SELECT cast('NaN' as double)");
+    }
+
+    @Test
     public void testGroupByNoAggregations()
     {
         assertQuery("SELECT custkey FROM orders GROUP BY custkey");
