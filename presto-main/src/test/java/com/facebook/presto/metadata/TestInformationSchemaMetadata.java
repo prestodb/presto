@@ -99,6 +99,7 @@ public class TestInformationSchemaMetadata
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
                 transactionManager);
     }
 

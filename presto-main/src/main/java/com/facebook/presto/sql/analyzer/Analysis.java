@@ -130,6 +130,7 @@ public class Analysis
     private Optional<String> createTableComment = Optional.empty();
 
     private Optional<Insert> insert = Optional.empty();
+    private Optional<TableHandle> analyzeTarget = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -520,6 +521,16 @@ public class Analysis
     public Optional<QualifiedObjectName> getCreateTableDestination()
     {
         return createTableDestination;
+    }
+
+    public Optional<TableHandle> getAnalyzeTarget()
+    {
+        return analyzeTarget;
+    }
+
+    public void setAnalyzeTarget(TableHandle analyzeTarget)
+    {
+        this.analyzeTarget = Optional.of(analyzeTarget);
     }
 
     public void setCreateTableProperties(Map<String, Expression> createTableProperties)

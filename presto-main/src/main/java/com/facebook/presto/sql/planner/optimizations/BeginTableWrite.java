@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -114,6 +115,24 @@ public class BeginTableWrite
                     deleteHandle,
                     node.getRowId(),
                     node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Context> context)
+        {
+            PlanNode child = node.getSource();
+            child = child.accept(this, context);
+
+            StatisticsWriterNode.WriteStatisticsHandle analyzeHandle =
+                    new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) node.getTarget()).getHandle()));
+
+            return new StatisticsWriterNode(
+                    node.getId(),
+                    child,
+                    analyzeHandle,
+                    node.getRowCountSymbol(),
+                    node.isRowCountEnabled(),
+                    node.getDescriptor());
         }
 
         @Override

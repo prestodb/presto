@@ -26,6 +26,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -41,6 +42,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -49,10 +51,13 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
@@ -67,6 +72,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -79,8 +85,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -195,6 +203,9 @@ public class LogicalPlanner
             }
             return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
         }
+        else if (statement instanceof Analyze) {
+            return createAnalyzePlan(analysis, (Analyze) statement);
+        }
         else if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
             return createInsertPlan(analysis, (Insert) statement);
@@ -223,6 +234,50 @@ public class LogicalPlanner
         return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));
     }
 
+    private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
+    {
+        TableHandle targetTable = analysis.getAnalyzeTarget().get();
+
+        // Plan table scan
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
+        ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
+            tableScanOutputs.add(symbol);
+            symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
+            columnNameToSymbol.put(column.getName(), symbol);
+        }
+
+        TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
+                session,
+                targetTable.getConnectorId().getCatalogName(),
+                tableMetadata.getMetadata());
+
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
+        StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
+        List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
+
+        PlanNode planNode = new StatisticsWriterNode(
+                idAllocator.getNextId(),
+                new AggregationNode(
+                        idAllocator.getNextId(),
+                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.build()),
+                        statisticAggregations.getAggregations(),
+                        singleGroupingSet(groupingSymbols),
+                        ImmutableList.of(),
+                        AggregationNode.Step.SINGLE,
+                        Optional.empty(),
+                        Optional.empty()),
+                new StatisticsWriterNode.WriteStatisticsReference(targetTable),
+                symbolAllocator.newSymbol("rows", BIGINT),
+                tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
+                tableStatisticAggregation.getDescriptor());
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols());
+    }
+
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
         QualifiedObjectName destination = analysis.getCreateTableDestination().get();
@@ -242,7 +297,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadata(session, destination.getCatalogName(), tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
 
         return createTableWriterPlan(
                 analysis,
@@ -305,7 +360,7 @@ public class LogicalPlanner
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
         String catalogName = insert.getTarget().getConnectorId().getCatalogName();
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadata(session, catalogName, tableMetadata.getMetadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
         return createTableWriterPlan(
                 analysis,
