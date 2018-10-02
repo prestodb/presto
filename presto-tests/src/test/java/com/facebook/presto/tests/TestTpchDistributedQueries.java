@@ -37,6 +37,13 @@ public class TestTpchDistributedQueries
     }
 
     @Test
+    public void testAnalyze()
+    {
+        assertUpdate("ANALYZE orders", 15000);
+        assertQueryFails("ANALYZE orders WITH (foo = 'bar')", ".* does not support analyze property 'foo'.*");
+    }
+
+    @Test
     public void testTooManyStages()
     {
         @Language("SQL") String query = "WITH\n" +

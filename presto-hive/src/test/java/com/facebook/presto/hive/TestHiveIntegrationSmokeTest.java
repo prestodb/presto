@@ -3077,6 +3077,335 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testAnalyzeEmptyTable()
+    {
+        String tableName = "test_analyze_empty_table";
+        assertUpdate(format("CREATE TABLE %s (c_bigint BIGINT, c_varchar VARCHAR(2))", tableName));
+        assertUpdate("ANALYZE " + tableName, 0);
+    }
+
+    @Test
+    public void testInvalidAnalyzePartitionedTable()
+    {
+        String tableName = "test_invalid_analyze_partitioned_table";
+
+        // Test table does not exist
+        assertQueryFails("ANALYZE " + tableName, format(".*Table 'hive.tpch.%s' does not exist.*", tableName));
+
+        createPartitionedTableForAnalyzeTest(tableName);
+
+        // Test invalid property
+        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' does not support analyze property 'error'.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), ".*Cannot convert '1' to \\Qarray(array(varchar))\\E.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), ".*Invalid null value for analyze property.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[NULL])", tableName), ".*Invalid null value in analyze partitions property.*");
+
+        // Test non-existed partition
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10']])", tableName), ".*Partition no longer exists.*");
+
+        // Test partition schema mismatch
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), ".*Partition value count does not match the partition column count.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), ".*Partition value count does not match the partition column count.*");
+
+        // Drop the partitioned test table
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testInvalidAnalyzeUnpartitionedTable()
+    {
+        String tableName = "test_invalid_analyze_unpartitioned_table";
+
+        // Test table does not exist
+        assertQueryFails("ANALYZE " + tableName, ".*Table.*does not exist.*");
+
+        createUnpartitionedTableForAnalyzeTest(tableName);
+
+        // Test partition properties on unpartitioned table
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
+
+        // Drop the partitioned test table
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testAnalyzePartitionedTable()
+    {
+        String tableName = "test_analyze_partitioned_table";
+        createPartitionedTableForAnalyzeTest(tableName);
+
+        // No column stats before running analyze
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
+                        "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
+                        "(null, null, null, null, 16.0, null, null)");
+
+        // No column stats after running an empty analyze
+        assertUpdate(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), 0);
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
+                        "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
+                        "(null, null, null, null, 16.0, null, null)");
+
+        // Run analyze on 3 partitions including a null partition and a duplicate partition
+        assertUpdate(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1', '7'], ARRAY['p2', '7'], ARRAY['p2', '7'], ARRAY[NULL, NULL]])", tableName), 12);
+
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1' AND p_bigint = 7)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0, 0.5, null, null, null), " +
+                        "('c_bigint', null, 2.0, 0.5, null, '0', '1'), " +
+                        "('c_double', null, 2.0, 0.5, null, '1.2', '2.2'), " +
+                        "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
+                        "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
+                        "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2' AND p_bigint = 7)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0, 0.5, null, null, null), " +
+                        "('c_bigint', null, 2.0, 0.5, null, '1', '2'), " +
+                        "('c_double', null, 2.0, 0.5, null, '2.3', '3.3'), " +
+                        "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
+                        "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
+                        "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar IS NULL AND p_bigint IS NULL)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 1.0, 0.0, null, null, null), " +
+                        "('c_bigint', null, 4.0, 0.0, null, '4', '7'), " +
+                        "('c_double', null, 4.0, 0.0, null, '4.7', '7.7'), " +
+                        "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
+                        "('c_varchar', 16.0, 4.0, 0.0, null, null, null), " +
+                        "('c_varbinary', 8.0, null, 0.0, null, null, null), " +
+                        "('p_varchar', 0.0, 0.0, 1.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 1.0, null, null, null), " +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        // Partition [p3, 8], [e1, 9], [e2, 9] have no column stats
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3' AND p_bigint = 8)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '8', '8'), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e1' AND p_bigint = 9)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 0.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e2' AND p_bigint = 9)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 0.0, null, null)");
+
+        // Run analyze on the whole table
+        assertUpdate("ANALYZE " + tableName, 16);
+
+        // All partitions except empty partitions have column stats
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1' AND p_bigint = 7)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0, 0.5, null, null, null), " +
+                        "('c_bigint', null, 2.0, 0.5, null, '0', '1'), " +
+                        "('c_double', null, 2.0, 0.5, null, '1.2', '2.2'), " +
+                        "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
+                        "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
+                        "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2' AND p_bigint = 7)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0, 0.5, null, null, null), " +
+                        "('c_bigint', null, 2.0, 0.5, null, '1', '2'), " +
+                        "('c_double', null, 2.0, 0.5, null, '2.3', '3.3'), " +
+                        "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
+                        "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
+                        "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar IS NULL AND p_bigint IS NULL)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 1.0, 0.0, null, null, null), " +
+                        "('c_bigint', null, 4.0, 0.0, null, '4', '7'), " +
+                        "('c_double', null, 4.0, 0.0, null, '4.7', '7.7'), " +
+                        "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
+                        "('c_varchar', 16.0, 4.0, 0.0, null, null, null), " +
+                        "('c_varbinary', 8.0, null, 0.0, null, null, null), " +
+                        "('p_varchar', 0.0, 0.0, 1.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 1.0, null, null, null), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3' AND p_bigint = 8)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0, 0.5, null, null, null), " +
+                        "('c_bigint', null, 2.0, 0.5, null, '2', '3'), " +
+                        "('c_double', null, 2.0, 0.5, null, '3.4', '4.4'), " +
+                        "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
+                        "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
+                        "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '8', '8'), " +
+                        "(null, null, null, null, 4.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e1' AND p_bigint = 9)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 0.0, 0.0, null, null, null), " +
+                        "('c_bigint', null, 0.0, 0.0, null, null, null), " +
+                        "('c_double', null, 0.0, 0.0, null, null, null), " +
+                        "('c_timestamp', null, 0.0, 0.0, null, null, null), " +
+                        "('c_varchar', 0.0, 0.0, 0.0, null, null, null), " +
+                        "('c_varbinary', 0.0, null, 0.0, null, null, null), " +
+                        "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 0.0, null, null)");
+        assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e2' AND p_bigint = 9)", tableName),
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 0.0, 0.0, null, null, null), " +
+                        "('c_bigint', null, 0.0, 0.0, null, null, null), " +
+                        "('c_double', null, 0.0, 0.0, null, null, null), " +
+                        "('c_timestamp', null, 0.0, 0.0, null, null, null), " +
+                        "('c_varchar', 0.0, 0.0, 0.0, null, null, null), " +
+                        "('c_varbinary', 0.0, null, 0.0, null, null, null), " +
+                        "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 0.0, null, null)");
+
+        // Drop the partitioned test table
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testAnalyzeUnpartitionedTable()
+    {
+        String tableName = "test_analyze_unpartitioned_table";
+        createUnpartitionedTableForAnalyzeTest(tableName);
+
+        // No column stats before running analyze
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', null, null, null, null, null, null), " +
+                        "('p_bigint', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 16.0, null, null)");
+
+        // Run analyze on the whole table
+        assertUpdate("ANALYZE " + tableName, 16);
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, 2.0, 0.375, null, null, null), " +
+                        "('c_bigint', null, 8.0, 0.375, null, '0', '7'), " +
+                        "('c_double', null, 10.0, 0.375, null, '1.2', '7.7'), " +
+                        "('c_timestamp', null, 10.0, 0.375, null, null, null), " +
+                        "('c_varchar', 40.0, 10.0, 0.375, null, null, null), " +
+                        "('c_varbinary', 20.0, null, 0.375, null, null, null), " +
+                        "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
+                        "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
+                        "(null, null, null, null, 16.0, null, null)");
+
+        // Drop the unpartitioned test table
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    protected void createPartitionedTableForAnalyzeTest(String tableName)
+    {
+        createTableForAnalyzeTest(tableName, true);
+    }
+
+    protected void createUnpartitionedTableForAnalyzeTest(String tableName)
+    {
+        createTableForAnalyzeTest(tableName, false);
+    }
+
+    private void createTableForAnalyzeTest(String tableName, boolean partitioned)
+    {
+        Session defaultSession = getSession();
+
+        // Disable column statistics collection when creating the table
+        Session disableColumnStatsSession = Session.builder(defaultSession)
+                .setCatalogSessionProperty(defaultSession.getCatalog().get(), "collect_column_statistics_on_write", "false")
+                .build();
+
+        assertUpdate(
+                disableColumnStatsSession,
+                "" +
+                        "CREATE TABLE " +
+                        tableName +
+                        (partitioned ? " WITH (partitioned_by = ARRAY['p_varchar', 'p_bigint'])\n" : " ") +
+                        "AS " +
+                        "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar, p_bigint " +
+                        "FROM ( " +
+                        "  VALUES " +
+                        // p_varchar = 'p1', p_bigint = BIGINT '7'
+                        "    (null, null, null, null, null, null, 'p1', BIGINT '7'), " +
+                        "    (null, null, null, null, null, null, 'p1', BIGINT '7'), " +
+                        "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', 'abc1', X'bcd1', 'p1', BIGINT '7'), " +
+                        "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', 'abc2', X'bcd2', 'p1', BIGINT '7'), " +
+                        // p_varchar = 'p2', p_bigint = BIGINT '7'
+                        "    (null, null, null, null, null, null, 'p2', BIGINT '7'), " +
+                        "    (null, null, null, null, null, null, 'p2', BIGINT '7'), " +
+                        "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', 'cba1', X'dcb1', 'p2', BIGINT '7'), " +
+                        "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', 'cba2', X'dcb2', 'p2', BIGINT '7'), " +
+                        // p_varchar = 'p3', p_bigint = BIGINT '8'
+                        "    (null, null, null, null, null, null, 'p3', BIGINT '8'), " +
+                        "    (null, null, null, null, null, null, 'p3', BIGINT '8'), " +
+                        "    (true, BIGINT '3', DOUBLE '4.4', TIMESTAMP '2012-10-10 01:00', 'bca1', X'cdb1', 'p3', BIGINT '8'), " +
+                        "    (false, BIGINT '2', DOUBLE '3.4', TIMESTAMP '2012-10-10 00:00', 'bca2', X'cdb2', 'p3', BIGINT '8'), " +
+                        // p_varchar = NULL, p_bigint = NULL
+                        "    (false, BIGINT '7', DOUBLE '7.7', TIMESTAMP '1977-07-07 07:07', 'efa1', X'efa1', NULL, NULL), " +
+                        "    (false, BIGINT '6', DOUBLE '6.7', TIMESTAMP '1977-07-07 07:06', 'efa2', X'efa2', NULL, NULL), " +
+                        "    (false, BIGINT '5', DOUBLE '5.7', TIMESTAMP '1977-07-07 07:05', 'efa3', X'efa3', NULL, NULL), " +
+                        "    (false, BIGINT '4', DOUBLE '4.7', TIMESTAMP '1977-07-07 07:04', 'efa4', X'efa4', NULL, NULL) " +
+                        ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar, p_bigint)", 16);
+
+        if (partitioned) {
+            // Create empty partitions
+            assertUpdate(disableColumnStatsSession, format("CALL system.create_empty_partition('%s', '%s', ARRAY['p_varchar', 'p_bigint'], ARRAY['%s', '%s'])", TPCH_SCHEMA, tableName, "e1", "9"));
+            assertUpdate(disableColumnStatsSession, format("CALL system.create_empty_partition('%s', '%s', ARRAY['p_varchar', 'p_bigint'], ARRAY['%s', '%s'])", TPCH_SCHEMA, tableName, "e2", "9"));
+        }
+    }
+
+    @Test
     public void testInsertMultipleColumnsFromSameChannel()
     {
         String tableName = "test_insert_multiple_columns_same_channel";
