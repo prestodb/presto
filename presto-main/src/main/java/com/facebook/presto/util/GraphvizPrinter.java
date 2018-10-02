@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -96,7 +97,8 @@ public final class GraphvizPrinter
         TABLE_WRITER,
         TABLE_FINISH,
         INDEX_SOURCE,
-        UNNEST
+        UNNEST,
+        ANALYZE_FINISH,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -120,6 +122,7 @@ public final class GraphvizPrinter
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
+            .put(NodeType.ANALYZE_FINISH, "plum")
             .build());
 
     static {
@@ -221,6 +224,13 @@ public final class GraphvizPrinter
                 columns.add(node.getColumnNames().get(i) + " := " + node.getColumns().get(i));
             }
             printNode(node, format("TableWriter[%s]", Joiner.on(", ").join(columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
+        {
+            printNode(node, format("StatisticsWriterNode[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.ANALYZE_FINISH));
             return node.getSource().accept(this, context);
         }
 

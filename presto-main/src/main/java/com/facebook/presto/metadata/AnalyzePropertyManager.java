@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.resourceGroups;
+package com.facebook.presto.metadata;
 
-public enum QueryType
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+
+public class AnalyzePropertyManager
+        extends AbstractPropertyManager
 {
-    DATA_DEFINITION,
-    DELETE,
-    DESCRIBE,
-    EXPLAIN,
-    ANALYZE,
-    INSERT,
-    SELECT
+    public AnalyzePropertyManager()
+    {
+        super("analyze", INVALID_ANALYZE_PROPERTY);
+    }
 }

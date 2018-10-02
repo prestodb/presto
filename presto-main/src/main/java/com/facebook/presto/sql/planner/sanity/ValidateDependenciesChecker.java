@@ -51,6 +51,8 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -525,6 +527,22 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitMetadataDelete(MetadataDeleteNode node, Set<Symbol> boundSymbols)
         {
+            return null;
+        }
+
+        @Override
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Set<Symbol> boundSymbols)
+        {
+            node.getSource().accept(this, boundSymbols); // visit child
+
+            StatisticAggregationsDescriptor<Symbol> descriptor = node.getDescriptor();
+            Set<Symbol> dependencies = ImmutableSet.<Symbol>builder()
+                    .addAll(descriptor.getGrouping().values())
+                    .addAll(descriptor.getColumnStatistics().values())
+                    .addAll(descriptor.getTableStatistics().values())
+                    .build();
+            List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
+            checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
             return null;
         }
 

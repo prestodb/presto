@@ -15,6 +15,7 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -70,6 +71,7 @@ public final class StatementUtils
         builder.put(Query.class, QueryType.SELECT);
 
         builder.put(Explain.class, QueryType.EXPLAIN);
+        builder.put(Analyze.class, QueryType.ANALYZE);
 
         builder.put(CreateTableAsSelect.class, QueryType.INSERT);
         builder.put(Insert.class, QueryType.INSERT);

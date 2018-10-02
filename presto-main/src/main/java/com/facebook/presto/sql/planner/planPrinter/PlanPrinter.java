@@ -80,6 +80,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -1118,6 +1119,15 @@ public class PlanPrinter
                 printStatisticAggregations(node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get(), indent + 2);
             }
 
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Integer indent)
+        {
+            print(indent, "- StatisticsWriterNode[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
+            printPlanNodesStatsAndCost(indent + 2, node);
+            printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
         }
 

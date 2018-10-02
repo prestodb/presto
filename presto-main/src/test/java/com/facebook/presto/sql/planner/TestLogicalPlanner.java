@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -101,6 +102,21 @@ import static org.testng.Assert.assertFalse;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    @Test
+    public void testAnalyze()
+    {
+        assertDistributedPlan("ANALYZE orders",
+                anyTree(
+                        node(StatisticsWriterNode.class,
+                                anyTree(
+                                        exchange(REMOTE, GATHER,
+                                                node(AggregationNode.class,
+                                                        anyTree(
+                                                                exchange(REMOTE, GATHER,
+                                                                        node(AggregationNode.class,
+                                                                                tableScan("orders", ImmutableMap.of()))))))))));
+    }
+
     @Test
     public void testAggregation()
     {
