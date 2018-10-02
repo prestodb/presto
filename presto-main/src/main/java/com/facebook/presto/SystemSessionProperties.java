@@ -28,6 +28,7 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Stream;
 
@@ -51,6 +52,7 @@ public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
+    public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
@@ -149,6 +151,15 @@ public final class SystemSessionProperties
                         false,
                         value -> JoinDistributionType.valueOf(((String) value).toUpperCase()),
                         JoinDistributionType::name),
+                new PropertyMetadata<>(
+                        JOIN_MAX_BROADCAST_TABLE_SIZE,
+                        "Maximum size of a table that can be broadcast for JOIN (0 disables the limit). The most pessimistic size estimate is taken when doing comparison.",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getJoinMaxBroadcastTableSize(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
@@ -520,6 +531,16 @@ public final class SystemSessionProperties
         }
 
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
+    }
+
+    public static Optional<DataSize> getJoinMaxBroadcastTableSize(Session session)
+    {
+        DataSize joinMaxBroadcastTableSize = session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
+        if (joinMaxBroadcastTableSize.toBytes() == 0) {
+            return Optional.empty();
+        }
+
+        return Optional.of(joinMaxBroadcastTableSize);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)

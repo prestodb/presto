@@ -25,6 +25,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDataSize;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
@@ -65,6 +66,7 @@ public class FeaturesConfig
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
     private JoinDistributionType joinDistributionType = PARTITIONED;
+    private DataSize joinMaxBroadcastTableSize = new DataSize(0, DataSize.Unit.MEGABYTE);
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private int concurrentLifespansPerTask;
@@ -287,6 +289,19 @@ public class FeaturesConfig
     public FeaturesConfig setJoinDistributionType(JoinDistributionType joinDistributionType)
     {
         this.joinDistributionType = requireNonNull(joinDistributionType, "joinDistributionType is null");
+        return this;
+    }
+
+    public DataSize getJoinMaxBroadcastTableSize()
+    {
+        return joinMaxBroadcastTableSize;
+    }
+
+    @Config("join-max-broadcast-table-size")
+    @MinDataSize("0MB")
+    public FeaturesConfig setJoinMaxBroadcastTableSize(DataSize joinMaxBroadcastTableSize)
+    {
+        this.joinMaxBroadcastTableSize = requireNonNull(joinMaxBroadcastTableSize, "joinMaxBroadcastTableSize is null");
         return this;
     }
 

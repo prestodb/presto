@@ -211,7 +211,7 @@ public class RuleAssert
     private Rule.Context ruleContext(SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
         StatsProvider statsProvider = new CachingStatsProvider(probabilisticStatsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
-        StatsProvider upperEstimateStatsProvider = new CachingStatsProvider(upperEstimateStatsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
+        StatsProvider upperEstimateStatsProvider = new CachingStatsProvider(upperEstimateStatsCalculator, Optional.empty(), lookup, session, symbolAllocator.getTypes());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
 
         return new Rule.Context()
