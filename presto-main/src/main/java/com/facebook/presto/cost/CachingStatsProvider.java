@@ -80,17 +80,23 @@ public final class CachingStatsProvider
 
     private PlanNodeStatsEstimate getGroupStats(GroupReference groupReference)
     {
-        int group = groupReference.getGroupId();
-        Memo memo = this.memo.orElseThrow(() -> new IllegalStateException("CachingStatsProvider without memo cannot handle GroupReferences"));
-
-        Optional<PlanNodeStatsEstimate> stats = memo.getStats(group);
-        if (stats.isPresent()) {
-            return stats.get();
+        // TODO: untangle this, stats should be cached locally or there shouldn't be dedicated placeholders in memo
+        if (!memo.isPresent()) {
+            return statsCalculator.calculateStats(lookup.resolve(groupReference), this, lookup, session, types);
         }
+        else {
+            int group = groupReference.getGroupId();
+            Memo memo = this.memo.orElseThrow(() -> new IllegalStateException("CachingStatsProvider without memo cannot handle GroupReferences"));
 
-        PlanNodeStatsEstimate groupStats = statsCalculator.calculateStats(memo.getNode(group), this, lookup, session, types);
-        verify(!memo.getStats(group).isPresent(), "Group stats already set");
-        memo.storeStats(group, groupStats);
-        return groupStats;
+            Optional<PlanNodeStatsEstimate> stats = memo.getStats(group);
+            if (stats.isPresent()) {
+                return stats.get();
+            }
+
+            PlanNodeStatsEstimate groupStats = statsCalculator.calculateStats(memo.getNode(group), this, lookup, session, types);
+            verify(!memo.getStats(group).isPresent(), "Group stats already set");
+            memo.storeStats(group, groupStats);
+            return groupStats;
+        }
     }
 }
