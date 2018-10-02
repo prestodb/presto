@@ -16,6 +16,7 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -352,6 +353,19 @@ class AstBuilder
                 getQualifiedName(context.tableName),
                 (Identifier) visit(context.from),
                 (Identifier) visit(context.to));
+    }
+
+    @Override
+    public Node visitAnalyze(SqlBaseParser.AnalyzeContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+        return new Analyze(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                properties);
     }
 
     @Override
