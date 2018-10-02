@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
 
@@ -33,13 +34,13 @@ public class ExplainAnalyzeContext
     @Inject
     public ExplainAnalyzeContext(
             QueryPerformanceFetcher queryPerformanceFetcher,
-            StatsCalculator statsCalculator,
+            StatsCalculators statsCalculators,
             CostCalculator costCalculator,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.statsCalculator = requireNonNull(statsCalculators, "statsCalculator is null").getProbabilisticStatsCalculator();
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");

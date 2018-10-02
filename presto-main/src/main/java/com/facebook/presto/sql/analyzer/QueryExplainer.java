@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -71,7 +72,7 @@ public class QueryExplainer
             NodePartitioningManager nodePartitioningManager,
             AccessControl accessControl,
             SqlParser sqlParser,
-            StatsCalculator statsCalculator,
+            StatsCalculators statsCalculators,
             CostCalculator costCalculator,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig nodeSchedulerConfig,
@@ -84,7 +85,7 @@ public class QueryExplainer
                 nodePartitioningManager,
                 accessControl,
                 sqlParser,
-                statsCalculator,
+                statsCalculators.getProbabilisticStatsCalculator(),
                 costCalculator,
                 nodeManager,
                 nodeSchedulerConfig,

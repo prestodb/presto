@@ -34,7 +34,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
@@ -179,7 +179,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
-import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
+import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculators;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -217,7 +217,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
-    private final StatsCalculator statsCalculator;
+    private final StatsCalculators statsCalculators;
     private final CostCalculator costCalculator;
     private final CostCalculator estimatedExchangesCostCalculator;
     private final TestingAccessControlManager accessControl;
@@ -308,7 +308,7 @@ public class LocalQueryRunner
                 transactionManager);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
-        this.statsCalculator = createNewStatsCalculator(metadata);
+        this.statsCalculators = createNewStatsCalculators(metadata);
         this.costCalculator = new CostCalculatorUsingExchanges(() -> nodeCountForStats);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, () -> nodeCountForStats);
         this.accessControl = new TestingAccessControlManager(transactionManager);
@@ -479,9 +479,9 @@ public class LocalQueryRunner
     }
 
     @Override
-    public StatsCalculator getStatsCalculator()
+    public StatsCalculators getStatsCalculators()
     {
-        return statsCalculator;
+        return statsCalculators;
     }
 
     public CostCalculator getCostCalculator()
@@ -665,7 +665,7 @@ public class LocalQueryRunner
         Plan plan = createPlan(session, sql);
 
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), statsCalculator, estimatedExchangesCostCalculator, session, 0, false));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), statsCalculators.getProbabilisticStatsCalculator(), estimatedExchangesCostCalculator, session, 0, false));
         }
 
         SubPlan subplan = planFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, true);
@@ -794,7 +794,7 @@ public class LocalQueryRunner
                 featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
-                statsCalculator,
+                statsCalculators,
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig)).get();
@@ -827,7 +827,7 @@ public class LocalQueryRunner
                 nodePartitioningManager,
                 accessControl,
                 sqlParser,
-                statsCalculator,
+                statsCalculators.getProbabilisticStatsCalculator(),
                 costCalculator,
                 nodeManager,
                 nodeSchedulerConfig,

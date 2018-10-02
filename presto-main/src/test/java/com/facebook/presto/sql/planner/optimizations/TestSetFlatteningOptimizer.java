@@ -130,7 +130,7 @@ public class TestSetFlatteningOptimizer
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getStatsCalculators(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer());

@@ -117,7 +117,7 @@ public class TestOptimizeMixedDistinctAggregations
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getStatsCalculators(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),

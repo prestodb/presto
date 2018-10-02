@@ -87,7 +87,7 @@ public class RuleTester
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
+        return new RuleAssert(metadata, queryRunner.getStatsCalculators(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }
 
     @Override

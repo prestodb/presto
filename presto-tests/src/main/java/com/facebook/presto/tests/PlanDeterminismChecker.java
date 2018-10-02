@@ -66,7 +66,7 @@ public class PlanDeterminismChecker
                     plan.getRoot(),
                     plan.getTypes(),
                     localQueryRunner.getMetadata().getFunctionRegistry(),
-                    localQueryRunner.getStatsCalculator(),
+                    localQueryRunner.getStatsCalculators().getProbabilisticStatsCalculator(),
                     localQueryRunner.getCostCalculator(),
                     transactionSession,
                     0,

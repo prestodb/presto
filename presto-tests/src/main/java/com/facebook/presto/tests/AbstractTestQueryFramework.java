@@ -327,7 +327,7 @@ public abstract class AbstractTestQueryFramework
                 featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
-                queryRunner.getStatsCalculator(),
+                queryRunner.getStatsCalculators(),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner::getNodeCount),
                 new CostComparator(featuresConfig)).get();
@@ -338,7 +338,7 @@ public abstract class AbstractTestQueryFramework
                 queryRunner.getNodePartitioningManager(),
                 queryRunner.getAccessControl(),
                 sqlParser,
-                queryRunner.getStatsCalculator(),
+                queryRunner.getStatsCalculators().getProbabilisticStatsCalculator(),
                 costCalculator,
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),

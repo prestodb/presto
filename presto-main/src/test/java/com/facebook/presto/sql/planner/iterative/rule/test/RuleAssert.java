@@ -20,6 +20,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
@@ -55,7 +56,8 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private TestingStatsCalculator statsCalculator;
+    private TestingStatsCalculator probabilisticStatsCalculator;
+    private TestingStatsCalculator upperEstimateStatsCalculator;
     private final CostCalculator costCalculator;
     private Session session;
     private final Rule<?> rule;
@@ -67,10 +69,11 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, StatsCalculators statsCalculators, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
-        this.statsCalculator = new TestingStatsCalculator(statsCalculator);
+        this.probabilisticStatsCalculator = new TestingStatsCalculator(statsCalculators.getProbabilisticStatsCalculator());
+        this.upperEstimateStatsCalculator = new TestingStatsCalculator(statsCalculators.getUpperEstimateStatsCalculator());
         this.costCalculator = costCalculator;
         this.session = session;
         this.rule = rule;
@@ -93,7 +96,13 @@ public class RuleAssert
 
     public RuleAssert overrideStats(String nodeId, PlanNodeStatsEstimate nodeStats)
     {
-        statsCalculator.setNodeStats(new PlanNodeId(nodeId), nodeStats);
+        probabilisticStatsCalculator.setNodeStats(new PlanNodeId(nodeId), nodeStats);
+        return this;
+    }
+
+    public RuleAssert overrideUpperEstimateStats(String nodeId, PlanNodeStatsEstimate nodeStats)
+    {
+        upperEstimateStatsCalculator.setNodeStats(new PlanNodeId(nodeId), nodeStats);
         return this;
     }
 
@@ -164,7 +173,7 @@ public class RuleAssert
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, symbolAllocator, memo, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(symbolAllocator, memo, lookup, session)));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -185,7 +194,7 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
-        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionRegistry(), statsCalculator, costCalculator, session, 2, false));
+        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionRegistry(), probabilisticStatsCalculator, costCalculator, session, 2, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -199,9 +208,10 @@ public class RuleAssert
                 });
     }
 
-    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
+    private Rule.Context ruleContext(SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(probabilisticStatsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
+        StatsProvider upperEstimateStatsProvider = new CachingStatsProvider(upperEstimateStatsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
 
         return new Rule.Context()
@@ -234,6 +244,12 @@ public class RuleAssert
             public StatsProvider getStatsProvider()
             {
                 return statsProvider;
+            }
+
+            @Override
+            public StatsProvider getUpperEstimateStatsProvider()
+            {
+                return upperEstimateStatsProvider;
             }
 
             @Override
