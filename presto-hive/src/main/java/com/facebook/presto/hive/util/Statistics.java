@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.IntegerStatistics;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -46,6 +47,8 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
 import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.MAX;
@@ -70,6 +73,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Sets.intersection;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class Statistics
@@ -242,6 +246,67 @@ public final class Statistics
     private static <T extends Comparable<? super T>> T min(T first, T second)
     {
         return first.compareTo(second) <= 0 ? first : second;
+    }
+
+    public static PartitionStatistics createEmptyPartitionStatistics(Map<String, Type> columnTypes, Map<String, Set<ColumnStatisticType>> columnStatisticsMetadataTypes)
+    {
+        Map<String, HiveColumnStatistics> columnStatistics = columnStatisticsMetadataTypes.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> createColumnStatisticsForEmptyPartition(columnTypes.get(entry.getKey()), entry.getValue())));
+        return new PartitionStatistics(createZeroStatistics(), columnStatistics);
+    }
+
+    private static HiveColumnStatistics createColumnStatisticsForEmptyPartition(Type columnType, Set<ColumnStatisticType> columnStatisticTypes)
+    {
+        requireNonNull(columnType, "columnType is null");
+        HiveColumnStatistics.Builder result = HiveColumnStatistics.builder();
+        for (ColumnStatisticType columnStatisticType : columnStatisticTypes) {
+            switch (columnStatisticType) {
+                case MAX_VALUE_SIZE_IN_BYTES:
+                    result.setMaxValueSizeInBytes(0);
+                    break;
+                case TOTAL_SIZE_IN_BYTES:
+                    result.setTotalSizeInBytes(0);
+                    break;
+                case NUMBER_OF_DISTINCT_VALUES:
+                    result.setDistinctValuesCount(0);
+                    break;
+                case NUMBER_OF_NON_NULL_VALUES:
+                    result.setNullsCount(0);
+                    break;
+                case NUMBER_OF_TRUE_VALUES:
+                    result.setBooleanStatistics(new BooleanStatistics(OptionalLong.of(0L), OptionalLong.of(0L)));
+                    break;
+                case MIN_VALUE:
+                case MAX_VALUE:
+                    setMinMaxForEmptyPartition(columnType, result);
+                    break;
+                default:
+                    throw new PrestoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
+            }
+        }
+        return result.build();
+    }
+
+    private static void setMinMaxForEmptyPartition(Type type, HiveColumnStatistics.Builder result)
+    {
+        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
+        }
+        else if (type.equals(DOUBLE) || type.equals(REAL)) {
+            result.setDoubleStatistics(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
+        }
+        else if (type.equals(DATE)) {
+            result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
+        }
+        else if (type.equals(TIMESTAMP)) {
+            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
+        }
+        else if (type instanceof DecimalType) {
+            result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected type: " + type);
+        }
     }
 
     public static Map<List<String>, ComputedStatistics> createComputedStatisticsToPartitionMap(
