@@ -41,7 +41,7 @@ public class LookupJoinOperatorFactory
     private final List<Type> buildOutputTypes;
     private final JoinType joinType;
     private final JoinProbeFactory joinProbeFactory;
-    private final Optional<OperatorFactory> outerOperatorFactory;
+    private final Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult;
     private final JoinBridgeLifecycleManager<LookupSourceFactory> joinBridgeManager;
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
@@ -73,16 +73,18 @@ public class LookupJoinOperatorFactory
         this.joinBridgeManager = JoinBridgeLifecycleManager.lookup(joinType, lookupSourceFactoryManager);
 
         if (joinType == INNER || joinType == PROBE_OUTER) {
-            this.outerOperatorFactory = Optional.empty();
+            this.outerOperatorFactoryResult = Optional.empty();
         }
         else {
-            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(
-                    operatorId,
-                    planNodeId,
-                    joinBridgeManager::getOuterPositionsFuture,
-                    probeOutputTypes,
-                    buildOutputTypes,
-                    joinBridgeManager::getJoinBridgeUsersCount));
+            this.outerOperatorFactoryResult = Optional.of(new OuterOperatorFactoryResult(
+                    new LookupOuterOperatorFactory(
+                            operatorId,
+                            planNodeId,
+                            joinBridgeManager::getOuterPositionsFuture,
+                            probeOutputTypes,
+                            buildOutputTypes,
+                            joinBridgeManager::getJoinBridgeUsersCount),
+                    lookupSourceFactoryManager.getBuildExecutionStrategy()));
         }
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
@@ -112,7 +114,7 @@ public class LookupJoinOperatorFactory
         joinProbeFactory = other.joinProbeFactory;
         // Invokes .duplicate on joinBridgeManager
         joinBridgeManager = other.joinBridgeManager.duplicate();
-        outerOperatorFactory = other.outerOperatorFactory;
+        outerOperatorFactoryResult = other.outerOperatorFactoryResult;
         totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
@@ -171,8 +173,8 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public Optional<OperatorFactory> createOuterOperatorFactory()
+    public Optional<OuterOperatorFactoryResult> createOuterOperatorFactory()
     {
-        return outerOperatorFactory;
+        return outerOperatorFactoryResult;
     }
 }

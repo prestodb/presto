@@ -78,6 +78,7 @@ public class JoinBridgeDataManager<T>
                 factory.getOutputTypes());
     }
 
+    private final PipelineExecutionStrategy buildExecutionStrategy;
     private final List<Type> buildOutputTypes;
 
     private final InternalJoinBridgeDataManager<T> internalJoinBridgeDataManager;
@@ -91,11 +92,16 @@ public class JoinBridgeDataManager<T>
             Consumer<T> destroy)
     {
         requireNonNull(probeExecutionStrategy, "probeExecutionStrategy is null");
-        requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
         requireNonNull(lookupSourceFactoryProvider, "joinBridgeProvider is null");
 
-        this.internalJoinBridgeDataManager = internalJoinBridgeDataManager(probeExecutionStrategy, lookupSourceExecutionStrategy, lookupSourceFactoryProvider, sharedWrapper, destroy);
+        this.buildExecutionStrategy = requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
+        this.internalJoinBridgeDataManager = internalJoinBridgeDataManager(probeExecutionStrategy, lookupSourceExecutionStrategy, lookupSourceFactoryProvider, sharedWrapper, destroy);
+    }
+
+    public PipelineExecutionStrategy getBuildExecutionStrategy()
+    {
+        return buildExecutionStrategy;
     }
 
     public List<Type> getBuildOutputTypes()
