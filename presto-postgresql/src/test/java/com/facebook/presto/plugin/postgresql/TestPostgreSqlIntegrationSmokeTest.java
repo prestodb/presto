@@ -138,8 +138,10 @@ public class TestPostgreSqlIntegrationSmokeTest
             assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");
 
             // Other tables should be visible in SHOW TABLES (the no_supported_columns might be included or might be not) and information_schema.tables
-            assertQuery("SHOW TABLES", "VALUES 'orders', 'no_supported_columns', 'supported_columns', 'no_columns'");
-            assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch'", "VALUES 'orders', 'no_supported_columns', 'supported_columns', 'no_columns'");
+            assertThat(computeActual("SHOW TABLES").getOnlyColumn())
+                    .contains("orders", "no_supported_columns", "supported_columns", "no_columns");
+            assertThat(computeActual("SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch'").getOnlyColumn())
+                    .contains("orders", "no_supported_columns", "supported_columns", "no_columns");
 
             // Other tables should be introspectable with SHOW COLUMNS and information_schema.columns
             assertQuery("SHOW COLUMNS FROM supported_columns", "VALUES ('good', 'varchar(5)', '', '')");
