@@ -42,22 +42,59 @@ public final class PlanNodeCostEstimate
         return new PlanNodeCostEstimate(0, 0, networkCost);
     }
 
+    private final double individualCpuCost;
+    private final double individualMemoryCost;
+    private final double individualNetworkCost;
     private final double cpuCost;
     private final double memoryCost;
     private final double networkCost;
 
-    public PlanNodeCostEstimate(double cpuCost, double memoryCost, double networkCost)
+    /**
+     * Builds a PlanNodeCostEstimate using the individual costs for the cumulative costs
+     * PlanNodeCostEstimate becomes cumulative when the add() method is used
+     * @param individualCpuCost: the initial, local CPU cost of the PlanNode
+     * @param individualMemoryCost: the initial, local memory cost of the PlanNode
+     * @param individualNetworkCost: the initial, local network cost of the PlanNode
+     */
+    public PlanNodeCostEstimate(double individualCpuCost, double individualMemoryCost, double individualNetworkCost)
     {
-        checkArgument(isNaN(cpuCost) || cpuCost >= 0, "cpuCost cannot be negative");
-        checkArgument(isNaN(memoryCost) || memoryCost >= 0, "memoryCost cannot be negative");
-        checkArgument(isNaN(networkCost) || networkCost >= 0, "networkCost cannot be negative");
+        this(individualCpuCost, individualMemoryCost, individualNetworkCost, individualCpuCost, individualMemoryCost, individualNetworkCost);
+    }
+
+    private PlanNodeCostEstimate(double individualCpuCost, double individualMemoryCost, double individualNetworkCost,
+            double cpuCost, double memoryCost, double networkCost)
+    {
+        checkArgument(isNaN(individualCpuCost) || individualCpuCost >= 0,
+                "individualCpuCost cannot be negative");
+        checkArgument(isNaN(individualMemoryCost) || individualMemoryCost >= 0,
+                "individualMemoryCost cannot be negative");
+        checkArgument(isNaN(individualNetworkCost) || individualNetworkCost >= 0,
+                "individualNetworkCost cannot be negative");
+        checkArgument(isNaN(cpuCost) || cpuCost >= 0,
+                "cpuCost cannot be negative");
+        checkArgument(isNaN(memoryCost) || memoryCost >= 0,
+                "memoryCost cannot be negative");
+        checkArgument(isNaN(networkCost) || networkCost >= 0,
+                "networkCost cannot be negative");
+
+        this.individualCpuCost = individualCpuCost;
+        this.individualMemoryCost = individualMemoryCost;
+        this.individualNetworkCost = individualNetworkCost;
         this.cpuCost = cpuCost;
         this.memoryCost = memoryCost;
         this.networkCost = networkCost;
     }
 
     /**
-     * Returns CPU component of the cost. Unknown value is represented by {@link Double#NaN}
+     * Returns individual CPU component of the cost. Unknown value is represented by {@link Double#NaN}
+     */
+    public double getIndividualCpuCost()
+    {
+        return individualCpuCost;
+    }
+
+    /**
+     * Returns cumulative CPU component of the cost. Unknown value is represented by {@link Double#NaN}
      */
     public double getCpuCost()
     {
@@ -65,7 +102,15 @@ public final class PlanNodeCostEstimate
     }
 
     /**
-     * Returns memory component of the cost. Unknown value is represented by {@link Double#NaN}
+     * Returns individual memory component of the cost. Unknown value is represented by {@link Double#NaN}
+     */
+    public double getIndividualMemoryCost()
+    {
+        return individualMemoryCost;
+    }
+
+    /**
+     * Returns cumulative memory component of the cost. Unknown value is represented by {@link Double#NaN}
      */
     public double getMemoryCost()
     {
@@ -73,7 +118,15 @@ public final class PlanNodeCostEstimate
     }
 
     /**
-     * Returns network component of the cost. Unknown value is represented by {@link Double#NaN}
+     * Returns individual network component of the cost. Unknown value is represented by {@link Double#NaN}
+     */
+    public double getIndividualNetworkCost()
+    {
+        return individualNetworkCost;
+    }
+
+    /**
+     * Returns cumulative network component of the cost. Unknown value is represented by {@link Double#NaN}
      */
     public double getNetworkCost()
     {
@@ -85,13 +138,17 @@ public final class PlanNodeCostEstimate
      */
     public boolean hasUnknownComponents()
     {
-        return isNaN(cpuCost) || isNaN(memoryCost) || isNaN(networkCost);
+        return isNaN(individualCpuCost) || isNaN(individualMemoryCost) || isNaN(individualNetworkCost) ||
+                isNaN(cpuCost) || isNaN(memoryCost) || isNaN(networkCost);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("individualCpu", individualCpuCost)
+                .add("individualMemory", individualMemoryCost)
+                .add("individualNetwork", individualNetworkCost)
                 .add("cpu", cpuCost)
                 .add("memory", memoryCost)
                 .add("network", networkCost)
@@ -108,7 +165,10 @@ public final class PlanNodeCostEstimate
             return false;
         }
         PlanNodeCostEstimate that = (PlanNodeCostEstimate) o;
-        return Double.compare(that.cpuCost, cpuCost) == 0 &&
+        return Double.compare(that.individualCpuCost, individualCpuCost) == 0 &&
+                Double.compare(that.individualMemoryCost, individualMemoryCost) == 0 &&
+                Double.compare(that.individualNetworkCost, individualNetworkCost) == 0 &&
+                Double.compare(that.cpuCost, cpuCost) == 0 &&
                 Double.compare(that.memoryCost, memoryCost) == 0 &&
                 Double.compare(that.networkCost, networkCost) == 0;
     }
@@ -116,12 +176,16 @@ public final class PlanNodeCostEstimate
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuCost, memoryCost, networkCost);
+        return Objects.hash(individualCpuCost, individualMemoryCost, individualNetworkCost,
+                cpuCost, memoryCost, networkCost);
     }
 
     public PlanNodeCostEstimate add(PlanNodeCostEstimate other)
     {
         return new PlanNodeCostEstimate(
+                individualCpuCost,
+                individualMemoryCost,
+                individualNetworkCost,
                 cpuCost + other.cpuCost,
                 memoryCost + other.memoryCost,
                 networkCost + other.networkCost);

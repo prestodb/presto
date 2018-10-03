@@ -20,6 +20,7 @@ import com.google.common.collect.Ordering;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -58,6 +59,11 @@ public class CostComparator
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         checkArgument(!left.hasUnknownComponents() && !right.hasUnknownComponents(), "cannot compare unknown costs");
+
+        long queryMaxMemory = getQueryMaxMemory(session).toBytes();
+        if (left.getIndividualMemoryCost() > queryMaxMemory || right.getIndividualMemoryCost() > queryMaxMemory) {
+            return Double.compare(left.getIndividualMemoryCost(), right.getIndividualMemoryCost());
+        }
 
         double leftCost = left.getCpuCost() * cpuWeight
                 + left.getMemoryCost() * memoryWeight
