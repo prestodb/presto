@@ -240,6 +240,9 @@ function computeSources(nodeInfo)
         case 'semijoin':
             sources = [nodeInfo.source, nodeInfo.filteringSource];
             break;
+        case 'spatialjoin':
+            sources = [nodeInfo.left, nodeInfo.right];
+            break;
         case 'indexjoin':
             sources = [nodeInfo.probeSource, nodeInfo.filterSource];
             break;
