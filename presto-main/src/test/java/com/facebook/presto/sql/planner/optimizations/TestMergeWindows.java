@@ -556,7 +556,7 @@ public class TestMergeWindows
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getStatsCalculators(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())

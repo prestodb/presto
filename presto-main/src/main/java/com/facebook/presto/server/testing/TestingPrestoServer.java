@@ -15,7 +15,7 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.SqlQueryManager;
@@ -111,7 +111,7 @@ public class TestingPrestoServer
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
-    private final StatsCalculator statsCalculator;
+    private final StatsCalculators statsCalculators;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager> resourceGroupManager;
@@ -271,13 +271,13 @@ public class TestingPrestoServer
             resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
-            statsCalculator = injector.getInstance(StatsCalculator.class);
+            statsCalculators = injector.getInstance(StatsCalculators.class);
         }
         else {
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = null;
             clusterMemoryManager = null;
-            statsCalculator = null;
+            statsCalculators = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -380,10 +380,10 @@ public class TestingPrestoServer
         return metadata;
     }
 
-    public StatsCalculator getStatsCalculator()
+    public StatsCalculators getStatsCalculators()
     {
         checkState(coordinator, "not a coordinator");
-        return statsCalculator;
+        return statsCalculators;
     }
 
     public TestingAccessControlManager getAccessControl()

@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Plan;
@@ -33,14 +33,14 @@ public final class PlanAssert
 {
     private PlanAssert() {}
 
-    public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, StatsCalculators statsCalculators, Plan actual, PlanMatchPattern pattern)
     {
-        assertPlan(session, metadata, statsCalculator, actual, noLookup(), pattern);
+        assertPlan(session, metadata, statsCalculators, actual, noLookup(), pattern);
     }
 
-    public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, StatsCalculators statsCalculators, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculators.getProbabilisticStatsCalculator(), session, actual.getTypes());
         assertPlan(session, metadata, statsProvider, actual, lookup, pattern);
     }
 

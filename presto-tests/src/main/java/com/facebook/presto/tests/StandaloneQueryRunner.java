@@ -15,7 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -141,9 +141,9 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public StatsCalculator getStatsCalculator()
+    public StatsCalculators getStatsCalculators()
     {
-        return server.getStatsCalculator();
+        return server.getStatsCalculators();
     }
 
     @Override

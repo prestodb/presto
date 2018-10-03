@@ -52,6 +52,8 @@ public interface Rule<T>
 
         StatsProvider getStatsProvider();
 
+        StatsProvider getUpperEstimateStatsProvider();
+
         CostProvider getCostProvider();
 
         void checkTimeoutNotExhausted();

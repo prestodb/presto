@@ -73,7 +73,7 @@ class QueryAssertions
     {
         assertQuery(actual, expected);
         Plan plan = runner.createPlan(runner.getDefaultSession(), actual);
-        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
+        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculators(), plan, pattern);
         planValidator.accept(plan);
     }
 

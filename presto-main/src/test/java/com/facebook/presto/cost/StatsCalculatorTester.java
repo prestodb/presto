@@ -29,7 +29,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class StatsCalculatorTester
         implements AutoCloseable
 {
-    private final StatsCalculator statsCalculator;
+    private final StatsCalculators statsCalculators;
     private final Metadata metadata;
     private final Session session;
     private final LocalQueryRunner queryRunner;
@@ -41,7 +41,7 @@ public class StatsCalculatorTester
 
     private StatsCalculatorTester(LocalQueryRunner queryRunner)
     {
-        this.statsCalculator = queryRunner.getStatsCalculator();
+        this.statsCalculators = queryRunner.getStatsCalculators();
         this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
         this.queryRunner = queryRunner;
@@ -62,7 +62,7 @@ public class StatsCalculatorTester
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
         PlanNode planNode = planProvider.apply(planBuilder);
-        return new StatsCalculatorAssertion(statsCalculator, session, planNode, planBuilder.getTypes());
+        return new StatsCalculatorAssertion(statsCalculators.getProbabilisticStatsCalculator(), session, planNode, planBuilder.getTypes());
     }
 
     @Override

@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
-import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsCalculators;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -207,9 +207,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public StatsCalculator getStatsCalculator()
+        public StatsCalculators getStatsCalculators()
         {
-            return source.getStatsCalculator();
+            return source.getStatsCalculators();
         }
 
         @Override

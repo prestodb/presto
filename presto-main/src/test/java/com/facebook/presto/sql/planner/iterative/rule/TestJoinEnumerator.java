@@ -110,7 +110,13 @@ public class TestJoinEnumerator
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
-                queryRunner.getStatsCalculator(),
+                queryRunner.getStatsCalculators().getProbabilisticStatsCalculator(),
+                Optional.empty(),
+                noLookup(),
+                queryRunner.getDefaultSession(),
+                symbolAllocator.getTypes());
+        CachingStatsProvider upperEstimateStatsProvider = new CachingStatsProvider(
+                queryRunner.getStatsCalculators().getUpperEstimateStatsCalculator(),
                 Optional.empty(),
                 noLookup(),
                 queryRunner.getDefaultSession(),
@@ -153,6 +159,12 @@ public class TestJoinEnumerator
             public StatsProvider getStatsProvider()
             {
                 return statsProvider;
+            }
+
+            @Override
+            public StatsProvider getUpperEstimateStatsProvider()
+            {
+                return upperEstimateStatsProvider;
             }
 
             @Override

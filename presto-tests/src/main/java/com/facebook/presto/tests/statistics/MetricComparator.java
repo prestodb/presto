@@ -68,7 +68,7 @@ final class MetricComparator
     {
         Plan queryPlan = runner.createPlan(session, query);
         OutputNode outputNode = (OutputNode) queryPlan.getRoot();
-        PlanNodeStatsEstimate outputNodeStats = calculateStats(outputNode, runner.getStatsCalculator(), session, queryPlan.getTypes());
+        PlanNodeStatsEstimate outputNodeStats = calculateStats(outputNode, runner.getStatsCalculators().getProbabilisticStatsCalculator(), session, queryPlan.getTypes());
         StatsContext statsContext = buildStatsContext(queryPlan, outputNode);
         return getEstimatedValues(metrics, outputNodeStats, statsContext);
     }

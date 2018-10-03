@@ -78,7 +78,7 @@ public class TestCanonicalize
                         new UnaliasSymbolReferences(),
                         new IterativeOptimizer(
                                 new RuleStatsRecorder(),
-                                getQueryRunner().getStatsCalculator(),
+                                getQueryRunner().getStatsCalculators(),
                                 getQueryRunner().getCostCalculator(),
                                 ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }

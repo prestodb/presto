@@ -133,7 +133,7 @@ public class BasePlanTest
     {
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculators(), actualPlan, pattern);
             return null;
         });
     }
@@ -155,7 +155,7 @@ public class BasePlanTest
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
-                        queryRunner.getStatsCalculator(),
+                        queryRunner.getStatsCalculators(),
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
@@ -166,7 +166,7 @@ public class BasePlanTest
     {
         queryRunner.inTransaction(session, transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculators(), actualPlan, pattern);
             return null;
         });
     }
@@ -175,7 +175,7 @@ public class BasePlanTest
     {
         queryRunner.inTransaction(session, transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculators(), actualPlan, pattern);
             planValidator.accept(actualPlan);
             return null;
         });

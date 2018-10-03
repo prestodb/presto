@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -31,7 +32,14 @@ public class StatsCalculatorModule
 
     @Provides
     @Singleton
-    public static StatsCalculator createNewStatsCalculator(Metadata metadata)
+    public static StatsCalculators createNewStatsCalculators(Metadata metadata)
+    {
+        return new StatsCalculators(
+                createNewProbabilisticStatsCalculator(metadata),
+                createNewUpperEstimateStatsCalculator(metadata));
+    }
+
+    public static StatsCalculator createNewProbabilisticStatsCalculator(Metadata metadata)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
         ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
@@ -53,6 +61,22 @@ public class StatsCalculatorModule
         rules.add(new UnionStatsRule(normalizer));
         rules.add(new AssignUniqueIdStatsRule());
         rules.add(new SemiJoinStatsRule());
+
+        return new ComposableStatsCalculator(rules.build());
+    }
+
+    public static StatsCalculator createNewUpperEstimateStatsCalculator(Metadata metadata)
+    {
+        StatsNormalizer normalizer = new StatsNormalizer();
+        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
+
+        ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
+        rules.add(new AggregationStatsRule(normalizer));
+        rules.add(new AssignUniqueIdStatsRule());
+        rules.add(new EnforceSingleRowStatsRule(normalizer));
+        rules.add(new PassthroughStatsRule<>(FilterNode.class));
+        rules.add(new LimitStatsRule(normalizer));
+        rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
 
         return new ComposableStatsCalculator(rules.build());
     }
