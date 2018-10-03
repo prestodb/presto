@@ -28,12 +28,15 @@ public class ReferenceCount
     private final SettableFuture<Void> freeFuture = SettableFuture.create();
 
     @GuardedBy("this")
-    private int count = 1;
+    private int count;
 
     public ReferenceCount(int initialCount)
     {
-        checkArgument(initialCount >= 1, "initialCount must be at least 1");
+        checkArgument(initialCount >= 0, "initialCount must not be negative, got %s", initialCount);
         count = initialCount;
+        if (initialCount == 0) {
+            freeFuture.set(null);
+        }
     }
 
     public ListenableFuture<Void> getFreeFuture()
