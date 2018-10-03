@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -65,6 +66,7 @@ import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTI
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -350,7 +352,9 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(sql).getResult();
+            MaterializedResult result = prestoClient.execute(sql).getResult();
+            checkExplainSucceeds(sql, prestoClient::execute);
+            return result;
         }
         finally {
             lock.readLock().unlock();
@@ -362,11 +366,26 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(session, sql).getResult();
+            MaterializedResult result = prestoClient.execute(session, sql).getResult();
+            checkExplainSucceeds(sql, query -> prestoClient.execute(session, query));
+            return result;
         }
         finally {
             lock.readLock().unlock();
         }
+    }
+
+    private void checkExplainSucceeds(String sql, Consumer<String> queryExecutor)
+    {
+        if (sql.toUpperCase(ENGLISH).contains("SKIP EXPLAIN")) {
+            return;
+        }
+        if (sql.toUpperCase(ENGLISH).contains("CREATE")) {
+            // TODO https://github.com/prestodb/presto/issues/9896
+            return;
+        }
+        // Ensure EXPLAIN always works
+        queryExecutor.accept("EXPLAIN " + sql);
     }
 
     public ResultWithQueryId<MaterializedResult> executeWithQueryId(Session session, @Language("SQL") String sql)

@@ -198,6 +198,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -587,7 +588,11 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
+        return inTransaction(session, transactionSession -> {
+            MaterializedResult result = executeInternal(transactionSession, sql);
+            checkExplainSucceeds(transactionSession, sql);
+            return result;
+        });
     }
 
     public <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -600,6 +605,25 @@ public class LocalQueryRunner
         return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
+    }
+
+    private void checkExplainSucceeds(Session session, @Language("SQL") String sql)
+    {
+        if (sql.toUpperCase(ENGLISH).contains("CREATE")) {
+            // TODO https://github.com/prestodb/presto/issues/9896
+            return;
+        }
+        // Ensure EXPLAIN always works
+        try {
+            executeInternal(session, "EXPLAIN " + sql);
+        }
+        catch (Exception e) {
+            if ("Final aggregation with default value not separated from partial aggregation by remote hash exchange".equals(e.getMessage())) {
+                // TODO https://github.com/prestodb/presto/issues/11484
+                return;
+            }
+            throw e;
+        }
     }
 
     private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
