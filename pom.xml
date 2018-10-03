@@ -54,7 +54,6 @@
         <dep.tempto.version>1.49</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
@@ -123,6 +122,7 @@
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
         <module>presto-kudu</module>
+        <module>presto-iceberg</module>
     </modules>
 
     <dependencyManagement>
@@ -210,6 +210,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-hadoop2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-iceberg</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

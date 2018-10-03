@@ -155,7 +155,7 @@ public class HivePartitionManager
         return new HivePartitionResult(partitionColumns, partitionsIterable, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
+    public static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
     {
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
         effectivePredicate.getDomains().ifPresent(domains -> {
