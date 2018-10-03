@@ -21,7 +21,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.BeforeClass;
@@ -29,6 +28,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -67,7 +67,7 @@ public class TestScalarStatsCalculator
                 .highValueUnknown()
                 .nullsFraction(0.0);
 
-        assertCalculate(new NullLiteral())
+        assertCalculate(nullLiteral())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()

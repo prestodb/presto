@@ -988,8 +988,8 @@ public class TestDomainTranslator
     @Test
     public void testFromNullLiteralPredicate()
     {
-        assertPredicateIsAlwaysFalse(nullLiteral());
-        assertPredicateIsAlwaysFalse(not(nullLiteral()));
+        assertPredicateIsAlwaysFalse(NullLiteral.nullLiteral());
+        assertPredicateIsAlwaysFalse(not(NullLiteral.nullLiteral()));
     }
 
     @Test
@@ -1419,14 +1419,9 @@ public class TestDomainTranslator
         return cast(stringLiteral(value), type);
     }
 
-    private static NullLiteral nullLiteral()
-    {
-        return new NullLiteral();
-    }
-
     private static Expression nullLiteral(Type type)
     {
-        return cast(new NullLiteral(), type);
+        return cast(NullLiteral.nullLiteral(), type);
     }
 
     private static Expression cast(Symbol symbol, Type type)

@@ -39,7 +39,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -65,6 +64,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral;
 import static com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -200,7 +200,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     ImmutableList.of(
                                             new WhenClause(
                                                     new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
-                                                    new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()))),
+                                                    new Cast(nullLiteral(), BooleanType.BOOLEAN.toString()))),
                                     Optional.of(emptySetResult))))));
         }
 

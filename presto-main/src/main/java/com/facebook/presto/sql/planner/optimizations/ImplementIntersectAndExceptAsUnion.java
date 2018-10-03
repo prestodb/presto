@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +57,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupin
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral();
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -209,7 +209,7 @@ public class ImplementIntersectAndExceptAsUnion
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
-                Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
+                Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(nullLiteral(), StandardTypes.BOOLEAN);
                 assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
             }
 

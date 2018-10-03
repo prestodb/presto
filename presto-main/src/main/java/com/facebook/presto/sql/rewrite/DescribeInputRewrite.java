@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Statement;
@@ -47,6 +46,7 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -110,7 +110,7 @@ final class DescribeInputRewrite
             Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis)).toArray(Row[]::new);
             Optional<String> limit = Optional.empty();
             if (rows.length == 0) {
-                rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
+                rows = new Row[] {row(nullLiteral(), nullLiteral())};
                 limit = Optional.of("0");
             }
 

@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullIfExpression;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -51,6 +50,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.assertEquals;
@@ -331,12 +331,12 @@ public class TestEqualityInference
                 new Cast(nameReference("b"), "BIGINT", true), // try_cast
                 new FunctionCall(QualifiedName.of("try"), ImmutableList.of(nameReference("b"))),
                 new NullIfExpression(nameReference("b"), number(1)),
-                new IfExpression(nameReference("b"), number(1), new NullLiteral()),
+                new IfExpression(nameReference("b"), number(1), nullLiteral()),
                 new DereferenceExpression(nameReference("b"), identifier("x")),
-                new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(new NullLiteral()))),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
-                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),
-                new SubscriptExpression(new ArrayConstructor(ImmutableList.of(new NullLiteral())), nameReference("b")));
+                new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(nullLiteral()))),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), nullLiteral())), Optional.empty()),
+                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), nullLiteral())), Optional.empty()),
+                new SubscriptExpression(new ArrayConstructor(ImmutableList.of(nullLiteral())), nameReference("b")));
 
         for (Expression candidate : candidates) {
             EqualityInference.Builder builder = new EqualityInference.Builder();

@@ -18,6 +18,11 @@ import java.util.Optional;
 public class NullLiteral
         extends Literal
 {
+    public static NullLiteral nullLiteral()
+    {
+        return new NullLiteral();
+    }
+
     public NullLiteral()
     {
         super(Optional.empty());

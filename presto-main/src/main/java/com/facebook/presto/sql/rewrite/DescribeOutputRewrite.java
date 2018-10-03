@@ -29,7 +29,6 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -45,6 +44,7 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -101,8 +101,7 @@ final class DescribeOutputRewrite
             Optional<String> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
             if (rows.length == 0) {
-                NullLiteral nullLiteral = new NullLiteral();
-                rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
+                rows = new Row[] {row(nullLiteral(), nullLiteral(), nullLiteral(), nullLiteral(), nullLiteral(), nullLiteral(), nullLiteral())};
                 limit = Optional.of("0");
             }
             return simpleQuery(

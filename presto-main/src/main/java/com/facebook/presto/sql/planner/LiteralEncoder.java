@@ -35,7 +35,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +53,7 @@ import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.sql.tree.NullLiteral.nullLiteral();
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -94,9 +94,9 @@ public final class LiteralEncoder
 
         if (object == null) {
             if (type.equals(UNKNOWN)) {
-                return new NullLiteral();
+                return nullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
+            return new Cast(nullLiteral(), type.getTypeSignature().toString(), false, true);
         }
 
         if (type.equals(INTEGER)) {
