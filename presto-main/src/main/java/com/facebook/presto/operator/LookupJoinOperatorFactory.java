@@ -28,6 +28,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +43,7 @@ public class LookupJoinOperatorFactory
     private final JoinType joinType;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult;
-    private final JoinBridgeLifecycleManager<LookupSourceFactory> joinBridgeManager;
+    private final JoinBridgeManager<LookupSourceFactory> joinBridgeManager;
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
@@ -52,7 +53,7 @@ public class LookupJoinOperatorFactory
     public LookupJoinOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager,
+            JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager,
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
@@ -70,7 +71,8 @@ public class LookupJoinOperatorFactory
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
-        this.joinBridgeManager = JoinBridgeLifecycleManager.lookup(joinType, lookupSourceFactoryManager);
+        this.joinBridgeManager = lookupSourceFactoryManager;
+        joinBridgeManager.incrementProbeFactoryCount();
 
         if (joinType == INNER || joinType == PROBE_OUTER) {
             this.outerOperatorFactoryResult = Optional.empty();
@@ -80,10 +82,9 @@ public class LookupJoinOperatorFactory
                     new LookupOuterOperatorFactory(
                             operatorId,
                             planNodeId,
-                            joinBridgeManager::getOuterPositionsFuture,
                             probeOutputTypes,
                             buildOutputTypes,
-                            joinBridgeManager::getJoinBridgeUsersCount),
+                            lookupSourceFactoryManager),
                     lookupSourceFactoryManager.getBuildExecutionStrategy()));
         }
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
@@ -106,20 +107,22 @@ public class LookupJoinOperatorFactory
     private LookupJoinOperatorFactory(LookupJoinOperatorFactory other)
     {
         requireNonNull(other, "other is null");
+        checkArgument(!other.closed, "cannot duplicated closed OperatorFactory");
+
         operatorId = other.operatorId;
         planNodeId = other.planNodeId;
         probeTypes = other.probeTypes;
         buildOutputTypes = other.buildOutputTypes;
         joinType = other.joinType;
         joinProbeFactory = other.joinProbeFactory;
-        // Invokes .duplicate on joinBridgeManager
-        joinBridgeManager = other.joinBridgeManager.duplicate();
+        joinBridgeManager = other.joinBridgeManager;
         outerOperatorFactoryResult = other.outerOperatorFactoryResult;
         totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
-        // closed is intentionally not copied
+
         closed = false;
+        joinBridgeManager.incrementProbeFactoryCount();
     }
 
     public int getOperatorId()
@@ -132,13 +135,12 @@ public class LookupJoinOperatorFactory
     {
         checkState(!closed, "Factory is already closed");
         LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
-        ReferenceCount probeReferenceCount = joinBridgeManager.getProbeReferenceCount(driverContext.getLifespan());
 
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupJoinOperator.class.getSimpleName());
 
         lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
 
-        probeReferenceCount.retain();
+        joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
         return new LookupJoinOperator(
                 operatorContext,
                 probeTypes,
@@ -146,7 +148,7 @@ public class LookupJoinOperatorFactory
                 joinType,
                 lookupSourceFactory,
                 joinProbeFactory,
-                probeReferenceCount::release,
+                () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()),
                 totalOperatorsCount,
                 probeHashGenerator,
                 partitioningSpillerFactory);
@@ -157,13 +159,13 @@ public class LookupJoinOperatorFactory
     {
         checkState(!closed);
         closed = true;
-        joinBridgeManager.noMoreLifespan();
+        joinBridgeManager.probeOperatorFactoryClosedForAllLifespans();
     }
 
     @Override
     public void noMoreOperators(Lifespan lifespan)
     {
-        joinBridgeManager.getProbeReferenceCount(lifespan).release();
+        joinBridgeManager.probeOperatorFactoryClosed(lifespan);
     }
 
     @Override

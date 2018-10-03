@@ -41,14 +41,15 @@ public class NestedLoopJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final JoinBridgeLifecycleManager<NestedLoopJoinPagesBridge> joinBridgeManager;
+        private final JoinBridgeManager<NestedLoopJoinPagesBridge> joinBridgeManager;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager)
+        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.joinBridgeManager = JoinBridgeLifecycleManager.nestedLoop(LookupJoinOperators.JoinType.INNER, nestedLoopJoinPagesSupplierManager);
+            this.joinBridgeManager = nestedLoopJoinPagesSupplierManager;
+            this.joinBridgeManager.incrementProbeFactoryCount();
         }
 
         private NestedLoopJoinOperatorFactory(NestedLoopJoinOperatorFactory other)
@@ -57,12 +58,12 @@ public class NestedLoopJoinOperator
             this.operatorId = other.operatorId;
             this.planNodeId = other.planNodeId;
 
-            // joinBridgeManager must be duplicated here.
-            // Otherwise, reference counting and lifecycle management will be wrong.
-            this.joinBridgeManager = other.joinBridgeManager.duplicate();
+            this.joinBridgeManager = other.joinBridgeManager;
 
             // closed is intentionally not copied
             closed = false;
+
+            joinBridgeManager.incrementProbeFactoryCount();
         }
 
         @Override
@@ -70,15 +71,14 @@ public class NestedLoopJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
-            ReferenceCount probeReferenceCount = joinBridgeManager.getProbeReferenceCount(driverContext.getLifespan());
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
 
-            probeReferenceCount.retain();
+            joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
             return new NestedLoopJoinOperator(
                     operatorContext,
                     nestedLoopJoinPagesBridge,
-                    probeReferenceCount::release);
+                    () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()));
         }
 
         @Override
@@ -88,13 +88,13 @@ public class NestedLoopJoinOperator
                 return;
             }
             closed = true;
-            joinBridgeManager.noMoreLifespan();
+            joinBridgeManager.probeOperatorFactoryClosedForAllLifespans();
         }
 
         @Override
         public void noMoreOperators(Lifespan lifespan)
         {
-            joinBridgeManager.getProbeReferenceCount(lifespan).release();
+            joinBridgeManager.probeOperatorFactoryClosed(lifespan);
         }
 
         @Override

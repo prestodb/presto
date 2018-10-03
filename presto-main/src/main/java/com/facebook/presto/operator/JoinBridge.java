@@ -15,28 +15,19 @@ package com.facebook.presto.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import static com.google.common.util.concurrent.Futures.transform;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-
-public interface NestedLoopJoinPagesBridge
-        extends JoinBridge
+/**
+ * A bridge that connects build, probe, and outer operators of a join.
+ * It often carries data that lets probe find out what is available on
+ * the build side, and lets outer find the orphaned rows.
+ */
+public interface JoinBridge
 {
-    ListenableFuture<NestedLoopJoinPages> getPagesFuture();
+    /**
+     * Can be called only after build and probe are finished.
+     */
+    OuterPositionIterator getOuterPositionIterator();
 
-    ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages);
-
-    @Override
     void destroy();
 
-    @Override
-    default OuterPositionIterator getOuterPositionIterator()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default ListenableFuture<?> whenBuildFinishes()
-    {
-        return transform(getPagesFuture(), ignored -> null, directExecutor());
-    }
+    ListenableFuture<?> whenBuildFinishes();
 }

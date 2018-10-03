@@ -2542,6 +2542,14 @@ public class TestHiveIntegrationSmokeTest
                             "FULL JOIN\n" +
                             "  (SELECT * FROM test_grouped_join3 where mod(key3, 5) = 0)\n" +
                             "ON key2 = key3";
+            // Probe is grouped execution, but build is not
+            @Language("SQL") String sharedBuildOuterJoin =
+                    "SELECT key1, value1, keyN, valueN\n" +
+                            "FROM\n" +
+                            "  (SELECT key1, arbitrary(value1) value1 FROM test_grouped_join1 where mod(key1, 2) = 0 group by key1)\n" +
+                            "RIGHT JOIN\n" +
+                            "  (SELECT * FROM test_grouped_joinN where mod(keyN, 3) = 0)\n" +
+                            "ON key1 = keyN";
             @Language("SQL") String expectedChainedOuterJoinResult = "SELECT\n" +
                     "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,\n" +
                     "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,\n" +
@@ -2551,10 +2559,20 @@ public class TestHiveIntegrationSmokeTest
                     "  CASE WHEN mod(orderkey, 5) = 0 THEN comment END\n" +
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 3) = 0 OR mod(orderkey, 5) = 0";
+            @Language("SQL") String expectedSharedBuildOuterJoinResult = "SELECT\n" +
+                    "  CASE WHEN mod(orderkey, 2) = 0 THEN orderkey END,\n" +
+                    "  CASE WHEN mod(orderkey, 2) = 0 THEN comment END,\n" +
+                    "  orderkey,\n" +
+                    "  comment\n" +
+                    "FROM ORDERS\n" +
+                    "WHERE mod(orderkey, 3) = 0";
 
             assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
             assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult);
             assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(notColocated, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
 
             //
             // Filter out all splits
