@@ -359,7 +359,11 @@ public class FilterStatsCalculator
 
             if (right instanceof Literal) {
                 OptionalDouble literal = doubleValueFromLiteral(getType(left), (Literal) right);
-                return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
+                PlanNodeStatsEstimate estimate = estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
+                if (estimate.isOutputRowCountUnknown()) {
+                    return Optional.empty();
+                }
+                return Optional.of(estimate);
             }
 
             Optional<Symbol> rightSymbol = asSymbol(right);
@@ -375,10 +379,18 @@ public class FilterStatsCalculator
 
             if (isSingleValue(rightStats)) {
                 OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, value, operator);
+                PlanNodeStatsEstimate estimate = estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, value, operator);
+                if (estimate.isOutputRowCountUnknown()) {
+                    return Optional.empty();
+                }
+                return Optional.of(estimate);
             }
 
-            return estimateExpressionToExpressionComparison(input, leftStats, leftSymbol, rightStats, rightSymbol, operator);
+            PlanNodeStatsEstimate estimate = estimateExpressionToExpressionComparison(input, leftStats, leftSymbol, rightStats, rightSymbol, operator);
+            if (estimate.isOutputRowCountUnknown()) {
+                return Optional.empty();
+            }
+            return Optional.of(estimate);
         }
 
         private Optional<Symbol> asSymbol(Expression expression)
