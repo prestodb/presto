@@ -69,6 +69,25 @@ public class PrestoAuthorizer
         return checkPermisionForResource(resource, identity, PrestoAccessType.UPDATE);
     }
 
+    public boolean canSelectResource(RangerPrestoResource resource, Identity identity)
+    {
+        return checkPermisionForResource(resource, identity, PrestoAccessType.SELECT);
+    }
+
+    private boolean checkPermisionForResource(RangerPrestoResource resource, Identity identity, PrestoAccessType prestoAccessType)
+    {
+        Optional<RangerAccessResult> rangerPrestoPlugin = checkPermission(resource, identity, prestoAccessType);
+        if (rangerPrestoPlugin.isPresent()) {
+            if (resource.getSchemaTable().isPresent() && INFORMATION_SCHEMA_NAME.equals(resource.getSchemaTable().get().getSchemaName())) {
+                return true;
+            }
+            return rangerPrestoPlugin.get().getIsAllowed();
+        }
+        else {
+            return true;
+        }
+    }
+
     private Optional<RangerAccessResult> checkPermission(RangerPrestoResource resource, Identity identity, PrestoAccessType accessType)
     {
         Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(resource.getCatalogName());
@@ -84,41 +103,9 @@ public class PrestoAuthorizer
         return Optional.empty();
     }
 
-    private boolean checkPermisionForResource(RangerPrestoResource resource, Identity identity, PrestoAccessType prestoAccessType)
-    {
-        Optional<RangerAccessResult> rangerPrestoPlugin = checkPermission(resource, identity, prestoAccessType);
-        if (rangerPrestoPlugin.isPresent()) {
-            return rangerPrestoPlugin.get().getIsAllowed();
-        }
-        else {
-            return true;
-        }
-    }
-
     private Set<String> getGroups(Identity identity)
     {
         return userGroups.getUserGroups(identity.getUser());
-    }
-
-    public boolean canSelectFromColumns(String catalogName, RangerPrestoResource resource, Identity identity)
-    {
-        Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(catalogName);
-        if (rangerPrestoPlugin.isPresent()) {
-            if (INFORMATION_SCHEMA_NAME.equals(resource.getSchemaTable().getSchemaName())) {
-                return true;
-            }
-            RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
-                    resource,
-                    identity.getUser(),
-                    getGroups(identity),
-                    PrestoAccessType.SELECT);
-
-            RangerAccessResult colResult = rangerPrestoPlugin.get().isAccessAllowed(rangerRequest);
-            return colResult != null && colResult.getIsAllowed();
-        }
-        else {
-            return true;
-        }
     }
 
     public String getRowLevelFilterExp(String catalogName, RangerPrestoResource resource, Identity identity)
@@ -131,7 +118,7 @@ public class PrestoAuthorizer
                     getGroups(identity),
                     PrestoAccessType.SELECT);
 
-            RangerRowFilterResult rowFilterResult = rangerPrestoPlugin.get().evalRowFilterPolicies(rangerRequest, null);
+            RangerRowFilterResult rowFilterResult = rangerPrestoPlugin.get().evalRowFilterPolicies(rangerRequest, rangerPrestoPlugin.get().getResultProcessor());
             if (isRowFilterEnabled(rowFilterResult)) {
                 return rowFilterResult.getFilterExpr();
             }
@@ -149,7 +136,7 @@ public class PrestoAuthorizer
                     getGroups(identity),
                     PrestoAccessType.SELECT);
 
-            RangerDataMaskResult rangerDataMaskResult = rangerPrestoPlugin.get().evalDataMaskPolicies(rangerRequest, null);
+            RangerDataMaskResult rangerDataMaskResult = rangerPrestoPlugin.get().evalDataMaskPolicies(rangerRequest, rangerPrestoPlugin.get().getResultProcessor());
             if (isDataMaskEnabled(rangerDataMaskResult)) {
                 // only support for custom masking
                 if (StringUtils.equalsIgnoreCase(rangerDataMaskResult.getMaskType(), RangerPolicy.MASK_TYPE_CUSTOM)) {

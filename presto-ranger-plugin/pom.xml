@@ -192,8 +192,15 @@
         </dependency>
 
         <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-tests</artifactId>
+            <artifactId>presto-spi</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -246,11 +253,8 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <!--              <createSourcesJar>true</createSourcesJar> -->
-                            <!--              <shadeSourcesContent>true</shadeSourcesContent> -->
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <outputDirectory>${project.build.directory}/shaded/</outputDirectory>
-                            <!--<dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>-->
                             <relocations>
                                 <relocation>
                                     <pattern>javax.ws.rs</pattern>
@@ -278,7 +282,7 @@
                             </filters>
                             <transformers>
                                 <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                             </transformers>
                         </configuration>
                     </execution>
@@ -290,9 +294,6 @@
                 <version>2.10</version>
                 <configuration>
                     <skip>true</skip>
-                    <ignoredUnusedDeclaredDependencies>
-                        <!--<ignoredUnusedDeclaredDependency>com.sun.jersey:jersey-bundle</ignoredUnusedDeclaredDependency>-->
-                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
             <plugin>

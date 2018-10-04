@@ -210,7 +210,7 @@ public interface AccessControl
     /**
      * Check if identity and table combination has some row level filtering
      *
-     * @return Expression as form of a string. Null if no row filters are present
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no row filters are present
      */
     default String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
@@ -218,9 +218,9 @@ public interface AccessControl
     }
 
     /**
-     * Check if identity and table and column has some column making enabled
+     * Check if identity, table and column has some column making enabled
      *
-     * @return Expression as form of a string. Null if no column filters are present
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no column filters are present
      */
     default String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
     {

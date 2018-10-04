@@ -73,8 +73,8 @@ public class Analyzer
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         analyzer.analyze(rewrittenStatement, Optional.empty());
 
-        log.info("Original statement " + statement.toString());
-        log.info("Rewritten statement " + rewrittenStatement.toString());
+        log.debug("Original statement " + statement.toString());
+        log.debug("Rewritten statement " + rewrittenStatement.toString());
 
         // check column access permissions for each table
         analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->

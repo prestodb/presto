@@ -164,7 +164,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!authorizer.canSelectFromColumns(table.getCatalogName(), new RangerPrestoResource(table.getCatalogName(),
+        if (!authorizer.canSelectResource(new RangerPrestoResource(table.getCatalogName(),
                 Optional.of(table.getSchemaTableName().getSchemaName()), Optional.of(table.getSchemaTableName().getTableName()), columns), identity)) {
             denySelectColumns(table.getSchemaTableName().getTableName(), columns);
         }
@@ -218,7 +218,7 @@ public class RangerSystemAccessControl
                 .collect(Collectors.toList());
 
         Stream<SchemaTableName> outTables = authorizer.filterResources(rangerResources, identity).stream()
-                .map(RangerPrestoResource::getSchemaTable);
+                .map(RangerPrestoResource::getSchemaTable).filter(schemaTableName -> schemaTableName.isPresent()).map(schemaTableName -> schemaTableName.get());
 
         return makeSortedSet(outTables, comparing(t -> t.toString().toLowerCase(ENGLISH)));
     }
