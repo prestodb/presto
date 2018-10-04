@@ -71,9 +71,6 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.fail;
 
-/**
- * Created by localadmin on 9/11/18.
- */
 public class TestAnalyzerBase
 {
     private static final String TPCH_CATALOG = "tpch";

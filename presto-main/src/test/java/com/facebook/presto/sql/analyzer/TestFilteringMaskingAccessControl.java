@@ -21,10 +21,6 @@ import com.facebook.presto.transaction.TransactionId;
 
 import java.util.Set;
 
-/**
- * Created by localadmin on 9/11/18.
- */
-
 public class TestFilteringMaskingAccessControl
         extends AllowAllAccessControl
 {

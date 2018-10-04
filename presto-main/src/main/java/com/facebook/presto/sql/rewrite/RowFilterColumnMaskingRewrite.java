@@ -63,9 +63,6 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Created by localadmin on 8/16/18.
- */
 public class RowFilterColumnMaskingRewrite
         implements StatementRewrite.Rewrite
 {

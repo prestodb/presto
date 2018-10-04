@@ -15,9 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import org.testng.annotations.Test;
 
-/**
- * Created by localadmin on 9/11/18.
- */
 public class TestRowFilteringColumnMask
         extends TestAnalyzerBase
 {
@@ -253,47 +250,6 @@ public class TestRowFilteringColumnMask
         analyzeWithRowColRewrite("CREATE SCHEMA test");
         analyzeWithRowColRewrite("CREATE SCHEMA test WITH (p1 = 'p1')");
     }
-
-//    @Test
-//    public void testExistingRecursiveView()
-//    {
-//        analyzeWithRowColRewrite("SELECT * FROM v1 a JOIN v1 b ON a.a = b.a");
-//        analyzeWithRowColRewrite("SELECT * FROM v1 a JOIN (SELECT * from v1) b ON a.a = b.a");
-//    }
-
-//    @Test
-//    public void testShowCreateView()
-//    {
-//        analyzeWithRowColRewrite("SHOW CREATE VIEW v1","");
-//        analyzeWithRowColRewrite("SHOW CREATE VIEW v2","");
-//    }
-
-//    @Test
-//    public void testStoredViewAnalysisScoping()
-//    {
-//        // the view must not be analyzed using the query context
-//        analyzeWithRowColRewrite("WITH t1 AS (SELECT 123 x) SELECT * FROM v1");
-//    }
-//
-//    @Test
-//    public void testStoredViewResolution()
-//    {
-//        // the view must be analyzed relative to its own catalog/schema
-//        analyzeWithRowColRewrite("SELECT * FROM c3.s3.v3");
-//    }
-//
-//    @Test
-//    public void testQualifiedViewColumnResolution()
-//    {
-//        // it should be possible to qualify the column reference with the view name
-//        analyzeWithRowColRewrite("SELECT v1.a FROM v1");
-//    }
-//
-//    @Test
-//    public void testViewWithUppercaseColumn()
-//    {
-//        analyzeWithRowColRewrite("SELECT * FROM v4");
-//    }
 
     @Test
     public void testLambda()

@@ -178,13 +178,6 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-ranger-toolkit</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-record-decoder</artifactId>
                 <version>${project.version}</version>
             </dependency>

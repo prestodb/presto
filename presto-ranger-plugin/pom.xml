@@ -11,11 +11,9 @@
 
     <artifactId>presto-ranger-plugin</artifactId>
     <description>Presto Ranger Plugin</description>
-    <!--<packaging>presto-plugin</packaging>-->
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <ranger.version>0.7.1</ranger.version>
-        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
         <shade.package>ranger.shade</shade.package>
     </properties>
 
