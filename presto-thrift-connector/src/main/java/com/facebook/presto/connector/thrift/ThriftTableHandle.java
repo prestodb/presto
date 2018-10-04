@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class ThriftTableHandle
@@ -78,9 +77,6 @@ public final class ThriftTableHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("schemaName", getSchemaName())
-                .add("tableName", getTableName())
-                .toString();
+        return schemaName + ":" + tableName;
     }
 }

@@ -22,8 +22,12 @@ singleStatement
     : statement EOF
     ;
 
-singleExpression
+standaloneExpression
     : expression EOF
+    ;
+
+standalonePathSpecification
+    : pathSpecification EOF
     ;
 
 statement

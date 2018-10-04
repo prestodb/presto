@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
@@ -50,7 +51,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Principal principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -299,5 +300,26 @@ public interface SystemAccessControl
     default void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
+    }
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no row filters are present
+     */
+
+    default String applyRowLevelFiltering(Identity identity, CatalogSchemaTableName tableName)
+    {
+        return null;
+    }
+
+    /**
+     * Check if identity, table and column has some column making enabled
+     *
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no column filters are present
+     */
+    default String applyColumnMasking(Identity identity, CatalogSchemaTableName tableName, String columnName)
+    {
+        return null;
     }
 }

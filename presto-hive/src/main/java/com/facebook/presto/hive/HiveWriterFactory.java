@@ -135,6 +135,8 @@ public class HiveWriterFactory
 
     private final HiveWriterStats hiveWriterStats;
 
+    private final OrcFileWriterFactory orcFileWriterFactory;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -159,7 +161,8 @@ public class HiveWriterFactory
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
-            HiveWriterStats hiveWriterStats)
+            HiveWriterStats hiveWriterStats,
+            OrcFileWriterFactory orcFileWriterFactory)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -248,6 +251,8 @@ public class HiveWriterFactory
         }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
+
+        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -449,7 +454,8 @@ public class HiveWriterFactory
                     schema,
                     partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
-                    typeManager);
+                    typeManager,
+                    session);
         }
 
         String writerImplementation = hiveFileWriter.getClass().getName();
@@ -519,7 +525,8 @@ public class HiveWriterFactory
                     types,
                     sortFields,
                     sortOrders,
-                    pageSorter);
+                    pageSorter,
+                    (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p));
         }
 
         return new HiveWriter(

@@ -61,7 +61,6 @@ on a Presto installation.
     	       "totalMemoryReservation" : "0B",
     	       "totalScheduledTime" : "5.84ms",
     	       "totalCpuTime" : "710.49us",
-    	       "totalUserTime" : "0.00ns",
     	       "totalBlockedTime" : "27.38ms",
     	       "rawInputDataSize" : "27B",
     	       "rawInputPositions" : 1,

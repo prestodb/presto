@@ -18,6 +18,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -42,7 +44,17 @@ public class PlanNodeStatsEstimate
     private final double outputRowCount;
     private final PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
 
-    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+    @JsonCreator
+    public PlanNodeStatsEstimate(
+            @JsonProperty("outputRowCount") double outputRowCount,
+            @JsonProperty("symbolStatistics") Map<Symbol, SymbolStatsEstimate> symbolStatistics)
+    {
+        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")));
+    }
+
+    private PlanNodeStatsEstimate(
+            double outputRowCount,
+            PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
@@ -53,6 +65,7 @@ public class PlanNodeStatsEstimate
      * Returns estimated number of rows.
      * Unknown value is represented by {@link Double#NaN}
      */
+    @JsonProperty
     public double getOutputRowCount()
     {
         return outputRowCount;
@@ -116,6 +129,12 @@ public class PlanNodeStatsEstimate
     public SymbolStatsEstimate getSymbolStatistics(Symbol symbol)
     {
         return symbolStatistics.getOrDefault(symbol, SymbolStatsEstimate.UNKNOWN_STATS);
+    }
+
+    @JsonProperty
+    public Map<Symbol, SymbolStatsEstimate> getSymbolStatistics()
+    {
+        return symbolStatistics;
     }
 
     public Set<Symbol> getSymbolsWithKnownStatistics()

@@ -116,8 +116,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
         waitForRunningQueryCount(queryRunner, 1);
         // Update db to allow for 1 more running query in dashboard resource group
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
         QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
@@ -164,8 +164,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
 
         // Allow one more query to run and resubmit third query
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
@@ -177,7 +177,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
         // Lower running queries in dashboard resource groups and reload the config
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         // Cancel query and verify that third query is still queued
@@ -233,12 +233,12 @@ public class TestQueuesDb
         QueryId firstQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, RUNNING);
 
-        Optional<ResourceGroupId> resourceGroup = queryManager.getQueryInfo(firstQuery).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroup = queryManager.getFullQueryInfo(firstQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
         assertEquals(resourceGroup.get().toString(), "global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it
-        dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
         dao.insertSelector(8, 200, "user.*", "(?i).*dashboard.*", null, null, null);
@@ -249,30 +249,9 @@ public class TestQueuesDb
         QueryId secondQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondQuery, FAILED);
 
-        resourceGroup = queryManager.getQueryInfo(secondQuery).getResourceGroupId();
+        resourceGroup = queryManager.getFullQueryInfo(secondQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
         assertEquals(resourceGroup.get(), createResourceGroupId("global", "user-user", "reject-all-queries"));
-    }
-
-    @Test(timeOut = 60_000)
-    public void testRunningTimeLimit()
-            throws Exception
-    {
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, "3s", 3L, TEST_ENVIRONMENT);
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
-    }
-
-    @Test(timeOut = 60_000)
-    public void testQueuedTimeLimit()
-            throws Exception
-    {
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, "5s", null, 3L, TEST_ENVIRONMENT);
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-        QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
-        waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
     }
 
     @Test(timeOut = 60_000)
@@ -290,19 +269,19 @@ public class TestQueuesDb
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         QueryId firstQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, FAILED);
-        assertEquals(queryManager.getQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
-        assertContains(queryManager.getQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
+        assertEquals(queryManager.getFullQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
+        assertContains(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         QueryId secondQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         //this query should immediately get queued
         waitForQueryState(queryRunner, secondQuery, QUEUED);
         // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running
         Thread.sleep(5_000);
-        assertEquals(queryManager.getQueryInfo(secondQuery).getState(), QUEUED);
+        assertEquals(queryManager.getQueryState(secondQuery), QUEUED);
         // reconfigure the resource group to run the second query
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         // cancel the first one and let the second one start
         queryManager.cancelQuery(firstQuery);
@@ -320,7 +299,7 @@ public class TestQueuesDb
                 .build();
         QueryId queryId = createQuery(queryRunner, session, "EXPLAIN " + LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), createResourceGroupId("explain"));
     }
@@ -344,7 +323,7 @@ public class TestQueuesDb
                 .build();
         QueryId queryId = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
     }

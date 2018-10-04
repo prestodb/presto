@@ -38,16 +38,16 @@ public class AccumuloConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "requiredConfig is null");
         requireNonNull(context, "context is null");
 
         try {
             // A plugin is not required to use Guice; it is just very convenient
             // Unless you don't really know how to Guice, then it is less convenient
-            Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(connectorId, context.getTypeManager()));
+            Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(catalogName, context.getTypeManager()));
             Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()

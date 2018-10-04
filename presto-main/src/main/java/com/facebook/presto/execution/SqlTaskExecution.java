@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -119,7 +119,7 @@ public class SqlTaskExecution
 
     private final Executor notificationExecutor;
 
-    private final QueryMonitor queryMonitor;
+    private final SplitMonitor splitMonitor;
 
     private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
 
@@ -150,7 +150,7 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
-            QueryMonitor queryMonitor)
+            SplitMonitor queryMonitor)
     {
         SqlTaskExecution task = new SqlTaskExecution(
                 taskStateMachine,
@@ -175,7 +175,7 @@ public class SqlTaskExecution
             OutputBuffer outputBuffer,
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
-            QueryMonitor queryMonitor,
+            SplitMonitor splitMonitor,
             Executor notificationExecutor)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
@@ -186,7 +186,7 @@ public class SqlTaskExecution
         this.taskExecutor = requireNonNull(taskExecutor, "driverExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
-        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
+        this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // index driver factories
@@ -550,7 +550,7 @@ public class SqlTaskExecution
 
                         checkTaskCompletion();
 
-                        queryMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
                 }
 
@@ -564,7 +564,7 @@ public class SqlTaskExecution
                         status.decrementRemainingDriver(splitRunner.getLifespan());
 
                         // fire failed event with cause
-                        queryMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
+                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
                     }
                 }
 

@@ -64,6 +64,7 @@ public class HivePageSinkProvider
     private final EventClient eventClient;
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
+    private final OrcFileWriterFactory orcFileWriterFactory;
 
     @Inject
     public HivePageSinkProvider(
@@ -79,7 +80,8 @@ public class HivePageSinkProvider
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
-            HiveWriterStats hiveWriterStats)
+            HiveWriterStats hiveWriterStats,
+            OrcFileWriterFactory orcFileWriterFactory)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -100,6 +102,7 @@ public class HivePageSinkProvider
         this.eventClient = requireNonNull(eventClient, "eventClient is null");
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
+        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
     }
 
     @Override
@@ -150,7 +153,8 @@ public class HivePageSinkProvider
                 nodeManager,
                 eventClient,
                 hiveSessionProperties,
-                hiveWriterStats);
+                hiveWriterStats,
+                orcFileWriterFactory);
 
         return new HivePageSink(
                 writerFactory,

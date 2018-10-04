@@ -68,8 +68,12 @@ public class RangerPrestoResource
         return getValue(KEY_DATABASE);
     }
 
-    public SchemaTableName getSchemaTable()
+    public Optional<SchemaTableName> getSchemaTable()
     {
-        return new SchemaTableName(getDatabase(), Optional.ofNullable(getTable()).orElse("*"));
+        final String schema = getDatabase();
+        if (StringUtils.isNotEmpty(schema)) {
+            return Optional.of(new SchemaTableName(schema, Optional.ofNullable(getTable()).orElse("*")));
+        }
+        return Optional.empty();
     }
 }

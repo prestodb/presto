@@ -192,9 +192,15 @@ class AstBuilder
     }
 
     @Override
-    public Node visitSingleExpression(SqlBaseParser.SingleExpressionContext context)
+    public Node visitStandaloneExpression(SqlBaseParser.StandaloneExpressionContext context)
     {
         return visit(context.expression());
+    }
+
+    @Override
+    public Node visitStandalonePathSpecification(SqlBaseParser.StandalonePathSpecificationContext context)
+    {
+        return visit(context.pathSpecification());
     }
 
     // ******************* statements **********************

@@ -65,7 +65,7 @@ public class TestAccessControlManager
     public void testInitializing()
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(null, "foo");
+        accessControlManager.checkCanSetUser(Optional.empty(), "foo");
     }
 
     @Test
@@ -73,7 +73,7 @@ public class TestAccessControlManager
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(null, USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME);
     }
 
     @Test
@@ -85,7 +85,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(PRINCIPAL, USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
         transaction(transactionManager, accessControlManager)
@@ -123,9 +123,9 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(PRINCIPAL, USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
-        assertEquals(accessControlFactory.getCheckedPrincipal(), PRINCIPAL);
+        assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }
 
     @Test
@@ -214,7 +214,7 @@ public class TestAccessControlManager
         private final String name;
         private Map<String, String> config;
 
-        private Principal checkedPrincipal;
+        private Optional<Principal> checkedPrincipal;
         private String checkedUserName;
 
         public TestSystemAccessControlFactory(String name)
@@ -227,7 +227,7 @@ public class TestAccessControlManager
             return config;
         }
 
-        public Principal getCheckedPrincipal()
+        public Optional<Principal> getCheckedPrincipal()
         {
             return checkedPrincipal;
         }
@@ -250,7 +250,7 @@ public class TestAccessControlManager
             return new SystemAccessControl()
             {
                 @Override
-                public void checkCanSetUser(Principal principal, String userName)
+                public void checkCanSetUser(Optional<Principal> principal, String userName)
                 {
                     checkedPrincipal = principal;
                     checkedUserName = userName;
@@ -378,7 +378,7 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+        public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
         {
             throw new UnsupportedOperationException();
         }

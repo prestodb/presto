@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import io.airlift.log.Logging;
@@ -157,15 +157,15 @@ public class TestPrestoDatabaseMetaData
     private Set<String> captureQueries(Callable<?> action)
             throws Exception
     {
-        Set<QueryId> queryIdsBefore = server.getQueryManager().getAllQueryInfo().stream()
-                .map(QueryInfo::getQueryId)
+        Set<QueryId> queryIdsBefore = server.getQueryManager().getQueries().stream()
+                .map(BasicQueryInfo::getQueryId)
                 .collect(toImmutableSet());
 
         action.call();
 
-        return server.getQueryManager().getAllQueryInfo().stream()
+        return server.getQueryManager().getQueries().stream()
                 .filter(queryInfo -> !queryIdsBefore.contains(queryInfo.getQueryId()))
-                .map(QueryInfo::getQuery)
+                .map(BasicQueryInfo::getQuery)
                 .collect(toImmutableSet());
     }
 

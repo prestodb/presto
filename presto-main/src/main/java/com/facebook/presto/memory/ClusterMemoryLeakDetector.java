@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -51,12 +51,12 @@ public class ClusterMemoryLeakDetector
      * @param queryInfoSupplier All queries that the coordinator knows about.
      * @param queryMemoryReservations The memory reservations of queries in the GENERAL cluster memory pool.
      */
-    void checkForMemoryLeaks(Supplier<List<QueryInfo>> queryInfoSupplier, Map<QueryId, Long> queryMemoryReservations)
+    void checkForMemoryLeaks(Supplier<List<BasicQueryInfo>> queryInfoSupplier, Map<QueryId, Long> queryMemoryReservations)
     {
         requireNonNull(queryInfoSupplier);
         requireNonNull(queryMemoryReservations);
 
-        Map<QueryId, QueryInfo> queryIdToInfo = Maps.uniqueIndex(queryInfoSupplier.get(), QueryInfo::getQueryId);
+        Map<QueryId, BasicQueryInfo> queryIdToInfo = Maps.uniqueIndex(queryInfoSupplier.get(), BasicQueryInfo::getQueryId);
 
         Map<QueryId, Long> leakedQueryReservations = queryMemoryReservations.entrySet()
                 .stream()
@@ -74,9 +74,9 @@ public class ClusterMemoryLeakDetector
         }
     }
 
-    private static boolean isLeaked(Map<QueryId, QueryInfo> queryIdToInfo, QueryId queryId)
+    private static boolean isLeaked(Map<QueryId, BasicQueryInfo> queryIdToInfo, QueryId queryId)
     {
-        QueryInfo queryInfo = queryIdToInfo.get(queryId);
+        BasicQueryInfo queryInfo = queryIdToInfo.get(queryId);
 
         if (queryInfo == null) {
             return true;

@@ -69,7 +69,7 @@ public class RaptorConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         NodeManager nodeManager = context.getNodeManager();
         try {
@@ -85,8 +85,8 @@ public class RaptorConnectorFactory
                     },
                     metadataModule,
                     new BackupModule(backupProviders),
-                    new StorageModule(connectorId),
-                    new RaptorModule(connectorId),
+                    new StorageModule(catalogName),
+                    new RaptorModule(catalogName),
                     new RaptorSecurityModule());
 
             Injector injector = app

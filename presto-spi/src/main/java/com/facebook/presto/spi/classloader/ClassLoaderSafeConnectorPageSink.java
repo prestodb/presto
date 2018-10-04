@@ -51,6 +51,14 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
+    public long getValidationCpuNanos()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getValidationCpuNanos();
+        }
+    }
+
+    @Override
     public CompletableFuture<?> appendPage(Page page)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

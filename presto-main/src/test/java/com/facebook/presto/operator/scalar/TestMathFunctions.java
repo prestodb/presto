@@ -13,19 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.base.Joiner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.SystemSessionProperties.LEGACY_ROUND_N_BIGINT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -47,25 +42,6 @@ public class TestMathFunctions
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1};
     private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
-
-    private static FunctionAssertions legacyRoundNBigint;
-
-    @BeforeClass
-    public final void setUp()
-    {
-        legacyRoundNBigint = new FunctionAssertions(
-                Session.builder(session)
-                        .setSystemProperty(LEGACY_ROUND_N_BIGINT, "true")
-                        .build(),
-                new FeaturesConfig());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void tearDown()
-    {
-        legacyRoundNBigint.close();
-        legacyRoundNBigint = null;
-    }
 
     @Test
     public void testAbs()
@@ -311,9 +287,6 @@ public class TestMathFunctions
         assertFunction("truncate(DECIMAL '1234.56', 3)", createDecimalType(6, 2), SqlDecimal.of("1234.56"));
         assertFunction("truncate(DECIMAL '-1234.56', 3)", createDecimalType(6, 2), SqlDecimal.of("-1234.56"));
 
-        assertInvalidFunction("truncate(DECIMAL '-1234.56', BIGINT '3')", "TRUNCATE(x, d) does not accept d being a BIGINT. Please cast the second argument to INTEGER");
-        legacyRoundNBigint.assertFunction("truncate(DECIMAL '-1234.56', BIGINT '3')", createDecimalType(6, 2), SqlDecimal.of("-1234.56"));
-
         // TRUNCATE_N long DECIMAL -> long DECIMAL
         assertFunction("truncate(DECIMAL '1234567890123456789012', 1)", createDecimalType(22, 0), SqlDecimal.of("1234567890123456789012"));
         assertFunction("truncate(DECIMAL '1234567890123456789012', -1)", createDecimalType(22, 0), SqlDecimal.of("1234567890123456789010"));
@@ -327,9 +300,6 @@ public class TestMathFunctions
         assertFunction("truncate(DECIMAL '123456789012345678901.23', -21)", createDecimalType(23, 2), SqlDecimal.of("000000000000000000000.00"));
         assertFunction("truncate(DECIMAL '123456789012345678901.23', 3)", createDecimalType(23, 2), SqlDecimal.of("123456789012345678901.23"));
         assertFunction("truncate(DECIMAL '-123456789012345678901.23', 3)", createDecimalType(23, 2), SqlDecimal.of("-123456789012345678901.23"));
-
-        assertInvalidFunction("truncate(DECIMAL '-123456789012345678901.23', BIGINT '3')", "TRUNCATE(x, d) does not accept d being a BIGINT. Please cast the second argument to INTEGER");
-        legacyRoundNBigint.assertFunction("truncate(DECIMAL '-123456789012345678901.23', BIGINT '3')", createDecimalType(23, 2), SqlDecimal.of("-123456789012345678901.23"));
 
         // NULL
         assertFunction("truncate(CAST(NULL AS DOUBLE))", DOUBLE, null);
@@ -823,9 +793,6 @@ public class TestMathFunctions
         assertFunction("round(REAL '-3.5001', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.99', 1)", REAL, -4.0f);
 
-        assertInvalidFunction("round(REAL '-3.5001', BIGINT '1')", "ROUND(x, d) does not accept d being a BIGINT. Please cast the second argument to INTEGER");
-        legacyRoundNBigint.assertFunction("round(REAL '-3.5001', BIGINT '1')", REAL, -3.5f);
-
         // ROUND short DECIMAL -> short DECIMAL
         assertFunction("round(DECIMAL '0')", createDecimalType(1, 0), SqlDecimal.of("0"));
         assertFunction("round(DECIMAL '0.1')", createDecimalType(1, 0), SqlDecimal.of("0"));
@@ -916,9 +883,6 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL '-1234.5678', -7)", createDecimalType(9, 4), SqlDecimal.of("0.0000"));
         assertFunction("round(DECIMAL '99', -1)", createDecimalType(3, 0), SqlDecimal.of("100"));
 
-        assertInvalidFunction("round(DECIMAL '3.450', BIGINT '1')", "ROUND(x, d) does not accept d being a BIGINT. Please cast the second argument to INTEGER");
-        legacyRoundNBigint.assertFunction("round(DECIMAL '3.450', BIGINT '1')", createDecimalType(5, 3), SqlDecimal.of("3.500"));
-
         // ROUND_N long DECIMAL -> long DECIMAL
         assertFunction("round(DECIMAL '1234567890123456789', 1)", createDecimalType(20, 0), SqlDecimal.of("1234567890123456789"));
         assertFunction("round(DECIMAL '-1234567890123456789', 1)", createDecimalType(20, 0), SqlDecimal.of("-1234567890123456789"));
@@ -952,9 +916,6 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL  '9999999999999999999', -3)", createDecimalType(20, 0), SqlDecimal.of("10000000000000000000"));
         assertFunction("round(DECIMAL '-9999999999999999999', -3)", createDecimalType(20, 0), SqlDecimal.of("-10000000000000000000"));
 
-        assertInvalidFunction("round(DECIMAL '123456789012345678.45', BIGINT '1')", "ROUND(x, d) does not accept d being a BIGINT. Please cast the second argument to INTEGER");
-        legacyRoundNBigint.assertFunction("round(DECIMAL '123456789012345678.45', BIGINT '1')", createDecimalType(21, 2), SqlDecimal.of("123456789012345678.50"));
-
         // ROUND_N short DECIMAL -> long DECIMAL
         assertFunction("round(DECIMAL '9999999999999999.99', 1)", createDecimalType(19, 2), SqlDecimal.of("10000000000000000.00"));
         assertFunction("round(DECIMAL '-9999999999999999.99', 1)", createDecimalType(19, 2), SqlDecimal.of("-10000000000000000.00"));
@@ -968,9 +929,6 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL '-329123201320739513', -3)", createDecimalType(19, 0), SqlDecimal.of("-329123201320740000"));
         assertFunction("round(DECIMAL '999999999999999999', -3)", createDecimalType(19, 0), SqlDecimal.of("1000000000000000000"));
         assertFunction("round(DECIMAL '-999999999999999999', -3)", createDecimalType(19, 0), SqlDecimal.of("-1000000000000000000"));
-
-        assertInvalidFunction("round(DECIMAL '9999999999999999.99', BIGINT '1')", "ROUND(x, d) does not accept d being a BIGINT. Please cast the second argument to INTEGER");
-        legacyRoundNBigint.assertFunction("round(DECIMAL '9999999999999999.99', BIGINT '1')", createDecimalType(19, 2), SqlDecimal.of("10000000000000000.00"));
 
         // NULL
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as INTEGER))", DOUBLE, null);

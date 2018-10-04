@@ -14,36 +14,44 @@
 package com.facebook.presto.connector.thrift.location;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.drift.client.address.AddressSelector;
-import io.airlift.drift.transport.client.Address;
+import io.airlift.drift.client.address.SimpleAddressSelector.SimpleAddress;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static java.util.Objects.requireNonNull;
 
 public class ExtendedSimpleAddressSelector
-        implements AddressSelector<Address>
+        implements AddressSelector<SimpleAddress>
 {
-    private final AddressSelector<Address> delegate;
+    private final AddressSelector<SimpleAddress> delegate;
 
-    public ExtendedSimpleAddressSelector(AddressSelector<Address> delegate)
+    public ExtendedSimpleAddressSelector(AddressSelector<SimpleAddress> delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
-    public Optional<Address> selectAddress(Optional<String> context)
+    public Optional<SimpleAddress> selectAddress(Optional<String> context)
+    {
+        return selectAddress(context, ImmutableSet.of());
+    }
+
+    @Override
+    public Optional<SimpleAddress> selectAddress(Optional<String> context, Set<SimpleAddress> attempted)
     {
         if (!context.isPresent()) {
-            return delegate.selectAddress(Optional.empty());
+            return delegate.selectAddress(context, attempted);
         }
 
         List<String> list = Splitter.on(',').splitToList(context.get());
         String value = list.get(ThreadLocalRandom.current().nextInt(list.size()));
         HostAndPort address = HostAndPort.fromString(value);
-        return Optional.of(() -> address);
+        return Optional.of(new SimpleAddress(address));
     }
 }

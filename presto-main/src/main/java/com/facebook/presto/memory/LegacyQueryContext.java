@@ -216,7 +216,7 @@ public class LegacyQueryContext
     }
 
     @Override
-    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled, OptionalInt totalPartitions)
+    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean perOperatorCpuTimerEnabled, boolean cpuTimerEnabled, OptionalInt totalPartitions)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -226,7 +226,7 @@ public class LegacyQueryContext
                 yieldExecutor,
                 session,
                 queryMemoryContext.newMemoryTrackingContext(),
-                verboseStats,
+                perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 totalPartitions);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);

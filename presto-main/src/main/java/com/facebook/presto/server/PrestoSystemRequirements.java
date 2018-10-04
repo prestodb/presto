@@ -40,7 +40,6 @@ final class PrestoSystemRequirements
 
     public static void verifyJvmRequirements()
     {
-        verifyJvmVendor();
         verifyJavaVersion();
         verify64BitJvm();
         verifyOsArchitecture();
@@ -48,14 +47,6 @@ final class PrestoSystemRequirements
         verifyUsingG1Gc();
         verifyFileDescriptor();
         verifySlice();
-    }
-
-    private static void verifyJvmVendor()
-    {
-        String vendor = StandardSystemProperty.JAVA_VENDOR.value();
-        if (!"Oracle Corporation".equals(vendor)) {
-            failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
-        }
     }
 
     private static void verify64BitJvm()
@@ -104,7 +95,7 @@ final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 92) {
+        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 151) {
             return;
         }
 
@@ -112,7 +103,7 @@ final class PrestoSystemRequirements
             return;
         }
 
-        failRequirement("Presto requires Java 8u92+ (found %s)", javaVersion);
+        failRequirement("Presto requires Java 8u151+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()

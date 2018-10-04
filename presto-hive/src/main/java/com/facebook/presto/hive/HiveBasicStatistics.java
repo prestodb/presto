@@ -17,7 +17,6 @@ import java.util.Objects;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBasicStatistics
@@ -49,13 +48,9 @@ public class HiveBasicStatistics
             OptionalLong onDiskDataSizeInBytes)
     {
         this.fileCount = requireNonNull(fileCount, "fileCount is null");
-        fileCount.ifPresent(count -> checkArgument(count >= 0, "fileCount is negative: %d", count));
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
-        rowCount.ifPresent(count -> checkArgument(count >= 0, "rowCount is negative: %d", count));
         this.inMemoryDataSizeInBytes = requireNonNull(inMemoryDataSizeInBytes, "inMemoryDataSizeInBytes is null");
-        inMemoryDataSizeInBytes.ifPresent(size -> checkArgument(size >= 0, "inMemoryDataSizeInBytes is negative: %d", size));
         this.onDiskDataSizeInBytes = requireNonNull(onDiskDataSizeInBytes, "onDiskDataSizeInBytes is null");
-        onDiskDataSizeInBytes.ifPresent(size -> checkArgument(size >= 0, "onDiskDataSizeInBytes is negative: %d", size));
     }
 
     public OptionalLong getFileCount()

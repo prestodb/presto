@@ -354,7 +354,7 @@ public class OrcWriter
         }
 
         // convert any dictionary encoded column with a low compression ratio to direct
-        dictionaryCompressionOptimizer.finalOptimize();
+        dictionaryCompressionOptimizer.finalOptimize(bufferedBytes);
 
         columnWriters.forEach(ColumnWriter::close);
 
@@ -415,10 +415,6 @@ public class OrcWriter
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
         recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
         stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
-
-        if (flushReason == MAX_BYTES && stripeInformation.getTotalLength() < stripeMaxBytes / 2) {
-            log.debug("Small stripe with size %s get MAX_BYTES flush. QueryId: %s", stripeInformation.getTotalLength(), userMetadata.get("presto_query_id"));
-        }
 
         return outputData;
     }

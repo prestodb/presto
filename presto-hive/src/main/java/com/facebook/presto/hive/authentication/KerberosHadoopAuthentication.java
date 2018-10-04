@@ -13,34 +13,37 @@
  */
 package com.facebook.presto.hive.authentication;
 
+import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.authentication.util.KerberosName;
 
 import javax.security.auth.Subject;
 
+import static com.facebook.presto.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
 
 public class KerberosHadoopAuthentication
         implements HadoopAuthentication
 {
-    static {
+    private final KerberosAuthentication kerberosAuthentication;
+
+    public static KerberosHadoopAuthentication createKerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfigurationUpdater updater)
+    {
+        Configuration configuration = getInitialConfiguration();
+        updater.updateConfiguration(configuration);
+
         // In order to enable KERBEROS authentication method for HDFS
         // UserGroupInformation.authenticationMethod static field must be set to KERBEROS
         // It is further used in many places in DfsClient
-        Configuration configuration = new Configuration(false);
         configuration.set("hadoop.security.authentication", "kerberos");
+
         UserGroupInformation.setConfiguration(configuration);
 
-        // KerberosName#rules static field must be initialized
-        // It is used in KerberosName#getShortName which is used in User constructor invoked by UserGroupInformation#getUGIFromSubject
-        KerberosName.setRules("DEFAULT");
+        return new KerberosHadoopAuthentication(kerberosAuthentication);
     }
 
-    private final KerberosAuthentication kerberosAuthentication;
-
-    public KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication)
+    private KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication)
     {
         this.kerberosAuthentication = requireNonNull(kerberosAuthentication, "kerberosAuthentication is null");
     }

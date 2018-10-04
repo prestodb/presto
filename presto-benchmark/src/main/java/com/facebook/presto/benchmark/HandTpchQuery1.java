@@ -124,8 +124,9 @@ public class HandTpchQuery1
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
-                new DataSize(16, MEGABYTE),
-                JOIN_COMPILER);
+                Optional.of(new DataSize(16, MEGABYTE)),
+                JOIN_COMPILER,
+                false);
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }

@@ -25,6 +25,21 @@ public class AllowAllAccessControl
         implements ConnectorAccessControl
 {
     @Override
+    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
     {
     }
@@ -107,7 +122,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
     }
 
@@ -119,5 +134,17 @@ public class AllowAllAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
+    }
+
+    @Override
+    public String applyRowlevelFiltering(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public String applyColumnMasking(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, String columnName)
+    {
+        return null;
     }
 }

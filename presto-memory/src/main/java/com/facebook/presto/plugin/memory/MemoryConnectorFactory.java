@@ -42,14 +42,14 @@ public class MemoryConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
         try {
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new MemoryModule(connectorId, context.getTypeManager(), context.getNodeManager()));
+                    new MemoryModule(catalogName, context.getTypeManager(), context.getNodeManager()));
 
             Injector injector = app
                     .strictConfig()

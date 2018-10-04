@@ -278,7 +278,7 @@ public class IndexJoinOptimizer
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
-                    .intersect(node.getCurrentConstraint());
+                    .intersect(node.getEnforcedConstraint());
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
 

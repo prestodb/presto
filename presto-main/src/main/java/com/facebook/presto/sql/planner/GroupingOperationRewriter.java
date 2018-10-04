@@ -27,18 +27,18 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<List<Expression>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<Integer>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -62,18 +62,8 @@ public final class GroupingOperationRewriter
                     .map(fieldId -> translateFieldToInteger(fieldId, relationId))
                     .collect(toImmutableList());
 
-            List<List<Integer>> groupingSetDescriptors = groupingSets.stream()
-                    .map(groupingSet -> groupingSet.stream()
-                            .map(NodeRef::of)
-                            .filter(columnReferenceFields::containsKey)
-                            .map(columnReferenceFields::get)
-                            .map(fieldId -> translateFieldToInteger(fieldId, relationId))
-                            .collect(toImmutableList()))
-                    .collect(toImmutableList());
-
-            List<Expression> groupingResults = groupingSetDescriptors.stream()
-                    .map(groupingSetDescriptors::indexOf)
-                    .map(groupId -> String.valueOf(calculateGrouping(groupId, columns, groupingSetDescriptors)))
+            List<Expression> groupingResults = groupingSets.stream()
+                    .map(groupingSet -> String.valueOf(calculateGrouping(groupingSet, columns)))
                     .map(LongLiteral::new)
                     .collect(toImmutableList());
 
@@ -106,28 +96,23 @@ public final class GroupingOperationRewriter
      * grouping and 1 otherwise. For an example, see the SQL documentation for the
      * function.
      *
-     * @param groupId An ordinal indicating which grouping is currently being processed.
-     *        Each grouping is assigned a unique monotonically increasing integer.
      * @param columns The column arguments with which the function was
      *        invoked converted to ordinals with respect to the base table column
      *        ordering.
-     * @param groupingSetDescriptors A collection of ordinal lists where the index of
-     *        the list is the groupId and the list itself contains the ordinals of the
-     *        columns present in the grouping. For example: [[0, 2], [2], [0, 1, 2]]
-     *        means the the 0th list contains the set of columns that are present in
-     *        the 0th grouping.
+     * @param groupingSet A collection containing the ordinals of the
+     *        columns present in the grouping.
      * @return A bit set converted to decimal indicating which columns are present in
      *         the grouping. If a column is NOT present in the grouping its corresponding
      *         bit is set to 1 and to 0 if the column is present in the grouping.
      */
-    static long calculateGrouping(long groupId, List<Integer> columns, List<List<Integer>> groupingSetDescriptors)
+    static long calculateGrouping(Set<Integer> groupingSet, List<Integer> columns)
     {
         long grouping = (1L << columns.size()) - 1;
 
-        List<Integer> groupingSet = groupingSetDescriptors.get(toIntExact(groupId));
-        for (Integer groupingColumn : groupingSet) {
-            int index = columns.indexOf(groupingColumn);
-            if (index != -1) {
+        for (int index = 0; index < columns.size(); index++) {
+            int column = columns.get(index);
+
+            if (groupingSet.contains(column)) {
                 // Leftmost argument to grouping() (i.e. when index = 0) corresponds to
                 // the most significant bit in the result. That is why we shift 1L starting
                 // from the columns.size() - 1 bit index.

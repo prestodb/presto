@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -29,14 +30,14 @@ public class AccessDeniedException
         super(PERMISSION_DENIED, "Access Denied: " + message);
     }
 
-    public static void denySetUser(Principal principal, String userName)
+    public static void denySetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName, null);
     }
 
-    public static void denySetUser(Principal principal, String userName, String extraInfo)
+    public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal, userName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCatalogAccess(String catalogName)

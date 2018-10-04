@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -44,7 +45,7 @@ public class TestSqlEnvironmentConfig
         assertFullMapping(properties, expected);
     }
 
-    @Test (expectedExceptions = RuntimeException.class)
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:9: mismatched input '.'. Expecting: ',', <EOF>\\E")
     public void testInvalidPath()
     {
         SqlEnvironmentConfig config = new SqlEnvironmentConfig().setPath("too.many.qualifiers");

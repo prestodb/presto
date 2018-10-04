@@ -276,6 +276,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("nullif(9876543210.9874561203, 9876543210.9874561203)", "null");
         assertOptimizedEquals("nullif(bound_decimal_short, 123.45)", "null");
         assertOptimizedEquals("nullif(bound_decimal_long, 12345678901234567890.123)", "null");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)]) IS NULL", "true");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
+        assertOptimizedEquals("nullif(ARRAY[CAST(NULL AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
     }
 
     @Test
@@ -447,6 +450,56 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("bound_decimal_short in (123.455, 123.46, 123.45)", "true");
         assertOptimizedEquals("bound_decimal_long in (12345678901234567890.123, 9876543210.9874561204, 9876543210.98745612035)", "true");
         assertOptimizedEquals("bound_decimal_long in (9876543210.9874561204, null, 9876543210.98745612035)", "null");
+    }
+
+    @Test
+    public void testInComplexTypes()
+    {
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2])", "false");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2], ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1] IN (null)", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (null, ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1, 2, null] IN (ARRAY[2, null], ARRAY[1, null])", "false");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null], null)", "null");
+        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[null])", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[null])", "null");
+        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[1])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null])", "false");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])", "null");
+        assertEvaluatedEquals("ARRAY[ARRAY[1, 2], ARRAY[3, 4]] in (ARRAY[ARRAY[1, 2], ARRAY[3, NULL]])", "null");
+
+        assertEvaluatedEquals("ROW(1) IN (ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1) IN (ROW(2))", "false");
+        assertEvaluatedEquals("ROW(1) IN (ROW(2), ROW(1), ROW(2))", "true");
+        assertEvaluatedEquals("ROW(1) IN (null)", "null");
+        assertEvaluatedEquals("ROW(1) IN (null, ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null), null)", "null");
+        assertEvaluatedEquals("ROW(null) IN (ROW(null))", "null");
+        assertEvaluatedEquals("ROW(1) IN (ROW(null))", "null");
+        assertEvaluatedEquals("ROW(null) IN (ROW(1))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null))", "false");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null), ROW(1, null))", "null");
+
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null)", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null, MAP(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[1]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
     }
 
     @Test
@@ -829,6 +882,10 @@ public class TestExpressionInterpreter
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+
+        assertOptimizedEquals("case when ARRAY[CAST(1 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
+        assertOptimizedEquals("case when ARRAY[CAST(2 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("case when ARRAY[CAST(null AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
     @Test
@@ -1061,6 +1118,10 @@ public class TestExpressionInterpreter
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+
+        assertOptimizedEquals("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
+        assertOptimizedEquals("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
     @Test
@@ -1410,6 +1471,11 @@ public class TestExpressionInterpreter
 
             return symbol.toSymbolReference();
         });
+    }
+
+    private static void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertEquals(evaluate(actual), evaluate(expected));
     }
 
     private static Object evaluate(String expression)

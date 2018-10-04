@@ -36,7 +36,6 @@ public class StageStats
     private final int queuedSplits;
     private final int runningSplits;
     private final int completedSplits;
-    private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
     private final long processedRows;
@@ -53,7 +52,6 @@ public class StageStats
             @JsonProperty("queuedSplits") int queuedSplits,
             @JsonProperty("runningSplits") int runningSplits,
             @JsonProperty("completedSplits") int completedSplits,
-            @JsonProperty("userTimeMillis") long userTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
             @JsonProperty("processedRows") long processedRows,
@@ -68,7 +66,6 @@ public class StageStats
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
-        this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
         this.processedRows = processedRows;
@@ -126,12 +123,6 @@ public class StageStats
     }
 
     @JsonProperty
-    public long getUserTimeMillis()
-    {
-        return userTimeMillis;
-    }
-
-    @JsonProperty
     public long getCpuTimeMillis()
     {
         return cpuTimeMillis;
@@ -173,7 +164,6 @@ public class StageStats
                 .add("queuedSplits", queuedSplits)
                 .add("runningSplits", runningSplits)
                 .add("completedSplits", completedSplits)
-                .add("userTimeMillis", userTimeMillis)
                 .add("cpuTimeMillis", cpuTimeMillis)
                 .add("wallTimeMillis", wallTimeMillis)
                 .add("processedRows", processedRows)
@@ -197,7 +187,6 @@ public class StageStats
         private int queuedSplits;
         private int runningSplits;
         private int completedSplits;
-        private long userTimeMillis;
         private long cpuTimeMillis;
         private long wallTimeMillis;
         private long processedRows;
@@ -254,12 +243,6 @@ public class StageStats
             return this;
         }
 
-        public Builder setUserTimeMillis(long userTimeMillis)
-        {
-            this.userTimeMillis = userTimeMillis;
-            return this;
-        }
-
         public Builder setCpuTimeMillis(long cpuTimeMillis)
         {
             this.cpuTimeMillis = cpuTimeMillis;
@@ -301,7 +284,6 @@ public class StageStats
                     queuedSplits,
                     runningSplits,
                     completedSplits,
-                    userTimeMillis,
                     cpuTimeMillis,
                     wallTimeMillis,
                     processedRows,

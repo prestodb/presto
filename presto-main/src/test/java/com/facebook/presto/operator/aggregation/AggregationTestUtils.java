@@ -121,7 +121,7 @@ public final class AggregationTestUtils
         }
     }
 
-    private static void assertFunctionEquals(BiFunction<Object, Object, Boolean> isEqual, String testDescription, Object expectedValue, Object actualValue)
+    private static void assertFunctionEquals(BiFunction<Object, Object, Boolean> isEqual, String testDescription, Object actualValue, Object expectedValue)
     {
         if (!isEqual.apply(actualValue, expectedValue)) {
             StringBuilder sb = new StringBuilder();

@@ -14,21 +14,26 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -62,13 +67,14 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.sql.QueryUtil.aliased;
@@ -79,10 +85,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.singletonList;
+import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 
 public class ShowStatsRewrite
         implements StatementRewrite.Rewrite
@@ -92,7 +96,6 @@ public class ShowStatsRewrite
 
     private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), DOUBLE);
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
-    private static final int MAX_LOW_HIGH_LENGTH = 32;
 
     @Override
     public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl)
@@ -205,9 +208,9 @@ public class ShowStatsRewrite
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
-            Map<ColumnHandle, String> tableColumnNames = getStatisticsColumnNames(tableStatistics, tableHandle);
-            Map<ColumnHandle, Type> tableColumnTypes = getStatisticsColumnTypes(tableStatistics, tableHandle);
-            List<Expression> resultRows = buildStatisticsRows(tableStatistics, tableColumnNames, tableColumnTypes);
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
 
             return simpleQuery(selectAll(selectItems),
                     aliased(new Values(resultRows),
@@ -247,20 +250,6 @@ public class ShowStatsRewrite
             return new Constraint<>(scanNode.get().getCurrentConstraint());
         }
 
-        private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, TableHandle tableHandle)
-        {
-            return statistics.getColumnStatistics()
-                    .keySet().stream()
-                    .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getName()));
-        }
-
-        private Map<ColumnHandle, Type> getStatisticsColumnTypes(TableStatistics statistics, TableHandle tableHandle)
-        {
-            return statistics.getColumnStatistics()
-                    .keySet().stream()
-                    .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getType()));
-        }
-
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)
         {
             QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
@@ -288,34 +277,52 @@ public class ShowStatsRewrite
                     .collect(toImmutableList());
         }
 
-        private List<Expression> buildStatisticsRows(TableStatistics tableStatistics, Map<ColumnHandle, String> columnNames, Map<ColumnHandle, Type> columnTypes)
+        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, TableStatistics tableStatistics)
         {
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
-
-            // Stats for columns
-            for (Map.Entry<ColumnHandle, ColumnStatistics> columnStats : tableStatistics.getColumnStatistics().entrySet()) {
-                ColumnHandle columnHandle = columnStats.getKey();
-                rowsBuilder.add(createColumnStatsRow(columnNames.get(columnHandle), columnTypes.get(columnHandle), columnStats.getValue()));
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                if (columnMetadata.isHidden()) {
+                    continue;
+                }
+                String columnName = columnMetadata.getName();
+                Type columnType = columnMetadata.getType();
+                ColumnHandle columnHandle = columnHandles.get(columnName);
+                ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(columnHandle);
+                if (columnStatistics != null) {
+                    rowsBuilder.add(createColumnStatsRow(columnName, columnType, columnStatistics));
+                }
+                else {
+                    rowsBuilder.add(createEmptyColumnStatsRow(columnName));
+                }
             }
-
             // Stats for whole table
             rowsBuilder.add(createTableStatsRow(tableStatistics));
-
             return rowsBuilder.build();
         }
 
         private Row createColumnStatsRow(String columnName, Type type, ColumnStatistics columnStatistics)
         {
-            RangeColumnStatistics onlyRangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
-
             ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
             rowValues.add(new StringLiteral(columnName));
-            rowValues.add(createStatisticValueOrNull(onlyRangeColumnStatistics.getDataSize()));
-            rowValues.add(createStatisticValueOrNull(onlyRangeColumnStatistics.getDistinctValuesCount()));
-            rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsFraction()));
+            rowValues.add(createEstimateRepresentation(columnStatistics.getDataSize()));
+            rowValues.add(createEstimateRepresentation(columnStatistics.getDistinctValuesCount()));
+            rowValues.add(createEstimateRepresentation(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
-            rowValues.add(lowHighAsLiteral(type, onlyRangeColumnStatistics.getLowValue()));
-            rowValues.add(lowHighAsLiteral(type, onlyRangeColumnStatistics.getHighValue()));
+            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
+            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            return new Row(rowValues.build());
+        }
+
+        private Expression createEmptyColumnStatsRow(String columnName)
+        {
+            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
+            rowValues.add(new StringLiteral(columnName));
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_VARCHAR);
+            rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
         }
 
@@ -326,34 +333,40 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_DOUBLE);
-            rowValues.add(createStatisticValueOrNull(tableStatistics.getRowCount()));
+            rowValues.add(createEstimateRepresentation(tableStatistics.getRowCount()));
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
         }
 
-        private Expression lowHighAsLiteral(Type valueType, Optional<Object> value)
+        private static Expression createEstimateRepresentation(Estimate estimate)
         {
-            if (!value.isPresent()) {
-                return new Cast(new NullLiteral(), VARCHAR);
-            }
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionRegistry);
-            Signature castSignature = functionRegistry.getCoercion(valueType, VarcharType.createUnboundedVarcharType());
-            Slice varcharValue = (Slice) functionInvoker.invoke(castSignature, session.toConnectorSession(), singletonList(value.get()));
-            String stringValue = varcharValue.toStringUtf8();
-            if (stringValue.length() > MAX_LOW_HIGH_LENGTH) {
-                stringValue = stringValue.substring(0, MAX_LOW_HIGH_LENGTH) + "...";
-            }
-            return new StringLiteral(stringValue);
-        }
-
-        private static Expression createStatisticValueOrNull(Estimate estimate)
-        {
-            if (estimate.isValueUnknown()) {
+            if (estimate.isUnknown()) {
                 return NULL_DOUBLE;
             }
             return new DoubleLiteral(Double.toString(estimate.getValue()));
+        }
+
+        private static Expression toStringLiteral(Type type, Optional<Double> optionalValue)
+        {
+            return optionalValue.map(value -> toStringLiteral(type, value)).orElse(NULL_VARCHAR);
+        }
+
+        private static Expression toStringLiteral(Type type, double value)
+        {
+            if (type.equals(BigintType.BIGINT) || type.equals(IntegerType.INTEGER) || type.equals(SmallintType.SMALLINT) || type.equals(TinyintType.TINYINT)) {
+                return new StringLiteral(Long.toString(round(value)));
+            }
+            if (type.equals(DoubleType.DOUBLE) || type instanceof DecimalType) {
+                return new StringLiteral(Double.toString(value));
+            }
+            if (type.equals(RealType.REAL)) {
+                return new StringLiteral(Float.toString((float) value));
+            }
+            if (type.equals(DATE)) {
+                return new StringLiteral(LocalDate.ofEpochDay(round(value)).toString());
+            }
+            throw new IllegalArgumentException("Unexpected type: " + type);
         }
     }
 }

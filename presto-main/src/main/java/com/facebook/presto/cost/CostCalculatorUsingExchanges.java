@@ -21,7 +21,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -34,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +50,8 @@ import java.util.function.IntSupplier;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -90,7 +92,7 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, TypeProvider types)
+    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
     {
         CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, types);
         return node.accept(costEstimator, null);
@@ -156,6 +158,9 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitAggregation(AggregationNode node, Void context)
         {
+            if (node.getStep() != FINAL && node.getStep() != SINGLE) {
+                return UNKNOWN_COST;
+            }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
             double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
@@ -214,6 +219,12 @@ public class CostCalculatorUsingExchanges
                     node.getSource(),
                     node.getFilteringSource(),
                     node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED).equals(SemiJoinNode.DistributionType.REPLICATED));
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            return calculateJoinCost(node, node.getLeft(), node.getRight(), true);
         }
 
         @Override

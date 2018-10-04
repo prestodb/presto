@@ -35,6 +35,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @Immutable
 public class OperatorStats
 {
+    private final int stageId;
     private final int pipelineId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
@@ -45,7 +46,6 @@ public class OperatorStats
     private final long addInputCalls;
     private final Duration addInputWall;
     private final Duration addInputCpu;
-    private final Duration addInputUser;
     private final DataSize inputDataSize;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
@@ -53,7 +53,6 @@ public class OperatorStats
     private final long getOutputCalls;
     private final Duration getOutputWall;
     private final Duration getOutputCpu;
-    private final Duration getOutputUser;
     private final DataSize outputDataSize;
     private final long outputPositions;
 
@@ -64,7 +63,6 @@ public class OperatorStats
     private final long finishCalls;
     private final Duration finishWall;
     private final Duration finishCpu;
-    private final Duration finishUser;
 
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
@@ -79,6 +77,7 @@ public class OperatorStats
 
     @JsonCreator
     public OperatorStats(
+            @JsonProperty("stageId") int stageId,
             @JsonProperty("pipelineId") int pipelineId,
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
@@ -89,7 +88,6 @@ public class OperatorStats
             @JsonProperty("addInputCalls") long addInputCalls,
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
-            @JsonProperty("addInputUser") Duration addInputUser,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
@@ -97,7 +95,6 @@ public class OperatorStats
             @JsonProperty("getOutputCalls") long getOutputCalls,
             @JsonProperty("getOutputWall") Duration getOutputWall,
             @JsonProperty("getOutputCpu") Duration getOutputCpu,
-            @JsonProperty("getOutputUser") Duration getOutputUser,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
@@ -108,7 +105,6 @@ public class OperatorStats
             @JsonProperty("finishCalls") long finishCalls,
             @JsonProperty("finishWall") Duration finishWall,
             @JsonProperty("finishCpu") Duration finishCpu,
-            @JsonProperty("finishUser") Duration finishUser,
 
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
@@ -121,6 +117,7 @@ public class OperatorStats
 
             @JsonProperty("info") OperatorInfo info)
     {
+        this.stageId = stageId;
         this.pipelineId = pipelineId;
 
         checkArgument(operatorId >= 0, "operatorId is negative");
@@ -133,7 +130,6 @@ public class OperatorStats
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
-        this.addInputUser = requireNonNull(addInputUser, "addInputUser is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
@@ -142,7 +138,6 @@ public class OperatorStats
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
         this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
-        this.getOutputUser = requireNonNull(getOutputUser, "getOutputUser is null");
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
@@ -154,7 +149,6 @@ public class OperatorStats
         this.finishCalls = finishCalls;
         this.finishWall = requireNonNull(finishWall, "finishWall is null");
         this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
-        this.finishUser = requireNonNull(finishUser, "finishUser is null");
 
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
@@ -167,6 +161,12 @@ public class OperatorStats
         this.blockedReason = blockedReason;
 
         this.info = info;
+    }
+
+    @JsonProperty
+    public int getStageId()
+    {
+        return stageId;
     }
 
     @JsonProperty
@@ -218,12 +218,6 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public Duration getAddInputUser()
-    {
-        return addInputUser;
-    }
-
-    @JsonProperty
     public DataSize getInputDataSize()
     {
         return inputDataSize;
@@ -257,12 +251,6 @@ public class OperatorStats
     public Duration getGetOutputCpu()
     {
         return getOutputCpu;
-    }
-
-    @JsonProperty
-    public Duration getGetOutputUser()
-    {
-        return getOutputUser;
     }
 
     @JsonProperty
@@ -305,12 +293,6 @@ public class OperatorStats
     public Duration getFinishCpu()
     {
         return finishCpu;
-    }
-
-    @JsonProperty
-    public Duration getFinishUser()
-    {
-        return finishUser;
     }
 
     @JsonProperty
@@ -374,7 +356,6 @@ public class OperatorStats
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
-        long addInputUser = this.addInputUser.roundTo(NANOSECONDS);
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
@@ -382,7 +363,6 @@ public class OperatorStats
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
         long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
-        long getOutputUser = this.getOutputUser.roundTo(NANOSECONDS);
         long outputDataSize = this.outputDataSize.toBytes();
         long outputPositions = this.outputPositions;
 
@@ -393,7 +373,6 @@ public class OperatorStats
         long finishCalls = this.finishCalls;
         long finishWall = this.finishWall.roundTo(NANOSECONDS);
         long finishCpu = this.finishCpu.roundTo(NANOSECONDS);
-        long finishUser = this.finishUser.roundTo(NANOSECONDS);
 
         long memoryReservation = this.userMemoryReservation.toBytes();
         long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
@@ -413,7 +392,6 @@ public class OperatorStats
             addInputCalls += operator.getAddInputCalls();
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
-            addInputUser += operator.getAddInputUser().roundTo(NANOSECONDS);
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
             sumSquaredInputPositions += operator.getSumSquaredInputPositions();
@@ -421,7 +399,6 @@ public class OperatorStats
             getOutputCalls += operator.getGetOutputCalls();
             getOutputWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
             getOutputCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
-            getOutputUser += operator.getGetOutputUser().roundTo(NANOSECONDS);
             outputDataSize += operator.getOutputDataSize().toBytes();
             outputPositions += operator.getOutputPositions();
 
@@ -430,7 +407,6 @@ public class OperatorStats
             finishCalls += operator.getFinishCalls();
             finishWall += operator.getFinishWall().roundTo(NANOSECONDS);
             finishCpu += operator.getFinishCpu().roundTo(NANOSECONDS);
-            finishUser += operator.getFinishUser().roundTo(NANOSECONDS);
 
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
@@ -453,6 +429,7 @@ public class OperatorStats
         }
 
         return new OperatorStats(
+                stageId,
                 pipelineId,
                 operatorId,
                 planNodeId,
@@ -463,7 +440,6 @@ public class OperatorStats
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
@@ -471,7 +447,6 @@ public class OperatorStats
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize),
                 outputPositions,
 
@@ -482,7 +457,6 @@ public class OperatorStats
                 finishCalls,
                 new Duration(finishWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(memoryReservation),
                 succinctBytes(revocableMemoryReservation),
@@ -515,6 +489,7 @@ public class OperatorStats
     public OperatorStats summarize()
     {
         return new OperatorStats(
+                stageId,
                 pipelineId,
                 operatorId,
                 planNodeId,
@@ -523,14 +498,12 @@ public class OperatorStats
                 addInputCalls,
                 addInputWall,
                 addInputCpu,
-                addInputUser,
                 inputDataSize,
                 inputPositions,
                 sumSquaredInputPositions,
                 getOutputCalls,
                 getOutputWall,
                 getOutputCpu,
-                getOutputUser,
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
@@ -538,7 +511,6 @@ public class OperatorStats
                 finishCalls,
                 finishWall,
                 finishCpu,
-                finishUser,
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,

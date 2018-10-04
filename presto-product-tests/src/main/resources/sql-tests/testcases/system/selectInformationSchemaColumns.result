@@ -74,7 +74,6 @@ system| runtime| tasks| running_splits| bigint| YES| null| null|
 system| runtime| tasks| completed_splits| bigint| YES| null| null|
 system| runtime| tasks| split_scheduled_time_ms| bigint| YES| null| null|
 system| runtime| tasks| split_cpu_time_ms| bigint| YES| null| null|
-system| runtime| tasks| split_user_time_ms| bigint| YES| null| null|
 system| runtime| tasks| split_blocked_time_ms| bigint| YES| null| null|
 system| runtime| tasks| raw_input_bytes| bigint| YES| null| null|
 system| runtime| tasks| raw_input_rows| bigint| YES| null| null|

@@ -59,7 +59,6 @@ public class TaskSystemTable
 
             .column("split_scheduled_time_ms", BIGINT)
             .column("split_cpu_time_ms", BIGINT)
-            .column("split_user_time_ms", BIGINT)
             .column("split_blocked_time_ms", BIGINT)
 
             .column("raw_input_bytes", BIGINT)
@@ -123,7 +122,6 @@ public class TaskSystemTable
 
                     toMillis(stats.getTotalScheduledTime()),
                     toMillis(stats.getTotalCpuTime()),
-                    toMillis(stats.getTotalUserTime()),
                     toMillis(stats.getTotalBlockedTime()),
 
                     toBytes(stats.getRawInputDataSize()),

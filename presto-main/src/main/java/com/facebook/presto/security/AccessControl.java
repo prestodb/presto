@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 public interface AccessControl
@@ -30,7 +31,7 @@ public interface AccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Principal principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.
@@ -206,4 +207,24 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no row filters are present
+     */
+    default String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        return null;
+    }
+
+    /**
+     * Check if identity, table and column has some column making enabled
+     *
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no column filters are present
+     */
+    default String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
+    {
+        return null;
+    }
 }

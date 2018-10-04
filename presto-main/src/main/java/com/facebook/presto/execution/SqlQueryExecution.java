@@ -18,6 +18,8 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -30,6 +32,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -82,6 +86,8 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -115,6 +121,8 @@ public class SqlQueryExecution
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
     private final Analysis analysis;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -140,7 +148,9 @@ public class SqlQueryExecution
             QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
             List<Expression> parameters,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -157,6 +167,8 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+            this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -203,7 +215,7 @@ public class SqlQueryExecution
     }
 
     @Override
-    public long getUserMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
@@ -211,16 +223,16 @@ public class SqlQueryExecution
         SqlQueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getUserMemoryReservation().toBytes();
+            return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
         }
         if (scheduler == null) {
-            return 0;
+            return new DataSize(0, BYTE);
         }
-        return scheduler.getUserMemoryReservation();
+        return succinctBytes(scheduler.getUserMemoryReservation());
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public DataSize getTotalMemoryReservation()
     {
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
@@ -228,12 +240,12 @@ public class SqlQueryExecution
         SqlQueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation().toBytes();
+            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
         }
         if (scheduler == null) {
-            return 0;
+            return new DataSize(0, BYTE);
         }
-        return scheduler.getTotalMemoryReservation();
+        return succinctBytes(scheduler.getTotalMemoryReservation());
     }
 
     @Override
@@ -251,9 +263,11 @@ public class SqlQueryExecution
     }
 
     @Override
-    public Session getSession()
+    public BasicQueryInfo getBasicQueryInfo()
     {
-        return stateMachine.getSession();
+        return stateMachine.getFinalQueryInfo()
+                .map(BasicQueryInfo::new)
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQueryScheduler::getBasicStageStats)));
     }
 
     public void startWaitingForResources()
@@ -318,6 +332,18 @@ public class SqlQueryExecution
     }
 
     @Override
+    public Session getSession()
+    {
+        return stateMachine.getSession();
+    }
+
+    @Override
+    public Optional<ErrorCode> getErrorCode()
+    {
+        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
+    }
+
+    @Override
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
@@ -340,7 +366,7 @@ public class SqlQueryExecution
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -478,6 +504,12 @@ public class SqlQueryExecution
         requireNonNull(cause, "cause is null");
 
         stateMachine.transitionToFailed(cause);
+    }
+
+    @Override
+    public boolean isDone()
+    {
+        return getState().isDone();
     }
 
     @Override
@@ -620,6 +652,8 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final ClusterMemoryManager clusterMemoryManager;
         private final DataSize preAllocateMemoryThreshold;
+        private final StatsCalculator statsCalculator;
+        private final CostCalculator costCalculator;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -642,7 +676,9 @@ public class SqlQueryExecution
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
-                ClusterMemoryManager clusterMemoryManager)
+                ClusterMemoryManager clusterMemoryManager,
+                StatsCalculator statsCalculator,
+                CostCalculator costCalculator)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -667,6 +703,8 @@ public class SqlQueryExecution
             this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
             this.preAllocateMemoryThreshold = requireNonNull(featuresConfig, "featuresConfig is null").getPreAllocateMemoryThreshold();
             this.planOptimizers = planOptimizers.get();
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+            this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         }
 
         @Override
@@ -701,7 +739,9 @@ public class SqlQueryExecution
                     queryExplainer,
                     executionPolicy,
                     parameters,
-                    schedulerStats);
+                    schedulerStats,
+                    statsCalculator,
+                    costCalculator);
 
             if (preAllocateMemoryThreshold.toBytes() > 0 && session.getResourceEstimates().getPeakMemory().isPresent() &&
                     session.getResourceEstimates().getPeakMemory().get().compareTo(preAllocateMemoryThreshold) >= 0) {

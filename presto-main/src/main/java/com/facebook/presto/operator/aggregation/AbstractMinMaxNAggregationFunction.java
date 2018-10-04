@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.MinMaxNState;
 import com.facebook.presto.operator.aggregation.state.MinMaxNStateFactory;
 import com.facebook.presto.operator.aggregation.state.MinMaxNStateSerializer;
@@ -99,13 +100,14 @@ public abstract class AbstractMinMaxNAggregationFunction
                 INPUT_FUNCTION.bindTo(comparator).bindTo(type),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
-                MinMaxNState.class,
-                stateSerializer,
-                new MinMaxNStateFactory(),
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        MinMaxNState.class,
+                        stateSerializer,
+                        new MinMaxNStateFactory())),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(getSignature().getName(), inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
     }
 
     public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)

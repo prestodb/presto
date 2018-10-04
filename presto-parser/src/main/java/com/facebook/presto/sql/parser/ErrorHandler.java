@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.NoViableAltException;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
@@ -34,7 +35,6 @@ import org.antlr.v4.runtime.atn.WildcardTransition;
 import org.antlr.v4.runtime.misc.IntervalSet;
 
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -69,11 +69,28 @@ class ErrorHandler
             Parser parser = (Parser) recognizer;
 
             ATN atn = parser.getATN();
-            ATNState currentState = atn.states.get(parser.getState());
 
-            Multimap<Integer, String> candidates = HashMultimap.create();
-            Analyzer analyzer = new Analyzer(atn, parser.getVocabulary(), specialRules, specialTokens, ignoredRules, parser.getTokenStream(), candidates);
-            analyzer.process(currentState, parser.getCurrentToken().getTokenIndex(), parser.getContext());
+            ATNState currentState;
+            Token currentToken;
+            RuleContext context;
+
+            if (e != null) {
+                currentState = atn.states.get(e.getOffendingState());
+                currentToken = e.getOffendingToken();
+                context = e.getCtx();
+
+                if (e instanceof NoViableAltException) {
+                    currentToken = ((NoViableAltException) e).getStartToken();
+                }
+            }
+            else {
+                currentState = atn.states.get(parser.getState());
+                currentToken = parser.getCurrentToken();
+                context = parser.getContext();
+            }
+
+            Analyzer analyzer = new Analyzer(atn, parser.getVocabulary(), specialRules, specialTokens, ignoredRules, parser.getTokenStream());
+            Multimap<Integer, String> candidates = analyzer.process(currentState, currentToken.getTokenIndex(), context);
 
             // pick the candidate tokens associated largest token index processed (i.e., the path that consumed the most input)
             String expected = candidates.asMap().entrySet().stream()
@@ -86,7 +103,7 @@ class ErrorHandler
             message = String.format("mismatched input '%s'. Expecting: %s", ((Token) offendingSymbol).getText(), expected);
         }
         catch (Exception exception) {
-            LOG.error(e, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");
+            LOG.error(exception, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");
         }
 
         throw new ParsingException(message, e, line, charPositionInLine);
@@ -96,11 +113,25 @@ class ErrorHandler
     {
         public final ATNState state;
         public final int tokenIndex;
+        private final CallerContext caller;
 
-        public ParsingState(ATNState state, int tokenIndex)
+        public ParsingState(ATNState state, int tokenIndex, CallerContext caller)
         {
             this.state = state;
             this.tokenIndex = tokenIndex;
+            this.caller = caller;
+        }
+    }
+
+    private static class CallerContext
+    {
+        public final ATNState followState;
+        public final CallerContext parent;
+
+        public CallerContext(CallerContext parent, ATNState followState)
+        {
+            this.parent = parent;
+            this.followState = followState;
         }
     }
 
@@ -112,7 +143,6 @@ class ErrorHandler
         private final Map<Integer, String> specialTokens;
         private final Set<Integer> ignoredRules;
         private final TokenStream stream;
-        private final Multimap<Integer, String> candidates;
 
         public Analyzer(
                 ATN atn,
@@ -120,8 +150,7 @@ class ErrorHandler
                 Map<Integer, String> specialRules,
                 Map<Integer, String> specialTokens,
                 Set<Integer> ignoredRules,
-                TokenStream stream,
-                Multimap<Integer, String> candidates)
+                TokenStream stream)
         {
             this.stream = stream;
             this.atn = atn;
@@ -129,51 +158,61 @@ class ErrorHandler
             this.specialRules = specialRules;
             this.specialTokens = specialTokens;
             this.ignoredRules = ignoredRules;
-            this.candidates = candidates;
         }
 
-        private Set<Integer> process(ATNState startState, int tokenIndex, RuleContext next)
+        public Multimap<Integer, String> process(ATNState currentState, int tokenIndex, RuleContext context)
         {
-            int currentRule = startState.ruleIndex;
+            return process(new ParsingState(currentState, tokenIndex, makeCallStack(context)));
+        }
 
-            // if startState is the beginning or a rule that's in the list of "special" rules, just bail out and
-            // add that as the value
-            if (startState.getStateType() == BLOCK_START || startState.getStateType() == RULE_START) {
-                if (specialRules.containsKey(currentRule)) {
-                    candidates.put(tokenIndex, specialRules.get(currentRule));
-                    return Collections.emptySet();
-                }
-                else if (ignoredRules.contains(currentRule)) {
-                    return Collections.emptySet();
-                }
-            }
+        private Multimap<Integer, String> process(ParsingState start)
+        {
+            Multimap<Integer, String> candidates = HashMultimap.create();
 
-            Set<Integer> endTokens = new HashSet<>();
-
+            // Simulates the ATN by consuming input tokens and walking transitions.
+            // The ATN can be in multiple states (similar to an NFA)
             Queue<ParsingState> activeStates = new ArrayDeque<>();
-
-            activeStates.add(new ParsingState(startState, tokenIndex));
+            activeStates.add(start);
 
             while (!activeStates.isEmpty()) {
-                ParsingState parsingState = activeStates.poll();
+                ParsingState current = activeStates.poll();
 
-                if (parsingState.state instanceof RuleStopState) {
-                    if (next != null) {
-                        process(((RuleTransition) atn.states.get(next.invokingState).transition(0)).followState, parsingState.tokenIndex, next.parent);
+                ATNState state = current.state;
+                int tokenIndex = current.tokenIndex;
+                CallerContext caller = current.caller;
+
+                if (state.getStateType() == BLOCK_START || state.getStateType() == RULE_START) {
+                    int rule = state.ruleIndex;
+
+                    if (specialRules.containsKey(rule)) {
+                        candidates.put(tokenIndex, specialRules.get(rule));
+                        continue;
+                    }
+                    else if (ignoredRules.contains(rule)) {
+                        continue;
+                    }
+                }
+
+                if (state instanceof RuleStopState) {
+                    if (caller != null) {
+                        // continue from the target state of the rule transition in the parent rule
+                        activeStates.add(new ParsingState(caller.followState, tokenIndex, caller.parent));
+                    }
+                    else {
+                        // we've reached the end of the top-level rule, so the only candidate left is EOF at this point
+                        candidates.putAll(tokenIndex, getTokenNames(IntervalSet.of(Token.EOF)));
                     }
                     continue;
                 }
 
-                for (int i = 0; i < parsingState.state.getNumberOfTransitions(); i++) {
-                    Transition transition = parsingState.state.transition(i);
+                for (int i = 0; i < state.getNumberOfTransitions(); i++) {
+                    Transition transition = state.transition(i);
 
                     if (transition instanceof RuleTransition) {
-                        for (int token : process(transition.target, parsingState.tokenIndex, null)) {
-                            activeStates.add(new ParsingState(((RuleTransition) transition).followState, token));
-                        }
+                        activeStates.add(new ParsingState(transition.target, tokenIndex, new CallerContext(caller, ((RuleTransition) transition).followState)));
                     }
                     else if (transition.isEpsilon()) {
-                        activeStates.add(new ParsingState(transition.target, parsingState.tokenIndex));
+                        activeStates.add(new ParsingState(transition.target, tokenIndex, caller));
                     }
                     else if (transition instanceof WildcardTransition) {
                         throw new UnsupportedOperationException("not yet implemented: wildcard transition");
@@ -185,18 +224,18 @@ class ErrorHandler
                             labels = labels.complement(IntervalSet.of(Token.MIN_USER_TOKEN_TYPE, atn.maxTokenType));
                         }
 
-                        int currentToken = stream.get(parsingState.tokenIndex).getType();
+                        int currentToken = stream.get(tokenIndex).getType();
                         if (labels.contains(currentToken)) {
-                            activeStates.add(new ParsingState(transition.target, parsingState.tokenIndex + 1));
+                            activeStates.add(new ParsingState(transition.target, tokenIndex + 1, caller));
                         }
                         else {
-                            candidates.putAll(parsingState.tokenIndex, getTokenNames(labels));
+                            candidates.putAll(tokenIndex, getTokenNames(labels));
                         }
                     }
                 }
             }
 
-            return endTokens;
+            return candidates;
         }
 
         private Set<String> getTokenNames(IntervalSet tokens)
@@ -209,6 +248,18 @@ class ErrorHandler
                         return specialTokens.getOrDefault(token, vocabulary.getDisplayName(token));
                     })
                     .collect(Collectors.toSet());
+        }
+
+        private CallerContext makeCallStack(RuleContext context)
+        {
+            if (context == null || context.invokingState == -1) {
+                return null;
+            }
+
+            CallerContext parent = makeCallStack(context.parent);
+
+            ATNState followState = ((RuleTransition) atn.states.get(context.invokingState).transition(0)).followState;
+            return new CallerContext(parent, followState);
         }
     }
 

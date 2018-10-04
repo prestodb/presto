@@ -21,13 +21,14 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 public class AllowAllAccessControl
         implements AccessControl
 {
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
     }
 
@@ -157,5 +158,17 @@ public class AllowAllAccessControl
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
+    }
+
+    @Override
+    public String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
+    {
+        return null;
     }
 }

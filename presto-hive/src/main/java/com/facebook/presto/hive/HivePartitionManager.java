@@ -181,27 +181,22 @@ public class HivePartitionManager
             List<Type> partitionColumnTypes,
             Constraint<ColumnHandle> constraint)
     {
-        List<String> keys = extractPartitionKeyValues(partitionId);
+        HivePartition partition = parsePartition(tableName, partitionId, partitionColumns, partitionColumnTypes, timeZone);
 
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
-        ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
-        for (int i = 0; i < partitionColumns.size(); i++) {
-            HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionId, keys.get(i), partitionColumnTypes.get(i), timeZone);
-
+        for (HiveColumnHandle column : partitionColumns) {
+            NullableValue value = partition.getKeys().get(column);
             Domain allowedDomain = domains.get(column);
-            if (allowedDomain != null && !allowedDomain.includesNullableValue(parsedValue.getValue())) {
+            if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
                 return Optional.empty();
             }
-            builder.put(column, parsedValue);
         }
-        Map<ColumnHandle, NullableValue> values = builder.build();
 
-        if (constraint.predicate().isPresent() && !constraint.predicate().get().test(values)) {
+        if (constraint.predicate().isPresent() && !constraint.predicate().get().test(partition.getKeys())) {
             return Optional.empty();
         }
 
-        return Optional.of(new HivePartition(tableName, partitionId, values));
+        return Optional.of(partition);
     }
 
     private Table getTable(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName)
@@ -282,7 +277,25 @@ public class HivePartitionManager
                 .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 
-    public static List<String> extractPartitionKeyValues(String partitionName)
+    public static HivePartition parsePartition(
+            SchemaTableName tableName,
+            String partitionName,
+            List<HiveColumnHandle> partitionColumns,
+            List<Type> partitionColumnTypes,
+            DateTimeZone timeZone)
+    {
+        List<String> partitionValues = extractPartitionValues(partitionName);
+        ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            HiveColumnHandle column = partitionColumns.get(i);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
+            builder.put(column, parsedValue);
+        }
+        Map<ColumnHandle, NullableValue> values = builder.build();
+        return new HivePartition(tableName, partitionName, values);
+    }
+
+    public static List<String> extractPartitionValues(String partitionName)
     {
         ImmutableList.Builder<String> values = ImmutableList.builder();
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
@@ -25,18 +24,10 @@ import io.airlift.json.JsonModule;
 import java.util.Map;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.util.Objects.requireNonNull;
 
 public class FileResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
-    private final ClassLoader classLoader;
-
-    public FileResourceGroupConfigurationManagerFactory(ClassLoader classLoader)
-    {
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
-    }
-
     @Override
     public String getName()
     {
@@ -46,7 +37,7 @@ public class FileResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new FileResourceGroupsModule(),

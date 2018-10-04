@@ -23,7 +23,6 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static java.lang.Long.MAX_VALUE;
 
 public class DecimalInputStream
@@ -95,35 +94,6 @@ public class DecimalInputStream
         }
 
         UnscaledDecimal128Arithmetic.pack(low, high, negative, result);
-    }
-
-    public void nextLongDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale)
-            throws IOException
-    {
-        Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-        Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-        for (int i = 0; i < items; i++) {
-            nextLongDecimal(decimal);
-            rescale(decimal, (int) (targetType.getScale() - sourceScale[i]), rescaledDecimal);
-            targetType.writeSlice(builder, rescaledDecimal);
-        }
-    }
-
-    public void nextLongDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale, boolean[] isNull)
-            throws IOException
-    {
-        Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-        Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                nextLongDecimal(decimal);
-                rescale(decimal, (int) (targetType.getScale() - sourceScale[i]), rescaledDecimal);
-                targetType.writeSlice(builder, rescaledDecimal);
-            }
-            else {
-                builder.appendNull();
-            }
-        }
     }
 
     public long nextLong()

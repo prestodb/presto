@@ -59,9 +59,9 @@ public class KafkaConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
         try {
@@ -69,7 +69,7 @@ public class KafkaConnectorFactory
                     new JsonModule(),
                     new KafkaConnectorModule(),
                     binder -> {
-                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
+                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 

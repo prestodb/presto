@@ -80,7 +80,6 @@ public class TestBasicQueryInfo
                                 true,
                                 Duration.valueOf("23m"),
                                 Duration.valueOf("24m"),
-                                Duration.valueOf("25m"),
                                 Duration.valueOf("26m"),
                                 true,
                                 ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY),

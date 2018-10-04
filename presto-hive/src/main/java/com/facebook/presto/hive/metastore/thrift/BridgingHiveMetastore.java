@@ -15,12 +15,12 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
-import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
@@ -43,8 +43,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -77,7 +78,12 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return delegate.getTable(databaseName, tableName).map(ThriftMetastoreUtil::fromMetastoreApiTable);
+        return delegate.getTable(databaseName, tableName).map(table -> {
+            if (isAvroTableWithSchemaSet(table)) {
+                return fromMetastoreApiTable(table, delegate.getFields(databaseName, tableName).get());
+            }
+            return fromMetastoreApiTable(table);
+        });
     }
 
     @Override
@@ -181,19 +187,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
-    {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        Map<String, String> parameters = table.getParameters();
-        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
-        if (!parameters.equals(updatedParameters)) {
-            table.setParameters(updatedParameters);
-            alterTable(databaseName, tableName, table);
-        }
-    }
-
-    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
@@ -281,14 +274,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        delegate.addPartitions(
-                databaseName,
-                tableName,
-                partitions.stream()
-                        .map(ThriftMetastoreUtil::toMetastoreApiPartition)
-                        .collect(Collectors.toList()));
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
     @Override
@@ -298,22 +286,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void alterPartition(String databaseName, String tableName, Partition partition)
+    public void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition)
     {
-        delegate.alterPartition(databaseName, tableName, toMetastoreApiPartition(partition));
-    }
-
-    @Override
-    public synchronized void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
-    {
-        org.apache.hadoop.hive.metastore.api.Partition partition = delegate.getPartition(databaseName, tableName, partitionValues)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
-        Map<String, String> parameters = partition.getParameters();
-        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
-        if (!parameters.equals(updatedParameters)) {
-            partition.setParameters(updatedParameters);
-            delegate.alterPartition(databaseName, tableName, partition);
-        }
+        delegate.alterPartition(databaseName, tableName, partition);
     }
 
     @Override

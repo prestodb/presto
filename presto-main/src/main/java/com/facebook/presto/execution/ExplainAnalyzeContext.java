@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.StatsCalculator;
-
 import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
@@ -23,32 +20,15 @@ import static java.util.Objects.requireNonNull;
 public class ExplainAnalyzeContext
 {
     private final QueryPerformanceFetcher queryPerformanceFetcher;
-    private final StatsCalculator statsCalculator;
-    private final CostCalculator costCalculator;
 
     @Inject
-    public ExplainAnalyzeContext(
-            QueryPerformanceFetcher queryPerformanceFetcher,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
+    public ExplainAnalyzeContext(QueryPerformanceFetcher queryPerformanceFetcher)
     {
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
-        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
     public QueryPerformanceFetcher getQueryPerformanceFetcher()
     {
         return queryPerformanceFetcher;
-    }
-
-    public StatsCalculator getStatsCalculator()
-    {
-        return statsCalculator;
-    }
-
-    public CostCalculator getCostCalculator()
-    {
-        return costCalculator;
     }
 }

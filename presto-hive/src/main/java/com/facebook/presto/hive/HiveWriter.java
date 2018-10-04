@@ -87,6 +87,11 @@ public class HiveWriter
         onCommit.accept(this);
     }
 
+    long getValidationCpuNanos()
+    {
+        return fileWriter.getValidationCpuNanos();
+    }
+
     public Optional<Runnable> getVerificationTask()
     {
         return fileWriter.getVerificationTask();

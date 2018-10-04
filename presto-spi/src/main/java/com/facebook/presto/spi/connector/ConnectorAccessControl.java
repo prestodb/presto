@@ -242,7 +242,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    default void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
     }
@@ -265,5 +265,25 @@ public interface ConnectorAccessControl
     default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
+    }
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return Expression as form of a string. Null if no row filters are present
+     */
+    default String applyRowlevelFiltering(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        return null;
+    }
+
+    /**
+     * Check if identity and table and column has some column making enabled
+     *
+     * @return Expression as form of a string. Null if no column filters are present
+     */
+    default String applyColumnMasking(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, String columnName)
+    {
+        return null;
     }
 }

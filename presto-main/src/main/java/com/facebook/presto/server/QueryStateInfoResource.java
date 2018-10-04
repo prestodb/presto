@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
@@ -60,7 +59,7 @@ public class QueryStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user)
     {
-        List<QueryInfo> queryInfos = queryManager.getAllQueryInfo();
+        List<BasicQueryInfo> queryInfos = queryManager.getQueries();
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
@@ -74,7 +73,7 @@ public class QueryStateInfoResource
                 .collect(toImmutableList());
     }
 
-    private QueryStateInfo getQueryStateInfo(QueryInfo queryInfo)
+    private QueryStateInfo getQueryStateInfo(BasicQueryInfo queryInfo)
     {
         Optional<ResourceGroupId> groupId = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
         if (queryInfo.getState() == QUEUED) {

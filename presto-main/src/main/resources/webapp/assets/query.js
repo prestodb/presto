@@ -327,14 +327,6 @@ let StageDetail = React.createClass({
                                             </tr>
                                             <tr>
                                                 <td className="stage-table-stat-title">
-                                                    User
-                                                </td>
-                                                <td className="stage-table-stat-text">
-                                                    { stage.stageStats.totalUserTime }
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">
                                                     CPU
                                                 </td>
                                                 <td className="stage-table-stat-text">

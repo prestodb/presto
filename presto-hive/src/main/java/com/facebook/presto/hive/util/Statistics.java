@@ -28,7 +28,6 @@ import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
@@ -36,7 +35,6 @@ import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
@@ -72,8 +70,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Sets.intersection;
-import static java.lang.Float.floatToRawIntBits;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class Statistics
@@ -175,23 +171,6 @@ public final class Statistics
         return Optional.empty();
     }
 
-    private static OptionalDouble mergeAverage(OptionalDouble first, OptionalLong firstRowCount, OptionalDouble second, OptionalLong secondRowCount)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            if (!firstRowCount.isPresent() || !secondRowCount.isPresent()) {
-                return OptionalDouble.empty();
-            }
-            long totalRowCount = firstRowCount.getAsLong() + secondRowCount.getAsLong();
-            if (totalRowCount == 0) {
-                return OptionalDouble.empty();
-            }
-            double sumFirst = first.getAsDouble() * firstRowCount.getAsLong();
-            double sumSecond = second.getAsDouble() * secondRowCount.getAsLong();
-            return OptionalDouble.of((sumFirst + sumSecond) / totalRowCount);
-        }
-        return first.isPresent() ? first : second;
-    }
-
     private static OptionalLong reduce(OptionalLong first, OptionalLong second, ReduceOperator operator, boolean returnFirstNonEmpty)
     {
         if (first.isPresent() && second.isPresent()) {
@@ -265,66 +244,6 @@ public final class Statistics
         return first.compareTo(second) <= 0 ? first : second;
     }
 
-    public static Range getMinMaxAsPrestoNativeValues(HiveColumnStatistics statistics, Type type, DateTimeZone timeZone)
-    {
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return statistics.getIntegerStatistics().map(integerStatistics -> Range.create(
-                    integerStatistics.getMin(),
-                    integerStatistics.getMax()))
-                    .orElse(Range.empty());
-        }
-        if (type.equals(DOUBLE)) {
-            return statistics.getDoubleStatistics().map(doubleStatistics -> Range.create(
-                    doubleStatistics.getMin(),
-                    doubleStatistics.getMax()))
-                    .orElse(Range.empty());
-        }
-        if (type.equals(REAL)) {
-            return statistics.getDoubleStatistics().map(doubleStatistics -> Range.create(
-                    boxed(doubleStatistics.getMin()).map(Statistics::floatAsDoubleToLongBits),
-                    boxed(doubleStatistics.getMax()).map(Statistics::floatAsDoubleToLongBits)))
-                    .orElse(Range.empty());
-        }
-        if (type.equals(DATE)) {
-            return statistics.getDateStatistics().map(dateStatistics -> Range.create(
-                    dateStatistics.getMin().map(LocalDate::toEpochDay),
-                    dateStatistics.getMax().map(LocalDate::toEpochDay)))
-                    .orElse(Range.empty());
-        }
-        if (type.equals(TIMESTAMP)) {
-            return statistics.getIntegerStatistics().map(integerStatistics -> Range.create(
-                    boxed(integerStatistics.getMin()).map(value -> convertLocalToUtc(timeZone, value)),
-                    boxed(integerStatistics.getMax()).map(value -> convertLocalToUtc(timeZone, value))))
-                    .orElse(Range.empty());
-        }
-        if (type instanceof DecimalType) {
-            return statistics.getDecimalStatistics().map(decimalStatistics -> Range.create(
-                    decimalStatistics.getMin().map(value -> encodeDecimal(type, value)),
-                    decimalStatistics.getMax().map(value -> encodeDecimal(type, value))))
-                    .orElse(Range.empty());
-        }
-        return Range.empty();
-    }
-
-    private static long floatAsDoubleToLongBits(double value)
-    {
-        return floatToRawIntBits((float) value);
-    }
-
-    private static long convertLocalToUtc(DateTimeZone timeZone, long value)
-    {
-        return timeZone.convertLocalToUTC(value * 1000, false);
-    }
-
-    private static Comparable<?> encodeDecimal(Type type, BigDecimal value)
-    {
-        BigInteger unscaled = Decimals.rescale(value, (DecimalType) type).unscaledValue();
-        if (Decimals.isShortDecimal(type)) {
-            return unscaled.longValueExact();
-        }
-        return Decimals.encodeUnscaledValue(unscaled);
-    }
-
     public static Map<List<String>, ComputedStatistics> createComputedStatisticsToPartitionMap(
             Collection<ComputedStatistics> computedStatistics,
             List<String> partitionColumns,
@@ -395,14 +314,22 @@ public final class Statistics
             result.setTotalSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
         }
 
-        // NDV
-        if (computedStatistics.containsKey(NUMBER_OF_DISTINCT_VALUES)) {
-            result.setDistinctValuesCount(BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0));
-        }
-
         // NUMBER OF NULLS
         if (computedStatistics.containsKey(NUMBER_OF_NON_NULL_VALUES)) {
             result.setNullsCount(rowCount - BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0));
+        }
+
+        // NDV
+        if (computedStatistics.containsKey(NUMBER_OF_DISTINCT_VALUES) && computedStatistics.containsKey(NUMBER_OF_NON_NULL_VALUES)) {
+            // number of distinct value is estimated using HLL, and can be higher than the number of non null values
+            long numberOfNonNullValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0);
+            long numberOfDistinctValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0);
+            if (numberOfDistinctValues > numberOfNonNullValues) {
+                result.setDistinctValuesCount(numberOfNonNullValues);
+            }
+            else {
+                result.setDistinctValuesCount(numberOfDistinctValues);
+            }
         }
 
         // NUMBER OF FALSE, NUMBER OF TRUE
@@ -463,65 +390,11 @@ public final class Statistics
         return block.isNull(0) ? Optional.empty() : Optional.of(((SqlDecimal) type.getObjectValue(session, block, 0)).toBigDecimal());
     }
 
-    private static Optional<Long> boxed(OptionalLong input)
-    {
-        return input.isPresent() ? Optional.of(input.getAsLong()) : Optional.empty();
-    }
-
-    private static Optional<Double> boxed(OptionalDouble input)
-    {
-        return input.isPresent() ? Optional.of(input.getAsDouble()) : Optional.empty();
-    }
-
     public enum ReduceOperator
     {
         ADD,
         SUBTRACT,
         MIN,
         MAX,
-    }
-
-    public static class Range
-    {
-        private static final Range EMPTY = new Range(Optional.empty(), Optional.empty());
-
-        private final Optional<? extends Comparable<?>> min;
-        private final Optional<? extends Comparable<?>> max;
-
-        public static Range empty()
-        {
-            return EMPTY;
-        }
-
-        public static Range create(Optional<? extends Comparable<?>> min, Optional<? extends Comparable<?>> max)
-        {
-            return new Range(min, max);
-        }
-
-        public static Range create(OptionalLong min, OptionalLong max)
-        {
-            return new Range(boxed(min), boxed(max));
-        }
-
-        public static Range create(OptionalDouble min, OptionalDouble max)
-        {
-            return new Range(boxed(min), boxed(max));
-        }
-
-        public Range(Optional<? extends Comparable<?>> min, Optional<? extends Comparable<?>> max)
-        {
-            this.min = requireNonNull(min, "min is null");
-            this.max = requireNonNull(max, "max is null");
-        }
-
-        public Optional<? extends Comparable<?>> getMin()
-        {
-            return min;
-        }
-
-        public Optional<? extends Comparable<?>> getMax()
-        {
-            return max;
-        }
     }
 }

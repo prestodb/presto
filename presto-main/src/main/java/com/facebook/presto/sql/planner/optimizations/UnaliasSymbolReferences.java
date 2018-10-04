@@ -52,6 +52,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -223,18 +224,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            Expression originalConstraint = null;
-            if (node.getOriginalConstraint() != null) {
-                originalConstraint = canonicalize(node.getOriginalConstraint());
-            }
-            return new TableScanNode(
-                    node.getId(),
-                    node.getTable(),
-                    node.getOutputSymbols(),
-                    node.getAssignments(),
-                    node.getLayout(),
-                    node.getCurrentConstraint(),
-                    originalConstraint);
+            return node;
         }
 
         @Override
@@ -328,7 +318,8 @@ public class UnaliasSymbolReferences
                     node.getId(),
                     node.getSourceFragmentIds(),
                     canonicalizeAndDistinct(node.getOutputSymbols()),
-                    node.getOrderingScheme().map(this::canonicalizeAndDistinct));
+                    node.getOrderingScheme().map(this::canonicalizeAndDistinct),
+                    node.getExchangeType());
         }
 
         @Override
@@ -510,6 +501,15 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getSourceHashSymbol()),
                     canonicalize(node.getFilteringSourceHashSymbol()),
                     node.getDistributionType());
+        }
+
+        @Override
+        public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Void> context)
+        {
+            PlanNode left = context.rewrite(node.getLeft());
+            PlanNode right = context.rewrite(node.getRight());
+
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalize(node.getFilter()));
         }
 
         @Override

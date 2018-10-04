@@ -46,7 +46,6 @@ public class TestDriverStats
 
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
-            new Duration(11, NANOSECONDS),
             new Duration(12, NANOSECONDS),
             false,
             ImmutableSet.of(),
@@ -92,7 +91,6 @@ public class TestDriverStats
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(9, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(10, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(11, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(12, NANOSECONDS));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(13, BYTE));

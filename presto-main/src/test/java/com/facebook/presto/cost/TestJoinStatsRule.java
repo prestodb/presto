@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
+import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -247,6 +248,20 @@ public class TestJoinStatsRule
     }
 
     @Test
+    public void testLeftJoinMissingStats()
+    {
+        PlanNodeStatsEstimate leftStats = planNodeStats(
+                0,
+                new SymbolStatistics(LEFT_JOIN_COLUMN, UNKNOWN_STATS),
+                new SymbolStatistics(LEFT_OTHER_COLUMN, UNKNOWN_STATS));
+        PlanNodeStatsEstimate rightStats = planNodeStats(
+                0,
+                new SymbolStatistics(RIGHT_JOIN_COLUMN, UNKNOWN_STATS),
+                new SymbolStatistics(RIGHT_OTHER_COLUMN, UNKNOWN_STATS));
+        assertJoinStats(LEFT, leftStats, rightStats, leftStats);
+    }
+
+    @Test
     public void testStatsForFullJoin()
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
@@ -331,6 +346,11 @@ public class TestJoinStatsRule
     {
         final Symbol symbol;
         final SymbolStatsEstimate estimate;
+
+        SymbolStatistics(String symbolName, SymbolStatsEstimate estimate)
+        {
+            this(new Symbol(symbolName), estimate);
+        }
 
         SymbolStatistics(Symbol symbol, SymbolStatsEstimate estimate)
         {

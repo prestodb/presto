@@ -1769,15 +1769,20 @@ public class PrestoResultSet
         protected Iterable<List<Object>> computeNext()
         {
             while (client.isRunning()) {
-                if (Thread.currentThread().isInterrupted()) {
-                    client.close();
-                    throw new RuntimeException(new SQLException("ResultSet thread was interrupted"));
-                }
+                checkInterruption(null);
 
                 QueryStatusInfo results = client.currentStatusInfo();
                 progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                 Iterable<List<Object>> data = client.currentData().getData();
-                client.advance();
+
+                try {
+                    client.advance();
+                }
+                catch (RuntimeException e) {
+                    checkInterruption(e);
+                    throw e;
+                }
+
                 if (data != null) {
                     return data;
                 }
@@ -1792,6 +1797,14 @@ public class PrestoResultSet
             }
 
             return endOfData();
+        }
+
+        private void checkInterruption(Throwable t)
+        {
+            if (Thread.currentThread().isInterrupted()) {
+                client.close();
+                throw new RuntimeException(new SQLException("ResultSet thread was interrupted", t));
+            }
         }
     }
 

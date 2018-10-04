@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -26,6 +26,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -290,12 +291,12 @@ public class SqlQueryManager
     }
 
     @Override
-    public List<QueryInfo> getAllQueryInfo()
+    public List<BasicQueryInfo> getQueries()
     {
         return queries.values().stream()
                 .map(queryExecution -> {
                     try {
-                        return queryExecution.getQueryInfo();
+                        return queryExecution.getBasicQueryInfo();
                     }
                     catch (RuntimeException ignored) {
                         return null;
@@ -310,7 +311,7 @@ public class SqlQueryManager
     {
         requireNonNull(listener, "listener is null");
 
-        getQuery(queryId).addOutputInfoListener(listener);
+        getQueryExecution(queryId).addOutputInfoListener(listener);
     }
 
     @Override
@@ -318,47 +319,51 @@ public class SqlQueryManager
     {
         requireNonNull(listener, "listener is null");
 
-        getQuery(queryId).addStateChangeListener(listener);
+        getQueryExecution(queryId).addStateChangeListener(listener);
     }
 
     @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
-        return tryGetQuery(queryId)
+        return tryGetQueryExecution(queryId)
                 .map(query -> query.getStateChange(currentState))
                 .orElseGet(() -> immediateFailedFuture(new NoSuchElementException()));
     }
 
     @Override
-    public QueryInfo getQueryInfo(QueryId queryId)
+    public BasicQueryInfo getQueryInfo(QueryId queryId)
     {
-        return getQuery(queryId).getQueryInfo();
+        return getQueryExecution(queryId).getBasicQueryInfo();
+    }
+
+    @Override
+    public QueryInfo getFullQueryInfo(QueryId queryId)
+    {
+        return getQueryExecution(queryId).getQueryInfo();
     }
 
     @Override
     public Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId)
     {
-        return tryGetQuery(queryId)
+        return tryGetQueryExecution(queryId)
                 .flatMap(QueryExecution::getResourceGroup);
     }
 
-    @Override
     public Plan getQueryPlan(QueryId queryId)
     {
-        return getQuery(queryId).getQueryPlan();
+        return getQueryExecution(queryId).getQueryPlan();
     }
 
     @Override
-    public Optional<QueryState> getQueryState(QueryId queryId)
+    public QueryState getQueryState(QueryId queryId)
     {
-        return tryGetQuery(queryId)
-                .map(QueryExecution::getState);
+        return getQueryExecution(queryId).getState();
     }
 
     @Override
     public void recordHeartbeat(QueryId queryId)
     {
-        tryGetQuery(queryId)
+        tryGetQueryExecution(queryId)
                 .ifPresent(QueryExecution::recordHeartbeat);
     }
 
@@ -544,7 +549,7 @@ public class SqlQueryManager
     {
         requireNonNull(cause, "cause is null");
 
-        tryGetQuery(queryId)
+        tryGetQueryExecution(queryId)
                 .ifPresent(query -> query.fail(cause));
     }
 
@@ -553,7 +558,7 @@ public class SqlQueryManager
     {
         log.debug("Cancel query %s", queryId);
 
-        tryGetQuery(queryId)
+        tryGetQueryExecution(queryId)
                 .ifPresent(QueryExecution::cancelQuery);
     }
 
@@ -564,7 +569,7 @@ public class SqlQueryManager
 
         log.debug("Cancel stage %s", stageId);
 
-        tryGetQuery(stageId.getQueryId())
+        tryGetQueryExecution(stageId.getQueryId())
                 .ifPresent(query -> query.cancelStage(stageId));
     }
 
@@ -598,7 +603,7 @@ public class SqlQueryManager
         List<QueryExecution> runningQueries = queries.values().stream()
                 .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList());
-        memoryManager.process(runningQueries, this::getAllQueryInfo);
+        memoryManager.process(runningQueries, this::getQueries);
     }
 
     /**
@@ -751,13 +756,13 @@ public class SqlQueryManager
         }
     }
 
-    private QueryExecution getQuery(QueryId queryId)
+    private QueryExecution getQueryExecution(QueryId queryId)
     {
-        return tryGetQuery(queryId)
+        return tryGetQueryExecution(queryId)
                 .orElseThrow(NoSuchElementException::new);
     }
 
-    private Optional<QueryExecution> tryGetQuery(QueryId queryId)
+    private Optional<QueryExecution> tryGetQueryExecution(QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
         return Optional.ofNullable(queries.get(queryId));

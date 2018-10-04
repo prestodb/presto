@@ -16,9 +16,10 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
@@ -173,23 +175,24 @@ public class BeginTableWrite
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
+                TupleDomain<ColumnHandle> originalEnforcedConstraint = scan.getEnforcedConstraint();
 
                 List<TableLayoutResult> layouts = metadata.getLayouts(
                         session,
                         handle,
-                        new Constraint<>(scan.getCurrentConstraint()),
+                        new Constraint<>(originalEnforcedConstraint),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
                 verify(layouts.size() == 1, "Expected exactly one layout for delete");
-                TableLayoutHandle layout = Iterables.getOnlyElement(layouts).getLayout().getHandle();
+                TableLayoutResult layoutResult = Iterables.getOnlyElement(layouts);
 
                 return new TableScanNode(
                         scan.getId(),
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        Optional.of(layout),
-                        scan.getCurrentConstraint(),
-                        scan.getOriginalConstraint());
+                        Optional.of(layoutResult.getLayout().getHandle()),
+                        layoutResult.getLayout().getPredicate(),
+                        computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));
             }
 
             if (node instanceof FilterNode) {

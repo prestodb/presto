@@ -113,7 +113,7 @@ public class KafkaAvroSmokeTest
             dataFileWriter.close();
         }
         catch (IOException e) {
-            throw new UncheckedIOException("Failed to convert to AVRO.", e);
+            throw new UncheckedIOException("Failed to convert to Avro.", e);
         }
         return outputStream.toByteArray();
     }

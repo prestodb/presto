@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -21,14 +23,17 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.operator.TableWriterOperator.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -36,6 +41,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableFinishOperator
         implements Operator
@@ -50,6 +56,7 @@ public class TableFinishOperator
         private final TableFinisher tableFinisher;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final StatisticAggregationsDescriptor<Integer> descriptor;
+        private final Session session;
         private boolean closed;
 
         public TableFinishOperatorFactory(
@@ -57,13 +64,15 @@ public class TableFinishOperator
                 PlanNodeId planNodeId,
                 TableFinisher tableFinisher,
                 OperatorFactory statisticsAggregationOperatorFactory,
-                StatisticAggregationsDescriptor<Integer> descriptor)
+                StatisticAggregationsDescriptor<Integer> descriptor,
+                Session session)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -71,7 +80,9 @@ public class TableFinishOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
-            return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperatorFactory.createOperator(driverContext), descriptor);
+            Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
+            boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
+            return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled);
         }
 
         @Override
@@ -83,7 +94,7 @@ public class TableFinishOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, statisticsAggregationOperatorFactory, descriptor);
+            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, statisticsAggregationOperatorFactory, descriptor, session);
         }
     }
 
@@ -103,18 +114,23 @@ public class TableFinishOperator
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
     private final ImmutableList.Builder<ComputedStatistics> computedStatisticsBuilder = ImmutableList.builder();
 
+    private final OperationTiming statisticsTiming = new OperationTiming();
+    private final boolean statisticsCpuTimerEnabled;
+
     public TableFinishOperator(
             OperatorContext operatorContext,
             TableFinisher tableFinisher,
             Operator statisticsAggregationOperator,
-            StatisticAggregationsDescriptor<Integer> descriptor)
+            StatisticAggregationsDescriptor<Integer> descriptor,
+            boolean statisticsCpuTimerEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticsAggregationOperator is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
+        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
 
-        operatorContext.setInfoSupplier(() -> new TableFinishInfo(outputMetadata));
+        operatorContext.setInfoSupplier(this::getInfo);
     }
 
     @Override
@@ -126,7 +142,10 @@ public class TableFinishOperator
     @Override
     public void finish()
     {
+        OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
         statisticsAggregationOperator.finish();
+        timer.end(statisticsTiming);
+
         if (state == State.RUNNING) {
             state = State.FINISHING;
         }
@@ -174,8 +193,11 @@ public class TableFinishOperator
             }
         }
 
-        Optional<Page> statisticsPage = extractStatisticsRows(page);
-        statisticsPage.ifPresent(statisticsAggregationOperator::addInput);
+        extractStatisticsRows(page).ifPresent(statisticsPage -> {
+            OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
+            statisticsAggregationOperator.addInput(statisticsPage);
+            timer.end(statisticsTiming);
+        });
     }
 
     private static Optional<Page> extractStatisticsRows(Page page)
@@ -253,7 +275,11 @@ public class TableFinishOperator
 
         if (!statisticsAggregationOperator.isFinished()) {
             verify(statisticsAggregationOperator.isBlocked().isDone(), "aggregation operator should not be blocked");
+
+            OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
             Page page = statisticsAggregationOperator.getOutput();
+            timer.end(statisticsTiming);
+
             if (page == null) {
                 return null;
             }
@@ -295,6 +321,15 @@ public class TableFinishOperator
         descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
 
         return statistics.build();
+    }
+
+    @VisibleForTesting
+    TableFinishInfo getInfo()
+    {
+        return new TableFinishInfo(
+                outputMetadata,
+                new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
     }
 
     @Override

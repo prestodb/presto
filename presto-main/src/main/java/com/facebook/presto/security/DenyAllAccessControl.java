@@ -22,6 +22,7 @@ import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableSet;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
@@ -52,7 +53,7 @@ public class DenyAllAccessControl
         implements AccessControl
 {
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName);
     }

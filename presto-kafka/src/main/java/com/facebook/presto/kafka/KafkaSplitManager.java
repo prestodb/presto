@@ -158,7 +158,7 @@ public class KafkaSplitManager
             return CharStreams.toString(new InputStreamReader(inputStream, UTF_8));
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Could not parse the AVRO schema at: " + dataSchemaLocation, e);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
         }
         finally {
             closeQuietly(inputStream);

@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -36,9 +37,11 @@ import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
@@ -119,7 +122,7 @@ public class TestingPrestoServer
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
-    private final QueryManager queryManager;
+    private final SqlQueryManager queryManager;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
@@ -246,7 +249,12 @@ public class TestingPrestoServer
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-        queryManager = injector.getInstance(QueryManager.class);
+        if (coordinator) {
+            queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
+        }
+        else {
+            queryManager = null;
+        }
 
         pluginManager = injector.getInstance(PluginManager.class);
 
@@ -312,6 +320,11 @@ public class TestingPrestoServer
     public QueryManager getQueryManager()
     {
         return queryManager;
+    }
+
+    public Plan getQueryPlan(QueryId queryId)
+    {
+        return queryManager.getQueryPlan(queryId);
     }
 
     public ConnectorId createCatalog(String catalogName, String connectorName)

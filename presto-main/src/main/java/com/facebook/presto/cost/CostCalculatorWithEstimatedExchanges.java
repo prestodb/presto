@@ -20,12 +20,12 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -66,11 +66,11 @@ public class CostCalculatorWithEstimatedExchanges
     }
 
     @Override
-    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, TypeProvider types)
+    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
     {
-        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(numberOfNodes.getAsInt(), stats, lookup, types);
+        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(numberOfNodes.getAsInt(), stats, types);
         PlanNodeCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
-        return costCalculator.calculateCost(node, stats, lookup, session, types).add(estimatedExchangeCost);
+        return costCalculator.calculateCost(node, stats, session, types).add(estimatedExchangeCost);
     }
 
     private static class ExchangeCostEstimator
@@ -78,14 +78,12 @@ public class CostCalculatorWithEstimatedExchanges
     {
         private final int numberOfNodes;
         private final StatsProvider stats;
-        private final Lookup lookup;
         private final TypeProvider types;
 
-        ExchangeCostEstimator(int numberOfNodes, StatsProvider stats, Lookup lookup, TypeProvider types)
+        ExchangeCostEstimator(int numberOfNodes, StatsProvider stats, TypeProvider types)
         {
             this.numberOfNodes = numberOfNodes;
             this.stats = requireNonNull(stats, "stats is null");
-            this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
         }
 
@@ -143,6 +141,12 @@ public class CostCalculatorWithEstimatedExchanges
                     node.getSource(),
                     node.getFilteringSource(),
                     Objects.equals(node.getDistributionType(), Optional.of(SemiJoinNode.DistributionType.REPLICATED)));
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            return calculateJoinCost(node.getLeft(), node.getRight(), true);
         }
 
         private PlanNodeCostEstimate calculateJoinCost(PlanNode probe, PlanNode build, boolean replicated)

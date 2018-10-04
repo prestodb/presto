@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -30,7 +31,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Verify.verify;
 
 /**
@@ -46,6 +49,7 @@ import static com.google.common.base.Verify.verify;
  * - Aggregation
  *        F1(...) mask ($0)
  *        F2(...) mask ($1)
+ *     - Filter(mask ($0) OR mask ($1))
  *     - Project
  *            &lt;identity projections for existing fields&gt;
  *            $0 = C1(...)
@@ -78,6 +82,8 @@ public class ImplementFilteredAggregations
     {
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
+        boolean aggregateWithoutFilterPresent = false;
 
         for (Map.Entry<Symbol, Aggregation> entry : aggregation.getAggregations().entrySet()) {
             Symbol output = entry.getKey();
@@ -92,11 +98,22 @@ public class ImplementFilteredAggregations
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(symbol, filter);
                 mask = Optional.of(symbol);
+
+                maskSymbols.add(symbol.toSymbolReference());
             }
+            else {
+                aggregateWithoutFilterPresent = true;
+            }
+
             aggregations.put(output, new Aggregation(
                     new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
                     entry.getValue().getSignature(),
                     mask));
+        }
+
+        Expression predicate = TRUE_LITERAL;
+        if (!aggregation.hasNonEmptyGroupingSet() && !aggregateWithoutFilterPresent) {
+            predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE_LITERAL);
         }
 
         // identity projection for all existing inputs
@@ -105,10 +122,13 @@ public class ImplementFilteredAggregations
         return Result.ofPlanNode(
                 new AggregationNode(
                         context.getIdAllocator().getNextId(),
-                        new ProjectNode(
+                        new FilterNode(
                                 context.getIdAllocator().getNextId(),
-                                aggregation.getSource(),
-                                newAssignments.build()),
+                                new ProjectNode(
+                                        context.getIdAllocator().getNextId(),
+                                        aggregation.getSource(),
+                                        newAssignments.build()),
+                                predicate),
                         aggregations.build(),
                         aggregation.getGroupingSets(),
                         ImmutableList.of(),

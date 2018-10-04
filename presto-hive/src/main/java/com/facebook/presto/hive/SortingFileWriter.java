@@ -18,6 +18,7 @@ import com.facebook.presto.hive.util.MergingPageIterator;
 import com.facebook.presto.hive.util.SortBuffer;
 import com.facebook.presto.hive.util.TempFileReader;
 import com.facebook.presto.hive.util.TempFileWriter;
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.Page;
@@ -39,10 +40,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NavigableSet;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeSet;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -72,7 +72,8 @@ public class SortingFileWriter
     private final List<SortOrder> sortOrders;
     private final HiveFileWriter outputWriter;
     private final SortBuffer sortBuffer;
-    private final NavigableSet<TempFile> tempFiles = new TreeSet<>(comparing(TempFile::getSize));
+    private final TempFileSinkFactory tempFileSinkFactory;
+    private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
     private final AtomicLong nextFileId = new AtomicLong();
 
     public SortingFileWriter(
@@ -84,7 +85,8 @@ public class SortingFileWriter
             List<Type> types,
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            TempFileSinkFactory tempFileSinkFactory)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -95,6 +97,7 @@ public class SortingFileWriter
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
+        this.tempFileSinkFactory = tempFileSinkFactory;
     }
 
     @Override
@@ -135,16 +138,8 @@ public class SortingFileWriter
         try {
             writeSorted();
             outputWriter.commit();
-
-            for (TempFile tempFile : tempFiles) {
-                Path file = tempFile.getPath();
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
-                    throw new IOException("Failed to delete temporary file: " + file);
-                }
-            }
         }
-        catch (IOException | UncheckedIOException e) {
+        catch (UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
     }
@@ -157,6 +152,12 @@ public class SortingFileWriter
         }
 
         outputWriter.rollback();
+    }
+
+    @Override
+    public long getValidationCpuNanos()
+    {
+        return outputWriter.getValidationCpuNanos();
     }
 
     @Override
@@ -193,7 +194,7 @@ public class SortingFileWriter
             int count = min(maxOpenTempFiles, tempFiles.size() - (maxOpenTempFiles - 1));
 
             List<TempFile> smallestFiles = IntStream.range(0, count)
-                    .mapToObj(i -> tempFiles.pollFirst())
+                    .mapToObj(i -> tempFiles.poll())
                     .collect(toImmutableList());
 
             writeTempFile(writer -> mergeFiles(smallestFiles, writer::writePage));
@@ -222,6 +223,14 @@ public class SortingFileWriter
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders)
                     .forEachRemaining(consumer);
+
+            for (TempFile tempFile : files) {
+                Path file = tempFile.getPath();
+                fileSystem.delete(file, false);
+                if (fileSystem.exists(file)) {
+                    throw new IOException("Failed to delete temporary file: " + file);
+                }
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -232,7 +241,7 @@ public class SortingFileWriter
     {
         Path tempFile = getTempFileName();
 
-        try (TempFileWriter writer = new TempFileWriter(types, fileSystem.create(tempFile))) {
+        try (TempFileWriter writer = new TempFileWriter(types, tempFileSinkFactory.createSink(fileSystem, tempFile))) {
             consumer.accept(writer);
             writer.close();
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
@@ -284,25 +293,6 @@ public class SortingFileWriter
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if ((obj == null) || (getClass() != obj.getClass())) {
-                return false;
-            }
-            TempFile other = (TempFile) obj;
-            return Objects.equals(path, other.path);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(path);
-        }
-
-        @Override
         public String toString()
         {
             return toStringHelper(this)
@@ -310,5 +300,11 @@ public class SortingFileWriter
                     .add("size", size)
                     .toString();
         }
+    }
+
+    public interface TempFileSinkFactory
+    {
+        OrcDataSink createSink(FileSystem fileSystem, Path path)
+                throws IOException;
     }
 }

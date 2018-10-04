@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.GroupingOperationRewriter.calculateGrouping;
 import static org.testng.Assert.assertEquals;
@@ -32,10 +34,10 @@ public class TestGroupingOperationRewriter
     public void testGroupingOperationAllBitsSet()
     {
         List<Integer> groupingOrdinals = ImmutableList.of(0, 4, 8);
-        List<List<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableList.of(1), ImmutableList.of(7, 3, 1), ImmutableList.of(9, 1));
+        List<Set<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableSet.of(1), ImmutableSet.of(7, 3, 1), ImmutableSet.of(9, 1));
 
-        for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(calculateGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 7L);
+        for (Set<Integer> groupingSet : groupingSetOrdinals) {
+            assertEquals(calculateGrouping(groupingSet, groupingOrdinals), 7L);
         }
     }
 
@@ -43,10 +45,10 @@ public class TestGroupingOperationRewriter
     public void testGroupingOperationNoBitsSet()
     {
         List<Integer> groupingOrdinals = ImmutableList.of(4, 6);
-        List<List<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableList.of(4, 6));
+        List<Set<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableSet.of(4, 6));
 
-        for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(calculateGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 0L);
+        for (Set<Integer> groupingSet : groupingSetOrdinals) {
+            assertEquals(calculateGrouping(groupingSet, groupingOrdinals), 0L);
         }
     }
 
@@ -54,22 +56,24 @@ public class TestGroupingOperationRewriter
     public void testGroupingOperationSomeBitsSet()
     {
         List<Integer> groupingOrdinals = ImmutableList.of(7, 2, 9, 3, 5);
-        List<List<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableList.of(4, 2), ImmutableList.of(9, 7, 14), ImmutableList.of(5, 2, 7), ImmutableList.of(3));
+        List<Set<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableSet.of(4, 2), ImmutableSet.of(9, 7, 14), ImmutableSet.of(5, 2, 7), ImmutableSet.of(3));
         List<Long> expectedResults = ImmutableList.of(23L, 11L, 6L, 29L);
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(Long.valueOf(calculateGrouping(groupId, groupingOrdinals, groupingSetOrdinals)), expectedResults.get(groupId));
+            Set<Integer> groupingSet = groupingSetOrdinals.get(groupId);
+            assertEquals(Long.valueOf(calculateGrouping(groupingSet, groupingOrdinals)), expectedResults.get(groupId));
         }
     }
 
     @Test
     public void testMoreThanThirtyTwoArguments()
     {
-        List<List<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableList.of(20, 2, 13, 33, 40, 9, 14), ImmutableList.of(28, 4, 5, 29, 31, 10));
+        List<Set<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableSet.of(20, 2, 13, 33, 40, 9, 14), ImmutableSet.of(28, 4, 5, 29, 31, 10));
         List<Long> expectedResults = ImmutableList.of(822283861886L, 995358664191L);
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(Long.valueOf(calculateGrouping(groupId, fortyIntegers, groupingSetOrdinals)), expectedResults.get(groupId));
+            Set<Integer> groupingSet = groupingSetOrdinals.get(groupId);
+            assertEquals(Long.valueOf(calculateGrouping(groupingSet, fortyIntegers)), expectedResults.get(groupId));
         }
     }
 }

@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +49,15 @@ public class MoreLists
         requireNonNull(mapper, "mapper is null");
         return elements.stream()
                 .map(mapper)
+                .collect(toImmutableList());
+    }
+
+    public static <T> List<T> nElements(int n, IntFunction<T> function)
+    {
+        checkArgument(n >= 0, "n must be greater than or equal to zero");
+        requireNonNull(function, "function is null");
+        return IntStream.range(0, n)
+                .mapToObj(function)
                 .collect(toImmutableList());
     }
 

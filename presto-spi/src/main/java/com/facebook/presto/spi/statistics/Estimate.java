@@ -15,8 +15,9 @@
 package com.facebook.presto.spi.statistics;
 
 import java.util.Objects;
-import java.util.function.Function;
 
+import static java.lang.Double.NaN;
+import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 
 public final class Estimate
@@ -25,27 +26,38 @@ public final class Estimate
     //      Skipping for now as there hard to compute it properly and so far we do not have
     //      usecase for that.
 
-    private static final Estimate UNKNOWN = new Estimate(Double.NaN);
+    private static final Estimate UNKNOWN = new Estimate(NaN);
     private static final Estimate ZERO = new Estimate(0);
 
     private final double value;
 
-    public static Estimate unknownValue()
+    public static Estimate unknown()
     {
         return UNKNOWN;
     }
 
-    public static Estimate zeroValue()
+    public static Estimate zero()
     {
         return ZERO;
     }
 
-    public Estimate(double value)
+    public static Estimate of(double value)
+    {
+        if (isNaN(value)) {
+            throw new IllegalArgumentException("value is NaN");
+        }
+        if (isInfinite(value)) {
+            throw new IllegalArgumentException("value is infinite");
+        }
+        return new Estimate(value);
+    }
+
+    private Estimate(double value)
     {
         this.value = value;
     }
 
-    public boolean isValueUnknown()
+    public boolean isUnknown()
     {
         return isNaN(value);
     }
@@ -53,16 +65,6 @@ public final class Estimate
     public double getValue()
     {
         return value;
-    }
-
-    public Estimate map(Function<Double, Double> mappingFunction)
-    {
-        if (isValueUnknown()) {
-            return this;
-        }
-        else {
-            return new Estimate(mappingFunction.apply(value));
-        }
     }
 
     @Override

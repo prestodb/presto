@@ -23,6 +23,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.PREFER_PARTITIAL_AGGREGATION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -46,6 +47,8 @@ public class TestTpchLocalStats
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
+                // We are not able to calculate stats for PARTIAL aggregations
+                .setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false")
                 .build();
 
         LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
@@ -157,7 +160,7 @@ public class TestTpchLocalStats
         statisticsAssertion.check("SELECT n1.n_nationkey FROM nation n1, nation n2 WHERE n1.n_nationkey + 1 = n2.n_nationkey - 1 AND n1.n_nationkey > 5 AND n2.n_nationkey < 20",
                 // Join is over expressions so that predicate push down doesn't unify ranges of n_nationkey coming from n1 and n2. This, however, makes symbols
                 // stats inaccurate (rules can't update them), so we don't verify them.
-                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(3)));
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(8)));
 
         // two joins on different keys
         statisticsAssertion.check("SELECT * FROM nation, supplier, partsupp WHERE n_nationkey = s_nationkey AND s_suppkey = ps_suppkey",
@@ -389,11 +392,11 @@ public class TestTpchLocalStats
                         .estimate(nullsFraction("o_orderkey"), relativeError(.3, .35))
                         .estimate(lowValue("o_orderkey"), noError())
                         .estimate(highValue("o_orderkey"), noError())
-                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.2))
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.5))
                         .estimate(nullsFraction("o_custkey"), relativeError(.45, .55))
                         .estimate(lowValue("o_custkey"), noError())
                         .estimate(highValue("o_custkey"), noError())
-                        .estimate(distinctValuesCount("o_orderstatus"), relativeError(0.2))
+                        .estimate(distinctValuesCount("o_orderstatus"), relativeError(0.5))
                         .estimate(nullsFraction("o_orderstatus"), noError())
                         .estimate(lowValue("o_orderstatus"), noError())
                         .estimate(highValue("o_orderstatus"), noError()));
@@ -405,11 +408,11 @@ public class TestTpchLocalStats
                         .estimate(nullsFraction("o_orderkey"), relativeError(.3, .35))
                         .estimate(lowValue("o_orderkey"), noError())
                         .estimate(highValue("o_orderkey"), noError())
-                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.2))
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.5))
                         .estimate(nullsFraction("o_custkey"), relativeError(.45, .55))
                         .estimate(lowValue("o_custkey"), noError())
                         .estimate(highValue("o_custkey"), noError())
-                        .estimate(distinctValuesCount("o_orderstatus"), relativeError(0.2))
+                        .estimate(distinctValuesCount("o_orderstatus"), relativeError(0.5))
                         .estimate(nullsFraction("o_orderstatus"), noError())
                         .estimate(lowValue("o_orderstatus"), noError())
                         .estimate(highValue("o_orderstatus"), noError()));

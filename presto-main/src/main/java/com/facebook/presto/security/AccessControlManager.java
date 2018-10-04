@@ -40,6 +40,7 @@ import java.io.File;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,8 +141,9 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
+        requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
 
         authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(principal, userName));
@@ -518,7 +520,7 @@ public class AccessControlManager
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(identity, propertyName));
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(entry.getTransactionHandle(transactionId), identity, propertyName));
         }
     }
 
@@ -537,6 +539,46 @@ public class AccessControlManager
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanSelectFromColumns(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), columnNames));
         }
+    }
+
+    @Override
+    public String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "table name is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, tableName.getCatalogName()));
+        final String expressionFilter = systemAccessControl.get().applyRowLevelFiltering(identity, tableName.asCatalogSchemaTableName());
+
+        // Giving priority to system access control
+        if (expressionFilter != null) {
+            return expressionFilter;
+        }
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry == null) {
+            return null;
+        }
+        return entry.getAccessControl().applyRowlevelFiltering(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName());
+    }
+
+    @Override
+    public String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "table name is null");
+        requireNonNull(columnName, "column name is null");
+
+        // Giving priority to system access control
+        final String columnMasking = systemAccessControl.get().applyColumnMasking(identity, tableName.asCatalogSchemaTableName(), columnName);
+        if (columnMasking != null) {
+            return columnMasking;
+        }
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry == null) {
+            return null;
+        }
+        return entry.getAccessControl().applyColumnMasking(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), columnName);
     }
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
@@ -629,7 +671,7 @@ public class AccessControlManager
             implements SystemAccessControl
     {
         @Override
-        public void checkCanSetUser(Principal principal, String userName)
+        public void checkCanSetUser(Optional<Principal> principal, String userName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }
