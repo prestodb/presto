@@ -150,8 +150,6 @@ Operations
 
     Returns a geometry that represents the point set union of the input geometries.
 
-    This function doesn't support geometry collections.
-
     See also:  :func:`geometry_union`, :func:`geometry_union_agg`
 
 
