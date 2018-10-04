@@ -1186,6 +1186,7 @@ public class FunctionRegistry
         public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
         {
             this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
+                    .putAll(map.functions)
                     .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
                     .build();
 
