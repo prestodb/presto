@@ -11,20 +11,20 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["suppkey_4"])
                         cross join:
-                            join (RIGHT, PARTITIONED):
-                                final aggregation over (partkey_18, suppkey_19)
+                            join (LEFT, PARTITIONED):
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["partkey"])
+                                        scan tpch:partsupp:sf3000.0
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["partkey_18", "suppkey_19"])
-                                            partial aggregation over (partkey_18, suppkey_19)
-                                                scan tpch:lineitem:sf3000.0
+                                        remote exchange (REPARTITION, HASH, ["partkey_8"])
+                                            scan tpch:part:sf3000.0
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["partkey", "suppkey_4"])
-                                        semijoin (PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["partkey"])
-                                                scan tpch:partsupp:sf3000.0
+                                    remote exchange (REPARTITION, HASH, ["partkey_18"])
+                                        final aggregation over (partkey_18, suppkey_19)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["partkey_8"])
-                                                    scan tpch:part:sf3000.0
+                                                remote exchange (REPARTITION, HASH, ["partkey_18", "suppkey_19"])
+                                                    partial aggregation over (partkey_18, suppkey_19)
+                                                        scan tpch:lineitem:sf3000.0
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     single aggregation over ()

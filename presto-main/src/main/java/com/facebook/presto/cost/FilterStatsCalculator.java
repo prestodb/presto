@@ -94,12 +94,8 @@ public class FilterStatsCalculator
             TypeProvider types)
     {
         Expression simplifiedExpression = simplifyExpression(session, predicate, types);
-        PlanNodeStatsEstimate estimate = new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
+        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
                 .process(simplifiedExpression);
-        if (estimate.isOutputRowCountUnknown()) {
-            return normalizer.normalize(filterStatsForUnknownExpression(statsEstimate), types);
-        }
-        return estimate;
     }
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
@@ -130,11 +126,6 @@ public class FilterStatsCalculator
                 false);
         expressionAnalyzer.analyze(expression, Scope.create());
         return expressionAnalyzer.getExpressionTypes();
-    }
-
-    private static PlanNodeStatsEstimate filterStatsForUnknownExpression(PlanNodeStatsEstimate inputStatistics)
-    {
-        return inputStatistics.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
     }
 
     private class FilterExpressionStatsCalculatingVisitor
@@ -187,17 +178,32 @@ public class FilterStatsCalculator
 
         private PlanNodeStatsEstimate estimateLogicalAnd(Expression left, Expression right)
         {
+            // first try to estimate in the fair way
             PlanNodeStatsEstimate leftEstimate = process(left);
             if (!leftEstimate.isOutputRowCountUnknown()) {
                 PlanNodeStatsEstimate logicalAndEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
                 if (!logicalAndEstimate.isOutputRowCountUnknown()) {
                     return logicalAndEstimate;
                 }
-                return filterStatsForUnknownExpression(leftEstimate);
             }
 
+            // If some of the filters cannot be estimated, take the smallest estimate.
+            // Apply 0.9 filter factor as "unknown filter" factor.
             PlanNodeStatsEstimate rightEstimate = process(right);
-            return filterStatsForUnknownExpression(rightEstimate);
+            PlanNodeStatsEstimate smallestKnownEstimate;
+            if (leftEstimate.isOutputRowCountUnknown()) {
+                smallestKnownEstimate = rightEstimate;
+            }
+            else if (rightEstimate.isOutputRowCountUnknown()) {
+                smallestKnownEstimate = leftEstimate;
+            }
+            else {
+                smallestKnownEstimate = leftEstimate.getOutputRowCount() <= rightEstimate.getOutputRowCount() ? leftEstimate : rightEstimate;
+            }
+            if (smallestKnownEstimate.isOutputRowCountUnknown()) {
+                return PlanNodeStatsEstimate.unknown();
+            }
+            return normalizer.normalize(smallestKnownEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT), types);
         }
 
         private PlanNodeStatsEstimate estimateLogicalOr(Expression left, Expression right)
