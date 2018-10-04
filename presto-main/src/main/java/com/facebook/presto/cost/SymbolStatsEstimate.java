@@ -24,6 +24,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 
@@ -148,6 +149,13 @@ public class SymbolStatsEstimate
     public boolean isUnknown()
     {
         return this.equals(UNKNOWN);
+    }
+
+    public boolean isSingleValue()
+    {
+        return distinctValuesCount == 1.0
+                && Double.compare(lowValue, highValue) == 0
+                && !isInfinite(lowValue);
     }
 
     @Override
