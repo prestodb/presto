@@ -266,4 +266,24 @@ public interface ConnectorAccessControl
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return Expression as form of a string. Null if no row filters are present
+     */
+    default String applyRowlevelFiltering(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        return null;
+    }
+
+    /**
+     * Check if identity and table and column has some column making enabled
+     *
+     * @return Expression as form of a string. Null if no column filters are present
+     */
+    default String applyColumnMasking(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, String columnName)
+    {
+        return null;
+    }
 }

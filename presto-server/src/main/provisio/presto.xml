@@ -187,4 +187,11 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <fileSet to="plugin/ranger">
+        <directory path="${basedir}/../presto-ranger-plugin/target/shaded/">
+            <include>presto-ranger-plugin-${project.version}-shaded.jar</include>
+        </directory>
+    </fileSet>
+
 </runtime>

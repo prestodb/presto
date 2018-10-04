@@ -301,4 +301,25 @@ public interface SystemAccessControl
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
     }
+
+    /**
+     * Check if identity and table combination has some row level filtering
+     *
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no row filters are present
+     */
+
+    default String applyRowLevelFiltering(Identity identity, CatalogSchemaTableName tableName)
+    {
+        return null;
+    }
+
+    /**
+     * Check if identity, table and column has some column making enabled
+     *
+     * @return {@link com.facebook.presto.sql.tree.Expression} as string. Null if no column filters are present
+     */
+    default String applyColumnMasking(Identity identity, CatalogSchemaTableName tableName, String columnName)
+    {
+        return null;
+    }
 }

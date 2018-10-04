@@ -159,4 +159,16 @@ public class AllowAllAccessControl
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
     }
+
+    @Override
+    public String applyRowFilters(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public String applyColumnMasking(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, String columnName)
+    {
+        return null;
+    }
 }

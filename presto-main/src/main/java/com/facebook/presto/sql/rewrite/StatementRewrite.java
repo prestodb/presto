@@ -34,7 +34,8 @@ public final class StatementRewrite
             new DescribeOutputRewrite(),
             new ShowQueriesRewrite(),
             new ShowStatsRewrite(),
-            new ExplainRewrite());
+            new ExplainRewrite(),
+            new RowFilterColumnMaskingRewrite());
 
     private StatementRewrite() {}
 
