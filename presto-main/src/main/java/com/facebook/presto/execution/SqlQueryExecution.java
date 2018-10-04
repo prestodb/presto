@@ -18,6 +18,8 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -119,6 +121,8 @@ public class SqlQueryExecution
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
     private final Analysis analysis;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -144,7 +148,9 @@ public class SqlQueryExecution
             QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
             List<Expression> parameters,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -161,6 +167,8 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+            this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -257,7 +265,9 @@ public class SqlQueryExecution
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
-        return new BasicQueryInfo(getQueryInfo());
+        return stateMachine.getFinalQueryInfo()
+                .map(BasicQueryInfo::new)
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQueryScheduler::getBasicStageStats)));
     }
 
     public void startWaitingForResources()
@@ -330,7 +340,7 @@ public class SqlQueryExecution
     @Override
     public Optional<ErrorCode> getErrorCode()
     {
-        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
     }
 
     @Override
@@ -356,7 +366,7 @@ public class SqlQueryExecution
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -642,6 +652,8 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final ClusterMemoryManager clusterMemoryManager;
         private final DataSize preAllocateMemoryThreshold;
+        private final StatsCalculator statsCalculator;
+        private final CostCalculator costCalculator;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -664,7 +676,9 @@ public class SqlQueryExecution
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
-                ClusterMemoryManager clusterMemoryManager)
+                ClusterMemoryManager clusterMemoryManager,
+                StatsCalculator statsCalculator,
+                CostCalculator costCalculator)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -689,6 +703,8 @@ public class SqlQueryExecution
             this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
             this.preAllocateMemoryThreshold = requireNonNull(featuresConfig, "featuresConfig is null").getPreAllocateMemoryThreshold();
             this.planOptimizers = planOptimizers.get();
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+            this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         }
 
         @Override
@@ -723,7 +739,9 @@ public class SqlQueryExecution
                     queryExplainer,
                     executionPolicy,
                     parameters,
-                    schedulerStats);
+                    schedulerStats,
+                    statsCalculator,
+                    costCalculator);
 
             if (preAllocateMemoryThreshold.toBytes() > 0 && session.getResourceEstimates().getPeakMemory().isPresent() &&
                     session.getResourceEstimates().getPeakMemory().get().compareTo(preAllocateMemoryThreshold) >= 0) {

@@ -68,7 +68,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -77,7 +76,7 @@ public class TaskExecutor
     private static final Logger log = Logger.get(TaskExecutor.class);
 
     // print out split call stack if it has been running for a certain amount of time
-    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(1000, TimeUnit.SECONDS);
+    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(600, TimeUnit.SECONDS);
 
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
 
@@ -197,7 +196,6 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
-        splitMonitorExecutor.scheduleWithFixedDelay(this::monitorActiveSplits, 1, 1, MINUTES);
     }
 
     @PreDestroy
@@ -425,25 +423,6 @@ public class TaskExecutor
             }
         }
         return null;
-    }
-
-    private void monitorActiveSplits()
-    {
-        for (RunningSplitInfo splitInfo : runningSplitInfos) {
-            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
-            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) < 0) {
-                return;
-            }
-            if (splitInfo.isPrinted()) {
-                continue;
-            }
-            splitInfo.setPrinted();
-
-            String currentMaxActiveSplit = splitInfo.getThreadId();
-            Exception exception = new Exception("Long running split");
-            exception.setStackTrace(splitInfo.getThread().getStackTrace());
-            log.warn(exception, "Split thread %s has been running longer than %s", currentMaxActiveSplit, duration);
-        }
     }
 
     private class TaskRunner
@@ -775,14 +754,52 @@ public class TaskExecutor
         return count;
     }
 
-    @Managed
-    public long getMaxActiveSplitTime()
+    public String getMaxActiveSplitsInfo()
     {
-        Iterator<RunningSplitInfo> iterator = runningSplitInfos.iterator();
-        if (iterator.hasNext()) {
-            return NANOSECONDS.toMillis(ticker.read() - iterator.next().getStartTime());
+        // Sample output:
+        //
+        // 2 splits have been continuously active for more than 600.00ms seconds
+        //
+        // "20180907_054754_00000_88xi4.1.0-2" tid=99
+        // at java.util.Formatter$FormatSpecifier.<init>(Formatter.java:2708)
+        // at java.util.Formatter.parse(Formatter.java:2560)
+        // at java.util.Formatter.format(Formatter.java:2501)
+        // at ... (more lines of stacktrace)
+        //
+        // "20180907_054754_00000_88xi4.1.0-3" tid=106
+        // at java.util.Formatter$FormatSpecifier.<init>(Formatter.java:2709)
+        // at java.util.Formatter.parse(Formatter.java:2560)
+        // at java.util.Formatter.format(Formatter.java:2501)
+        // at ... (more line of stacktrace)
+        StringBuilder stackTrace = new StringBuilder();
+        int maxActiveSplitCount = 0;
+        String message = "%s splits have been continuously active for more than %s seconds\n";
+        for (RunningSplitInfo splitInfo : runningSplitInfos) {
+            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
+            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
+                maxActiveSplitCount++;
+                stackTrace.append("\n");
+                stackTrace.append(String.format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
+                for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
+                    stackTrace.append("\tat ").append(traceElement).append("\n");
+                }
+            }
         }
-        return 0;
+
+        return String.format(message, maxActiveSplitCount, LONG_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
+    }
+
+    @Managed
+    public long getRunAwaySplitCount()
+    {
+        int count = 0;
+        for (RunningSplitInfo splitInfo : runningSplitInfos) {
+            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
+            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) > 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static class RunningSplitInfo

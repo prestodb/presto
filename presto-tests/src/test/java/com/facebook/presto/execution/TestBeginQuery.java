@@ -175,7 +175,7 @@ public class TestBeginQuery
                 }
 
                 @Override
-                public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+                public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
                     return new TestConnector(metadata);
                 }

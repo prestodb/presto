@@ -181,30 +181,24 @@ public class TestDatabaseShardManager
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
 
         try {
-            shardManager.assignShard(tableId, shard, "node2", true);
+            shardManager.replaceShardAssignment(tableId, shard, "node2", true);
             fail("expected exception");
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), SERVER_STARTING_UP.toErrorCode());
         }
 
-        shardManager.assignShard(tableId, shard, "node2", false);
-
-        // assign shard to another node
-        actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
-
-        // assigning a shard should be idempotent
-        shardManager.assignShard(tableId, shard, "node2", false);
-
-        // remove assignment from first node
-        shardManager.unassignShard(tableId, shard, "node1");
+        // replace shard assignment to another node
+        shardManager.replaceShardAssignment(tableId, shard, "node2", false);
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
 
-        // removing an assignment should be idempotent
-        shardManager.unassignShard(tableId, shard, "node1");
+        // replacing shard assignment should be idempotent
+        shardManager.replaceShardAssignment(tableId, shard, "node2", false);
+
+        actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
     }
 
     @Test
@@ -231,13 +225,13 @@ public class TestDatabaseShardManager
 
         assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L));
 
-        shardManager.assignShard(tableId, shard1, "node2", false);
+        shardManager.replaceShardAssignment(tableId, shard1, "node2", false);
 
         assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
-                new ShardNodes(shard1, ImmutableSet.of("node1", "node2")),
+                new ShardNodes(shard1, ImmutableSet.of("node2")),
                 new ShardNodes(shard2, ImmutableSet.of("node1"))));
 
-        assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L, "node2", 33L));
+        assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 55L, "node2", 33L));
     }
 
     @Test
@@ -409,6 +403,13 @@ public class TestDatabaseShardManager
         assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
         assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(newNodes));
+
+        Set<Node> singleNode = ImmutableSet.of(node1);
+        shardManager = createShardManager(dbi, () -> singleNode, ticker);
+        ticker.increment(2, DAYS);
+        assignments = shardManager.getBucketAssignments(distributionId);
+        assertEquals(assignments.size(), bucketCount);
+        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(singleNode));
     }
 
     @Test

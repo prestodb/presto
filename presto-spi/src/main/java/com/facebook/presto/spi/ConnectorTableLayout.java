@@ -84,8 +84,11 @@ public class ConnectorTableLayout
     }
 
     /**
-     * A predicate that describes the universe of data in this layout. It may be used by the query engine to
-     * infer additional properties and perform further optimizations
+     * A TupleDomain that represents a predicate that every row this TableScan node
+     * produces is guaranteed to satisfy.
+     * <p>
+     * This guarantee can have different origins.
+     * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
      */
     public TupleDomain<ColumnHandle> getPredicate()
     {

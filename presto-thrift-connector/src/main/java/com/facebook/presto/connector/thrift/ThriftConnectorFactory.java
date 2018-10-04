@@ -58,7 +58,7 @@ public class ThriftConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         try {
             Bootstrap app = new Bootstrap(
@@ -69,7 +69,7 @@ public class ThriftConnectorFactory
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     locationModule,
-                    new ThriftModule(connectorId));
+                    new ThriftModule(catalogName));
 
             Injector injector = app
                     .strictConfig()

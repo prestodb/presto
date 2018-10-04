@@ -15,14 +15,15 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftIndexHandle
@@ -30,14 +31,32 @@ public class ThriftIndexHandle
 {
     private final SchemaTableName schemaTableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private final Optional<ConnectorSession> session;
+
+    public ThriftIndexHandle(
+            SchemaTableName schemaTableName,
+            TupleDomain<ColumnHandle> tupleDomain,
+            ConnectorSession session)
+    {
+        this(schemaTableName, tupleDomain, Optional.of(requireNonNull(session, "session is null")));
+    }
 
     @JsonCreator
     public ThriftIndexHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
     {
+        this(schemaTableName, tupleDomain, Optional.empty());
+    }
+
+    private ThriftIndexHandle(
+            SchemaTableName schemaTableName,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<ConnectorSession> session)
+    {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     @JsonProperty
@@ -75,9 +94,7 @@ public class ThriftIndexHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("schemaTableName", schemaTableName)
-                .add("tupleDomain", tupleDomain)
-                .toString();
+        return schemaTableName.toString() +
+                session.map(value -> ", constraint = " + tupleDomain.toString(value)).orElse("");
     }
 }

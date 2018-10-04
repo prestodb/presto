@@ -112,6 +112,8 @@ public class HiveClientModule
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
     }
 
     @ForHiveClient

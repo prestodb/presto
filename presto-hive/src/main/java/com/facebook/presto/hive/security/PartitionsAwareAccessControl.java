@@ -163,9 +163,9 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
-        delegate.checkCanSetCatalogSessionProperty(identity, propertyName);
+        delegate.checkCanSetCatalogSessionProperty(transactionHandle, identity, propertyName);
     }
 
     @Override

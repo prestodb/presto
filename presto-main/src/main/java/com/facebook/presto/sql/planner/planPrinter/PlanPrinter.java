@@ -15,23 +15,12 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.cost.CachingCostProvider;
-import com.facebook.presto.cost.CachingStatsProvider;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.FragmentedPlanCostCalculator;
-import com.facebook.presto.cost.FragmentedPlanSourceProvider;
-import com.facebook.presto.cost.FragmentedPlanStatsCalculator;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
-import com.facebook.presto.cost.PlanNodeSourceProvider;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageStats;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
@@ -88,6 +77,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -159,8 +149,7 @@ public class PlanPrinter
             TypeProvider types,
             Optional<StageExecutionStrategy> stageExecutionStrategy,
             FunctionRegistry functionRegistry,
-            StatsProvider statsProvider,
-            CostProvider costProvider,
+            StatsAndCosts estimatedStatsAndCosts,
             Session session,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
             int indent,
@@ -169,14 +158,13 @@ public class PlanPrinter
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
         requireNonNull(functionRegistry, "functionRegistry is null");
-        requireNonNull(statsProvider, "statsProvider is null");
-        requireNonNull(costProvider, "costProvider is null");
+        requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
 
         this.functionRegistry = functionRegistry;
         this.stats = stats;
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(stageExecutionStrategy, statsProvider, costProvider, types, session);
+        Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, session);
         plan.accept(visitor, indent);
     }
 
@@ -186,24 +174,22 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, statsProvider, costProvider, session, Optional.empty(), indent, false).toString();
+        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty(), indent, false).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, int indent, boolean verbose)
     {
-        return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, statsCalculator, costCalculator, PlanNode::getSources, session, Optional.empty(), indent, verbose);
+        return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty(), indent, verbose);
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, Optional<StageExecutionStrategy> stageExecutionStrategy, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, PlanNodeSourceProvider sourceProvider, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, Optional<StageExecutionStrategy> stageExecutionStrategy, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types, sourceProvider);
-        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, statsProvider, costProvider, session, stats, indent, verbose).toString();
+        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, estimatedStatsAndCosts, session, stats, indent, verbose).toString();
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, Session session, boolean verbose)
+    public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
@@ -212,23 +198,23 @@ public class PlanPrinter
                 .collect(toImmutableList());
         for (StageInfo stageInfo : allStages) {
             Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
-            builder.append(formatFragment(functionRegistry, statsCalculator, costCalculator, nodeManager, nodeSchedulerConfig, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
+            builder.append(formatFragment(functionRegistry, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
         }
 
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, Session session, boolean verbose)
+    public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(functionRegistry, statsCalculator, costCalculator, nodeManager, nodeSchedulerConfig, session, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(functionRegistry, session, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
         }
 
         return builder.toString();
     }
 
-    private static String formatFragment(FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
+    private static String formatFragment(FunctionRegistry functionRegistry, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -288,10 +274,7 @@ public class PlanPrinter
                 .flatMap(f -> f.getSymbols().entrySet().stream())
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-        FragmentedPlanSourceProvider sourceProvider = FragmentedPlanSourceProvider.create(allFragments);
-        statsCalculator = new FragmentedPlanStatsCalculator(statsCalculator, sourceProvider);
-        costCalculator = new FragmentedPlanCostCalculator(sourceProvider, costCalculator, nodeManager, nodeSchedulerConfig);
-        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, statsCalculator, costCalculator, sourceProvider, session, planNodeStats, 1, verbose))
+        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
                 .append("\n");
 
         return builder.toString();
@@ -306,7 +289,8 @@ public class PlanPrinter
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
-                StageExecutionStrategy.ungroupedExecution());
+                StageExecutionStrategy.ungroupedExecution(),
+                StatsAndCosts.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -519,16 +503,14 @@ public class PlanPrinter
     {
         private final Optional<StageExecutionStrategy> stageExecutionStrategy;
         private final TypeProvider types;
-        private final StatsProvider statsProvider;
-        private final CostProvider costProvider;
+        private final StatsAndCosts estimatedStatsAndCosts;
         private final Session session;
 
-        public Visitor(Optional<StageExecutionStrategy> stageExecutionStrategy, StatsProvider statsProvider, CostProvider costProvider, TypeProvider types, Session session)
+        public Visitor(Optional<StageExecutionStrategy> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Session session)
         {
             this.stageExecutionStrategy = stageExecutionStrategy;
             this.types = types;
-            this.statsProvider = statsProvider;
-            this.costProvider = costProvider;
+            this.estimatedStatsAndCosts = estimatedStatsAndCosts;
             this.session = session;
         }
 
@@ -550,13 +532,7 @@ public class PlanPrinter
             }
             node.getFilter().ifPresent(joinExpressions::add);
 
-            if (node.isSpatialJoin()) {
-                print(indent, "- Spatial%s[%s] => [%s]",
-                        node.getType().getJoinLabel(),
-                        Joiner.on(" AND ").join(joinExpressions),
-                        formatOutputs(node.getOutputSymbols()));
-            }
-            else if (node.isCrossJoin()) {
+            if (node.isCrossJoin()) {
                 checkState(joinExpressions.isEmpty());
                 print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
             }
@@ -570,6 +546,22 @@ public class PlanPrinter
 
             node.getDistributionType().ifPresent(distributionType -> print(indent + 2, "Distribution: %s", distributionType));
             node.getSortExpressionContext().ifPresent(context -> print(indent + 2, "SortExpression[%s]", context.getSortExpression()));
+            printPlanNodesStatsAndCost(indent + 2, node);
+            printStats(indent + 2, node.getId());
+            node.getLeft().accept(this, indent + 1);
+            node.getRight().accept(this, indent + 1);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Integer indent)
+        {
+            print(indent, "- %s[%s] => [%s]",
+                    node.getType().getJoinLabel(),
+                    node.getFilter(),
+                    formatOutputs(node.getOutputSymbols()));
+
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
@@ -1381,30 +1373,30 @@ public class PlanPrinter
 
         private void printPlanNodesStatsAndCost(int indent, PlanNode... nodes)
         {
-            if (Arrays.stream(nodes).anyMatch(this::isKnownPlanNodeStatsOrCost)) {
-                String formattedStatsAndCost = Joiner.on("/").join(Arrays.stream(nodes)
-                        .map(this::formatPlanNodeStatsAndCost)
-                        .collect(toImmutableList()));
-                print(indent, "Cost: %s", formattedStatsAndCost);
+            List<String> statsAndCosts = Arrays.stream(nodes)
+                    .map(this::formatPlanNodeStatsAndCost)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+
+            if (!statsAndCosts.isEmpty()) {
+                print(indent, "Cost: %s", Joiner.on("/").join(statsAndCosts));
             }
         }
 
-        private boolean isKnownPlanNodeStatsOrCost(PlanNode node)
+        private Optional<String> formatPlanNodeStatsAndCost(PlanNode node)
         {
-            return !UNKNOWN_STATS.equals(statsProvider.getStats(node))
-                    || !UNKNOWN_COST.equals(costProvider.getCumulativeCost(node));
-        }
-
-        private String formatPlanNodeStatsAndCost(PlanNode node)
-        {
-            PlanNodeStatsEstimate stats = statsProvider.getStats(node);
-            PlanNodeCostEstimate cost = costProvider.getCumulativeCost(node);
-            return String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), UNKNOWN_STATS);
+            PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), UNKNOWN_COST);
+            if (stats.equals(UNKNOWN_STATS) || cost.equals(UNKNOWN_COST)) {
+                return Optional.empty();
+            }
+            return Optional.of(String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputSymbols(), types)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMemoryCost()),
-                    formatDouble(cost.getNetworkCost()));
+                    formatDouble(cost.getNetworkCost())));
         }
     }
 

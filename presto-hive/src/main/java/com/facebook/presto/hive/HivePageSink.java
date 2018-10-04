@@ -85,6 +85,7 @@ public class HivePageSink
 
     private long writtenBytes;
     private long systemMemoryUsage;
+    private long validationCpuNanos;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -168,6 +169,12 @@ public class HivePageSink
     }
 
     @Override
+    public long getValidationCpuNanos()
+    {
+        return validationCpuNanos;
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         // Must be wrapped in doAs entirely
@@ -192,6 +199,9 @@ public class HivePageSink
 
         writtenBytes = writers.stream()
                 .mapToLong(HiveWriter::getWrittenBytes)
+                .sum();
+        validationCpuNanos = writers.stream()
+                .mapToLong(HiveWriter::getValidationCpuNanos)
                 .sum();
 
         if (verificationTasks.isEmpty()) {

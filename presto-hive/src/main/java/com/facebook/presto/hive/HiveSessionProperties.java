@@ -29,9 +29,9 @@ import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingParti
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,6 +64,8 @@ public final class HiveSessionProperties
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
+    private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
+    private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -71,6 +73,7 @@ public final class HiveSessionProperties
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
+    private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -94,7 +97,7 @@ public final class HiveSessionProperties
     }
 
     @Inject
-    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig)
+    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
@@ -166,11 +169,23 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
                         false),
-                doubleProperty(
+                new PropertyMetadata<>(
                         ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
                         "Experimental: ORC: sample percentage for validation for files",
+                        DOUBLE,
+                        Double.class,
                         hiveClientConfig.getOrcWriterValidationPercentage(),
-                        false),
+                        false,
+                        value -> {
+                            double doubleValue = ((Number) value).doubleValue();
+                            if (doubleValue < 0.0 || doubleValue > 100.0) {
+                                throw new PrestoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 0.0 and 100.0 inclusive: %s", ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, doubleValue));
+                            }
+                            return doubleValue;
+                        },
+                        value -> value),
                 stringProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
                         "Experimental: ORC: Level of detail in ORC validation",
@@ -222,6 +237,16 @@ public final class HiveSessionProperties
                         hiveClientConfig.isUseParquetColumnNames(),
                         false),
                 dataSizeSessionProperty(
+                        PARQUET_WRITER_BLOCK_SIZE,
+                        "Parquet: Writer block size",
+                        parquetFileWriterConfig.getBlockSize(),
+                        false),
+                dataSizeSessionProperty(
+                        PARQUET_WRITER_PAGE_SIZE,
+                        "Parquet: Writer page size",
+                        parquetFileWriterConfig.getPageSize(),
+                        false),
+                dataSizeSessionProperty(
                         MAX_SPLIT_SIZE,
                         "Max split size",
                         hiveClientConfig.getMaxSplitSize(),
@@ -255,6 +280,11 @@ public final class HiveSessionProperties
                         PARTITION_STATISTICS_SAMPLE_SIZE,
                         "Maximum sample size of the partitions column statistics",
                         hiveClientConfig.getPartitionStatisticsSampleSize(),
+                        false),
+                booleanProperty(
+                        IGNORE_CORRUPTED_STATISTICS,
+                        "Experimental: Ignore corrupted statistics rather than failing",
+                        hiveClientConfig.isIgnoreCorruptedStatistics(),
                         false),
                 booleanProperty(
                         COLLECT_COLUMN_STATISTICS_ON_WRITE,
@@ -338,10 +368,7 @@ public final class HiveSessionProperties
         boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
         double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
 
-        // if validation sampling is disabled, just use the session property value
-        if (percentage <= 0.0) {
-            return validate;
-        }
+        checkArgument(percentage >= 0.0 && percentage <= 100.0);
 
         // session property can disabled validation
         if (!validate) {
@@ -398,6 +425,16 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
     }
 
+    public static DataSize getParquetWriterBlockSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static DataSize getParquetWriterPageSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
     public static DataSize getMaxSplitSize(ConnectorSession session)
     {
         return session.getProperty(MAX_SPLIT_SIZE, DataSize.class);
@@ -435,6 +472,11 @@ public final class HiveSessionProperties
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
         }
         return size;
+    }
+
+    public static boolean isIgnoreCorruptedStatistics(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_CORRUPTED_STATISTICS, Boolean.class);
     }
 
     public static boolean isCollectColumnStatisticsOnWrite(ConnectorSession session)

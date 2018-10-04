@@ -24,9 +24,17 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 
 import java.io.File;
 
+import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
+
 public class TestHiveClientGlueMetastore
         extends AbstractTestHiveClientLocal
 {
+    public TestHiveClientGlueMetastore()
+    {
+        super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+    }
+
     /**
      * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
      * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
@@ -79,5 +87,12 @@ public class TestHiveClientGlueMetastore
     public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
     {
         // column statistics are not supported by Glue
+    }
+
+    @Override
+    public void testStorePartitionWithStatistics()
+            throws Exception
+    {
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_TABLE_STATISTICS);
     }
 }

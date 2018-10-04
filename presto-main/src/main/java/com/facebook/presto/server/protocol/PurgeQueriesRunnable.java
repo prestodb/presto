@@ -19,7 +19,7 @@ import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
-import java.util.Optional;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentMap;
 
 class PurgeQueriesRunnable
@@ -50,15 +50,16 @@ class PurgeQueriesRunnable
                 if (!query.isSubmissionFinished()) {
                     continue;
                 }
-                Optional<QueryState> state = queryManager.getQueryState(queryId);
-
-                // free up resources if the query completed
-                if (!state.isPresent() || state.get() == QueryState.FAILED) {
-                    query.dispose();
+                try {
+                    // free up resources if the query completed
+                    if (queryManager.getQueryState(queryId) == QueryState.FAILED) {
+                        query.dispose();
+                    }
                 }
-
-                // forget about this query if the query manager is no longer tracking it
-                if (!state.isPresent()) {
+                catch (NoSuchElementException e) {
+                    // make sure all resource are released
+                    query.dispose();
+                    // forget about this query if the query manager is no longer tracking it
                     queries.remove(queryId);
                 }
             }

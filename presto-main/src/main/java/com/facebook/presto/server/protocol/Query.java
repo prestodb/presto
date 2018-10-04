@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -82,7 +83,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +90,6 @@ import static java.util.Objects.requireNonNull;
 class Query
 {
     private static final Logger log = Logger.get(Query.class);
-    private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
     private final QueryId queryId;
@@ -173,7 +172,7 @@ class Query
 
             result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
                 if (state.isDone()) {
-                    QueryInfo queryInfo = queryManager.getQueryInfo(result.getQueryId());
+                    QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
                     result.closeExchangeClientIfNecessary(queryInfo);
                 }
             });
@@ -284,7 +283,7 @@ class Query
         return clearTransactionId;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait)
+    public synchronized ListenableFuture<QueryResults> waitForResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
         if (token.isPresent()) {
@@ -302,7 +301,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -322,8 +321,12 @@ class Query
 
         // otherwise, wait for the query to finish
         queryManager.recordHeartbeat(queryId);
-        return queryManager.getQueryState(queryId).map(this::queryDoneFuture)
-                .orElse(immediateFuture(null));
+        try {
+            return queryDoneFuture(queryManager.getQueryState(queryId));
+        }
+        catch (NoSuchElementException e) {
+            return immediateFuture(null);
+        }
     }
 
     private synchronized Optional<QueryResults> getCachedResult(long token, UriInfo uriInfo)
@@ -333,7 +336,6 @@ class Query
         if (requestedPath.equals(lastResultPath)) {
             if (submissionFuture.isDone()) {
                 // tell query manager we are still interested in the query
-                queryManager.getQueryInfo(queryId);
                 queryManager.recordHeartbeat(queryId);
             }
             return Optional.of(lastResult);
@@ -352,7 +354,7 @@ class Query
         return Optional.empty();
     }
 
-    public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme)
+    public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         if (token.isPresent()) {
@@ -391,7 +393,7 @@ class Query
         }
 
         if (session == null) {
-            session = queryManager.getQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
+            session = queryManager.getFullQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
             serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
         }
 
@@ -405,7 +407,8 @@ class Query
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
             long bytes = 0;
             long rows = 0;
-            while (bytes < DESIRED_RESULT_BYTES) {
+            long targetResultBytes = targetResultSize.toBytes();
+            while (bytes < targetResultBytes) {
                 SerializedPage serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;
@@ -427,7 +430,7 @@ class Query
 
         // get the query info before returning
         // force update if query manager is closed
-        QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
         // TODO: figure out a better way to do this
@@ -571,7 +574,6 @@ class Query
                 .setQueuedSplits(queryStats.getQueuedDrivers())
                 .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
                 .setCompletedSplits(queryStats.getCompletedDrivers())
-                .setUserTimeMillis(queryStats.getTotalUserTime().toMillis())
                 .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
                 .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
@@ -612,7 +614,6 @@ class Query
                 .setQueuedSplits(stageStats.getQueuedDrivers())
                 .setRunningSplits(stageStats.getRunningDrivers() + stageStats.getBlockedDrivers())
                 .setCompletedSplits(stageStats.getCompletedDrivers())
-                .setUserTimeMillis(stageStats.getTotalUserTime().toMillis())
                 .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageStats.getRawInputPositions())

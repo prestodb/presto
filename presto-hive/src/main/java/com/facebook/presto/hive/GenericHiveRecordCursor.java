@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -49,6 +51,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.closeWithSuppression;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
@@ -80,6 +83,7 @@ import static java.util.Objects.requireNonNull;
 class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
+    private final Path path;
     private final RecordReader<K, V> recordReader;
     private final K key;
     private final V value;
@@ -110,6 +114,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private boolean closed;
 
     public GenericHiveRecordCursor(
+            Path path,
             RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
@@ -117,12 +122,14 @@ class GenericHiveRecordCursor<K, V extends Writable>
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
+        requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
+        this.path = path;
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
@@ -212,6 +219,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         catch (IOException | SerDeException | RuntimeException e) {
             closeWithSuppression(this, e);
+            if (e instanceof TextLineLengthLimitExceededException) {
+                throw new PrestoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
+            }
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }

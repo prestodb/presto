@@ -365,6 +365,8 @@ public class OrcMetadataWriter
                 return OrcProto.CompressionKind.SNAPPY;
             case LZ4:
                 return OrcProto.CompressionKind.LZ4;
+            case ZSTD:
+                return OrcProto.CompressionKind.ZSTD;
         }
         throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
     }

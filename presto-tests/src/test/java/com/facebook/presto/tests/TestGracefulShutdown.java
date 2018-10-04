@@ -14,8 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.server.testing.TestingPrestoServer.TestShutdownAction;
 import com.google.common.collect.ImmutableMap;
@@ -94,8 +94,8 @@ public class TestGracefulShutdown
 
             Futures.allAsList(queryFutures).get();
 
-            List<QueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
-            for (QueryInfo info : queryInfos) {
+            List<BasicQueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
+            for (BasicQueryInfo info : queryInfos) {
                 assertEquals(info.getState(), FINISHED);
             }
 

@@ -36,6 +36,7 @@ public class TpchConnectorFactory
 
     private final int defaultSplitsPerNode;
     private final boolean predicatePushdownEnabled;
+    private final boolean partitioningEnabled;
 
     public TpchConnectorFactory()
     {
@@ -44,13 +45,14 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
-        this(defaultSplitsPerNode, true);
+        this(defaultSplitsPerNode, true, true);
     }
 
-    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled, boolean partitioningEnabled)
     {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
+        this.partitioningEnabled = partitioningEnabled;
     }
 
     @Override
@@ -66,7 +68,7 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
@@ -83,7 +85,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId, columnNaming, predicatePushdownEnabled);
+                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled, partitioningEnabled);
             }
 
             @Override

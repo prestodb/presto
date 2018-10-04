@@ -32,6 +32,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
+import static com.facebook.presto.tests.TestGroups.AVRO;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
@@ -42,8 +43,8 @@ import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.onHive;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.populateDataToHiveTable;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -217,7 +218,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH})
+    @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH, AVRO})
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();

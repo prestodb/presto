@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -25,7 +25,6 @@ import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -42,9 +41,9 @@ public class TempFileWriter
 {
     private final OrcWriter orcWriter;
 
-    public TempFileWriter(List<Type> types, OutputStream output)
+    public TempFileWriter(List<Type> types, OrcDataSink sink)
     {
-        this.orcWriter = createOrcFileWriter(output, types);
+        this.orcWriter = createOrcFileWriter(sink, types);
     }
 
     public void writePage(Page page)
@@ -69,22 +68,21 @@ public class TempFileWriter
         return orcWriter.getWrittenBytes();
     }
 
-    private static OrcWriter createOrcFileWriter(OutputStream output, List<Type> types)
+    private static OrcWriter createOrcFileWriter(OrcDataSink sink, List<Type> types)
     {
         List<String> columnNames = IntStream.range(0, types.size())
                 .mapToObj(String::valueOf)
                 .collect(toImmutableList());
 
         return new OrcWriter(
-                new OutputStreamOrcDataSink(output),
+                sink,
                 columnNames,
                 types,
                 ORC,
                 LZ4,
                 new OrcWriterOptions()
                         .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
-                        .withStripeMinSize(new DataSize(4, MEGABYTE))
-                        .withStripeMaxSize(new DataSize(4, MEGABYTE))
+                        .withStripeMinSize(new DataSize(64, MEGABYTE))
                         .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
                 ImmutableMap.of(),
                 UTC,

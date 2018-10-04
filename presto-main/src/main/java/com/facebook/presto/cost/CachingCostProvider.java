@@ -16,7 +16,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
@@ -25,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -35,32 +33,23 @@ public class CachingCostProvider
     private final CostCalculator costCalculator;
     private final StatsProvider statsProvider;
     private final Optional<Memo> memo;
-    private final Lookup lookup;
     private final Session session;
     private final TypeProvider types;
-    private final PlanNodeSourceProvider sourceProvider;
 
     private final Map<PlanNode, PlanNodeCostEstimate> cache = new IdentityHashMap<>();
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Lookup lookup, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
     {
-        this(costCalculator, statsProvider, memo, lookup, session, types, PlanNode::getSources);
+        this(costCalculator, statsProvider, Optional.empty(), session, types);
     }
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types, PlanNodeSourceProvider sourceProvider)
-    {
-        this(costCalculator, statsProvider, Optional.empty(), noLookup(), session, types, sourceProvider);
-    }
-
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Lookup lookup, Session session, TypeProvider types, PlanNodeSourceProvider sourceProvider)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Session session, TypeProvider types)
     {
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
         this.memo = requireNonNull(memo, "memo is null");
-        this.lookup = requireNonNull(lookup, "lookup is null");
         this.session = requireNonNull(session, "session is null");
         this.types = requireNonNull(types, "types is null");
-        this.sourceProvider = requireNonNull(sourceProvider, "sourceProvider is null");
     }
 
     @Override
@@ -100,9 +89,9 @@ public class CachingCostProvider
 
     private PlanNodeCostEstimate calculateCumulativeCost(PlanNode node)
     {
-        PlanNodeCostEstimate localCosts = costCalculator.calculateCost(node, statsProvider, lookup, session, types);
+        PlanNodeCostEstimate localCosts = costCalculator.calculateCost(node, statsProvider, session, types);
 
-        PlanNodeCostEstimate sourcesCost = sourceProvider.getSources(node).stream()
+        PlanNodeCostEstimate sourcesCost = node.getSources().stream()
                 .map(this::getCumulativeCost)
                 .reduce(ZERO_COST, PlanNodeCostEstimate::add);
 

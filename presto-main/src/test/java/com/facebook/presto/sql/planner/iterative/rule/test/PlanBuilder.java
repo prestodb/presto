@@ -92,6 +92,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.util.MoreLists.nElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -163,7 +164,15 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, Symbol... columns)
     {
-        return values(id, ImmutableList.copyOf(columns), ImmutableList.of());
+        return values(id, 0, columns);
+    }
+
+    public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
+    {
+        return values(
+                id,
+                ImmutableList.copyOf(columns),
+                nElements(rows, row -> nElements(columns.length, cell -> (Expression) new NullLiteral())));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
@@ -349,7 +358,7 @@ public class PlanBuilder
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
         TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
-        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -363,7 +372,7 @@ public class PlanBuilder
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout)
     {
-        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(
@@ -371,7 +380,8 @@ public class PlanBuilder
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
             Optional<TableLayoutHandle> tableLayout,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
                 idAllocator.getNextId(),
@@ -379,7 +389,8 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 tableLayout,
-                tupleDomain);
+                currentConstraint,
+                enforcedConstraint);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

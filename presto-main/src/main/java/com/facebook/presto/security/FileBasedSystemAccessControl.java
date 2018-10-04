@@ -120,17 +120,20 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
+        requireNonNull(principal, "principal is null");
+        requireNonNull(userName, "userName is null");
+
         if (!principalUserMatchRules.isPresent()) {
             return;
         }
 
-        if (principal == null) {
+        if (!principal.isPresent()) {
             denySetUser(principal, userName);
         }
 
-        String principalName = principal.getName();
+        String principalName = principal.get().getName();
 
         for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
             Optional<Boolean> allowed = rule.match(principalName, userName);

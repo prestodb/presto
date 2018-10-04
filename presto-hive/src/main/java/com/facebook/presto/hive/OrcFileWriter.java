@@ -33,6 +33,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,12 +51,15 @@ public class OrcFileWriter
         implements HiveFileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
+
+    private long validationCpuNanos;
 
     public OrcFileWriter(
             OrcDataSink orcDataSink,
@@ -152,7 +157,9 @@ public class OrcFileWriter
         if (validationInputFactory.isPresent()) {
             try {
                 try (OrcDataSource input = validationInputFactory.get().get()) {
+                    long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
                     orcWriter.validate(input);
+                    validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;
                 }
             }
             catch (IOException | UncheckedIOException e) {
@@ -175,6 +182,12 @@ public class OrcFileWriter
         catch (Exception e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
+    }
+
+    @Override
+    public long getValidationCpuNanos()
+    {
+        return validationCpuNanos;
     }
 
     @Override

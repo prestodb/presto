@@ -45,8 +45,6 @@ public interface ResourceGroupsDao
             "  jmx_export BOOLEAN NULL,\n" +
             "  soft_cpu_limit VARCHAR(128) NULL,\n" +
             "  hard_cpu_limit VARCHAR(128) NULL,\n" +
-            "  queued_time_limit VARCHAR(128) NULL,\n" +
-            "  running_time_limit VARCHAR(128) NULL,\n" +
             "  parent BIGINT NULL,\n" +
             "  environment VARCHAR(128) NULL,\n" +
             "  PRIMARY KEY (resource_group_id),\n" +
@@ -56,7 +54,7 @@ public interface ResourceGroupsDao
 
     @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
             "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
-            "  hard_cpu_limit, queued_time_limit, running_time_limit, parent\n" +
+            "  hard_cpu_limit, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)

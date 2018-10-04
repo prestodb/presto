@@ -30,6 +30,7 @@ public class ProxyModule
         httpClientBinder(binder).bindHttpClient("proxy", ForProxy.class);
 
         configBinder(binder).bindConfig(ProxyConfig.class);
+        configBinder(binder).bindConfig(JwtHandlerConfig.class, "proxy");
 
         jaxrsBinder(binder).bind(ProxyResource.class);
 

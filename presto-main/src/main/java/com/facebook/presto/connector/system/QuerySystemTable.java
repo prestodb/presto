@@ -16,6 +16,7 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -36,12 +37,15 @@ import org.joda.time.DateTime;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
@@ -95,7 +99,19 @@ public class QuerySystemTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+        List<QueryInfo> queryInfos = queryManager.getQueries().stream()
+                .map(BasicQueryInfo::getQueryId)
+                .map(queryId -> {
+                    try {
+                        return queryManager.getFullQueryInfo(queryId);
+                    }
+                    catch (NoSuchElementException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+        for (QueryInfo queryInfo : queryInfos) {
             QueryStats queryStats = queryInfo.getQueryStats();
             table.addRow(
                     nodeId,

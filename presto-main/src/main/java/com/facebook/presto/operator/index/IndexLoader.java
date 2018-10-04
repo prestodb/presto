@@ -249,7 +249,7 @@ public class IndexLoader
         if (pipelineContext == null) {
             TaskContext taskContext = taskContextReference.get();
             checkState(taskContext != null, "Task context must be set before index can be built");
-            pipelineContext = taskContext.addPipelineContext(indexBuildDriverFactoryProvider.getPipelineId(), false, false);
+            pipelineContext = taskContext.addPipelineContext(indexBuildDriverFactoryProvider.getPipelineId(), true, true);
         }
         if (indexSnapshotLoader == null) {
             indexSnapshotLoader = new IndexSnapshotLoader(

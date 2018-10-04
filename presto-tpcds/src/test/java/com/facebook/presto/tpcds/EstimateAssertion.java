@@ -39,7 +39,7 @@ class EstimateAssertion
 
     private Optional<Double> toOptional(Estimate estimate)
     {
-        return estimate.isValueUnknown() ? empty() : Optional.of(estimate.getValue());
+        return estimate.isUnknown() ? empty() : Optional.of(estimate.getValue());
     }
 
     public void assertClose(Optional<?> actual, Optional<?> expected, String comparedValue)

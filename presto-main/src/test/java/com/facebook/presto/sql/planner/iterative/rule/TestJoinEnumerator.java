@@ -119,7 +119,6 @@ public class TestJoinEnumerator
                 queryRunner.getCostCalculator(),
                 statsProvider,
                 Optional.empty(),
-                noLookup(),
                 queryRunner.getDefaultSession(),
                 symbolAllocator.getTypes());
 

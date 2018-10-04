@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
@@ -23,6 +24,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
@@ -54,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -388,12 +391,12 @@ public class DistributedQueryRunner
 
     public QueryInfo getQueryInfo(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryInfo(queryId);
+        return coordinator.getQueryManager().getFullQueryInfo(queryId);
     }
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryPlan(queryId);
+        return coordinator.getQueryPlan(queryId);
     }
 
     @Override
@@ -417,7 +420,7 @@ public class DistributedQueryRunner
     private void cancelAllQueries()
     {
         QueryManager queryManager = coordinator.getQueryManager();
-        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+        for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
             if (!queryInfo.getState().isDone()) {
                 queryManager.cancelQuery(queryInfo.getQueryId());
             }
@@ -437,7 +440,7 @@ public class DistributedQueryRunner
 
     public static class Builder
     {
-        private final Session defaultSession;
+        private Session defaultSession;
         private int nodeCount = 4;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -446,7 +449,14 @@ public class DistributedQueryRunner
 
         protected Builder(Session defaultSession)
         {
-            this.defaultSession = defaultSession;
+            this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+        }
+
+        public Builder amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
+        {
+            SessionBuilder builder = Session.builder(defaultSession);
+            this.defaultSession = amendSession.apply(builder).build();
+            return this;
         }
 
         public Builder setNodeCount(int nodeCount)

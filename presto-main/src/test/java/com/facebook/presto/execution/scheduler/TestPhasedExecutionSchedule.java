@@ -14,9 +14,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.StageExecutionStrategy;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -47,7 +47,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -184,9 +183,7 @@ public class TestPhasedExecutionSchedule
                 new PlanNodeId(name),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                Optional.empty(),
-                TupleDomain.all());
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
@@ -224,7 +221,7 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(PARTITIONED));
+                Optional.empty());
 
         return createFragment(planNode);
     }
@@ -236,9 +233,7 @@ public class TestPhasedExecutionSchedule
                 new PlanNodeId(name),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                Optional.empty(),
-                TupleDomain.all());
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         return createFragment(planNode);
     }
@@ -256,6 +251,7 @@ public class TestPhasedExecutionSchedule
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
-                StageExecutionStrategy.ungroupedExecution());
+                StageExecutionStrategy.ungroupedExecution(),
+                StatsAndCosts.empty());
     }
 }

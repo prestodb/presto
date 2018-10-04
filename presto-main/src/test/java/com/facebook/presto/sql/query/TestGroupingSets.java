@@ -50,4 +50,26 @@ public class TestGroupingSets
                         "WHERE a IS NOT NULL",
                 "VALUES 1, 2");
     }
+
+    @Test
+    public void testDistinctWithMixedReferences()
+    {
+        assertions.assertQuery("" +
+                        "SELECT a " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY DISTINCT ROLLUP(a, t.a)",
+                "VALUES (1), (NULL)");
+
+        assertions.assertQuery("" +
+                        "SELECT a " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY DISTINCT GROUPING SETS ((a), (t.a))",
+                "VALUES 1");
+
+        assertions.assertQuery("" +
+                        "SELECT a " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY DISTINCT a, GROUPING SETS ((), (t.a))",
+                "VALUES 1");
+    }
 }

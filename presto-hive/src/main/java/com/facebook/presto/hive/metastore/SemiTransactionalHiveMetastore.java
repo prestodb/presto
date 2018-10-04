@@ -57,11 +57,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.HiveUtil.isPrestoView;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
@@ -1038,11 +1040,13 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                    Optional.empty(),
-                    tableAndMore.getStatisticsUpdate(),
-                    false));
+            if (!isPrestoView(table)) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                        Optional.empty(),
+                        tableAndMore.getStatisticsUpdate(),
+                        false));
+            }
         }
 
         private void prepareInsertExistingTable(HdfsContext context, TableAndMore tableAndMore)
@@ -1082,6 +1086,8 @@ public class SemiTransactionalHiveMetastore
                         TRANSACTION_CONFLICT,
                         format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
             }
+            String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
+            PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(partition, partitionName);
             String oldPartitionLocation = oldPartition.get().getStorage().getLocation();
             Path oldPartitionPath = new Path(oldPartitionLocation);
 
@@ -1122,12 +1128,35 @@ public class SemiTransactionalHiveMetastore
             }
             // Partition alter must happen regardless of whether original and current location is the same
             // because metadata might change: e.g. storage format, column types, etc
-            alterPartitionOperations.add(new AlterPartitionOperation(partition, oldPartition.get()));
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
-                    Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
-                    partitionAndMore.getStatisticsUpdate(),
-                    false));
+            alterPartitionOperations.add(new AlterPartitionOperation(
+                    new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()),
+                    new PartitionWithStatistics(oldPartition.get(), partitionName, oldPartitionStatistics)));
+        }
+
+        private PartitionStatistics getExistingPartitionStatistics(Partition partition, String partitionName)
+        {
+            try {
+                PartitionStatistics statistics = delegate.getPartitionStatistics(partition.getDatabaseName(), partition.getTableName(), ImmutableSet.of(partitionName))
+                        .get(partitionName);
+                if (statistics == null) {
+                    throw new PrestoException(
+                            TRANSACTION_CONFLICT,
+                            format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
+                }
+                return statistics;
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode().equals(HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode())) {
+                    log.warn(
+                            e,
+                            "Corrupted statistics found when altering partition. Table: %s.%s. Partition: %s",
+                            partition.getDatabaseName(),
+                            partition.getTableName(),
+                            partition.getValues());
+                    return PartitionStatistics.empty();
+                }
+                throw e;
+            }
         }
 
         private void prepareAddPartition(HdfsContext context, PartitionAndMore partitionAndMore)
@@ -1152,12 +1181,8 @@ public class SemiTransactionalHiveMetastore
                         targetPath,
                         () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
             }
-            partitionAdder.addPartition(partition);
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
-                    Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
-                    partitionAndMore.getStatisticsUpdate(),
-                    false));
+            String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
+            partitionAdder.addPartition(new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()));
         }
 
         private void prepareInsertExistingPartition(HdfsContext context, PartitionAndMore partitionAndMore)
@@ -2289,36 +2314,40 @@ public class SemiTransactionalHiveMetastore
 
     private static class AlterPartitionOperation
     {
-        private final Partition newPartition;
-        private final Partition oldPartition;
-        private boolean done;
+        private final PartitionWithStatistics newPartition;
+        private final PartitionWithStatistics oldPartition;
+        private boolean undo;
 
-        public AlterPartitionOperation(Partition newPartition, Partition oldPartition)
+        public AlterPartitionOperation(PartitionWithStatistics newPartition, PartitionWithStatistics oldPartition)
         {
             this.newPartition = requireNonNull(newPartition, "newPartition is null");
             this.oldPartition = requireNonNull(oldPartition, "oldPartition is null");
-            checkArgument(newPartition.getDatabaseName().equals(oldPartition.getDatabaseName()));
-            checkArgument(newPartition.getTableName().equals(oldPartition.getTableName()));
-            checkArgument(newPartition.getValues().equals(oldPartition.getValues()));
+            checkArgument(newPartition.getPartition().getDatabaseName().equals(oldPartition.getPartition().getDatabaseName()));
+            checkArgument(newPartition.getPartition().getTableName().equals(oldPartition.getPartition().getTableName()));
+            checkArgument(newPartition.getPartition().getValues().equals(oldPartition.getPartition().getValues()));
         }
 
         public String getDescription()
         {
-            return format("alter partition %s.%s %s", newPartition.getDatabaseName(), newPartition.getTableName(), newPartition.getValues());
+            return format(
+                    "alter partition %s.%s %s",
+                    newPartition.getPartition().getDatabaseName(),
+                    newPartition.getPartition().getTableName(),
+                    newPartition.getPartition().getValues());
         }
 
         public void run(ExtendedHiveMetastore metastore)
         {
-            metastore.alterPartition(newPartition.getDatabaseName(), newPartition.getTableName(), newPartition);
-            done = true;
+            undo = true;
+            metastore.alterPartition(newPartition.getPartition().getDatabaseName(), newPartition.getPartition().getTableName(), newPartition);
         }
 
         public void undo(ExtendedHiveMetastore metastore)
         {
-            if (!done) {
+            if (!undo) {
                 return;
             }
-            metastore.alterPartition(oldPartition.getDatabaseName(), oldPartition.getTableName(), oldPartition);
+            metastore.alterPartition(oldPartition.getPartition().getDatabaseName(), oldPartition.getPartition().getTableName(), oldPartition);
         }
     }
 
@@ -2388,7 +2417,7 @@ public class SemiTransactionalHiveMetastore
         private final String tableName;
         private final ExtendedHiveMetastore metastore;
         private final int batchSize;
-        private final List<Partition> partitions;
+        private final List<PartitionWithStatistics> partitions;
         private List<List<String>> createdPartitionValues = new ArrayList<>();
 
         public PartitionAdder(String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
@@ -2410,32 +2439,32 @@ public class SemiTransactionalHiveMetastore
             return tableName;
         }
 
-        public void addPartition(Partition partition)
+        public void addPartition(PartitionWithStatistics partition)
         {
-            checkArgument(getPrestoQueryId(partition).isPresent());
+            checkArgument(getPrestoQueryId(partition.getPartition()).isPresent());
             partitions.add(partition);
         }
 
         public void execute()
         {
-            List<List<Partition>> batchedPartitions = Lists.partition(partitions, batchSize);
-            for (List<Partition> batch : batchedPartitions) {
+            List<List<PartitionWithStatistics>> batchedPartitions = Lists.partition(partitions, batchSize);
+            for (List<PartitionWithStatistics> batch : batchedPartitions) {
                 try {
                     metastore.addPartitions(schemaName, tableName, batch);
-                    for (Partition partition : batch) {
-                        createdPartitionValues.add(partition.getValues());
+                    for (PartitionWithStatistics partition : batch) {
+                        createdPartitionValues.add(partition.getPartition().getValues());
                     }
                 }
                 catch (Throwable t) {
                     // Add partition to the created list conservatively.
                     // Some metastore implementations are known to violate the "all or none" guarantee for add_partitions call.
                     boolean batchCompletelyAdded = true;
-                    for (Partition partition : batch) {
+                    for (PartitionWithStatistics partition : batch) {
                         try {
-                            Optional<Partition> remotePartition = metastore.getPartition(schemaName, tableName, partition.getValues());
+                            Optional<Partition> remotePartition = metastore.getPartition(schemaName, tableName, partition.getPartition().getValues());
                             // getPrestoQueryId(partition) is guaranteed to be non-empty. It is asserted in PartitionAdder.addPartition.
-                            if (remotePartition.isPresent() && getPrestoQueryId(remotePartition.get()).equals(getPrestoQueryId(partition))) {
-                                createdPartitionValues.add(partition.getValues());
+                            if (remotePartition.isPresent() && getPrestoQueryId(remotePartition.get()).equals(getPrestoQueryId(partition.getPartition()))) {
+                                createdPartitionValues.add(partition.getPartition().getValues());
                             }
                             else {
                                 batchCompletelyAdded = false;

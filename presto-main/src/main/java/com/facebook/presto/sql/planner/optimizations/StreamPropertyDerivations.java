@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -198,6 +199,20 @@ public final class StreamPropertyDerivations
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        @Override
+        public StreamProperties visitSpatialJoin(SpatialJoinNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties leftProperties = inputProperties.get(0);
+
+            switch (node.getType()) {
+                case INNER:
+                case LEFT:
+                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
         }
 

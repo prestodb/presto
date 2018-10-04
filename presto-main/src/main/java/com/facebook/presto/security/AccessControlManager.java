@@ -40,6 +40,7 @@ import java.io.File;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,8 +141,9 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
+        requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
 
         authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(principal, userName));
@@ -518,7 +520,7 @@ public class AccessControlManager
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(identity, propertyName));
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(entry.getTransactionHandle(transactionId), identity, propertyName));
         }
     }
 
@@ -669,7 +671,7 @@ public class AccessControlManager
             implements SystemAccessControl
     {
         @Override
-        public void checkCanSetUser(Principal principal, String userName)
+        public void checkCanSetUser(Optional<Principal> principal, String userName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

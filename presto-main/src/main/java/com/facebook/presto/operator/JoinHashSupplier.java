@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
+import static com.facebook.presto.operator.JoinUtils.channelsToPages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -33,7 +35,7 @@ public class JoinHashSupplier
     private final Session session;
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
-    private final List<List<Block>> channels;
+    private final List<Page> pages;
     private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
@@ -49,9 +51,9 @@ public class JoinHashSupplier
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
-        this.channels = requireNonNull(channels, "channels is null");
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
         this.searchFunctionFactories = ImmutableList.copyOf(searchFunctionFactories);
+        requireNonNull(channels, "pages is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
         PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
@@ -67,6 +69,7 @@ public class JoinHashSupplier
             positionLinksFactoryBuilder = ArrayPositionLinks.builder(addresses.size());
         }
 
+        this.pages = channelsToPages(channels);
         this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
@@ -95,13 +98,13 @@ public class JoinHashSupplier
         // We need to create new JoinFilterFunction per each thread using it, since those functions
         // are not thread safe...
         Optional<JoinFilterFunction> filterFunction =
-                filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels));
+                filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, pages));
         return new JoinHash(
                 pagesHash,
                 filterFunction,
                 positionLinks.map(links -> {
                     List<JoinFilterFunction> searchFunctions = searchFunctionFactories.stream()
-                            .map(factory -> factory.create(session.toConnectorSession(), addresses, channels))
+                            .map(factory -> factory.create(session.toConnectorSession(), addresses, pages))
                             .collect(toImmutableList());
                     return links.create(searchFunctions);
                 }));

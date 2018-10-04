@@ -124,7 +124,7 @@ public class QuerySessionSupplier
     public Session createSession(QueryId queryId, SessionContext context, Optional<String> queryType, ResourceGroupId resourceGroupId)
     {
         Identity identity = context.getIdentity();
-        accessControl.checkCanSetUser(identity.getPrincipal().orElse(null), identity.getUser());
+        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)

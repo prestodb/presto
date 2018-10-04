@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -330,7 +331,8 @@ public class TestStageStateMachine
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
-                StageExecutionStrategy.ungroupedExecution());
+                StageExecutionStrategy.ungroupedExecution(),
+                StatsAndCosts.empty());
 
         return planFragment;
     }

@@ -30,6 +30,8 @@ import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -96,6 +98,8 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles = ImmutableList.of();
 
+    private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
+
     private boolean useParquetColumnNames;
     private boolean parquetOptimizedReaderEnabled = true;
     private boolean parquetPredicatePushdownEnabled = true;
@@ -135,6 +139,7 @@ public class HiveClientConfig
 
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
+    private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite;
 
     public int getMaxInitialSplits()
@@ -826,6 +831,8 @@ public class HiveClientConfig
         return this;
     }
 
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
     public double getOrcWriterValidationPercentage()
     {
         return orcWriterValidationPercentage;
@@ -889,6 +896,22 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    @MinDataSize("1B")
+    @MaxDataSize("1GB")
+    @NotNull
+    public DataSize getTextMaxLineLength()
+    {
+        return textMaxLineLength;
+    }
+
+    @Config("hive.text.max-line-length")
+    @ConfigDescription("Maximum line length for text files")
+    public HiveClientConfig setTextMaxLineLength(DataSize textMaxLineLength)
+    {
+        this.textMaxLineLength = textMaxLineLength;
         return this;
     }
 
@@ -1073,6 +1096,19 @@ public class HiveClientConfig
     public HiveClientConfig setPartitionStatisticsSampleSize(int partitionStatisticsSampleSize)
     {
         this.partitionStatisticsSampleSize = partitionStatisticsSampleSize;
+        return this;
+    }
+
+    public boolean isIgnoreCorruptedStatistics()
+    {
+        return ignoreCorruptedStatistics;
+    }
+
+    @Config("hive.ignore-corrupted-statistics")
+    @ConfigDescription("Ignore corrupted statistics rather than failing")
+    public HiveClientConfig setIgnoreCorruptedStatistics(boolean ignoreCorruptedStatistics)
+    {
+        this.ignoreCorruptedStatistics = ignoreCorruptedStatistics;
         return this;
     }
 

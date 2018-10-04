@@ -80,6 +80,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -87,6 +88,7 @@ import static java.lang.Math.sqrt;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
 public final class GeoFunctions
@@ -115,6 +117,46 @@ public final class GeoFunctions
         OGCGeometry geometry = geometryFromText(input);
         validateType("ST_LineFromText", geometry, EnumSet.of(LINE_STRING));
         return serialize(geometry);
+    }
+
+    @Description("Returns a LineString from an array of points")
+    @ScalarFunction("ST_LineString")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stLineString(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
+    {
+        // The number of points added to the LineString
+        int addedPoints = 0;
+
+        MultiPath multipath = new Polyline();
+        for (int i = 0; i < input.getPositionCount(); i++) {
+            Slice slice = GEOMETRY.getSlice(input, i);
+
+            // Ignore null points
+            if (slice.getInput().available() == 0) {
+                continue;
+            }
+
+            OGCGeometry geometry = deserialize(slice);
+            if (!(geometry instanceof OGCPoint)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
+            }
+            OGCPoint point = (OGCPoint) geometry;
+
+            // Empty points are ignored
+            if (point.isEmpty()) {
+                continue;
+            }
+
+            if (addedPoints == 0) {
+                multipath.startPath(point.X(), point.Y());
+            }
+            else {
+                multipath.lineTo(point.X(), point.Y());
+            }
+            addedPoints++;
+        }
+        OGCLineString linestring = new OGCLineString(multipath, 0, null);
+        return serialize(linestring);
     }
 
     @Description("Returns a Geometry type Point object with the given coordinate values")
@@ -169,12 +211,28 @@ public final class GeoFunctions
         return serialize(geometryFromText(input));
     }
 
+    @Description("Returns a Geometry type object from Well-Known Binary representation (WKB)")
+    @ScalarFunction("ST_GeomFromBinary")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stGeomFromBinary(@SqlType(StandardTypes.VARBINARY) Slice input)
+    {
+        return serialize(geomFromBinary(input));
+    }
+
     @Description("Returns the Well-Known Text (WKT) representation of the geometry")
     @ScalarFunction("ST_AsText")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice stAsText(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         return utf8Slice(deserialize(input).asText());
+    }
+
+    @Description("Returns the Well-Known Binary (WKB) representation of the geometry")
+    @ScalarFunction("ST_AsBinary")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice stAsBinary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        return wrappedBuffer(deserialize(input).asBinary());
     }
 
     @SqlNullable
@@ -246,27 +304,13 @@ public final class GeoFunctions
     public static Slice stConvexHull(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-        validateType("ST_ConvexHull", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
         if (geometry.isEmpty()) {
             return input;
         }
         if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
             return input;
         }
-        OGCGeometry convexHull = geometry.convexHull();
-        if (convexHull.isEmpty()) {
-            // This happens for a single-point multi-point because of a bug in ESRI library - https://github.com/Esri/geometry-api-java/issues/172
-            return serialize(createFromEsriGeometry(((MultiVertexGeometry) geometry.getEsriGeometry()).getPoint(0), null));
-        }
-        if (GeometryType.getForEsriGeometryType(convexHull.geometryType()) == MULTI_POLYGON) {
-            MultiVertexGeometry multiVertex = (MultiVertexGeometry) convexHull.getEsriGeometry();
-            if (multiVertex.getPointCount() == 2) {
-                // This happens when all points of the input geometry are on the same line because of a bug in ESRI library - https://github.com/Esri/geometry-api-java/issues/172
-                OGCGeometry linestring = createFromEsriGeometry(new Polyline(multiVertex.getPoint(0), multiVertex.getPoint(1)), null);
-                return serialize(linestring);
-            }
-        }
-        return serialize(convexHull);
+        return serialize(geometry.convexHull());
     }
 
     @Description("Return the coordinate dimension of the Geometry")
@@ -778,15 +822,16 @@ public final class GeoFunctions
         return serialize(leftGeometry.difference(rightGeometry));
     }
 
+    @SqlNullable
     @Description("Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units")
     @ScalarFunction("ST_Distance")
     @SqlType(DOUBLE)
-    public static double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    public static Double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.distance(rightGeometry);
+        return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
     }
 
     @SqlNullable
@@ -1039,6 +1084,20 @@ public final class GeoFunctions
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
+        }
+        geometry.setSpatialReference(null);
+        return geometry;
+    }
+
+    private static OGCGeometry geomFromBinary(Slice input)
+    {
+        requireNonNull(input, "input is null");
+        OGCGeometry geometry;
+        try {
+            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
         }
         geometry.setSpatialReference(null);
         return geometry;

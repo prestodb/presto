@@ -59,9 +59,9 @@ public class RedisConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
         try {
@@ -69,7 +69,7 @@ public class RedisConnectorFactory
                     new JsonModule(),
                     new RedisConnectorModule(),
                     binder -> {
-                        binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(connectorId));
+                        binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 

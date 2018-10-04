@@ -24,6 +24,8 @@ services:
       - '19888:19888'
       - '50070:50070'
       - '50075:50075'
+    volumes:
+       - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
 
   presto-master:
     extends:
@@ -37,6 +39,7 @@ services:
        - hadoop-master
     volumes:
        - ${PRESTO_SERVER_DIR}:/docker/volumes/presto-server
+       - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
 
   application-runner:
     extends:

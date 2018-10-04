@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.metadata.InternalNodeManager;
-
 import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
@@ -25,48 +20,15 @@ import static java.util.Objects.requireNonNull;
 public class ExplainAnalyzeContext
 {
     private final QueryPerformanceFetcher queryPerformanceFetcher;
-    private final StatsCalculator statsCalculator;
-    private final CostCalculator costCalculator;
-    private final InternalNodeManager nodeManager;
-    private final NodeSchedulerConfig nodeSchedulerConfig;
 
     @Inject
-    public ExplainAnalyzeContext(
-            QueryPerformanceFetcher queryPerformanceFetcher,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig nodeSchedulerConfig)
+    public ExplainAnalyzeContext(QueryPerformanceFetcher queryPerformanceFetcher)
     {
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
-        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
     }
 
     public QueryPerformanceFetcher getQueryPerformanceFetcher()
     {
         return queryPerformanceFetcher;
-    }
-
-    public StatsCalculator getStatsCalculator()
-    {
-        return statsCalculator;
-    }
-
-    public CostCalculator getCostCalculator()
-    {
-        return costCalculator;
-    }
-
-    public InternalNodeManager getNodeManager()
-    {
-        return nodeManager;
-    }
-
-    public NodeSchedulerConfig getNodeSchedulerConfig()
-    {
-        return nodeSchedulerConfig;
     }
 }

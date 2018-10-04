@@ -6,7 +6,8 @@ function export_canonical_path() {
     local PATH_REFERENCE=$1
     # when ref=var; var=value; then ${!ref} returns value
     # echo the variable to resolve any wildcards in paths
-    local PATH=$( echo ${!PATH_REFERENCE} )
+    local PATH
+    PATH=$( echo ${!PATH_REFERENCE} )
     if [[ ${PATH} != /* ]] ; then
       PATH=./${PATH}
     fi
@@ -23,7 +24,7 @@ function export_canonical_path() {
 
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-6}
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-10}
 export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp2.6-hive"}
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars

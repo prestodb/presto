@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.testing.ConfigAssertions;
@@ -83,10 +84,9 @@ public class TestFeaturesConfig
                 .setLegacyLogFunction(false)
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
-                .setEnableNewStatsCalculator(true)
+                .setEnableStatsCalculator(true)
                 .setExchangeCompressionEnabled(false)
                 .setLegacyTimestamp(true)
-                .setLegacyRoundNBigint(false)
                 .setLegacyRowFieldOrdinalAccess(false)
                 .setLegacyCharToVarcharCoercion(false)
                 .setEnableIntermediateAggregations(false)
@@ -100,6 +100,7 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
+                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
@@ -115,12 +116,11 @@ public class TestFeaturesConfig
                 .put("network-cost-weight", "0.2")
                 .put("experimental.iterative-optimizer-enabled", "false")
                 .put("experimental.iterative-optimizer-timeout", "10s")
-                .put("experimental.enable-new-stats-calculator", "false")
+                .put("experimental.enable-stats-calculator", "false")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-log-function", "true")
                 .put("deprecated.group-by-uses-equal", "true")
                 .put("deprecated.legacy-map-subscript", "true")
-                .put("deprecated.legacy-round-n-bigint", "true")
                 .put("deprecated.legacy-row-field-ordinal-access", "true")
                 .put("deprecated.legacy-char-to-varchar-coercion", "true")
                 .put("distributed-index-joins-enabled", "true")
@@ -161,6 +161,7 @@ public class TestFeaturesConfig
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implementation", "LEGACY")
                 .put("arrayagg.implementation", "LEGACY")
+                .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("distributed-sort", "false")
@@ -175,7 +176,7 @@ public class TestFeaturesConfig
                 .setNetworkCostWeight(0.2)
                 .setIterativeOptimizerEnabled(false)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
-                .setEnableNewStatsCalculator(false)
+                .setEnableStatsCalculator(false)
                 .setDistributedIndexJoinsEnabled(true)
                 .setJoinDistributionType(BROADCAST)
                 .setGroupedExecutionForAggregationEnabled(true)
@@ -210,7 +211,6 @@ public class TestFeaturesConfig
                 .setLegacyLogFunction(true)
                 .setExchangeCompressionEnabled(true)
                 .setLegacyTimestamp(false)
-                .setLegacyRoundNBigint(true)
                 .setLegacyRowFieldOrdinalAccess(true)
                 .setLegacyCharToVarcharCoercion(true)
                 .setEnableIntermediateAggregations(true)
@@ -223,6 +223,7 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
+                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setLegacyUnnestArrayRows(true)

@@ -330,8 +330,7 @@ public final class TupleDomain<T>
 
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder()
-                .append("TupleDomain:");
+        StringBuilder buffer = new StringBuilder();
         if (isAll()) {
             buffer.append("ALL");
         }

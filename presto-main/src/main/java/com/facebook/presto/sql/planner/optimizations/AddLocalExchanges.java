@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -605,6 +606,20 @@ public class AddLocalExchanges
             PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), singleStream(), singleStream());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(source, filteringSource));
+        }
+
+        @Override
+        public PlanWithProperties visitSpatialJoin(SpatialJoinNode node, StreamPreferredProperties parentPreferences)
+        {
+            PlanWithProperties probe = planAndEnforce(
+                    node.getLeft(),
+                    defaultParallelism(session),
+                    parentPreferences.constrainTo(node.getLeft().getOutputSymbols())
+                            .withDefaultParallelism(session));
+
+            PlanWithProperties build = planAndEnforce(node.getRight(), singleStream(), singleStream());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
         }
 
         @Override

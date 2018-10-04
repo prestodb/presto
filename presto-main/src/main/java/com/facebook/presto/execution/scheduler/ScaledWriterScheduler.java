@@ -39,12 +39,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
-    private interface TaskScheduler
-    {
-        RemoteTask scheduleTask(Node node, int partition, OptionalInt totalPartitions);
-    }
-
-    private final TaskScheduler taskScheduler;
+    private final SqlStageExecution stage;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
@@ -62,8 +57,7 @@ public class ScaledWriterScheduler
             ScheduledExecutorService executor,
             DataSize writerMinSize)
     {
-        requireNonNull(stage, "stage is null");
-        this.taskScheduler = stage::scheduleTask;
+        this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
@@ -125,7 +119,7 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (Node node : nodes) {
-            tasks.add(taskScheduler.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty()));
+            tasks.add(stage.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty()));
             scheduledNodes.add(node);
         }
 

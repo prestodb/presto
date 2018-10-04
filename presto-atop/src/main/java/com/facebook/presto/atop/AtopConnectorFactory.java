@@ -57,7 +57,7 @@ public class AtopConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
@@ -68,7 +68,7 @@ public class AtopConnectorFactory
                             context.getTypeManager(),
                             context.getNodeManager(),
                             context.getNodeManager().getEnvironment(),
-                            connectorId),
+                            catalogName),
                     installModuleIf(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),

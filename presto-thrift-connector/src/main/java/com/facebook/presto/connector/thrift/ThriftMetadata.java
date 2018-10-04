@@ -176,7 +176,7 @@ public class ThriftMetadata
         ThriftTableHandle table = (ThriftTableHandle) tableHandle;
         ThriftTableMetadata tableMetadata = getRequiredTableMetadata(new SchemaTableName(table.getSchemaName(), table.getTableName()));
         if (tableMetadata.containsIndexableColumns(indexableColumns)) {
-            return Optional.of(new ConnectorResolvedIndex(new ThriftIndexHandle(tableMetadata.getSchemaTableName(), tupleDomain), tupleDomain));
+            return Optional.of(new ConnectorResolvedIndex(new ThriftIndexHandle(tableMetadata.getSchemaTableName(), tupleDomain, session), tupleDomain));
         }
         else {
             return Optional.empty();

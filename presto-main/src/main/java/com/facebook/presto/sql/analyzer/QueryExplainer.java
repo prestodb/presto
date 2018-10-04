@@ -17,8 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -59,8 +57,6 @@ public class QueryExplainer
     private final SqlParser sqlParser;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private final InternalNodeManager nodeManager;
-    private final NodeSchedulerConfig nodeSchedulerConfig;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     @Inject
@@ -73,8 +69,6 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig nodeSchedulerConfig,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this(
@@ -86,8 +80,6 @@ public class QueryExplainer
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                nodeManager,
-                nodeSchedulerConfig,
                 dataDefinitionTask);
     }
 
@@ -100,8 +92,6 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig nodeSchedulerConfig,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -112,8 +102,6 @@ public class QueryExplainer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
@@ -133,10 +121,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), statsCalculator, costCalculator, session, 0, false);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), plan.getStatsAndCosts(), session, 0, false);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionRegistry(), statsCalculator, costCalculator, nodeManager, nodeSchedulerConfig, session, false);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionRegistry(), session, false);
             case IO:
                 return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters).getRoot(), metadata, session);
         }
@@ -192,7 +180,7 @@ public class QueryExplainer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
         return logicalPlanner.plan(analysis);
     }
 

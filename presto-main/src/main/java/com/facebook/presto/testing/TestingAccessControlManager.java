@@ -102,7 +102,7 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
             denySetUser(principal, userName);

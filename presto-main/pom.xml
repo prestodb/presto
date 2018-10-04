@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.209</version>
+        <version>0.213-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -383,10 +383,10 @@
             <plugin>
                 <groupId>org.gaul</groupId>
                 <artifactId>modernizer-maven-plugin</artifactId>
-                 <configuration>
-                     <ignorePackages>
-                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
-                     </ignorePackages>
+                <configuration>
+                    <ignorePackages>
+                        <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
+                    </ignorePackages>
                 </configuration>
             </plugin>
             <plugin>
@@ -425,7 +425,7 @@
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />
-                                <argument>com.facebook.presto</argument>
+                                <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
                         </configuration>

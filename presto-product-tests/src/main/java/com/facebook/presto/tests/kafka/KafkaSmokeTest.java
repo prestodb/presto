@@ -23,12 +23,13 @@ import io.prestodb.tempto.fulfillment.table.kafka.KafkaMessage;
 import io.prestodb.tempto.fulfillment.table.kafka.KafkaTableDefinition;
 import io.prestodb.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.prestodb.tempto.query.QueryResult;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import static com.facebook.presto.tests.TestGroups.KAFKA;
@@ -37,7 +38,6 @@ import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestodb.tempto.query.QueryExecutor.query;
-import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -323,11 +323,11 @@ public class KafkaSmokeTest
                 127,
                 1234567890.123456789,
                 true,
-                parseTimestampInLocalTime("2018-02-09 13:15:16.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:17.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:18.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:19.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:20.000", DateTimeZone.UTC),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 16)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 17)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 18)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 19)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 20)),
                 Date.valueOf(LocalDate.of(2018, 2, 11)),
                 Date.valueOf(LocalDate.of(2018, 2, 12)),
                 Date.valueOf(LocalDate.of(2018, 2, 13)),
@@ -336,11 +336,11 @@ public class KafkaSmokeTest
                 Time.valueOf(LocalTime.of(18, 45, 18)),
                 Time.valueOf(LocalTime.of(18, 45, 19)),
                 Time.valueOf(LocalTime.of(18, 45, 20)),
-                parseTimestampInLocalTime("2018-02-09 13:15:16.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:17.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:18.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:19.000", DateTimeZone.UTC),
-                parseTimestampInLocalTime("2018-02-09 13:15:20.000", DateTimeZone.UTC),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 16)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 17)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 18)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 19)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 20)),
                 Time.valueOf(LocalTime.of(18, 45, 16)), // different due to broken TIME datatype semantics
                 Time.valueOf(LocalTime.of(18, 45, 17)),
                 Time.valueOf(LocalTime.of(18, 45, 18)),

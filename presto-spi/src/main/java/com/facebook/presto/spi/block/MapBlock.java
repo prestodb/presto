@@ -18,8 +18,11 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.MapBlockBuilder.buildHashTable;
@@ -53,7 +56,7 @@ public class MapBlock
      * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
     public static MapBlock fromKeyValueBlock(
-            boolean[] mapIsNull,
+            Optional<boolean[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -62,9 +65,9 @@ public class MapBlock
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode)
     {
-        validateConstructorArguments(0, mapIsNull.length, mapIsNull, offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
+        validateConstructorArguments(0, offsets.length - 1, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
 
-        int mapCount = mapIsNull.length;
+        int mapCount = offsets.length - 1;
         int elementCount = keyBlock.getPositionCount();
         int[] hashTables = new int[elementCount * HASH_MULTIPLIER];
         Arrays.fill(hashTables, -1);
@@ -74,7 +77,7 @@ public class MapBlock
             if (keyCount < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
             }
-            if (mapIsNull[i] && keyCount != 0) {
+            if (mapIsNull.isPresent() && mapIsNull.get()[i] && keyCount != 0) {
                 throw new IllegalArgumentException("A null map must have zero entries");
             }
             buildHashTable(keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
@@ -105,7 +108,7 @@ public class MapBlock
     public static MapBlock createMapBlockInternal(
             int startOffset,
             int positionCount,
-            boolean[] mapIsNull,
+            Optional<boolean[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -114,14 +117,14 @@ public class MapBlock
             MethodHandle keyBlockNativeEquals,
             MethodHandle keyNativeHashCode)
     {
-        validateConstructorArguments(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, keyType, keyBlockNativeEquals, keyNativeHashCode);
-        return new MapBlock(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        validateConstructorArguments(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        return new MapBlock(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, hashTables, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
     private static void validateConstructorArguments(
             int startOffset,
             int positionCount,
-            boolean[] mapIsNull,
+            @Nullable boolean[] mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -137,8 +140,7 @@ public class MapBlock
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        requireNonNull(mapIsNull, "mapIsNull is null");
-        if (mapIsNull.length - startOffset < positionCount) {
+        if (mapIsNull != null && mapIsNull.length - startOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
 
@@ -165,7 +167,7 @@ public class MapBlock
     private MapBlock(
             int startOffset,
             int positionCount,
-            boolean[] mapIsNull,
+            @Nullable boolean[] mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -224,6 +226,7 @@ public class MapBlock
     }
 
     @Override
+    @Nullable
     protected boolean[] getMapIsNull()
     {
         return mapIsNull;
@@ -296,7 +299,7 @@ public class MapBlock
         return createMapBlockInternal(
                 startOffset,
                 positionCount,
-                mapIsNull,
+                Optional.ofNullable(mapIsNull),
                 offsets,
                 keyBlock,
                 loadedValueBlock,

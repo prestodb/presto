@@ -84,12 +84,6 @@ public final class TestingSession
         }
 
         @Override
-        public boolean isLegacyRoundNBigint()
-        {
-            return false;
-        }
-
-        @Override
         public <T> T getProperty(String name, Class<T> type)
         {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);

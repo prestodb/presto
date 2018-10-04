@@ -14,6 +14,14 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.StatsCalculatorModule;
+import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.CommitTask;
@@ -131,6 +139,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
@@ -175,6 +184,10 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(WorkerResource.class);
         httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
 
+        // query monitor
+        configBinder(binder).bindConfig(QueryMonitorConfig.class);
+        binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
+
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
         jaxrsBinder(binder).bind(StageResource.class);
@@ -202,6 +215,14 @@ public class CoordinatorModule
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        // statistics calculator
+        binder.install(new StatsCalculatorModule());
+
+        // cost calculator
+        binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
@@ -288,7 +309,7 @@ public class CoordinatorModule
     @Singleton
     public static QueryPerformanceFetcher createQueryPerformanceFetcher(QueryManager queryManager)
     {
-        return queryManager::getQueryInfo;
+        return queryManager::getFullQueryInfo;
     }
 
     @Provides

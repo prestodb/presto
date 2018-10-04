@@ -78,6 +78,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionsPerWriter(100)
                 .setMaxOpenSortFiles(50)
                 .setWriteValidationThreads(16)
+                .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
                 .setUseParquetColumnNames(false)
                 .setUseOrcColumnNames(false)
                 .setParquetPredicatePushdownEnabled(true)
@@ -107,6 +108,7 @@ public class TestHiveClientConfig
                 .setCreatesOfNonManagedTablesEnabled(true)
                 .setHdfsWireEncryptionEnabled(false)
                 .setPartitionStatisticsSampleSize(100)
+                .setIgnoreCorruptedStatistics(false)
                 .setCollectColumnStatisticsOnWrite(false));
     }
 
@@ -154,6 +156,7 @@ public class TestHiveClientConfig
                 .put("hive.force-local-scheduling", "true")
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.assume-canonical-partition-keys", "true")
+                .put("hive.text.max-line-length", "13MB")
                 .put("hive.parquet.use-column-names", "true")
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.parquet-predicate-pushdown.enabled", "false")
@@ -183,6 +186,7 @@ public class TestHiveClientConfig
                 .put("hive.non-managed-table-creates-enabled", "false")
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.partition-statistics-sample-size", "1234")
+                .put("hive.ignore-corrupted-statistics", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
                 .build();
 
@@ -226,6 +230,7 @@ public class TestHiveClientConfig
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
+                .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
                 .setUseParquetColumnNames(true)
                 .setUseOrcColumnNames(true)
                 .setParquetPredicatePushdownEnabled(false)
@@ -256,6 +261,7 @@ public class TestHiveClientConfig
                 .setCreatesOfNonManagedTablesEnabled(false)
                 .setHdfsWireEncryptionEnabled(true)
                 .setPartitionStatisticsSampleSize(1234)
+                .setIgnoreCorruptedStatistics(true)
                 .setCollectColumnStatisticsOnWrite(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

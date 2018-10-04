@@ -131,6 +131,13 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public List<FieldSchema> getFields(String databaseName, String tableName)
+            throws TException
+    {
+        return ImmutableList.of(new FieldSchema("key", "string", null));
+    }
+
+    @Override
     public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
     {
         throw new UnsupportedOperationException();

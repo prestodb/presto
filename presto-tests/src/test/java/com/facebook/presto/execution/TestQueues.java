@@ -290,7 +290,7 @@ public class TestQueues
     {
         QueryId queryId = createQuery(queryRunner, session, query);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupId();
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
     }

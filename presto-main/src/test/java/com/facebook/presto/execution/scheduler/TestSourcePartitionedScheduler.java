@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory.MockRemoteTask;
@@ -37,7 +38,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -432,9 +432,7 @@ public class TestSourcePartitionedScheduler
                 tableScanNodeId,
                 new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
                 ImmutableList.of(symbol),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                Optional.empty(),
-                TupleDomain.all());
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(), Optional.empty(), GATHER);
         PlanFragment testFragment = new PlanFragment(
@@ -451,12 +449,13 @@ public class TestSourcePartitionedScheduler
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(JoinNode.DistributionType.PARTITIONED)),
+                        Optional.empty()),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
-                StageExecutionStrategy.ungroupedExecution());
+                StageExecutionStrategy.ungroupedExecution(),
+                StatsAndCosts.empty());
 
         return new StageExecutionPlan(
                 testFragment,

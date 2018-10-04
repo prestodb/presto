@@ -40,12 +40,12 @@ import static java.util.Objects.requireNonNull;
 public class KuduModule
         extends AbstractModule
 {
-    private final String connectorId;
+    private final String catalogName;
     private final TypeManager typeManager;
 
-    public KuduModule(String connectorId, TypeManager typeManager)
+    public KuduModule(String catalogName, TypeManager typeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName qis null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -57,7 +57,7 @@ public class KuduModule
         bind(TypeManager.class).toInstance(typeManager);
 
         bind(KuduConnector.class).in(Scopes.SINGLETON);
-        bind(KuduConnectorId.class).toInstance(new KuduConnectorId(connectorId));
+        bind(KuduConnectorId.class).toInstance(new KuduConnectorId(catalogName));
         bind(KuduMetadata.class).in(Scopes.SINGLETON);
         bind(KuduTableProperties.class).in(Scopes.SINGLETON);
         bind(ConnectorSplitManager.class).to(KuduSplitManager.class).in(Scopes.SINGLETON);

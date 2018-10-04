@@ -185,12 +185,10 @@ public final class ComparisonStatsCalculator
         StatisticRange intersect = leftRange.intersect(rightRange);
 
         double nullsFilterFactor = (1 - leftStats.getNullsFraction()) * (1 - rightStats.getNullsFraction());
-        double leftFilterFactor = firstNonNaN(leftRange.overlapPercentWith(intersect), 1);
-        double rightFilterFactor = firstNonNaN(rightRange.overlapPercentWith(intersect), 1);
-        double leftNdvInRange = leftFilterFactor * leftRange.getDistinctValuesCount();
-        double rightNdvInRange = rightFilterFactor * rightRange.getDistinctValuesCount();
-        double filterFactor = 1 * leftFilterFactor * rightFilterFactor / max(leftNdvInRange, rightNdvInRange, 1);
-        double retainedNdv = min(leftNdvInRange, rightNdvInRange);
+        double leftNdv = leftRange.getDistinctValuesCount();
+        double rightNdv = rightRange.getDistinctValuesCount();
+        double filterFactor = 1.0 / max(leftNdv, rightNdv, 1);
+        double retainedNdv = min(leftNdv, rightNdv);
 
         PlanNodeStatsEstimate.Builder estimate = PlanNodeStatsEstimate.buildFrom(inputStatistics)
                 .setOutputRowCount(inputStatistics.getOutputRowCount() * nullsFilterFactor * filterFactor);

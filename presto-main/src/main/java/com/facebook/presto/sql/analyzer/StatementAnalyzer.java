@@ -204,6 +204,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.toIntExact;
@@ -955,7 +956,7 @@ class StatementAnalyzer
             node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
 
             List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
-            List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
+            List<Expression> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
             analyzeHaving(node, sourceScope);
 
             Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope);
@@ -977,7 +978,7 @@ class StatementAnalyzer
             List<FunctionCall> aggregations = analyzeAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
             analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
-            if (!groupByExpressions.isEmpty() && node.getOrderBy().isPresent()) {
+            if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
                 // Create a different scope for ORDER BY expressions when aggregation is present.
                 // This is because planner requires scope in order to resolve names against fields.
                 // Original ORDER BY scope "sees" FROM query fields. However, during planning
@@ -1482,106 +1483,103 @@ class StatementAnalyzer
             }
         }
 
-        private List<List<Expression>> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
+        private List<Expression> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
         {
-            List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
-
             if (node.getGroupBy().isPresent()) {
-                checkGroupingSetsCount(node.getGroupBy().get());
+                ImmutableList.Builder<Set<FieldId>> cubes = ImmutableList.builder();
+                ImmutableList.Builder<List<FieldId>> rollups = ImmutableList.builder();
+                ImmutableList.Builder<List<Set<FieldId>>> sets = ImmutableList.builder();
+                ImmutableList.Builder<Expression> complexExpressions = ImmutableList.builder();
+                ImmutableList.Builder<Expression> groupingExpressions = ImmutableList.builder();
 
-                node.getGroupBy().get().getGroupingElements().stream()
-                        .filter(element -> !(element instanceof SimpleGroupBy)) // Only SimpleGroupBy allows complex expressions (a deviation from the SQL specification)
-                        .flatMap(element -> element.getExpressions().stream())
-                        .forEach(column -> {
+                checkGroupingSetsCount(node.getGroupBy().get());
+                for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                    if (groupingElement instanceof SimpleGroupBy) {
+                        for (Expression column : groupingElement.getExpressions()) {
+                            // simple GROUP BY expressions allow ordinals or arbitrary expressions
+                            if (column instanceof LongLiteral) {
+                                long ordinal = ((LongLiteral) column).getValue();
+                                if (ordinal < 1 || ordinal > outputExpressions.size()) {
+                                    throw new SemanticException(INVALID_ORDINAL, column, "GROUP BY position %s is not in select list", ordinal);
+                                }
+
+                                column = outputExpressions.get(toIntExact(ordinal - 1));
+                            }
+                            else {
+                                analyzeExpression(column, scope);
+                            }
+
+                            FieldId field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
+                            if (field != null) {
+                                sets.add(ImmutableList.of(ImmutableSet.of(field)));
+                            }
+                            else {
+                                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), column, "GROUP BY clause");
+                                analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                                complexExpressions.add(column);
+                            }
+
+                            groupingExpressions.add(column);
+                        }
+                    }
+                    else {
+                        for (Expression column : groupingElement.getExpressions()) {
                             analyzeExpression(column, scope);
                             if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
                                 throw new SemanticException(SemanticErrorCode.MUST_BE_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
                             }
-                        });
 
-                List<List<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().get().getGroupingElements().stream()
-                        .map(GroupingElement::enumerateGroupingSets)
-                        .collect(toImmutableList());
+                            groupingExpressions.add(column);
+                        }
 
-                // compute cross product of enumerated grouping sets, if there are any
-                computedGroupingSets = computeGroupingSetsCrossProduct(enumeratedGroupingSets, node.getGroupBy().get().isDistinct());
-                checkState(!computedGroupingSets.isEmpty(), "computed grouping sets cannot be empty");
-            }
-            else if (hasAggregates(node)) {
-                // if there are aggregates, but no group by, create a grand total grouping set (global aggregation)
-                computedGroupingSets = ImmutableList.of(ImmutableSet.of());
-            }
+                        if (groupingElement instanceof Cube) {
+                            Set<FieldId> cube = groupingElement.getExpressions().stream()
+                                    .map(NodeRef::of)
+                                    .map(analysis.getColumnReferenceFields()::get)
+                                    .collect(toImmutableSet());
 
-            List<List<Expression>> analyzedGroupingSets = computedGroupingSets.stream()
-                    .map(groupingSet -> analyzeGroupingColumns(groupingSet, node, scope, outputExpressions))
-                    .collect(toImmutableList());
+                            cubes.add(cube);
+                        }
+                        else if (groupingElement instanceof Rollup) {
+                            List<FieldId> rollup = groupingElement.getExpressions().stream()
+                                    .map(NodeRef::of)
+                                    .map(analysis.getColumnReferenceFields()::get)
+                                    .collect(toImmutableList());
 
-            analysis.setGroupingSets(node, analyzedGroupingSets);
-            return analyzedGroupingSets;
-        }
+                            rollups.add(rollup);
+                        }
+                        else if (groupingElement instanceof GroupingSets) {
+                            List<Set<FieldId>> groupingSets = ((GroupingSets) groupingElement).getSets().stream()
+                                    .map(set -> set.stream()
+                                            .map(NodeRef::of)
+                                            .map(analysis.getColumnReferenceFields()::get)
+                                            .collect(toImmutableSet()))
+                                    .collect(toImmutableList());
 
-        private List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
-        {
-            checkState(!enumeratedGroupingSets.isEmpty(), "enumeratedGroupingSets cannot be empty");
-
-            List<Set<Expression>> groupingSetsCrossProduct = new ArrayList<>();
-            enumeratedGroupingSets.get(0)
-                    .stream()
-                    .map(ImmutableSet::copyOf)
-                    .forEach(groupingSetsCrossProduct::add);
-
-            for (int i = 1; i < enumeratedGroupingSets.size(); i++) {
-                List<Set<Expression>> groupingSets = enumeratedGroupingSets.get(i);
-                List<Set<Expression>> oldGroupingSetsCrossProduct = ImmutableList.copyOf(groupingSetsCrossProduct);
-                groupingSetsCrossProduct.clear();
-                for (Set<Expression> existingSet : oldGroupingSetsCrossProduct) {
-                    for (Set<Expression> groupingSet : groupingSets) {
-                        Set<Expression> concatenatedSet = ImmutableSet.<Expression>builder()
-                                .addAll(existingSet)
-                                .addAll(groupingSet)
-                                .build();
-                        groupingSetsCrossProduct.add(concatenatedSet);
+                            sets.add(groupingSets);
+                        }
                     }
                 }
-            }
 
-            if (isDistinct) {
-                return ImmutableList.copyOf(ImmutableSet.copyOf(groupingSetsCrossProduct));
-            }
-
-            return groupingSetsCrossProduct;
-        }
-
-        private List<Expression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, Scope scope, List<Expression> outputExpressions)
-        {
-            ImmutableList.Builder<Expression> groupingColumnsBuilder = ImmutableList.builder();
-            for (Expression groupingColumn : groupingColumns) {
-                // first, see if this is an ordinal
-                Expression groupByExpression;
-
-                if (groupingColumn instanceof LongLiteral) {
-                    long ordinal = ((LongLiteral) groupingColumn).getValue();
-                    if (ordinal < 1 || ordinal > outputExpressions.size()) {
-                        throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
+                List<Expression> expressions = groupingExpressions.build();
+                for (Expression expression : expressions) {
+                    Type type = analysis.getType(expression);
+                    if (!type.isComparable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
                     }
-
-                    groupByExpression = outputExpressions.get(toIntExact(ordinal - 1));
-                }
-                else {
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, scope);
-                    analysis.recordSubqueries(node, expressionAnalysis);
-                    groupByExpression = groupingColumn;
                 }
 
-                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY clause");
-                Type type = analysis.getType(groupByExpression);
-                if (!type.isComparable()) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
-                }
+                analysis.setGroupByExpressions(node, expressions);
+                analysis.setGroupingSets(node, new Analysis.GroupingSetAnalysis(cubes.build(), rollups.build(), sets.build(), complexExpressions.build()));
 
-                groupingColumnsBuilder.add(groupByExpression);
+                return expressions;
             }
-            return groupingColumnsBuilder.build();
+
+            if (hasAggregates(node)) {
+                analysis.setGroupByExpressions(node, ImmutableList.of());
+            }
+
+            return ImmutableList.of();
         }
 
         private Scope computeAndAssignOutputScope(QuerySpecification node, Optional<Scope> scope, Scope sourceScope)
@@ -1649,16 +1647,14 @@ class StatementAnalyzer
             return orderByScope;
         }
 
-        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope sourceScope, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions, List<GroupingOperation> groupingOperations)
+        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope sourceScope, Scope outputScope, List<FunctionCall> aggregations, List<Expression> groupByExpressions, List<GroupingOperation> groupingOperations)
         {
             // This scope is only used for planning. When aggregation is present then
             // only output fields, groups and aggregation expressions should be visible from ORDER BY expression
-            ImmutableList.Builder<Expression> orderByAggregationExpressionsBuilder = ImmutableList.builder();
-            groupByExpressions.stream()
-                    .flatMap(List::stream)
-                    .forEach(orderByAggregationExpressionsBuilder::add);
-            orderByAggregationExpressionsBuilder.addAll(aggregations);
-            orderByAggregationExpressionsBuilder.addAll(groupingOperations);
+            ImmutableList.Builder<Expression> orderByAggregationExpressionsBuilder = ImmutableList.<Expression>builder()
+                    .addAll(groupByExpressions)
+                    .addAll(aggregations)
+                    .addAll(groupingOperations);
 
             // Don't add aggregate complex expressions that contains references to output column because the names would clash in TranslationMap during planning.
             List<Expression> orderByExpressionsReferencingOutputScope = AstUtils.preOrder(node)
@@ -1798,7 +1794,7 @@ class StatementAnalyzer
                 QuerySpecification node,
                 Scope sourceScope,
                 Optional<Scope> orderByScope,
-                List<List<Expression>> groupingSets,
+                List<Expression> groupByExpressions,
                 List<Expression> outputExpressions,
                 List<Expression> orderByExpressions)
         {
@@ -1807,15 +1803,13 @@ class StatementAnalyzer
             List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata.getFunctionRegistry());
             analysis.setAggregates(node, aggregates);
 
-            // is this an aggregation query?
-            if (!groupingSets.isEmpty()) {
+            if (analysis.isAggregation(node)) {
                 // ensure SELECT, ORDER BY and HAVING are constant with respect to group
                 // e.g, these are all valid expressions:
                 //     SELECT f(a) GROUP BY a
                 //     SELECT f(a + 1) GROUP BY a + 1
                 //     SELECT a + sum(b) GROUP BY a
-                ImmutableList<Expression> distinctGroupingColumns = groupingSets.stream()
-                        .flatMap(Collection::stream)
+                List<Expression> distinctGroupingColumns = groupByExpressions.stream()
                         .distinct()
                         .collect(toImmutableList());
 

@@ -19,8 +19,6 @@ import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -188,6 +186,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
     }
 
+    protected void assertQuerySucceeds(Session session, @Language("SQL") String sql)
+    {
+        QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
+    }
+
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
     {
         QueryAssertions.assertQueryFailsEventually(queryRunner, getSession(), sql, expectedMessageRegExp, timeout);
@@ -335,8 +338,6 @@ public abstract class AbstractTestQueryFramework
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator,
-                new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
                 ImmutableMap.of());
     }
 

@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -106,7 +107,7 @@ public class ListStreamReader
         // We will use the offsetVector as the buffer to read the length values from lengthStream,
         // and the length values will be converted in-place to an offset vector.
         int[] offsetVector = new int[nextBatchSize + 1];
-        boolean[] nullVector = new boolean[nextBatchSize];
+        boolean[] nullVector = null;
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
@@ -114,6 +115,7 @@ public class ListStreamReader
             lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
         }
         else {
+            nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
@@ -143,7 +145,7 @@ public class ListStreamReader
         else {
             elements = elementType.createBlockBuilder(null, 0).build();
         }
-        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, nullVector, offsetVector, elements);
+        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, elements);
 
         readOffset = 0;
         nextBatchSize = 0;
