@@ -105,4 +105,46 @@ public class TestShowStats
                         "   ('comment', 310.0, 5.0, 0.0, null, null, null), " +
                         "   (null, null, null, null, 5.0, null, null))");
     }
+
+    @Test
+    public void testShowStatsWithoutFromFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT 1)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithMultipleFromFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders, lineitem)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithGroupByFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY clerk)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithHavingFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT avg(orderkey) FROM orders HAVING avg(orderkey) < 5)", ".*HAVING is not supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithSelectDistinctFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT DISTINCT * FROM orders)", ".*DISTINCT is not supported by SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithSelectFunctionCallFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only \\* and column references are supported by SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithWhereFunctionCallFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
+    }
 }
