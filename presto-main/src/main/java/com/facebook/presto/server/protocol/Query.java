@@ -416,7 +416,7 @@ class Query
                 }
 
                 Page page = serde.deserialize(serializedPage);
-                bytes += page.getLogicalSizeInBytes();
+                bytes += page.getSizeInBytes();
                 rows += page.getPositionCount();
                 pages.add(new RowIterable(session.toConnectorSession(), types, page));
             }
