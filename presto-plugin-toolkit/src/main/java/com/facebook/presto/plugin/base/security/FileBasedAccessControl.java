@@ -256,6 +256,18 @@ public class FileBasedAccessControl
         }
     }
 
+    @Override
+    public String applyRowlevelFiltering(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public String applyColumnMasking(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, String columnName)
+    {
+        return null;
+    }
+
     private boolean canSetSessionProperty(Identity identity, String property)
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {

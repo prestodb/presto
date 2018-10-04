@@ -1,0 +1,245 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <property>
+        <name>xasecure.audit.is.enabled</name>
+        <value>true</value>
+    </property>
+
+    <!-- DB audit provider configuration -->
+    <property>
+        <name>xasecure.audit.db.is.enabled</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.db.is.async</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.db.async.max.queue.size</name>
+        <value>10240</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.db.async.max.flush.interval.ms</name>
+        <value>30000</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.db.batch.size</name>
+        <value>100</value>
+    </property>
+
+    <!--  Properties whose name begin with "xasecure.audit.jpa." are used to configure JPA -->
+    <property>
+        <name>xasecure.audit.jpa.javax.persistence.jdbc.url</name>
+        <value>jdbc:mysql://localhost:3306/ranger_audit</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.jpa.javax.persistence.jdbc.user</name>
+        <value>rangerlogger</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.jpa.javax.persistence.jdbc.password</name>
+        <value>none</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.jpa.javax.persistence.jdbc.driver</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.credential.provider.file</name>
+        <value>jceks://file/etc/ranger/hive/auditcred.jceks</value>
+    </property>
+
+    <!-- HDFS audit provider configuration -->
+    <property>
+        <name>xasecure.audit.hdfs.is.enabled</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.is.async</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.async.max.queue.size</name>
+        <value>1048576</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.async.max.flush.interval.ms</name>
+        <value>30000</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.encoding</name>
+        <value></value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.destination.directory</name>
+        <value>hdfs://NAMENODE_HOST:8020/ranger/audit/%app-type%/%time:yyyyMMdd%</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.destination.file</name>
+        <value>%hostname%-audit.log</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.destination.flush.interval.seconds</name>
+        <value>900</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.destination.rollover.interval.seconds</name>
+        <value>86400</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.destination.open.retry.interval.seconds</name>
+        <value>60</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.buffer.directory</name>
+        <value>/var/log/hive/audit/%app-type%</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.buffer.file</name>
+        <value>%time:yyyyMMdd-HHmm.ss%.log</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.buffer.file.buffer.size.bytes</name>
+        <value>8192</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.buffer.flush.interval.seconds</name>
+        <value>60</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.buffer.rollover.interval.seconds</name>
+        <value>600</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.archive.directory</name>
+        <value>/var/log/hive/audit/archive/%app-type%</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.hdfs.config.local.archive.max.file.count</name>
+        <value>10</value>
+    </property>
+
+    <!-- Audit to HDFS on Azure Datastore (WASB) requires v3 style settings.  Comment the above and uncomment only the
+    following to audit to Azure Blob Datastore via hdfs' WASB schema.
+    NOTE: If you specify one audit destination in v3 style then other destinations, if any, must also be specified in v3 style
+    ====
+    <property>
+        <name>xasecure.audit.destination.hdfs</name>
+        <value>enabled</value>
+    </property>
+    <property>
+        <name>xasecure.audit.destination.hdfs.dir</name>
+        <value>wasb://ranger-audit1@youraccount.blob.core.windows.net</value>
+    </property>
+    the following 3 correspond to the properties with similar name in core-site.xml, i.e.
+    - fs.azure.account.key.youraccount.blob.core.windows.net => xasecure.audit.destination.hdfs.config.fs.azure.account.key.youraccount.blob.core.windows.net and
+    - fs.azure.account.keyprovider.youraccount.blob.core.windows.net => xasecure.audit.destination.hdfs.config.fs.azure.account.keyprovider.youraccount.blob.core.windows.net,
+    - fs.azure.shellkeyprovider.script => xasecure.audit.destination.hdfs.config.fs.azure.shellkeyprovider.script,
+    <property>
+        <name>xasecure.audit.destination.hdfs.config.fs.azure.account.key.youraccount.blob.core.windows.net</name>
+        <value>YOUR ENCRYPTED ACCESS KEY</value>
+    </property>
+    <property>
+        <name>xasecure.audit.destination.hdfs.config.fs.azure.account.keyprovider.youraccount.blob.core.windows.net</name>
+        <value>org.apache.hadoop.fs.azure.ShellDecryptionKeyProvider</value>
+    </property>
+    <property>
+        <name>xasecure.audit.destination.hdfs.config.fs.azure.shellkeyprovider.script</name>
+        <value>/usr/lib/python2.7/dist-packages/hdinsight_common/decrypt.sh</value>
+    </property>
+    -->
+
+    <!-- Log4j audit provider configuration -->
+    <property>
+        <name>xasecure.audit.log4j.is.enabled</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.log4j.is.async</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.log4j.async.max.queue.size</name>
+        <value>10240</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.log4j.async.max.flush.interval.ms</name>
+        <value>30000</value>
+    </property>
+
+    <!-- Kafka audit provider configuration -->
+    <property>
+        <name>xasecure.audit.kafka.is.enabled</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.kafka.async.max.queue.size</name>
+        <value>1</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.kafka.async.max.flush.interval.ms</name>
+        <value>1000</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.kafka.broker_list</name>
+        <value>localhost:9092</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.kafka.topic_name</name>
+        <value>ranger_audits</value>
+    </property>
+
+    <!-- Ranger audit provider configuration -->
+    <property>
+        <name>xasecure.audit.solr.is.enabled</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.solr.async.max.queue.size</name>
+        <value>1</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.solr.async.max.flush.interval.ms</name>
+        <value>1000</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.solr.solr_url</name>
+        <value>http://localhost:6083/solr/ranger_audits</value>
+    </property>
+
+</configuration>
