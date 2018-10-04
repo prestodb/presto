@@ -33,7 +33,7 @@ public final class ComparisonStatsCalculator
 {
     private ComparisonStatsCalculator() {}
 
-    public static Optional<PlanNodeStatsEstimate> estimateExpressionToLiteralComparison(
+    public static PlanNodeStatsEstimate estimateExpressionToLiteralComparison(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
@@ -52,13 +52,13 @@ public final class ComparisonStatsCalculator
             case GREATER_THAN_OR_EQUAL:
                 return estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
             case IS_DISTINCT_FROM:
-                return Optional.empty();
+                return PlanNodeStatsEstimate.unknown();
             default:
                 throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
         }
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateExpressionEqualToLiteral(
+    private static PlanNodeStatsEstimate estimateExpressionEqualToLiteral(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
@@ -74,7 +74,7 @@ public final class ComparisonStatsCalculator
         return estimateFilterRange(inputStatistics, expressionStatistics, expressionSymbol, filterRange);
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateExpressionNotEqualToLiteral(
+    private static PlanNodeStatsEstimate estimateExpressionNotEqualToLiteral(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
@@ -101,10 +101,10 @@ public final class ComparisonStatsCalculator
                     .build();
             estimate = estimate.addSymbolStatistics(expressionSymbol.get(), symbolNewEstimate);
         }
-        return Optional.of(estimate.build());
+        return estimate.build();
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateExpressionLessThanLiteral(
+    private static PlanNodeStatsEstimate estimateExpressionLessThanLiteral(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
@@ -114,7 +114,7 @@ public final class ComparisonStatsCalculator
         return estimateFilterRange(inputStatistics, expressionStatistics, expressionSymbol, filterRange);
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateExpressionGreaterThanLiteral(
+    private static PlanNodeStatsEstimate estimateExpressionGreaterThanLiteral(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
@@ -124,7 +124,7 @@ public final class ComparisonStatsCalculator
         return estimateFilterRange(inputStatistics, expressionStatistics, expressionSymbol, filterRange);
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateFilterRange(
+    private static PlanNodeStatsEstimate estimateFilterRange(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
@@ -145,10 +145,10 @@ public final class ComparisonStatsCalculator
                             .build();
             estimate = estimate.mapSymbolColumnStatistics(expressionSymbol.get(), oldStats -> symbolNewEstimate);
         }
-        return Optional.of(estimate);
+        return estimate;
     }
 
-    public static Optional<PlanNodeStatsEstimate> estimateExpressionToExpressionComparison(
+    public static PlanNodeStatsEstimate estimateExpressionToExpressionComparison(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate leftExpressionStatistics,
             Optional<Symbol> leftExpressionSymbol,
@@ -166,13 +166,13 @@ public final class ComparisonStatsCalculator
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
             case IS_DISTINCT_FROM:
-                return Optional.empty();
+                return PlanNodeStatsEstimate.unknown();
             default:
                 throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
         }
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateExpressionEqualToExpression(
+    private static PlanNodeStatsEstimate estimateExpressionEqualToExpression(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate leftExpressionStatistics,
             Optional<Symbol> leftExpressionSymbol,
@@ -180,7 +180,7 @@ public final class ComparisonStatsCalculator
             Optional<Symbol> rightExpressionSymbol)
     {
         if (isNaN(leftExpressionStatistics.getDistinctValuesCount()) || isNaN(rightExpressionStatistics.getDistinctValuesCount())) {
-            return Optional.empty();
+            return PlanNodeStatsEstimate.unknown();
         }
 
         StatisticRange leftExpressionRange = StatisticRange.from(leftExpressionStatistics);
@@ -207,10 +207,10 @@ public final class ComparisonStatsCalculator
         leftExpressionSymbol.ifPresent(symbol -> estimate.addSymbolStatistics(symbol, equalityStats));
         rightExpressionSymbol.ifPresent(symbol -> estimate.addSymbolStatistics(symbol, equalityStats));
 
-        return Optional.of(estimate.build());
+        return estimate.build();
     }
 
-    private static Optional<PlanNodeStatsEstimate> estimateExpressionNotEqualToExpression(
+    private static PlanNodeStatsEstimate estimateExpressionNotEqualToExpression(
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate leftExpressionStatistics,
             Optional<Symbol> leftExpressionSymbol,
@@ -221,25 +221,25 @@ public final class ComparisonStatsCalculator
         PlanNodeStatsEstimate inputNullsFiltered = inputStatistics.mapOutputRowCount(size -> size * nullsFilterFactor);
         SymbolStatsEstimate leftNullsFiltered = leftExpressionStatistics.mapNullsFraction(nullsFraction -> 0.0);
         SymbolStatsEstimate rightNullsFiltered = rightExpressionStatistics.mapNullsFraction(nullsFraction -> 0.0);
-        Optional<PlanNodeStatsEstimate> equalityStats = estimateExpressionEqualToExpression(
+        PlanNodeStatsEstimate equalityStats = estimateExpressionEqualToExpression(
                 inputNullsFiltered,
                 leftNullsFiltered,
                 leftExpressionSymbol,
                 rightNullsFiltered,
                 rightExpressionSymbol);
-        if (!equalityStats.isPresent()) {
-            return Optional.empty();
+        if (equalityStats.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
         }
 
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(inputNullsFiltered);
-        double equalityFilterFactor = equalityStats.get().getOutputRowCount() / inputNullsFiltered.getOutputRowCount();
+        double equalityFilterFactor = equalityStats.getOutputRowCount() / inputNullsFiltered.getOutputRowCount();
         if (!isFinite(equalityFilterFactor)) {
             equalityFilterFactor = 0.0;
         }
         result.setOutputRowCount(inputNullsFiltered.getOutputRowCount() * (1 - equalityFilterFactor));
         leftExpressionSymbol.ifPresent(symbol -> result.addSymbolStatistics(symbol, leftNullsFiltered));
         rightExpressionSymbol.ifPresent(symbol -> result.addSymbolStatistics(symbol, rightNullsFiltered));
-        return Optional.of(result.build());
+        return result.build();
     }
 
     private static double averageExcludingNaNs(double first, double second)
