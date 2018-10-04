@@ -163,18 +163,34 @@ public interface Block
     int getPositionCount();
 
     /**
-     * Returns the logical size of this block in memory.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
+     * For example, in dictionary blocks, this only counts each dictionary entry once,
+     * rather than each time a value is referenced.
      */
     long getSizeInBytes();
 
     /**
-     * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     * Returns the size of the block contents, regardless of internal representation.
+     * The same logical data values should always have the same size, no matter
+     * what block type is used or how they are represented within a specific block.
+     *
+     * This can differ substantially from {@link #getSizeInBytes} for certain block
+     * types. For RLE, it will be {@code N} times larger. For dictionary, it will be
+     * larger based on how many times dictionary entries are reused.
+     */
+    default long getLogicalSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    /**
+     * Returns the size of {@code block.getRegion(position, length)}.
      * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
 
     /**
-     * Returns the retained size of this block in memory.
+     * Returns the retained size of this block in memory, including over-allocations.
      * This method is called from the inner most execution loop and must be fast.
      */
     long getRetainedSizeInBytes();
