@@ -82,8 +82,8 @@ public class TestArrayNgramsFunction
                 ImmutableList.of(1.1, 2.1),
                 ImmutableList.of(2.1, 3.1)));
         assertFunction("ngrams(ARRAY[true, false, true], 2)", new ArrayType(new ArrayType(BOOLEAN)), ImmutableList.of(
-            ImmutableList.of(true, false),
-            ImmutableList.of(false, true)));
+                ImmutableList.of(true, false),
+                ImmutableList.of(false, true)));
 
         assertFunction("ngrams(ARRAY[ARRAY['A1', 'A2'], ARRAY['B1'], ARRAY['C1', 'C2']], 2)", new ArrayType(new ArrayType(new ArrayType(createVarcharType(2)))), ImmutableList.of(
                 ImmutableList.of(ImmutableList.of("A1", "A2"), ImmutableList.of("B1")),

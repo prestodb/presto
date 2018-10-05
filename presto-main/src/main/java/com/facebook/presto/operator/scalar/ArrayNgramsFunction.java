@@ -35,11 +35,11 @@ public final class ArrayNgramsFunction
     private final ArrayType arrayType;
 
     @TypeParameter("T")
-    public ArrayNgramsFunction(@TypeParameter("T") Type type) {
+    public ArrayNgramsFunction(@TypeParameter("T") Type type)
+    {
         this.type = type;
         this.arrayType = new ArrayType(type);
     }
-
 
     @TypeParameter("T")
     @SqlType("array(array(T))")
