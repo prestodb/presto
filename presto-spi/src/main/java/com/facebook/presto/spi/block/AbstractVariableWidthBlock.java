@@ -21,7 +21,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public abstract class AbstractVariableWidthBlock
-        implements Block
+        extends BlockBuilder
 {
     protected abstract Slice getRawSlice(int position);
 

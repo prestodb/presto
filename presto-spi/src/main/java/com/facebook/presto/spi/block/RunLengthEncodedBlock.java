@@ -27,7 +27,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RunLengthEncodedBlock
-        implements Block
+        extends Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
 

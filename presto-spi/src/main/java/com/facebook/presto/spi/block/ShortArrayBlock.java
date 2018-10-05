@@ -26,7 +26,7 @@ import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class ShortArrayBlock
-        implements Block
+        extends Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ShortArrayBlock.class).instanceSize();
 

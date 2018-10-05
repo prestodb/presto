@@ -42,7 +42,6 @@ import static java.lang.Math.min;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
 

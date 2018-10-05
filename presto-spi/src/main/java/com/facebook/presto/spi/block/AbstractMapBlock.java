@@ -28,7 +28,7 @@ import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
-        implements Block
+        extends BlockBuilder
 {
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;

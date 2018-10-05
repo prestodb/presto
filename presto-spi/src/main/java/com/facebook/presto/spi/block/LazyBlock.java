@@ -21,7 +21,7 @@ import java.util.function.BiConsumer;
 import static java.util.Objects.requireNonNull;
 
 public class LazyBlock
-        implements Block
+        extends Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize();
 

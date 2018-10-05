@@ -29,7 +29,6 @@ import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
         extends AbstractArrayBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize();
 

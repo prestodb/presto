@@ -17,7 +17,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 
 public abstract class AbstractSingleRowBlock
-        implements Block
+        extends BlockBuilder
 {
     protected final int rowIndex;
 

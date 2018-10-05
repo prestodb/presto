@@ -35,7 +35,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlockBuilder.class).instanceSize();
 

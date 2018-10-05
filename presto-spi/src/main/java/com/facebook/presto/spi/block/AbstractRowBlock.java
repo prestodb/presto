@@ -21,7 +21,7 @@ import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
-        implements Block
+        extends BlockBuilder
 {
     protected final int numFields;
 

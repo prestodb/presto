@@ -31,7 +31,6 @@ import static java.util.Objects.requireNonNull;
 
 public class RowBlockBuilder
         extends AbstractRowBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlockBuilder.class).instanceSize();
 

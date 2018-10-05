@@ -22,7 +22,6 @@ import static java.lang.String.format;
 
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
 

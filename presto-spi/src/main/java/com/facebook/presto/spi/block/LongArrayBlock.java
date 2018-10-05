@@ -27,7 +27,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
 public class LongArrayBlock
-        implements Block
+        extends Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlock.class).instanceSize();
 

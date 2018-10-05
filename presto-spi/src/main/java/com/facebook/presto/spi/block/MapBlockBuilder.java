@@ -34,7 +34,6 @@ import static java.util.Objects.requireNonNull;
 
 public class MapBlockBuilder
         extends AbstractMapBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 

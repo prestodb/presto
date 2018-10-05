@@ -464,7 +464,7 @@ public class AccumulatorCompiler
                         .condition(new BytecodeBlock()
                                 .getVariable(variableDefinition)
                                 .getVariable(positionVariable)
-                                .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                                .invokeVirtual(Block.class, "isNull", boolean.class, int.class))
                         .ifFalse(loopBody);
             }
         }
@@ -711,14 +711,14 @@ public class AccumulatorCompiler
 
         BytecodeBlock block = new BytecodeBlock()
                 .append(blockVariable)
-                .invokeInterface(Block.class, "getPositionCount", int.class)
+                .invokeVirtual(Block.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
         IfStatement ifStatement = new IfStatement("if(!block.isNull(position))")
                 .condition(new BytecodeBlock()
                         .append(blockVariable)
                         .append(positionVariable)
-                        .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                        .invokeVirtual(Block.class, "isNull", boolean.class, int.class))
                 .ifFalse(loopBody);
 
         block.append(new ForLoop()

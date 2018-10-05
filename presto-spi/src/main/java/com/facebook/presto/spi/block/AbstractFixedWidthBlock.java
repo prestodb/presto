@@ -20,7 +20,7 @@ import io.airlift.slice.XxHash64;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 
 public abstract class AbstractFixedWidthBlock
-        implements Block
+        extends BlockBuilder
 {
     protected final int fixedSize;
 
