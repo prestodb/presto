@@ -377,6 +377,6 @@ public final class BytecodeUtils
                                 .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+                                .invokeVirtual(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
     }
 }

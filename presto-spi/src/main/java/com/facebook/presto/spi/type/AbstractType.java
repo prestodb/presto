@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 public abstract class AbstractType
-        implements Type
+        extends Type
 {
     private final TypeSignature signature;
     private final Class<?> javaType;

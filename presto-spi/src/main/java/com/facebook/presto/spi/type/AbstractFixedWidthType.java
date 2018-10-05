@@ -21,8 +21,7 @@ import com.facebook.presto.spi.block.PageBuilderStatus;
 import io.airlift.slice.Slice;
 
 public abstract class AbstractFixedWidthType
-        extends AbstractType
-        implements FixedWidthType
+        extends FixedWidthType
 {
     private final int fixedSize;
 

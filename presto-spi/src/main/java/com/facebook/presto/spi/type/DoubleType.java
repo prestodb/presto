@@ -25,8 +25,7 @@ import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
 
 public final class DoubleType
-        extends AbstractType
-        implements FixedWidthType
+        extends FixedWidthType
 {
     public static final DoubleType DOUBLE = new DoubleType();
 

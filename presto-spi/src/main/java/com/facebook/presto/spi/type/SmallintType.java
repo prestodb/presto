@@ -26,8 +26,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
 
 public final class SmallintType
-        extends AbstractType
-        implements FixedWidthType
+        extends FixedWidthType
 {
     public static final SmallintType SMALLINT = new SmallintType();
 
