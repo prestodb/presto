@@ -65,6 +65,7 @@ import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
+import static com.facebook.presto.SystemSessionProperties.getMaxDriversPerTask;
 import static com.facebook.presto.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
 import static com.facebook.presto.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
 import static com.facebook.presto.execution.SqlTaskExecution.SplitsState.FINISHED;
@@ -239,7 +240,12 @@ public class SqlTaskExecution
 
             // don't register the task if it is already completed (most likely failed during planning above)
             if (!taskStateMachine.getState().isDone()) {
-                taskHandle = taskExecutor.addTask(taskId, outputBuffer::getUtilization, getInitialSplitsPerNode(taskContext.getSession()), getSplitConcurrencyAdjustmentInterval(taskContext.getSession()));
+                taskHandle = taskExecutor.addTask(
+                        taskId,
+                        outputBuffer::getUtilization,
+                        getInitialSplitsPerNode(taskContext.getSession()),
+                        getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
+                        getMaxDriversPerTask(taskContext.getSession()));
                 taskStateMachine.addStateChangeListener(state -> {
                     if (state.isDone()) {
                         taskExecutor.removeTask(taskHandle);
