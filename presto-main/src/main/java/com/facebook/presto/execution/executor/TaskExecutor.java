@@ -43,6 +43,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
+import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -228,14 +230,21 @@ public class TaskExecutor
         }
     }
 
-    public synchronized TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
+    public synchronized TaskHandle addTask(
+            TaskId taskId,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
+                "maxDriversPerTask cannot be greater than the configured value");
 
         log.debug("Task scheduled " + taskId);
 
-        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
+        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
 
         tasks.add(taskHandle);
         return taskHandle;
@@ -359,7 +368,7 @@ public class TaskExecutor
         // immediately schedule a new split for this task.  This assures
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
-        if (taskHandle.getRunningLeafSplits() < guaranteedNumberOfDriversPerTask) {
+        if (taskHandle.getRunningLeafSplits() < min(guaranteedNumberOfDriversPerTask, taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE))) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
                 startSplit(split);
@@ -408,7 +417,7 @@ public class TaskExecutor
         for (Iterator<TaskHandle> iterator = tasks.iterator(); iterator.hasNext(); ) {
             TaskHandle task = iterator.next();
             // skip tasks that are already running the configured max number of drivers
-            if (task.getRunningLeafSplits() >= maximumNumberOfDriversPerTask) {
+            if (task.getRunningLeafSplits() >= task.getMaxDriversPerTask().orElse(maximumNumberOfDriversPerTask)) {
                 continue;
             }
             PrioritizedSplitRunner split = task.pollNextSplit();
