@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,7 +40,7 @@ abstract class SimulationTask
     {
         this.specification = specification;
         this.taskId = taskId;
-        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS));
+        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty());
     }
 
     public void setKilled()
