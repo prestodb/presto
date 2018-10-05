@@ -40,23 +40,14 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.InListExpression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -94,17 +85,6 @@ import static java.util.Objects.requireNonNull;
 public class ShowStatsRewrite
         implements StatementRewrite.Rewrite
 {
-    private static final List<Class<? extends Expression>> ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES = ImmutableList.of(
-            Literal.class,
-            Identifier.class,
-            ComparisonExpression.class,
-            InPredicate.class,
-            BetweenPredicate.class,
-            LogicalBinaryExpression.class,
-            NotExpression.class,
-            IsNullPredicate.class,
-            IsNotNullPredicate.class);
-
     private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), DOUBLE);
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
 
@@ -135,13 +115,15 @@ public class ShowStatsRewrite
         @Override
         protected Node visitShowStats(ShowStats node, Void context)
         {
-            validateShowStats(node);
             checkState(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
 
             if (node.getRelation() instanceof TableSubquery) {
-                QuerySpecification specification = (QuerySpecification) ((TableSubquery) node.getRelation()).getQuery().getQueryBody();
+                Query query = ((TableSubquery) node.getRelation()).getQuery();
+                QuerySpecification specification = (QuerySpecification) query.getQueryBody();
+                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, warningCollector);
+                validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
-                Constraint<ColumnHandle> constraint = getConstraint(specification);
+                Constraint<ColumnHandle> constraint = getConstraint(plan);
                 return rewriteShowStats(node, table, constraint);
             }
             else if (node.getRelation() instanceof Table) {
@@ -153,74 +135,31 @@ public class ShowStatsRewrite
             }
         }
 
-        private void validateShowStats(ShowStats node)
+        private void validateShowStatsSubquery(ShowStats node, Query query, QuerySpecification querySpecification, Plan plan)
         {
             // The following properties of SELECT subquery are required:
             //  - only one relation in FROM
-            //  - only plain columns in projection
-            //  - only plain columns and constants in WHERE
+            //  - only predicates that can be pushed down can be in the where clause
             //  - no group by
             //  - no having
             //  - no set quantifier
-            if (!(node.getRelation() instanceof Table || node.getRelation() instanceof TableSubquery)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Only table and simple table subquery can be passed as argument to SHOW STATS clause");
-            }
 
-            if (node.getRelation() instanceof TableSubquery) {
-                Query query = ((TableSubquery) node.getRelation()).getQuery();
-                check(query.getQueryBody() instanceof QuerySpecification, node, "Only table and simple table subquery can be passed as argument to SHOW STATS clause");
-                QuerySpecification querySpecification = (QuerySpecification) query.getQueryBody();
+            Optional<FilterNode> filterNode = searchFrom(plan.getRoot())
+                    .where(FilterNode.class::isInstance)
+                    .findSingle();
 
-                check(querySpecification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-                check(querySpecification.getFrom().get() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-                check(!query.getWith().isPresent(), node, "WITH is not supported by SHOW STATS SELECT clause");
-                check(!querySpecification.getOrderBy().isPresent(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
-                check(!querySpecification.getLimit().isPresent(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
-                check(!querySpecification.getHaving().isPresent(), node, "HAVING is not supported in SHOW STATS SELECT clause");
-                check(!querySpecification.getGroupBy().isPresent(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
-                check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
+            check(!filterNode.isPresent(), node, "Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+            check(querySpecification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
+            check(querySpecification.getFrom().get() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
+            check(!query.getWith().isPresent(), node, "WITH is not supported by SHOW STATS SELECT clause");
+            check(!querySpecification.getOrderBy().isPresent(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
+            check(!querySpecification.getLimit().isPresent(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
+            check(!querySpecification.getHaving().isPresent(), node, "HAVING is not supported in SHOW STATS SELECT clause");
+            check(!querySpecification.getGroupBy().isPresent(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
+            check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
 
-                List<SelectItem> selectItems = querySpecification.getSelect().getSelectItems();
-                check(selectItems.size() == 1 && selectItems.get(0) instanceof AllColumns, node, "Only SELECT * is supported in SHOW STATS SELECT clause");
-
-                querySpecification.getWhere().ifPresent((expression) -> validateShowStatsWhereExpression(expression, node));
-            }
-        }
-
-        private void validateShowStatsWhereExpression(Expression expression, ShowStats node)
-        {
-            check(ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES.stream().anyMatch(clazz -> clazz.isInstance(expression)), node, "Only literals, column references, comparators, is (not) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
-
-            if (expression instanceof NotExpression) {
-                validateShowStatsWhereExpression(((NotExpression) expression).getValue(), node);
-            }
-            else if (expression instanceof LogicalBinaryExpression) {
-                validateShowStatsWhereExpression(((LogicalBinaryExpression) expression).getLeft(), node);
-                validateShowStatsWhereExpression(((LogicalBinaryExpression) expression).getRight(), node);
-            }
-            else if (expression instanceof ComparisonExpression) {
-                validateShowStatsWhereExpression(((ComparisonExpression) expression).getLeft(), node);
-                validateShowStatsWhereExpression(((ComparisonExpression) expression).getRight(), node);
-            }
-            else if (expression instanceof IsNullPredicate) {
-                validateShowStatsWhereExpression(((IsNullPredicate) expression).getValue(), node);
-            }
-            else if (expression instanceof IsNotNullPredicate) {
-                validateShowStatsWhereExpression(((IsNotNullPredicate) expression).getValue(), node);
-            }
-            else if (expression instanceof InPredicate) {
-                InPredicate inPredicate = (InPredicate) expression;
-                check(inPredicate.getValue() instanceof Identifier, node, "Only column reference is allowed on the left side of the IN predicate of the WHERE condition of the SHOW STATS SELECT clause");
-                check(inPredicate.getValueList() instanceof InListExpression, node, "Only list of literals is allowed on the right side of the IN predicate of the WHERE condition of the SHOW STATS SELECT clause");
-                ((InListExpression) inPredicate.getValueList()).getValues().stream()
-                        .forEach(value -> check(value instanceof Literal, node, "Only literals are allowed on the right side of the IN predicate of the WHERE condition of the SHOW STATS SELECT clause"));
-            }
-            else if (expression instanceof BetweenPredicate) {
-                BetweenPredicate betweenPredicate = (BetweenPredicate) expression;
-                check(betweenPredicate.getValue() instanceof Identifier, node, "Only column reference is allowed on the left side of the BETWEEN predicate of the WHERE condition of the SHOW STATS SELECT clause");
-                check(betweenPredicate.getMin() instanceof Literal, node, "Only literals are allowed on the right side of the BETWEEN predicate of the WHERE condition of the SHOW STATS SELECT clause");
-                check(betweenPredicate.getMax() instanceof Literal, node, "Only literals are allowed on the right side of the BETWEEN predicate of the WHERE condition of the SHOW STATS SELECT clause");
-            }
+            List<SelectItem> selectItems = querySpecification.getSelect().getSelectItems();
+            check(selectItems.size() == 1 && selectItems.get(0) instanceof AllColumns, node, "Only SELECT * is supported in SHOW STATS SELECT clause");
         }
 
         private Node rewriteShowStats(ShowStats node, Table table, Constraint<ColumnHandle> constraint)
@@ -252,14 +191,8 @@ public class ShowStatsRewrite
             return node;
         }
 
-        private Constraint<ColumnHandle> getConstraint(QuerySpecification specification)
+        private Constraint<ColumnHandle> getConstraint(Plan plan)
         {
-            if (!specification.getWhere().isPresent()) {
-                return Constraint.alwaysTrue();
-            }
-
-            Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, warningCollector);
-
             Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)
                     .findSingle();
