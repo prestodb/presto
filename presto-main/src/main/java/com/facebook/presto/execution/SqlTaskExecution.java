@@ -354,6 +354,7 @@ public class SqlTaskExecution
         DriverSplitRunnerFactory partitionedDriverFactory = driverRunnerFactoriesWithSplitLifeCycle.get(planNodeId);
         PendingSplitsForPlanNode pendingSplitsForPlanNode = pendingSplitsByPlanNode.get(planNodeId);
 
+        partitionedDriverFactory.splitsAdded(scheduledSplits.size());
         for (ScheduledSplit scheduledSplit : scheduledSplits) {
             Lifespan lifespan = scheduledSplit.getSplit().getLifespan();
             checkLifespan(partitionedDriverFactory.getPipelineExecutionStrategy(), lifespan);
@@ -983,6 +984,11 @@ public class SqlTaskExecution
         public OptionalInt getDriverInstances()
         {
             return driverFactory.getDriverInstances();
+        }
+
+        public void splitsAdded(int count)
+        {
+            pipelineContext.splitsAdded(count);
         }
     }
 
