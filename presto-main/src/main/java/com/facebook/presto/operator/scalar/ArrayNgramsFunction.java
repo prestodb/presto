@@ -25,31 +25,38 @@ import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.min;
 
 @ScalarFunction("ngrams")
 @Description("Return N-grams for the input")
 public final class ArrayNgramsFunction
 {
-    private ArrayNgramsFunction() {}
+    private final Type type;
+    private final ArrayType arrayType;
+
+    @TypeParameter("T")
+    public ArrayNgramsFunction(@TypeParameter("T") Type type) {
+        this.type = type;
+        this.arrayType = new ArrayType(type);
+    }
+
 
     @TypeParameter("T")
     @SqlType("array(array(T))")
-    public static Block ngrams(@TypeParameter("T") Type type, @SqlType("array(T)") Block array, @SqlType(StandardTypes.BIGINT) long n)
+    public Block ngrams(@SqlType("array(T)") Block array, @SqlType(StandardTypes.BIGINT) long n)
     {
         checkCondition(n > 0, INVALID_FUNCTION_ARGUMENT, "N must be positive");
         checkCondition(n <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "N is too large");
 
         // n should not be larger than the array length
-        n = n > array.getPositionCount() ? array.getPositionCount() : n;
-        ArrayType arrayType = new ArrayType(type);
+        n = min(array.getPositionCount(), n);
         BlockBuilder parts = arrayType.createBlockBuilder(null, array.getPositionCount() - (int) n + 1);
-
+        int[] ids = new int[array.getPositionCount()];
+        for (int position = 0; position < ids.length; position++) {
+            ids[position] = position;
+        }
         for (int i = 0; i <= array.getPositionCount() - n; i++) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, (int) n);
-            for (int j = i; j < i + n; j++) {
-                type.appendTo(array, j, blockBuilder);
-            }
-            arrayType.writeObject(parts, blockBuilder.build());
+            arrayType.writeObject(parts, array.getPositions(ids, i, (int) n));
         }
         return parts.build();
     }
