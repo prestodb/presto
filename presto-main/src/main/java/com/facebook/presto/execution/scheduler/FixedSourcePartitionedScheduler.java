@@ -76,7 +76,7 @@ public class FixedSourcePartitionedScheduler
             List<PlanNodeId> schedulingOrder,
             NodePartitionMap partitioning,
             int splitBatchSize,
-            OptionalInt concurrentLifespans,
+            OptionalInt concurrentLifespansPerTask,
             NodeSelector nodeSelector,
             List<ConnectorPartitionHandle> partitionHandles)
     {
@@ -97,12 +97,13 @@ public class FixedSourcePartitionedScheduler
         checkArgument(
                 partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionStrategy.isAnyScanGroupedExecution(),
                 "PartitionHandles should be [NOT_PARTITIONED] if and only if all scan nodes use ungrouped execution strategy");
-        int effectiveConcurrentLifespans;
-        if (!concurrentLifespans.isPresent() || concurrentLifespans.getAsInt() > partitionHandles.size()) {
-            effectiveConcurrentLifespans = partitionHandles.size();
+        int nodeCount = partitioning.getPartitionToNode().size();
+        int concurrentLifespans;
+        if (concurrentLifespansPerTask.isPresent() && concurrentLifespansPerTask.getAsInt() * nodeCount <= partitionHandles.size()) {
+            concurrentLifespans = concurrentLifespansPerTask.getAsInt() * nodeCount;
         }
         else {
-            effectiveConcurrentLifespans = concurrentLifespans.getAsInt();
+            concurrentLifespans = partitionHandles.size();
         }
 
         boolean firstPlanNode = true;
@@ -114,7 +115,7 @@ public class FixedSourcePartitionedScheduler
                     planNodeId,
                     splitSource,
                     splitPlacementPolicy,
-                    Math.max(splitBatchSize / effectiveConcurrentLifespans, 1));
+                    Math.max(splitBatchSize / concurrentLifespans, 1));
 
             if (stageExecutionStrategy.isAnyScanGroupedExecution() && !stageExecutionStrategy.isGroupedExecution(planNodeId)) {
                 sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
