@@ -282,7 +282,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
     private JoinBridgeDataManager<LookupSourceFactory> benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
     {
-        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
 
         JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeDataManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 buildContext.getTypes(),
@@ -340,7 +340,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 OptionalInt.empty(),
                 unsupportedPartitioningSpillerFactory());
 
-        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         Iterator<Page> input = joinContext.getProbePages().iterator();

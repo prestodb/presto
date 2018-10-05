@@ -95,7 +95,7 @@ public class HashJoinBenchmark
                     false,
                     SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
 
-            DriverContext driverContext = taskContext.addPipelineContext(0, false, false).addDriverContext();
+            DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
             Driver driver = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION)
                     .createDriver(driverContext);
             Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.forLifespan(Lifespan.taskWide()).createLookupSourceProvider();
@@ -114,7 +114,7 @@ public class HashJoinBenchmark
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"));
 
         DriverFactory driverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION);
-        DriverContext driverContext = taskContext.addPipelineContext(1, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(1, true, true, false).addDriverContext();
         Driver driver = driverFactory.createDriver(driverContext);
         return ImmutableList.of(driver);
     }

@@ -78,7 +78,7 @@ public class TestSystemMemoryBlocking
                 .build();
         memoryPool = taskContext.getQueryContext().getMemoryPool();
         driverContext = taskContext
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 

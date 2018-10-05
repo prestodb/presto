@@ -86,7 +86,7 @@ public class HashBuildBenchmark
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
         DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);
-        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, true).addDriverContext());
+        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, true, false).addDriverContext());
         hashBuildDriverFactory.noMoreDrivers();
 
         // empty join so build finishes
@@ -105,7 +105,7 @@ public class HashBuildBenchmark
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
-        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
+        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true, false).addDriverContext());
         joinDriverFactory.noMoreDrivers();
 
         return ImmutableList.of(hashBuildDriver, joinDriver);

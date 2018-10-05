@@ -107,7 +107,7 @@ public class TestTableFinishOperator
                 descriptor,
                 session);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
 

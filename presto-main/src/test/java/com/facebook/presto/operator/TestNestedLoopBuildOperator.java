@@ -70,7 +70,7 @@ public class TestNestedLoopBuildOperator
                 lifespan -> new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinPagesSupplierManager);
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopJoinPagesSupplierManager.forLifespan(Lifespan.taskWide());
 
@@ -106,7 +106,7 @@ public class TestNestedLoopBuildOperator
                 lifespan -> new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinPagesSupplierManager);
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopJoinPagesSupplierManager.forLifespan(Lifespan.taskWide());
 

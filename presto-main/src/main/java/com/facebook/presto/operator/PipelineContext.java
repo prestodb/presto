@@ -65,6 +65,7 @@ public class PipelineContext
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
+    private final boolean partitioned;
 
     private final List<DriverContext> drivers = new CopyOnWriteArrayList<>();
 
@@ -96,11 +97,12 @@ public class PipelineContext
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
-    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline)
+    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
         this.pipelineId = pipelineId;
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
+        this.partitioned = partitioned;
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
@@ -136,17 +138,16 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        return addDriverContext(false, Lifespan.taskWide());
+        return addDriverContext(Lifespan.taskWide());
     }
 
-    public DriverContext addDriverContext(boolean partitioned, Lifespan lifespan)
+    public DriverContext addDriverContext(Lifespan lifespan)
     {
         DriverContext driverContext = new DriverContext(
                 this,
                 notificationExecutor,
                 yieldExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
-                partitioned,
                 lifespan);
         drivers.add(driverContext);
         return driverContext;
@@ -310,7 +311,7 @@ public class PipelineContext
 
     public PipelineStatus getPipelineStatus()
     {
-        return getPipelineStatus(drivers.iterator());
+        return getPipelineStatus(drivers.iterator(), partitioned);
     }
 
     public PipelineStats getPipelineStats()
@@ -324,7 +325,7 @@ public class PipelineContext
         }
 
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
-        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator());
+        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator(), partitioned);
 
         int totalDrivers = completedDrivers.get() + driverContexts.size();
         int completedDrivers = this.completedDrivers.get();
@@ -473,32 +474,24 @@ public class PipelineContext
         return pipelineMemoryContext;
     }
 
-    private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator)
+    private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator, boolean partitioned)
     {
         int queuedDrivers = 0;
         int runningDrivers = 0;
         int blockedDrivers = 0;
-        int queuedPartitionedDrivers = 0;
-        int runningPartitionedDrivers = 0;
         while (driverContextsIterator.hasNext()) {
             DriverContext driverContext = driverContextsIterator.next();
             if (!driverContext.isExecutionStarted()) {
                 queuedDrivers++;
-                if (driverContext.isPartitioned()) {
-                    queuedPartitionedDrivers++;
-                }
             }
             else if (driverContext.isFullyBlocked()) {
                 blockedDrivers++;
             }
             else {
                 runningDrivers++;
-                if (driverContext.isPartitioned()) {
-                    runningPartitionedDrivers++;
-                }
             }
         }
 
-        return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, queuedPartitionedDrivers, runningPartitionedDrivers);
+        return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, partitioned ? queuedDrivers : 0, partitioned ? runningDrivers : 0);
     }
 }

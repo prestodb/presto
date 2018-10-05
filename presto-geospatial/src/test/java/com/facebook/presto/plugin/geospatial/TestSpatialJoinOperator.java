@@ -175,7 +175,7 @@ public class TestSpatialJoinOperator
 
     private void assertSpatialJoin(TaskContext taskContext, Type joinType, RowPagesBuilder buildPages, RowPagesBuilder probePages, MaterializedResult expected)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), joinType, probePages.getTypes(), Ints.asList(1), 0, pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
@@ -251,7 +251,7 @@ public class TestSpatialJoinOperator
         // verify we will yield #match times totally
 
         TaskContext taskContext = createTaskContext();
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
@@ -311,7 +311,7 @@ public class TestSpatialJoinOperator
     public void testDistanceQuery()
     {
         TaskContext taskContext = createTaskContext();
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
         RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, DOUBLE))
                 .row(stPoint(0, 0), "0_0", 1.5)
