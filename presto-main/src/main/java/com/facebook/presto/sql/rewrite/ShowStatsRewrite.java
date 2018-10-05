@@ -63,7 +63,6 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowStats;
-import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Table;
@@ -178,12 +177,7 @@ public class ShowStatsRewrite
                 check(!querySpecification.getGroupBy().isPresent(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
                 check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
                 for (SelectItem selectItem : querySpecification.getSelect().getSelectItems()) {
-                    if (selectItem instanceof AllColumns) {
-                        continue;
-                    }
-                    check(selectItem instanceof SingleColumn, node, "Only * and column references are supported by SHOW STATS SELECT clause");
-                    SingleColumn columnSelect = (SingleColumn) selectItem;
-                    check(columnSelect.getExpression() instanceof Identifier, node, "Only * and column references are supported by SHOW STATS SELECT clause");
+                    check(selectItem instanceof AllColumns, node, "Only SELECT * is supported in SHOW STATS SELECT clause");
                 }
 
                 querySpecification.getWhere().ifPresent((expression) -> validateShowStatsWhereExpression(expression, node));

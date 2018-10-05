@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
@@ -27,12 +29,22 @@ public class TestShowStats
         super(() -> createQueryRunner(ImmutableList.of()));
     }
 
-    @Test
-    public void testShowStats()
+    @BeforeClass
+    public void setUp()
     {
         assertUpdate("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
         assertUpdate("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey from tpch.tiny.nation", 25);
+    }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS nation_partitioned");
+    }
+
+    @Test
+    public void testShowStats()
+    {
         assertQuery("SHOW STATS FOR nation_partitioned",
                 "SELECT * FROM (VALUES " +
                         "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
@@ -121,13 +133,19 @@ public class TestShowStats
     @Test
     public void testShowStatsWithGroupByFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY clerk)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders GROUP BY clerk)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsWithHavingFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT avg(orderkey) FROM orders HAVING avg(orderkey) < 5)", ".*HAVING is not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders HAVING avg(orderkey) < 5)", ".*HAVING is not supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsSelectNonStarFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT nationkey FROM nation)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
     }
 
     @Test
@@ -139,12 +157,13 @@ public class TestShowStats
     @Test
     public void testShowStatsWithSelectFunctionCallFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only \\* and column references are supported by SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsWithWhereFunctionCallFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
     }
 }
