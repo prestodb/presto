@@ -33,6 +33,9 @@ public class TestShowStats
     {
         assertUpdate("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
         assertUpdate("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey from tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE region(regionkey BIGINT, name VARCHAR, comment VARCHAR)");
+        assertUpdate("CREATE TABLE orders(orderkey BIGINT, custkey BIGINT, totalprice DOUBLE, orderdate  DATE, " +
+                "orderpriority VARCHAR, clerk VARCHAR, shippriority VARCHAR, comment VARCHAR, orderstatus VARCHAR)");
     }
 
     @Test
@@ -86,7 +89,7 @@ public class TestShowStats
                         "   ('comment', 847.0, 5.0, 0.0, null, null, null), " +
                         "   (null, null, null, null, 10.0, null, null))");
 
-        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey BETWEEN 1 AND 3)",
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey BETWEEN 1 AND 1 + 2)",
                 "SELECT * FROM (VALUES " +
                         "   ('regionkey', null, 3.0, 0.0, null, 1, 3), " +
                         "   ('nationkey', null, 5.0, 0.0, null, 1, 24), " +
@@ -109,6 +112,22 @@ public class TestShowStats
                         "   ('name', 37.0, 5.0, 0.0, null, null, null), " +
                         "   ('comment', 310.0, 5.0, 0.0, null, null, null), " +
                         "   (null, null, null, null, 5.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 0 and regionkey < 4)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 3.0, 0.0, null, 1, 3), " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 1, 24), " +
+                        "   ('name', 109.0, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 1199.0, 5.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 15.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 10 or regionkey < 0)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
+                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 0.0, null, null))");
     }
 
     @Test
@@ -120,27 +139,27 @@ public class TestShowStats
     @Test
     public void testShowStatsWithMultipleFromFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders, lineitem)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned, region)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsWithGroupByFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY clerk)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY orderkey)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsWithHavingFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT avg(orderkey) FROM orders HAVING avg(orderkey) < 5)", ".*HAVING is not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT count(nationkey) FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)", ".*HAVING is not supported in SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsSelectNonStarFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT nationkey FROM nation_partitioned)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT nationkey, regionkey FROM nation_partitioned)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT *, * FROM nation_partitioned)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT orderkey, custkey FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT *, * FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
     }
 
     @Test
@@ -157,8 +176,11 @@ public class TestShowStats
     }
 
     @Test
-    public void testShowStatsWithWhereFunctionCallFails()
+    public void testShowStatsWithNonPushDownFilterFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey + 100 < 200)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 0 and nationkey > 0)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE nationkey = 1 and name is not null)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
     }
 }
