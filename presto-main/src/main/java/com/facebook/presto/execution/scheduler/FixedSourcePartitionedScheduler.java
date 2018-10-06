@@ -128,7 +128,7 @@ public class FixedSourcePartitionedScheduler
                     sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
                 }
                 else {
-                    LifespanScheduler lifespanScheduler = new LifespanScheduler(partitioning, partitionHandles);
+                    LifespanScheduler lifespanScheduler = new LifespanScheduler(partitioning, partitionHandles, concurrentLifespansPerTask);
                     // Schedule the first few lifespans
                     lifespanScheduler.scheduleInitial(sourceScheduler);
                     // Schedule new lifespans for finished ones
@@ -271,13 +271,14 @@ public class FixedSourcePartitionedScheduler
         private final Int2ObjectMap<Node> driverGroupToNodeMap;
         private final Map<Node, IntListIterator> nodeToDriverGroupsMap;
         private final List<ConnectorPartitionHandle> partitionHandles;
+        private final OptionalInt concurrentLifespansPerTask;
 
         private boolean initialScheduled;
         private SettableFuture<?> newDriverGroupReady = SettableFuture.create();
         @GuardedBy("this")
         private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
 
-        public LifespanScheduler(NodePartitionMap nodePartitionMap, List<ConnectorPartitionHandle> partitionHandles)
+        public LifespanScheduler(NodePartitionMap nodePartitionMap, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
         {
             Map<Node, IntList> nodeToDriverGroupMap = new HashMap<>();
             Int2ObjectMap<Node> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
@@ -294,6 +295,10 @@ public class FixedSourcePartitionedScheduler
             this.nodeToDriverGroupsMap = nodeToDriverGroupMap.entrySet().stream()
                     .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().iterator()));
             this.partitionHandles = requireNonNull(partitionHandles, "partitionHandles is null");
+            if (concurrentLifespansPerTask.isPresent()) {
+                checkArgument(concurrentLifespansPerTask.getAsInt() >= 1, "concurrentLifespansPerTask must be great or equal to 1 if present");
+            }
+            this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
         }
 
         public void scheduleInitial(SourceScheduler scheduler)
@@ -302,8 +307,17 @@ public class FixedSourcePartitionedScheduler
             initialScheduled = true;
 
             for (Map.Entry<Node, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
-                int driverGroupId = entry.getValue().nextInt();
-                scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
+                IntListIterator driverGroupsIterator = entry.getValue();
+                int driverGroupsScheduled = 0;
+                while (driverGroupsIterator.hasNext()) {
+                    int driverGroupId = driverGroupsIterator.nextInt();
+                    scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
+
+                    driverGroupsScheduled++;
+                    if (concurrentLifespansPerTask.isPresent() && driverGroupsScheduled == concurrentLifespansPerTask.getAsInt()) {
+                        break;
+                    }
+                }
             }
         }
 
