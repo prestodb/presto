@@ -15,7 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -171,7 +171,7 @@ public class DistributedQueryRunner
 
             SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-            sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
+            sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getCatalogName(), TEST_CATALOG_PROPERTIES);
         }
     }
 
@@ -287,11 +287,11 @@ public class DistributedQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
-        Set<ConnectorId> connectorIds = new HashSet<>();
+        Set<CatalogName> catalogNames = new HashSet<>();
         for (TestingPrestoServer server : servers) {
-            connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
+            catalogNames.add(server.createCatalog(catalogName, connectorName, properties));
         }
-        ConnectorId connectorId = getOnlyElement(connectorIds);
+        CatalogName connectorId = getOnlyElement(catalogNames);
         log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
 
         // wait for all nodes to announce the new catalog
@@ -309,11 +309,11 @@ public class DistributedQueryRunner
         log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
     }
 
-    private boolean isConnectionVisibleToAllNodes(ConnectorId connectorId)
+    private boolean isConnectionVisibleToAllNodes(CatalogName catalogName)
     {
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();
-            Set<Node> activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
+            Set<Node> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
             if (activeNodesWithConnector.size() != servers.size()) {
                 return false;
             }

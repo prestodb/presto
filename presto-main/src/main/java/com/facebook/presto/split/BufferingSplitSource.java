@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -42,9 +42,9 @@ public class BufferingSplitSource
     }
 
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return source.getConnectorId();
+        return source.getCatalogName();
     }
 
     @Override

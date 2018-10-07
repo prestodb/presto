@@ -13,7 +13,7 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
@@ -70,7 +70,7 @@ public final class Session
     private final ResourceEstimates resourceEstimates;
     private final long startTime;
     private final Map<String, String> systemProperties;
-    private final Map<ConnectorId, Map<String, String>> connectorProperties;
+    private final Map<CatalogName, Map<String, String>> connectorProperties;
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
@@ -95,7 +95,7 @@ public final class Session
             ResourceEstimates resourceEstimates,
             long startTime,
             Map<String, String> systemProperties,
-            Map<ConnectorId, Map<String, String>> connectorProperties,
+            Map<CatalogName, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements)
@@ -122,7 +122,7 @@ public final class Session
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
 
-        ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
@@ -244,14 +244,14 @@ public final class Session
         return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
     }
 
-    public Map<ConnectorId, Map<String, String>> getConnectorProperties()
+    public Map<CatalogName, Map<String, String>> getConnectorProperties()
     {
         return connectorProperties;
     }
 
-    public Map<String, String> getConnectorProperties(ConnectorId connectorId)
+    public Map<String, String> getConnectorProperties(CatalogName catalogName)
     {
-        return connectorProperties.getOrDefault(connectorId, ImmutableMap.of());
+        return connectorProperties.getOrDefault(catalogName, ImmutableMap.of());
     }
 
     public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
@@ -297,16 +297,16 @@ public final class Session
         }
 
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
-        ImmutableMap.Builder<ConnectorId, Map<String, String>> connectorProperties = ImmutableMap.builder();
+        ImmutableMap.Builder<CatalogName, Map<String, String>> connectorProperties = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> catalogEntry : unprocessedCatalogProperties.entrySet()) {
             String catalogName = catalogEntry.getKey();
             Map<String, String> catalogProperties = catalogEntry.getValue();
             if (catalogProperties.isEmpty()) {
                 continue;
             }
-            ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
+            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
-                    .getConnectorId();
+                    .getCatalogName();
 
             for (Entry<String, String> property : catalogProperties.entrySet()) {
                 // verify permissions
@@ -349,14 +349,14 @@ public final class Session
         return new FullConnectorSession(this);
     }
 
-    public ConnectorSession toConnectorSession(ConnectorId connectorId)
+    public ConnectorSession toConnectorSession(CatalogName catalogName)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         return new FullConnectorSession(
                 this,
-                connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
-                connectorId,
-                connectorId.getCatalogName(),
+                connectorProperties.getOrDefault(catalogName, ImmutableMap.of()),
+                catalogName,
+                catalogName.getCatalogName(),
                 sessionPropertyManager);
     }
 

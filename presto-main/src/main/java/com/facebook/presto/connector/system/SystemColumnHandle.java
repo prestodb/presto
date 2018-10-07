@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -29,22 +29,22 @@ import static java.util.Objects.requireNonNull;
 public class SystemColumnHandle
         implements ColumnHandle
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final String columnName;
 
     @JsonCreator
     public SystemColumnHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("columnName") String columnName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -56,7 +56,7 @@ public class SystemColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, columnName);
+        return Objects.hash(catalogName, columnName);
     }
 
     @Override
@@ -69,21 +69,21 @@ public class SystemColumnHandle
             return false;
         }
         final SystemColumnHandle other = (SystemColumnHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
+        return Objects.equals(this.catalogName, other.catalogName) &&
                 Objects.equals(this.columnName, other.columnName);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + columnName;
+        return catalogName + ":" + columnName;
     }
 
-    public static Map<String, ColumnHandle> toSystemColumnHandles(ConnectorId connectorId, ConnectorTableMetadata tableMetadata)
+    public static Map<String, ColumnHandle> toSystemColumnHandles(CatalogName catalogName, ConnectorTableMetadata tableMetadata)
     {
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            columnHandles.put(columnMetadata.getName(), new SystemColumnHandle(connectorId, columnMetadata.getName()));
+            columnHandles.put(columnMetadata.getName(), new SystemColumnHandle(catalogName, columnMetadata.getName()));
         }
 
         return columnHandles.build();

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,29 +25,29 @@ import static java.util.Objects.requireNonNull;
 
 public final class TableLayoutHandle
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableLayoutHandle layout;
 
     @JsonCreator
     public TableLayoutHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorTableLayoutHandle layout)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(transactionHandle, "transactionHandle is null");
         requireNonNull(layout, "layout is null");
 
-        this.connectorId = connectorId;
+        this.catalogName = catalogName;
         this.transactionHandle = transactionHandle;
         this.layout = layout;
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -72,7 +72,7 @@ public final class TableLayoutHandle
             return false;
         }
         TableLayoutHandle that = (TableLayoutHandle) o;
-        return Objects.equals(connectorId, that.connectorId) &&
+        return Objects.equals(catalogName, that.catalogName) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(layout, that.layout);
     }
@@ -80,6 +80,6 @@ public final class TableLayoutHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, layout);
+        return Objects.hash(catalogName, transactionHandle, layout);
     }
 }

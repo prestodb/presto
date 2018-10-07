@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -49,7 +49,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                         p.lateral(
                                 ImmutableList.of(p.symbol("l_nationkey")),
                                 p.tableScan(new TableHandle(
-                                                new ConnectorId("local"),
+                                                new CatalogName("local"),
                                                 new TpchTableHandle("local", "nation", TINY_SCALE_FACTOR)), ImmutableList.of(p.symbol("l_nationkey")),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),

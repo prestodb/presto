@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.PartitionFunction;
@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
-    private final ConcurrentMap<ConnectorId, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
 
     @Inject
     public NodePartitioningManager(NodeScheduler nodeScheduler)
@@ -52,17 +52,17 @@ public class NodePartitioningManager
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
     }
 
-    public void addPartitioningProvider(ConnectorId connectorId, ConnectorNodePartitioningProvider nodePartitioningProvider)
+    public void addPartitioningProvider(CatalogName catalogName, ConnectorNodePartitioningProvider nodePartitioningProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        checkArgument(partitioningProviders.putIfAbsent(connectorId, nodePartitioningProvider) == null,
-                "NodePartitioningProvider for connector '%s' is already registered", connectorId);
+        checkArgument(partitioningProviders.putIfAbsent(catalogName, nodePartitioningProvider) == null,
+                "NodePartitioningProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removePartitioningProvider(ConnectorId connectorId)
+    public void removePartitioningProvider(CatalogName catalogName)
     {
-        partitioningProviders.remove(connectorId);
+        partitioningProviders.remove(catalogName);
     }
 
     public PartitionFunction getPartitionFunction(

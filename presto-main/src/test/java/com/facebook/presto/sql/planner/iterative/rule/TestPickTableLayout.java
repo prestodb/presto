@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -52,27 +52,27 @@ public class TestPickTableLayout
     private TableHandle ordersTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
     private TableLayoutHandle ordersTableLayoutHandle;
-    private ConnectorId connectorId;
+    private CatalogName catalogName;
 
     @BeforeClass
     public void setUpBeforeClass()
     {
         pickTableLayout = new PickTableLayout(tester().getMetadata(), new SqlParser());
 
-        connectorId = tester().getCurrentConnectorId();
+        catalogName = tester().getCurrentConnectorId();
         nationTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle(connectorId.toString(), "nation", 1.0));
+                catalogName,
+                new TpchTableHandle(catalogName.toString(), "nation", 1.0));
         ordersTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle(connectorId.toString(), "orders", 1.0));
+                catalogName,
+                new TpchTableHandle(catalogName.toString(), "orders", 1.0));
 
         nationTableLayoutHandle = new TableLayoutHandle(
-                connectorId,
+                catalogName,
                 TestingTransactionHandle.create(),
                 new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
         ordersTableLayoutHandle = new TableLayoutHandle(
-                connectorId,
+                catalogName,
                 TestingTransactionHandle.create(),
                 new TpchTableLayoutHandle((TpchTableHandle) ordersTableHandle.getConnectorHandle(), TupleDomain.all()));
     }

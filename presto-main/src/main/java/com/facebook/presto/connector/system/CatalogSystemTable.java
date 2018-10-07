@@ -14,7 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
@@ -74,7 +74,7 @@ public class CatalogSystemTable
     {
         Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, ConnectorId> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
+        for (Map.Entry<String, CatalogName> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
             table.addRow(entry.getKey(), entry.getValue().toString());
         }
         return table.build().cursor();

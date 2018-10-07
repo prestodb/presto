@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -42,9 +42,9 @@ public class SampledSplitSource
 
     @Nullable
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return splitSource.getConnectorId();
+        return splitSource.getCatalogName();
     }
 
     @Override

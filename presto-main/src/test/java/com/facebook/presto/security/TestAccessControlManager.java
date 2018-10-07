@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
@@ -46,8 +46,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.connector.CatalogName.createInformationSchemaCatalogName;
+import static com.facebook.presto.connector.CatalogName.createSystemTablesCatalogName;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -155,8 +155,8 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
-        accessControlManager.addCatalogAccessControl(connectorId, new DenyConnectorAccessControl());
+        CatalogName catalogName = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
+        accessControlManager.addCatalogAccessControl(catalogName, new DenyConnectorAccessControl());
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -176,7 +176,7 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
-        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), new DenyConnectorAccessControl());
+        accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -184,19 +184,19 @@ public class TestAccessControlManager
                 });
     }
 
-    private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
+    private static CatalogName registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
     {
-        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogName connectorId = new CatalogName(catalogName);
         Connector connector = new TpchConnectorFactory().create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
 
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         MetadataManager metadata = MetadataManager.createTestMetadataManager(catalogManager);
-        ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesCatalogName(connectorId);
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 connectorId,
                 connector,
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(connectorId),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(

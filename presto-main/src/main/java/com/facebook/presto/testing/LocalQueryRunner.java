@@ -20,7 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.ColumnPropertiesSystemTable;
@@ -523,7 +523,7 @@ public class LocalQueryRunner
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
+        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }

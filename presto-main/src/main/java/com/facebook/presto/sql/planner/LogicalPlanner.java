@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
@@ -299,7 +299,7 @@ public class LogicalPlanner
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
-        String catalogName = insert.getTarget().getConnectorId().getCatalogName();
+        String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadata(session, catalogName, tableMetadata.getMetadata());
 
         return createTableWriterPlan(
@@ -452,11 +452,11 @@ public class LogicalPlanner
 
     private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, List<Expression> parameters, Optional<String> comment)
     {
-        ConnectorId connectorId = metadata.getCatalogHandle(session, table.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + table.getCatalogName()));
 
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
-                connectorId,
+                catalogName,
                 table.getCatalogName(),
                 propertyExpressions,
                 session,

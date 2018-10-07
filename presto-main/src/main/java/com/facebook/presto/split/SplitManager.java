@@ -14,7 +14,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SplitManager
 {
-    private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
     private final int minScheduleSplitBatchSize;
 
     @Inject
@@ -42,24 +42,24 @@ public class SplitManager
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
     }
 
-    public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
+    public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(connectorSplitManager, "connectorSplitManager is null");
-        checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
+        checkState(splitManagers.putIfAbsent(catalogName, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", catalogName);
     }
 
-    public void removeConnectorSplitManager(ConnectorId connectorId)
+    public void removeConnectorSplitManager(CatalogName catalogName)
     {
-        splitManagers.remove(connectorId);
+        splitManagers.remove(catalogName);
     }
 
     public SplitSource getSplits(Session session, TableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ConnectorId connectorId = layout.getConnectorId();
-        ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
+        CatalogName catalogName = layout.getCatalogName();
+        ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
 
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
         ConnectorSplitSource source = splitManager.getSplits(
                 layout.getTransactionHandle(),
@@ -67,17 +67,17 @@ public class SplitManager
                 layout.getConnectorHandle(),
                 splitSchedulingStrategy);
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, layout.getTransactionHandle(), source);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
         return splitSource;
     }
 
-    private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)
+    private ConnectorSplitManager getConnectorSplitManager(CatalogName catalogName)
     {
-        ConnectorSplitManager result = splitManagers.get(connectorId);
-        checkArgument(result != null, "No split manager for connector '%s'", connectorId);
+        ConnectorSplitManager result = splitManagers.get(catalogName);
+        checkArgument(result != null, "No split manager for connector '%s'", catalogName);
         return result;
     }
 }

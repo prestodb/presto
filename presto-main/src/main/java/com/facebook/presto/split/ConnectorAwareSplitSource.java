@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -32,24 +32,24 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorAwareSplitSource
         implements SplitSource
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplitSource source;
 
     public ConnectorAwareSplitSource(
-            ConnectorId connectorId,
+            CatalogName catalogName,
             ConnectorTransactionHandle transactionHandle,
             ConnectorSplitSource source)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.source = requireNonNull(source, "source is null");
     }
 
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @Override
@@ -65,7 +65,7 @@ public class ConnectorAwareSplitSource
         return Futures.transform(nextBatch, splitBatch -> {
             ImmutableList.Builder<Split> result = ImmutableList.builder();
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
-                result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
+                result.add(new Split(catalogName, transactionHandle, connectorSplit, lifespan));
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());
@@ -86,6 +86,6 @@ public class ConnectorAwareSplitSource
     @Override
     public String toString()
     {
-        return connectorId + ":" + source;
+        return catalogName + ":" + source;
     }
 }

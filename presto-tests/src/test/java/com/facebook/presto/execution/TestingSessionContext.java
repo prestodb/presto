@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -132,7 +132,7 @@ public class TestingSessionContext
     public Map<String, Map<String, String>> getCatalogSessionProperties()
     {
         ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
-        for (Entry<ConnectorId, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
+        for (Entry<CatalogName, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
             catalogSessionProperties.put(entry.getKey().getCatalogName(), entry.getValue());
         }
         return catalogSessionProperties.build();

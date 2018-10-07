@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.Signature;
@@ -73,7 +73,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableWriterOperator
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("testConnectorId");
     private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private ExecutorService executor;

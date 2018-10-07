@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -38,17 +38,17 @@ public interface TransactionManager
 
     TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext);
 
-    Map<String, ConnectorId> getCatalogNames(TransactionId transactionId);
+    Map<String, CatalogName> getCatalogNames(TransactionId transactionId);
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
-    CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId);
+    CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName);
 
-    CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId);
+    CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName);
 
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName);
 
-    ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId);
+    ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName);
 
     void checkAndSetActive(TransactionId transactionId);
 

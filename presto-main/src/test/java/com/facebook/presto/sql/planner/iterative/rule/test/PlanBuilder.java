@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
@@ -357,7 +357,7 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
+        TableHandle tableHandle = new TableHandle(new CatalogName("testConnector"), new TestingTableHandle());
         return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
 
@@ -397,7 +397,7 @@ public class PlanBuilder
     {
         TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
                 new TableHandle(
-                        new ConnectorId("testConnector"),
+                        new CatalogName("testConnector"),
                         new TestingTableHandle()),
                 schemaTableName);
         return new TableFinishNode(
@@ -478,7 +478,7 @@ public class PlanBuilder
         return new IndexSourceNode(
                 idAllocator.getNextId(),
                 new IndexHandle(
-                        tableHandle.getConnectorId(),
+                        tableHandle.getCatalogName(),
                         TestingConnectorTransactionHandle.INSTANCE,
                         TestingConnectorIndexHandle.INSTANCE),
                 tableHandle,

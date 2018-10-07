@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.json.JsonCodec;
@@ -27,14 +27,14 @@ public class TestSystemSplit
     @Test
     public void testSerialization()
     {
-        ConnectorId connectorId = new ConnectorId("testid");
-        SystemTableHandle tableHandle = new SystemTableHandle(connectorId, "xyz", "foo");
-        SystemSplit expected = new SystemSplit(connectorId, tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
+        CatalogName catalogName = new CatalogName("testid");
+        SystemTableHandle tableHandle = new SystemTableHandle(catalogName, "xyz", "foo");
+        SystemSplit expected = new SystemSplit(catalogName, tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
 
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
+        assertEquals(actual.getCatalogName(), expected.getCatalogName());
         assertEquals(actual.getTableHandle(), expected.getTableHandle());
         assertEquals(actual.getAddresses(), expected.getAddresses());
         assertEquals(actual.getConstraint(), expected.getConstraint());

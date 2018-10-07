@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.ProcedureTester;
@@ -57,7 +57,7 @@ public class TestProcedureCall
         ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
-                new ConnectorId(TESTING_CATALOG),
+                new CatalogName(TESTING_CATALOG),
                 procedures.getProcedures(PROCEDURE_SCHEMA));
 
         session = testSessionBuilder()

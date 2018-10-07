@@ -15,7 +15,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -78,16 +78,16 @@ public class TestCreateTableTask
         columnPropertyManager = new ColumnPropertyManager();
         testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
-        tablePropertyManager.addProperties(testCatalog.getConnectorId(),
+        tablePropertyManager.addProperties(testCatalog.getCatalogName(),
                 ImmutableList.of(stringProperty("baz", "test property", null, false)));
-        columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
+        columnPropertyManager.addProperties(testCatalog.getCatalogName(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(typeManager,
                 tablePropertyManager,
                 columnPropertyManager,
-                testCatalog.getConnectorId());
+                testCatalog.getCatalogName());
     }
 
     @Test
@@ -131,14 +131,14 @@ public class TestCreateTableTask
         private final TypeManager typeManager;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
-        private final ConnectorId catalogHandle;
+        private final CatalogName catalogHandle;
         private AtomicInteger createTableCallCount = new AtomicInteger();
 
         public MockMetadata(
                 TypeManager typeManager,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
-                ConnectorId catalogHandle)
+                CatalogName catalogHandle)
         {
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
@@ -174,7 +174,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
         {
             if (catalogHandle.getCatalogName().equals(catalogName)) {
                 return Optional.of(catalogHandle);

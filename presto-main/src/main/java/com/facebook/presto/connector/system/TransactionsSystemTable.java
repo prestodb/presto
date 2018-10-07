@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -94,17 +94,17 @@ public class TransactionsSystemTable
                     info.isAutoCommitContext(),
                     info.getCreateTime().getMillis(),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
-                    info.getWrittenConnectorId().map(ConnectorId::getCatalogName).orElse(null),
-                    createStringsBlock(info.getConnectorIds()));
+                    info.getWrittenConnectorId().map(CatalogName::getCatalogName).orElse(null),
+                    createStringsBlock(info.getCatalogNames()));
         }
         return table.build().cursor();
     }
 
-    private static Block createStringsBlock(List<ConnectorId> values)
+    private static Block createStringsBlock(List<CatalogName> values)
     {
         VarcharType varchar = createUnboundedVarcharType();
         BlockBuilder builder = varchar.createBlockBuilder(null, values.size());
-        for (ConnectorId value : values) {
+        for (CatalogName value : values) {
             if (value == null) {
                 builder.appendNull();
             }

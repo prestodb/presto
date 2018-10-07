@@ -80,7 +80,7 @@ public class TestResetSessionTask
                 false));
 
         Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), ImmutableList.of(stringProperty(
+        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getCatalogName(), ImmutableList.of(stringProperty(
                 "baz",
                 "test property",
                 null,

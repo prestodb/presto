@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -26,25 +26,25 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Output
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final String schema;
     private final String table;
 
     @JsonCreator
     public Output(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -69,7 +69,7 @@ public final class Output
             return false;
         }
         Output output = (Output) o;
-        return Objects.equals(connectorId, output.connectorId) &&
+        return Objects.equals(catalogName, output.catalogName) &&
                 Objects.equals(schema, output.schema) &&
                 Objects.equals(table, output.table);
     }
@@ -77,6 +77,6 @@ public final class Output
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table);
+        return Objects.hash(catalogName, schema, table);
     }
 }

@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
@@ -76,7 +76,7 @@ public final class StandaloneQueryRunner
 
         SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("catalog"), TEST_CATALOG_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("catalog"), TEST_CATALOG_PROPERTIES);
     }
 
     @Override
@@ -174,7 +174,7 @@ public final class StandaloneQueryRunner
         while (allNodes.getActiveNodes().isEmpty());
     }
 
-    private void refreshNodes(ConnectorId connectorId)
+    private void refreshNodes(CatalogName catalogName)
     {
         Set<Node> activeNodesWithConnector;
 
@@ -186,7 +186,7 @@ public final class StandaloneQueryRunner
                 Thread.currentThread().interrupt();
                 break;
             }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
+            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
         }
         while (activeNodesWithConnector.isEmpty());
     }
@@ -203,7 +203,7 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        ConnectorId connectorId = server.createCatalog(catalogName, connectorName, properties);
+        CatalogName connectorId = server.createCatalog(catalogName, connectorName, properties);
 
         refreshNodes(connectorId);
     }

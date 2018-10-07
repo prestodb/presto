@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
@@ -97,7 +97,7 @@ import static org.testng.Assert.fail;
 public class TestSourcePartitionedScheduler
 {
     public static final OutputBufferId OUT = new OutputBufferId(0);
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("connector_id");
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
@@ -418,7 +418,7 @@ public class TestSourcePartitionedScheduler
 
         PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
         SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
-        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getConnectorId()), stage::getAllTasks);
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getCatalogName()), stage::getAllTasks);
         return newSourcePartitionedSchedulerAsStageScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize);
     }
 

@@ -15,7 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
@@ -108,7 +108,7 @@ public class TestSystemMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit());
+        Split testSplit = new Split(new CatalogName("test"), TestingTransactionHandle.create(), new TestSplit());
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<?> blocked = driver.processFor(new Duration(1, NANOSECONDS));

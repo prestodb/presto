@@ -16,7 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -62,8 +62,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.connector.CatalogName.createInformationSchemaCatalogName;
+import static com.facebook.presto.connector.CatalogName.createSystemTablesCatalogName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -124,11 +124,11 @@ import static org.testng.Assert.fail;
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
-    private static final ConnectorId TPCH_CONNECTOR_ID = new ConnectorId(TPCH_CATALOG);
+    private static final CatalogName TPCH_CONNECTOR_ID = new CatalogName(TPCH_CATALOG);
     private static final String SECOND_CATALOG = "c2";
-    private static final ConnectorId SECOND_CONNECTOR_ID = new ConnectorId(SECOND_CATALOG);
+    private static final CatalogName SECOND_CONNECTOR_ID = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
-    private static final ConnectorId THIRD_CONNECTOR_ID = new ConnectorId(THIRD_CATALOG);
+    private static final CatalogName THIRD_CONNECTOR_ID = new CatalogName(THIRD_CATALOG);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -1715,16 +1715,16 @@ public class TestAnalyzer
         }
     }
 
-    private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)
+    private Catalog createTestingCatalog(String catalogName, CatalogName connectorId)
     {
-        ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesCatalogName(connectorId);
         Connector connector = createTestingConnector();
         InternalNodeManager nodeManager = new InMemoryNodeManager();
         return new Catalog(
                 catalogName,
                 connectorId,
                 connector,
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(connectorId),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(

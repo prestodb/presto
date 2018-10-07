@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Input
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final String schema;
     private final String table;
     private final List<Column> columns;
@@ -38,19 +38,19 @@ public final class Input
 
     @JsonCreator
     public Input(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
             @JsonProperty("columns") List<Column> columns)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(table, "table is null");
         requireNonNull(connectorInfo, "connectorInfo is null");
         requireNonNull(columns, "columns is null");
 
-        this.connectorId = connectorId;
+        this.catalogName = catalogName;
         this.schema = schema;
         this.table = table;
         this.connectorInfo = connectorInfo;
@@ -58,9 +58,9 @@ public final class Input
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -97,7 +97,7 @@ public final class Input
             return false;
         }
         Input input = (Input) o;
-        return Objects.equals(connectorId, input.connectorId) &&
+        return Objects.equals(catalogName, input.catalogName) &&
                 Objects.equals(schema, input.schema) &&
                 Objects.equals(table, input.table) &&
                 Objects.equals(columns, input.columns) &&
@@ -107,14 +107,14 @@ public final class Input
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, columns, connectorInfo);
+        return Objects.hash(catalogName, schema, table, columns, connectorInfo);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(connectorId)
+                .addValue(catalogName)
                 .addValue(schema)
                 .addValue(table)
                 .addValue(columns)

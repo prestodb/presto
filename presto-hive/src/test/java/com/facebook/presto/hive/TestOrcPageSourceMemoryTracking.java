@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
@@ -497,7 +497,7 @@ public class TestOrcPageSourceMemoryTracking
                     (session, split, columnHandles) -> pageSource,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;
         }
 
@@ -522,7 +522,7 @@ public class TestOrcPageSourceMemoryTracking
                     new DataSize(0, BYTE),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;
         }
 

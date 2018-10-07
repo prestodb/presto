@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -3040,7 +3040,7 @@ public class TestHiveIntegrationSmokeTest
 
     private static ConnectorSession getConnectorSession(Session session)
     {
-        return session.toConnectorSession(new ConnectorId(session.getCatalog().get()));
+        return session.toConnectorSession(new CatalogName(session.getCatalog().get()));
     }
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)

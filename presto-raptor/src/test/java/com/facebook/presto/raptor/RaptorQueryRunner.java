@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
@@ -132,7 +132,7 @@ public final class RaptorQueryRunner
     public static Session createSession(String schema)
     {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
-        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("raptor"), new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("raptor"), new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)

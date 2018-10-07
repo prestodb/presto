@@ -14,7 +14,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -32,18 +32,18 @@ import static java.util.Objects.requireNonNull;
 public class PageSourceManager
         implements PageSourceProvider
 {
-    private final ConcurrentMap<ConnectorId, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(ConnectorId connectorId, ConnectorPageSourceProvider pageSourceProvider)
+    public void addConnectorPageSourceProvider(CatalogName catalogName, ConnectorPageSourceProvider pageSourceProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        checkState(pageSourceProviders.put(connectorId, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", connectorId);
+        checkState(pageSourceProviders.put(catalogName, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removeConnectorPageSourceProvider(ConnectorId connectorId)
+    public void removeConnectorPageSourceProvider(CatalogName catalogName)
     {
-        pageSourceProviders.remove(connectorId);
+        pageSourceProviders.remove(catalogName);
     }
 
     @Override
@@ -52,15 +52,15 @@ public class PageSourceManager
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
 
-        ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
+        ConnectorSession connectorSession = session.toConnectorSession(split.getCatalogName());
         return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)
     {
-        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
+        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getCatalogName());
 
-        checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
+        checkArgument(provider != null, "No page stream provider for '%s", split.getCatalogName());
 
         return provider;
     }

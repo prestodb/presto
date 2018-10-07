@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
@@ -32,7 +32,7 @@ public class InMemoryNodeManager
         implements InternalNodeManager
 {
     private final Node localNode;
-    private final SetMultimap<ConnectorId, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private final SetMultimap<CatalogName, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @Inject
     public InMemoryNodeManager()
@@ -45,19 +45,19 @@ public class InMemoryNodeManager
         localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
-    public void addCurrentNodeConnector(ConnectorId connectorId)
+    public void addCurrentNodeConnector(CatalogName catalogName)
     {
-        addNode(connectorId, localNode);
+        addNode(catalogName, localNode);
     }
 
-    public void addNode(ConnectorId connectorId, Node... nodes)
+    public void addNode(CatalogName catalogName, Node... nodes)
     {
-        addNode(connectorId, ImmutableList.copyOf(nodes));
+        addNode(catalogName, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(ConnectorId connectorId, Iterable<Node> nodes)
+    public void addNode(CatalogName catalogName, Iterable<Node> nodes)
     {
-        remoteNodes.putAll(connectorId, nodes);
+        remoteNodes.putAll(catalogName, nodes);
     }
 
     @Override
@@ -76,9 +76,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    public Set<Node> getActiveConnectorNodes(CatalogName catalogName)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(connectorId));
+        return ImmutableSet.copyOf(remoteNodes.get(catalogName));
     }
 
     @Override

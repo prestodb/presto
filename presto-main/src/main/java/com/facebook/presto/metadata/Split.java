@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -28,34 +28,34 @@ import static java.util.Objects.requireNonNull;
 
 public final class Split
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplit connectorSplit;
     private final Lifespan lifespan;
 
     // TODO: inline
-    public Split(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplit connectorSplit)
+    public Split(CatalogName catalogName, ConnectorTransactionHandle transactionHandle, ConnectorSplit connectorSplit)
     {
-        this(connectorId, transactionHandle, connectorSplit, Lifespan.taskWide());
+        this(catalogName, transactionHandle, connectorSplit, Lifespan.taskWide());
     }
 
     @JsonCreator
     public Split(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
             @JsonProperty("lifespan") Lifespan lifespan)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -95,7 +95,7 @@ public final class Split
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
+                .add("connectorId", catalogName)
                 .add("transactionHandle", transactionHandle)
                 .add("connectorSplit", connectorSplit)
                 .add("lifespan", lifespan)

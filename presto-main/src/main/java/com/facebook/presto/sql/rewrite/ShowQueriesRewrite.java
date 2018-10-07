@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -385,7 +385,7 @@ final class ShowQueriesRewrite
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
-                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
@@ -396,7 +396,7 @@ final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
@@ -513,7 +513,7 @@ final class ShowQueriesRewrite
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            SortedMap<String, ConnectorId> catalogNames = listCatalogs(session, metadata, accessControl);
+            SortedMap<String, CatalogName> catalogNames = listCatalogs(session, metadata, accessControl);
             List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session, catalogNames);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {

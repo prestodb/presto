@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
@@ -84,7 +84,7 @@ public class TestPruneIndexSourceColumns
                                 .collect(toImmutableList())),
                 p.indexSource(
                         new TableHandle(
-                                new ConnectorId("local"),
+                                new CatalogName("local"),
                                 new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
                         ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),

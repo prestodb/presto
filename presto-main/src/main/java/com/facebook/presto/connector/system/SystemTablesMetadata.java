@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -48,13 +48,13 @@ import static java.util.Objects.requireNonNull;
 public class SystemTablesMetadata
         implements ConnectorMetadata
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
 
     private final SystemTablesProvider tables;
 
-    public SystemTablesMetadata(ConnectorId connectorId, SystemTablesProvider tables)
+    public SystemTablesMetadata(CatalogName catalogName, SystemTablesProvider tables)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId");
+        this.catalogName = requireNonNull(catalogName, "connectorId");
         this.tables = requireNonNull(tables, "tables is null");
     }
 
@@ -74,14 +74,14 @@ public class SystemTablesMetadata
         if (!table.isPresent()) {
             return null;
         }
-        return SystemTableHandle.fromSchemaTableName(connectorId, tableName);
+        return SystemTableHandle.fromSchemaTableName(catalogName, tableName);
     }
 
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         SystemTableHandle tableHandle = (SystemTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle.getConnectorId(), tableHandle, constraint.getSummary()));
+        ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle.getCatalogName(), tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
@@ -123,7 +123,7 @@ public class SystemTablesMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
-        return toSystemColumnHandles(((SystemTableHandle) tableHandle).getConnectorId(), tableMetadata);
+        return toSystemColumnHandles(((SystemTableHandle) tableHandle).getCatalogName(), tableMetadata);
     }
 
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)

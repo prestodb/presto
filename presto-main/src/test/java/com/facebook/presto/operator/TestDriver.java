@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -356,7 +356,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit());
+        return new Split(new CatalogName("test"), TestingTransactionHandle.create(), new MockSplit());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

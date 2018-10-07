@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -41,7 +41,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(new ConnectorId("test"), new ConnectorTransactionHandle() {}, new MockConnectorSplit());
+    private static final Split SPLIT = new Split(new CatalogName("test"), new ConnectorTransactionHandle() {}, new MockConnectorSplit());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
     static {
         COMPLETED_FUTURE.set(null);
@@ -84,7 +84,7 @@ public class MockSplitSource
     }
 
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
         throw new UnsupportedOperationException();
     }

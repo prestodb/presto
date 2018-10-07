@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -31,24 +31,24 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplit
         implements ConnectorSplit
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final SystemTableHandle tableHandle;
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public SystemSplit(ConnectorId connectorId, SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
+    public SystemSplit(CatalogName catalogName, SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
     {
-        this(connectorId, tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
+        this(catalogName, tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
     }
 
     @JsonCreator
     public SystemSplit(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("tableHandle") SystemTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
 
         requireNonNull(addresses, "hosts is null");
@@ -58,9 +58,9 @@ public class SystemSplit
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @Override
@@ -98,7 +98,7 @@ public class SystemSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
+                .add("connectorId", catalogName)
                 .add("tableHandle", tableHandle)
                 .add("addresses", addresses)
                 .toString();

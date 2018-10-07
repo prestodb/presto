@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -24,21 +24,21 @@ import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTableMetadata metadata;
 
-    public TableMetadata(ConnectorId connectorId, ConnectorTableMetadata metadata)
+    public TableMetadata(CatalogName catalogName, ConnectorTableMetadata metadata)
     {
-        requireNonNull(connectorId, "catalog is null");
+        requireNonNull(catalogName, "catalog is null");
         requireNonNull(metadata, "metadata is null");
 
-        this.connectorId = connectorId;
+        this.catalogName = catalogName;
         this.metadata = metadata;
     }
 
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     public ConnectorTableMetadata getMetadata()

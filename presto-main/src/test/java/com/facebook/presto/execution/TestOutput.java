@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -26,7 +26,7 @@ public class TestOutput
     @Test
     public void testRoundTrip()
     {
-        Output expected = new Output(new ConnectorId("connectorId"), "schema", "table");
+        Output expected = new Output(new CatalogName("connectorId"), "schema", "table");
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);

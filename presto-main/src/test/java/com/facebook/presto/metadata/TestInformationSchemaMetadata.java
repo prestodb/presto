@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.ClientCapabilities;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.connector.informationSchema.InformationSchemaColumnHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
@@ -48,8 +48,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.connector.CatalogName.createInformationSchemaCatalogName;
+import static com.facebook.presto.connector.CatalogName.createSystemTablesCatalogName;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -81,14 +81,14 @@ public class TestInformationSchemaMetadata
         Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
         CatalogManager catalogManager = new CatalogManager();
         String catalogName = "test_catalog";
-        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogName connectorId = new CatalogName(catalogName);
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 connectorId,
                 testConnector,
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(connectorId),
                 testConnector,
-                createSystemTablesConnectorId(connectorId),
+                createSystemTablesCatalogName(connectorId),
                 testConnector));
         transactionManager = createTestTransactionManager(catalogManager);
         metadata = new MetadataManager(

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.DiscretePredicates;
@@ -44,9 +44,9 @@ public class TableLayout
         this.layout = layout;
     }
 
-    public ConnectorId getConnectorId()
+    public CatalogName getConnectorId()
     {
-        return handle.getConnectorId();
+        return handle.getCatalogName();
     }
 
     public Optional<List<ColumnHandle>> getColumns()
@@ -74,7 +74,7 @@ public class TableLayout
         return layout.getTablePartitioning()
                 .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
-                                Optional.of(handle.getConnectorId()),
+                                Optional.of(handle.getCatalogName()),
                                 Optional.of(handle.getTransactionHandle()),
                                 nodePartitioning.getPartitioningHandle()),
                         nodePartitioning.getPartitioningColumns()));
@@ -90,9 +90,9 @@ public class TableLayout
         return layout.getDiscretePredicates();
     }
 
-    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
+    public static TableLayout fromConnectorLayout(CatalogName catalogName, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
     {
-        return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
+        return new TableLayout(new TableLayoutHandle(catalogName, transactionHandle, layout.getHandle()), layout);
     }
 
     public static class TablePartitioning

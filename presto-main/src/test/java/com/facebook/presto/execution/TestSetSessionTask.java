@@ -109,7 +109,7 @@ public class TestSetSessionTask
                         value -> validatePositive(value),
                         value -> value));
 
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), sessionProperties);
+        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getCatalogName(), sessionProperties);
 
         catalogManager.registerCatalog(bogusTestingCatalog);
     }

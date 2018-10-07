@@ -67,8 +67,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.connector.CatalogName.createInformationSchemaCatalogName;
+import static com.facebook.presto.connector.CatalogName.createSystemTablesCatalogName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -100,7 +100,7 @@ public class ConnectorManager
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final ConcurrentMap<ConnectorId, MaterializedConnector> connectors = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, MaterializedConnector> connectors = new ConcurrentHashMap<>();
 
     private final AtomicBoolean stopped = new AtomicBoolean();
 
@@ -146,7 +146,7 @@ public class ConnectorManager
             return;
         }
 
-        for (Map.Entry<ConnectorId, MaterializedConnector> entry : connectors.entrySet()) {
+        for (Map.Entry<CatalogName, MaterializedConnector> entry : connectors.entrySet()) {
             Connector connector = entry.getValue().getConnector();
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
                 connector.shutdown();
@@ -165,7 +165,7 @@ public class ConnectorManager
         handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
     }
 
-    public synchronized ConnectorId createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    public synchronized CatalogName createConnection(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
@@ -173,7 +173,7 @@ public class ConnectorManager
         return createConnection(catalogName, connectorFactory, properties);
     }
 
-    private synchronized ConnectorId createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -181,7 +181,7 @@ public class ConnectorManager
         requireNonNull(connectorFactory, "connectorFactory is null");
         checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "A catalog already exists for %s", catalogName);
 
-        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogName connectorId = new CatalogName(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
 
         addCatalogConnector(catalogName, connectorId, connectorFactory, properties);
@@ -189,16 +189,16 @@ public class ConnectorManager
         return connectorId;
     }
 
-    private synchronized void addCatalogConnector(String catalogName, ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)
+    private synchronized void addCatalogConnector(String catalogName, CatalogName connectorId, ConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(connectorId, createConnector(connectorId, factory, properties));
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(connectorId),
                 new InformationSchemaConnector(catalogName, nodeManager, metadataManager, accessControlManager));
 
-        ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesCatalogName(connectorId);
         SystemTablesProvider systemTablesProvider;
 
         if (nodeManager.getCurrentNode().isCoordinator()) {
@@ -218,11 +218,11 @@ public class ConnectorManager
 
         Catalog catalog = new Catalog(
                 catalogName,
-                connector.getConnectorId(),
+                connector.getCatalogName(),
                 connector.getConnector(),
-                informationSchemaConnector.getConnectorId(),
+                informationSchemaConnector.getCatalogName(),
                 informationSchemaConnector.getConnector(),
-                systemConnector.getConnectorId(),
+                systemConnector.getCatalogName(),
                 systemConnector.getConnector());
 
         try {
@@ -233,9 +233,9 @@ public class ConnectorManager
         }
         catch (Throwable e) {
             catalogManager.removeCatalog(catalog.getCatalogName());
-            removeConnectorInternal(systemConnector.getConnectorId());
-            removeConnectorInternal(informationSchemaConnector.getConnectorId());
-            removeConnectorInternal(connector.getConnectorId());
+            removeConnectorInternal(systemConnector.getCatalogName());
+            removeConnectorInternal(informationSchemaConnector.getCatalogName());
+            removeConnectorInternal(connector.getCatalogName());
             throw e;
         }
     }
@@ -243,31 +243,31 @@ public class ConnectorManager
     private synchronized void addConnectorInternal(MaterializedConnector connector)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
-        ConnectorId connectorId = connector.getConnectorId();
-        checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
-        connectors.put(connectorId, connector);
+        CatalogName catalogName = connector.getCatalogName();
+        checkState(!connectors.containsKey(catalogName), "A connector %s already exists", catalogName);
+        connectors.put(catalogName, connector);
 
-        splitManager.addConnectorSplitManager(connectorId, connector.getSplitManager());
-        pageSourceManager.addConnectorPageSourceProvider(connectorId, connector.getPageSourceProvider());
+        splitManager.addConnectorSplitManager(catalogName, connector.getSplitManager());
+        pageSourceManager.addConnectorPageSourceProvider(catalogName, connector.getPageSourceProvider());
 
         connector.getPageSinkProvider()
-                .ifPresent(pageSinkProvider -> pageSinkManager.addConnectorPageSinkProvider(connectorId, pageSinkProvider));
+                .ifPresent(pageSinkProvider -> pageSinkManager.addConnectorPageSinkProvider(catalogName, pageSinkProvider));
 
         connector.getIndexProvider()
-                .ifPresent(indexProvider -> indexManager.addIndexProvider(connectorId, indexProvider));
+                .ifPresent(indexProvider -> indexManager.addIndexProvider(catalogName, indexProvider));
 
         connector.getPartitioningProvider()
-                .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
+                .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
-        metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
+        metadataManager.getProcedureRegistry().addProcedures(catalogName, connector.getProcedures());
 
         connector.getAccessControl()
-                .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, accessControl));
+                .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
-        metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
-        metadataManager.getColumnPropertyManager().addProperties(connectorId, connector.getColumnProperties());
-        metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
-        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(connectorId, connector.getSessionProperties());
+        metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
+        metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
+        metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
+        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
     public synchronized void dropConnection(String catalogName)
@@ -277,52 +277,52 @@ public class ConnectorManager
         catalogManager.removeCatalog(catalogName).ifPresent(connectorId -> {
             // todo wait for all running transactions using the connector to complete before removing the services
             removeConnectorInternal(connectorId);
-            removeConnectorInternal(createInformationSchemaConnectorId(connectorId));
-            removeConnectorInternal(createSystemTablesConnectorId(connectorId));
+            removeConnectorInternal(createInformationSchemaCatalogName(connectorId));
+            removeConnectorInternal(createSystemTablesCatalogName(connectorId));
         });
     }
 
-    private synchronized void removeConnectorInternal(ConnectorId connectorId)
+    private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        splitManager.removeConnectorSplitManager(connectorId);
-        pageSourceManager.removeConnectorPageSourceProvider(connectorId);
-        pageSinkManager.removeConnectorPageSinkProvider(connectorId);
-        indexManager.removeIndexProvider(connectorId);
-        nodePartitioningManager.removePartitioningProvider(connectorId);
-        metadataManager.getProcedureRegistry().removeProcedures(connectorId);
-        accessControlManager.removeCatalogAccessControl(connectorId);
-        metadataManager.getTablePropertyManager().removeProperties(connectorId);
-        metadataManager.getSchemaPropertyManager().removeProperties(connectorId);
-        metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
+        splitManager.removeConnectorSplitManager(catalogName);
+        pageSourceManager.removeConnectorPageSourceProvider(catalogName);
+        pageSinkManager.removeConnectorPageSinkProvider(catalogName);
+        indexManager.removeIndexProvider(catalogName);
+        nodePartitioningManager.removePartitioningProvider(catalogName);
+        metadataManager.getProcedureRegistry().removeProcedures(catalogName);
+        accessControlManager.removeCatalogAccessControl(catalogName);
+        metadataManager.getTablePropertyManager().removeProperties(catalogName);
+        metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
+        metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(catalogName);
 
-        MaterializedConnector materializedConnector = connectors.remove(connectorId);
+        MaterializedConnector materializedConnector = connectors.remove(catalogName);
         if (materializedConnector != null) {
             Connector connector = materializedConnector.getConnector();
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
                 connector.shutdown();
             }
             catch (Throwable t) {
-                log.error(t, "Error shutting down connector: %s", connectorId);
+                log.error(t, "Error shutting down connector: %s", catalogName);
             }
         }
     }
 
-    private Connector createConnector(ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)
+    private Connector createConnector(CatalogName catalogName, ConnectorFactory factory, Map<String, String> properties)
     {
         ConnectorContext context = new ConnectorContextInstance(
-                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
+                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
                 typeManager,
                 pageSorter,
                 pageIndexerFactory);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            return factory.create(connectorId.getCatalogName(), properties, context);
+            return factory.create(catalogName.getCatalogName(), properties, context);
         }
     }
 
     private static class MaterializedConnector
     {
-        private final ConnectorId connectorId;
+        private final CatalogName catalogName;
         private final Connector connector;
         private final ConnectorSplitManager splitManager;
         private final Set<SystemTable> systemTables;
@@ -337,13 +337,13 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
 
-        public MaterializedConnector(ConnectorId connectorId, Connector connector)
+        public MaterializedConnector(CatalogName catalogName, Connector connector)
         {
-            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.catalogName = requireNonNull(catalogName, "connectorId is null");
             this.connector = requireNonNull(connector, "connector is null");
 
             splitManager = connector.getSplitManager();
-            checkState(splitManager != null, "Connector %s does not have a split manager", connectorId);
+            checkState(splitManager != null, "Connector %s does not have a split manager", catalogName);
 
             Set<SystemTable> systemTables = connector.getSystemTables();
             requireNonNull(systemTables, "Connector %s returned a null system tables set");
@@ -356,7 +356,7 @@ public class ConnectorManager
             ConnectorPageSourceProvider connectorPageSourceProvider = null;
             try {
                 connectorPageSourceProvider = connector.getPageSourceProvider();
-                requireNonNull(connectorPageSourceProvider, format("Connector %s returned a null page source provider", connectorId));
+                requireNonNull(connectorPageSourceProvider, format("Connector %s returned a null page source provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -365,11 +365,11 @@ public class ConnectorManager
                 ConnectorRecordSetProvider connectorRecordSetProvider = null;
                 try {
                     connectorRecordSetProvider = connector.getRecordSetProvider();
-                    requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", connectorId));
+                    requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", catalogName));
                 }
                 catch (UnsupportedOperationException ignored) {
                 }
-                checkState(connectorRecordSetProvider != null, "Connector %s has neither a PageSource or RecordSet provider", connectorId);
+                checkState(connectorRecordSetProvider != null, "Connector %s has neither a PageSource or RecordSet provider", catalogName);
                 connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
             }
             this.pageSourceProvider = connectorPageSourceProvider;
@@ -377,7 +377,7 @@ public class ConnectorManager
             ConnectorPageSinkProvider connectorPageSinkProvider = null;
             try {
                 connectorPageSinkProvider = connector.getPageSinkProvider();
-                requireNonNull(connectorPageSinkProvider, format("Connector %s returned a null page sink provider", connectorId));
+                requireNonNull(connectorPageSinkProvider, format("Connector %s returned a null page sink provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -386,7 +386,7 @@ public class ConnectorManager
             ConnectorIndexProvider indexProvider = null;
             try {
                 indexProvider = connector.getIndexProvider();
-                requireNonNull(indexProvider, format("Connector %s returned a null index provider", connectorId));
+                requireNonNull(indexProvider, format("Connector %s returned a null index provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -395,7 +395,7 @@ public class ConnectorManager
             ConnectorNodePartitioningProvider partitioningProvider = null;
             try {
                 partitioningProvider = connector.getNodePartitioningProvider();
-                requireNonNull(partitioningProvider, format("Connector %s returned a null partitioning provider", connectorId));
+                requireNonNull(partitioningProvider, format("Connector %s returned a null partitioning provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -426,9 +426,9 @@ public class ConnectorManager
             this.columnProperties = ImmutableList.copyOf(columnProperties);
         }
 
-        public ConnectorId getConnectorId()
+        public CatalogName getCatalogName()
         {
-            return connectorId;
+            return catalogName;
         }
 
         public Connector getConnector()

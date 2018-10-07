@@ -15,7 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -32,8 +32,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.connector.CatalogName.createInformationSchemaCatalogName;
+import static com.facebook.presto.connector.CatalogName.createSystemTablesCatalogName;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 
@@ -66,14 +66,14 @@ public final class TestingSession
 
     public static Catalog createBogusTestingCatalog(String catalogName)
     {
-        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogName connectorId = new CatalogName(catalogName);
         return new Catalog(
                 catalogName,
                 connectorId,
                 createTestSessionConnector(),
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(connectorId),
                 createTestSessionConnector(),
-                createSystemTablesConnectorId(connectorId),
+                createSystemTablesCatalogName(connectorId),
                 createTestSessionConnector());
     }
 
@@ -90,7 +90,7 @@ public final class TestingSession
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new SystemTablesMetadata(new ConnectorId("test_session_connector"), new StaticSystemTablesProvider(ImmutableSet.of()));
+                return new SystemTablesMetadata(new CatalogName("test_session_connector"), new StaticSystemTablesProvider(ImmutableSet.of()));
             }
 
             @Override

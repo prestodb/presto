@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
@@ -89,7 +89,7 @@ public class BenchmarkNodeScheduler
     private static final int RACKS = DATA_NODES / 25;
     private static final int SPLITS = NODES * (MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE / 3);
     private static final int SPLIT_BATCH_SIZE = 100;
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test_connector_id");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("test_connector_id");
 
     @Benchmark
     @OperationsPerInvocation(SPLITS)

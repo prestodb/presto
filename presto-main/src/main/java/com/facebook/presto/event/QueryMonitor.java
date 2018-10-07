@@ -14,7 +14,7 @@
 package com.facebook.presto.event;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -155,7 +155,7 @@ public class QueryMonitor
             ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
             for (Input input : queryInfo.getInputs()) {
                 inputs.add(new QueryInputMetadata(
-                        input.getConnectorId().getCatalogName(),
+                        input.getCatalogName().getCatalogName(),
                         input.getSchema(),
                         input.getTable(),
                         input.getColumns().stream()
@@ -175,7 +175,7 @@ public class QueryMonitor
 
                 output = Optional.of(
                         new QueryOutputMetadata(
-                                queryInfo.getOutput().get().getConnectorId().getCatalogName(),
+                                queryInfo.getOutput().get().getCatalogName().getCatalogName(),
                                 queryInfo.getOutput().get().getSchema(),
                                 queryInfo.getOutput().get().getTable(),
                                 tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
@@ -281,7 +281,7 @@ public class QueryMonitor
     {
         ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
         mergedProperties.putAll(queryInfo.getSession().getSystemProperties());
-        for (Map.Entry<ConnectorId, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
+        for (Map.Entry<CatalogName, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }

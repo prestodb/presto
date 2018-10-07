@@ -67,7 +67,7 @@ public class SystemSplitManager
         Distribution tableDistributionMode = systemTable.getDistribution();
         if (tableDistributionMode == SINGLE_COORDINATOR) {
             HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-            ConnectorSplit split = new SystemSplit(tableHandle.getConnectorId(), tableHandle, address, constraint);
+            ConnectorSplit split = new SystemSplit(tableHandle.getCatalogName(), tableHandle, address, constraint);
             return new FixedSplitSource(ImmutableList.of(split));
         }
 
@@ -81,7 +81,7 @@ public class SystemSplitManager
         }
         Set<Node> nodeSet = nodes.build();
         for (Node node : nodeSet) {
-            splits.add(new SystemSplit(tableHandle.getConnectorId(), tableHandle, node.getHostAndPort(), constraint));
+            splits.add(new SystemSplit(tableHandle.getCatalogName(), tableHandle, node.getHostAndPort(), constraint));
         }
         return new FixedSplitSource(splits.build());
     }

@@ -14,7 +14,7 @@
 package com.facebook.presto.index;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
@@ -31,31 +31,31 @@ import static java.util.Objects.requireNonNull;
 
 public class IndexManager
 {
-    private final ConcurrentMap<ConnectorId, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
 
-    public void addIndexProvider(ConnectorId connectorId, ConnectorIndexProvider indexProvider)
+    public void addIndexProvider(CatalogName catalogName, ConnectorIndexProvider indexProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(indexProvider, "indexProvider is null");
-        checkState(providers.putIfAbsent(connectorId, indexProvider) == null, "IndexProvider for connector '%s' is already registered", connectorId);
+        checkState(providers.putIfAbsent(catalogName, indexProvider) == null, "IndexProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removeIndexProvider(ConnectorId connectorId)
+    public void removeIndexProvider(CatalogName catalogName)
     {
-        providers.remove(connectorId);
+        providers.remove(catalogName);
     }
 
     public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getConnectorId());
+        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getCatalogName());
         ConnectorIndexProvider provider = getProvider(indexHandle);
         return provider.getIndex(indexHandle.getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
     private ConnectorIndexProvider getProvider(IndexHandle handle)
     {
-        ConnectorIndexProvider result = providers.get(handle.getConnectorId());
-        checkArgument(result != null, "No index provider for connector '%s'", handle.getConnectorId());
+        ConnectorIndexProvider result = providers.get(handle.getCatalogName());
+        checkArgument(result != null, "No index provider for connector '%s'", handle.getCatalogName());
         return result;
     }
 }

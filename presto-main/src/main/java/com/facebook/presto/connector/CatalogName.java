@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public final class ConnectorId
+public final class CatalogName
 {
     private static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
     private static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
@@ -29,7 +29,7 @@ public final class ConnectorId
     private final String catalogName;
 
     @JsonCreator
-    public ConnectorId(String catalogName)
+    public CatalogName(String catalogName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         checkArgument(!catalogName.isEmpty(), "catalogName is empty");
@@ -49,7 +49,7 @@ public final class ConnectorId
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ConnectorId that = (ConnectorId) o;
+        CatalogName that = (CatalogName) o;
         return Objects.equals(catalogName, that.catalogName);
     }
 
@@ -66,19 +66,19 @@ public final class ConnectorId
         return catalogName;
     }
 
-    public static boolean isInternalSystemConnector(ConnectorId connectorId)
+    public static boolean isInternalSystemConnector(CatalogName catalogName)
     {
-        return connectorId.getCatalogName().startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) ||
-                connectorId.getCatalogName().startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX);
+        return catalogName.getCatalogName().startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) ||
+                catalogName.getCatalogName().startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX);
     }
 
-    public static ConnectorId createInformationSchemaConnectorId(ConnectorId connectorId)
+    public static CatalogName createInformationSchemaCatalogName(CatalogName catalogName)
     {
-        return new ConnectorId(INFORMATION_SCHEMA_CONNECTOR_PREFIX + connectorId.getCatalogName());
+        return new CatalogName(INFORMATION_SCHEMA_CONNECTOR_PREFIX + catalogName.getCatalogName());
     }
 
-    public static ConnectorId createSystemTablesConnectorId(ConnectorId connectorId)
+    public static CatalogName createSystemTablesCatalogName(CatalogName catalogName)
     {
-        return new ConnectorId(SYSTEM_TABLES_CONNECTOR_PREFIX + connectorId.getCatalogName());
+        return new CatalogName(SYSTEM_TABLES_CONNECTOR_PREFIX + catalogName.getCatalogName());
     }
 }

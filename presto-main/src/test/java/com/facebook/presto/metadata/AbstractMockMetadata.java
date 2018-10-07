@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -237,7 +237,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void beginQuery(Session session, Set<ConnectorId> connectors)
+    public void beginQuery(Session session, Set<CatalogName> connectors)
     {
         throw new UnsupportedOperationException();
     }
@@ -291,13 +291,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+    public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<String, ConnectorId> getCatalogNames(Session session)
+    public Map<String, CatalogName> getCatalogNames(Session session)
     {
         throw new UnsupportedOperationException();
     }

@@ -15,7 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class IndexLoader
 {
-    private static final ConnectorId INDEX_CONNECTOR_ID = new ConnectorId("$index");
+    private static final CatalogName INDEX_CONNECTOR_ID = new CatalogName("$index");
     private final BlockingQueue<UpdateRequest> updateRequests = new LinkedBlockingQueue<>();
 
     private final List<Type> outputTypes;

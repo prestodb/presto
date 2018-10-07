@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -35,7 +35,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestSystemTableHandle
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("system_connector_id");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("system_connector_id");
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.of(
             "@type", "$system",
             "connectorId", CONNECTOR_ID.toString(),
@@ -73,7 +73,7 @@ public class TestSystemTableHandle
         assertEquals(tableHandle.getClass(), SystemTableHandle.class);
         SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
 
-        assertEquals(systemHandle.getConnectorId(), CONNECTOR_ID);
+        assertEquals(systemHandle.getCatalogName(), CONNECTOR_ID);
         assertEquals(systemHandle.getSchemaTableName(), new SchemaTableName("system_schema", "system_table"));
     }
 

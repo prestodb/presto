@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -89,9 +89,9 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
-    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle());
+    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(new CatalogName("test"), new TestingTableHandle());
     private static final TableLayoutHandle TESTING_TABLE_LAYOUT = new TableLayoutHandle(
-            new ConnectorId("x"),
+            new CatalogName("x"),
             TestingTransactionHandle.create(),
             TestingHandle.INSTANCE);
 

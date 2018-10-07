@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,13 +27,13 @@ import static java.util.Objects.requireNonNull;
 public class EmptySplit
         implements ConnectorSplit
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
 
     @JsonCreator
     public EmptySplit(
-            @JsonProperty("connectorId") ConnectorId connectorId)
+            @JsonProperty("connectorId") CatalogName catalogName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
     }
 
     @Override
@@ -55,8 +55,8 @@ public class EmptySplit
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 }

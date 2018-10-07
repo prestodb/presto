@@ -16,7 +16,7 @@ package com.facebook.presto.server.remotetask;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -153,7 +153,7 @@ public class TestHttpRemoteTask
         remoteTask.start();
 
         Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan)));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan)));
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 

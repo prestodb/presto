@@ -14,7 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
@@ -611,10 +611,10 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("local", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new ConnectorId("tpch"), new TpchTableHandle("local", "orders", 1.0)),
+                new TableHandle(new CatalogName("tpch"), new TpchTableHandle("local", "orders", 1.0)),
                 symbolsList,
                 assignments.build(),
-                Optional.of(new TableLayoutHandle(new ConnectorId("tpch"), INSTANCE, new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
+                Optional.of(new TableLayoutHandle(new CatalogName("tpch"), INSTANCE, new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
                 TupleDomain.all(),
                 TupleDomain.all());
     }

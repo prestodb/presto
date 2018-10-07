@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
@@ -54,12 +54,12 @@ public class TestValidateStreamingAggregations
         metadata = getQueryRunner().getMetadata();
         sqlParser = getQueryRunner().getSqlParser();
 
-        ConnectorId connectorId = getCurrentConnectorId();
+        CatalogName catalogName = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle(connectorId.toString(), "nation", 1.0));
+                catalogName,
+                new TpchTableHandle(catalogName.toString(), "nation", 1.0));
 
-        nationTableLayoutHandle = new TableLayoutHandle(connectorId,
+        nationTableLayoutHandle = new TableLayoutHandle(catalogName,
                 TestingTransactionHandle.create(),
                 new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
     }

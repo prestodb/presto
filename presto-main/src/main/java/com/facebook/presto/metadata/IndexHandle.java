@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public final class IndexHandle
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorIndexHandle connectorHandle;
 
     @JsonCreator
     public IndexHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorIndexHandle connectorHandle)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -61,7 +61,7 @@ public final class IndexHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, connectorHandle);
+        return Objects.hash(catalogName, transactionHandle, connectorHandle);
     }
 
     @Override
@@ -74,7 +74,7 @@ public final class IndexHandle
             return false;
         }
         final IndexHandle other = (IndexHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
+        return Objects.equals(this.catalogName, other.catalogName) &&
                 Objects.equals(this.transactionHandle, other.transactionHandle) &&
                 Objects.equals(this.connectorHandle, other.connectorHandle);
     }
@@ -82,6 +82,6 @@ public final class IndexHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + connectorHandle;
+        return catalogName + ":" + connectorHandle;
     }
 }

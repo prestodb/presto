@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.Symbol;
@@ -142,7 +142,7 @@ public class TestPruneCountAggregationOverScalar
                                             Assignments.of(totalPrice, totalPrice.toSymbolReference()),
                                             p.tableScan(
                                                     new TableHandle(
-                                                            new ConnectorId("local"),
+                                                            new CatalogName("local"),
                                                             new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -60,7 +60,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public Map<String, ConnectorId> getCatalogNames(TransactionId transactionId)
+    public Map<String, CatalogName> getCatalogNames(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }
@@ -72,13 +72,13 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
+    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId)
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -90,7 +90,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }

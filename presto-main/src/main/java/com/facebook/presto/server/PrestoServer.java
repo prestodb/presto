@@ -162,14 +162,14 @@ public class PrestoServer
             // if this is a dedicated coordinator, only add jmx
             if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
                 catalogs.stream()
-                        .map(Catalog::getConnectorId)
+                        .map(Catalog::getCatalogName)
                         .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
                         .map(Object::toString)
                         .forEach(connectorIds::add);
             }
             else {
                 catalogs.stream()
-                        .map(Catalog::getConnectorId)
+                        .map(Catalog::getCatalogName)
                         .map(Object::toString)
                         .forEach(connectorIds::add);
             }

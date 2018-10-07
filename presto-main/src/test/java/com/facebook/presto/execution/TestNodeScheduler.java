@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
@@ -68,7 +68,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestNodeScheduler
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("connector_id");
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;

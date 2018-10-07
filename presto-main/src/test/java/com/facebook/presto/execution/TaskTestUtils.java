@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -84,7 +84,7 @@ public final class TaskTestUtils
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("test");
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 

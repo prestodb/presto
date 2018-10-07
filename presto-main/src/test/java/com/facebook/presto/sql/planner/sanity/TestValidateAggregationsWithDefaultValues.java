@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
@@ -62,11 +62,11 @@ public class TestValidateAggregationsWithDefaultValues
     {
         metadata = getQueryRunner().getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
-        ConnectorId connectorId = getCurrentConnectorId();
+        CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle(connectorId.toString(), "nation", 1.0));
-        TableLayoutHandle nationTableLayoutHandle = new TableLayoutHandle(connectorId,
+                catalogName,
+                new TpchTableHandle(catalogName.toString(), "nation", 1.0));
+        TableLayoutHandle nationTableLayoutHandle = new TableLayoutHandle(catalogName,
                 TestingTransactionHandle.create(),
                 new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);

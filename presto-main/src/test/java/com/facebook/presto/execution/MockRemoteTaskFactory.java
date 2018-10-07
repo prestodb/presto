@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -108,7 +108,7 @@ public class MockRemoteTaskFactory
                 new PlanFragmentId("test"),
                 new TableScanNode(
                         sourceId,
-                        new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                        new TableHandle(new CatalogName("test"), new TestingTableHandle()),
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
                 ImmutableMap.of(symbol, VARCHAR),

@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
@@ -64,7 +64,7 @@ public class AddColumnTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
@@ -88,7 +88,7 @@ public class AddColumnTask
 
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
-                connectorId,
+                catalogName,
                 tableName.getCatalogName(),
                 sqlProperties,
                 session,

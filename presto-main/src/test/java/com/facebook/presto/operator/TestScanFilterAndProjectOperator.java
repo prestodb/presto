@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
@@ -113,7 +113,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -155,7 +155,7 @@ public class TestScanFilterAndProjectOperator
                 2);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
@@ -198,7 +198,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
@@ -231,7 +231,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -282,7 +282,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         // yield for every cell: 20 X 1000 times
@@ -341,7 +341,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         // start driver; get null value due to yield for the first 15 times

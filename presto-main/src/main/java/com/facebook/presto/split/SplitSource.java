@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public interface SplitSource
         extends Closeable
 {
-    ConnectorId getConnectorId();
+    CatalogName getCatalogName();
 
     ConnectorTransactionHandle getTransactionHandle();
 

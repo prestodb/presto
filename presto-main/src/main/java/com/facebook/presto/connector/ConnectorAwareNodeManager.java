@@ -27,13 +27,13 @@ public class ConnectorAwareNodeManager
 {
     private final InternalNodeManager nodeManager;
     private final String environment;
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
 
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, ConnectorId connectorId)
+    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, CatalogName catalogName)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
     }
 
     @Override
@@ -48,7 +48,7 @@ public class ConnectorAwareNodeManager
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return nodeManager.getActiveConnectorNodes(connectorId);
+        return nodeManager.getActiveConnectorNodes(catalogName);
     }
 
     @Override

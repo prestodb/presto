@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.BasicStageStats;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -72,7 +72,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
-import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
+import static com.facebook.presto.connector.CatalogName.isInternalSystemConnector;
 import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
@@ -273,11 +273,11 @@ public class SqlQueryScheduler
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
             PlanNodeId planNodeId = entry.getKey();
             SplitSource splitSource = entry.getValue();
-            ConnectorId connectorId = splitSource.getConnectorId();
-            if (isInternalSystemConnector(connectorId)) {
-                connectorId = null;
+            CatalogName catalogName = splitSource.getCatalogName();
+            if (isInternalSystemConnector(catalogName)) {
+                catalogName = null;
             }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(catalogName);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution());

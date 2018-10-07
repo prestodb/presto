@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 
@@ -23,7 +23,7 @@ public interface InternalNodeManager
 {
     Set<Node> getNodes(NodeState state);
 
-    Set<Node> getActiveConnectorNodes(ConnectorId connectorId);
+    Set<Node> getActiveConnectorNodes(CatalogName catalogName);
 
     Node getCurrentNode();
 

@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -388,17 +388,17 @@ public class SqlQueryExecution
         return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
     }
 
-    private Set<ConnectorId> extractConnectors(Analysis analysis)
+    private Set<CatalogName> extractConnectors(Analysis analysis)
     {
-        ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
+        ImmutableSet.Builder<CatalogName> connectors = ImmutableSet.builder();
 
         for (TableHandle tableHandle : analysis.getTables()) {
-            connectors.add(tableHandle.getConnectorId());
+            connectors.add(tableHandle.getCatalogName());
         }
 
         if (analysis.getInsert().isPresent()) {
             TableHandle target = analysis.getInsert().get().getTarget();
-            connectors.add(target.getConnectorId());
+            connectors.add(target.getCatalogName());
         }
 
         return connectors.build();
@@ -603,9 +603,9 @@ public class SqlQueryExecution
     {
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
-        private final Set<ConnectorId> connectors;
+        private final Set<CatalogName> connectors;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Set<ConnectorId> connectors)
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Set<CatalogName> connectors)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
@@ -622,7 +622,7 @@ public class SqlQueryExecution
             return summarizeTaskInfos;
         }
 
-        public Set<ConnectorId> getConnectors()
+        public Set<CatalogName> getConnectors()
         {
             return connectors;
         }

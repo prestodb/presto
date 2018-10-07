@@ -13,7 +13,7 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -35,7 +35,7 @@ public class FullConnectorSession
 {
     private final Session session;
     private final Map<String, String> properties;
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
     private final boolean isLegacyTimestamp;
@@ -44,7 +44,7 @@ public class FullConnectorSession
     {
         this.session = requireNonNull(session, "session is null");
         this.properties = null;
-        this.connectorId = null;
+        this.catalogName = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
@@ -53,13 +53,13 @@ public class FullConnectorSession
     public FullConnectorSession(
             Session session,
             Map<String, String> properties,
-            ConnectorId connectorId,
+            CatalogName catalogName,
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
         this.session = requireNonNull(session, "session is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
@@ -131,7 +131,7 @@ public class FullConnectorSession
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
         }
 
-        return sessionPropertyManager.decodeCatalogPropertyValue(connectorId, catalog, propertyName, properties.get(propertyName), type);
+        return sessionPropertyManager.decodeCatalogPropertyValue(catalogName, catalog, propertyName, properties.get(propertyName), type);
     }
 
     @Override

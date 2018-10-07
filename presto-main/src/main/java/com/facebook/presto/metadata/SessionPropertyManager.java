@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -58,7 +58,7 @@ public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
-    private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
 
     public SessionPropertyManager()
     {
@@ -89,18 +89,18 @@ public final class SessionPropertyManager
                 "System session property '%s' are already registered", sessionProperty.getName());
     }
 
-    public void addConnectorSessionProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
+    public void addConnectorSessionProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
-        checkState(connectorSessionProperties.putIfAbsent(connectorId, propertiesByName) == null, "Session properties for connectorId '%s' are already registered", connectorId);
+        checkState(connectorSessionProperties.putIfAbsent(catalogName, propertiesByName) == null, "Session properties for connectorId '%s' are already registered", catalogName);
     }
 
-    public void removeConnectorSessionProperties(ConnectorId connectorId)
+    public void removeConnectorSessionProperties(CatalogName catalogName)
     {
-        connectorSessionProperties.remove(connectorId);
+        connectorSessionProperties.remove(catalogName);
     }
 
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
@@ -110,19 +110,19 @@ public final class SessionPropertyManager
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
-    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(ConnectorId connectorId, String propertyName)
+    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogName catalogName, String propertyName)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(propertyName, "propertyName is null");
-        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(connectorId);
+        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(catalogName);
         if (properties == null || properties.isEmpty()) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown connector " + connectorId);
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown connector " + catalogName);
         }
 
         return Optional.ofNullable(properties.get(propertyName));
     }
 
-    public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, ConnectorId> catalogs)
+    public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, CatalogName> catalogs)
     {
         requireNonNull(session, "session is null");
 
@@ -142,12 +142,12 @@ public final class SessionPropertyManager
                     property.isHidden()));
         }
 
-        for (Entry<String, ConnectorId> entry : new TreeMap<>(catalogs).entrySet()) {
+        for (Entry<String, CatalogName> entry : new TreeMap<>(catalogs).entrySet()) {
             String catalog = entry.getKey();
-            ConnectorId connectorId = entry.getValue();
-            Map<String, String> connectorProperties = session.getConnectorProperties(connectorId);
+            CatalogName catalogName = entry.getValue();
+            Map<String, String> connectorProperties = session.getConnectorProperties(catalogName);
 
-            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(connectorId)).values()) {
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(catalogName)).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
@@ -174,7 +174,7 @@ public final class SessionPropertyManager
         return decodePropertyValue(name, value, type, property);
     }
 
-    public <T> T decodeCatalogPropertyValue(ConnectorId connectorId, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
+    public <T> T decodeCatalogPropertyValue(CatalogName connectorId, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
     {
         String fullPropertyName = catalogName + "." + propertyName;
         PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(connectorId, propertyName)
@@ -191,7 +191,7 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(ConnectorId connectorId, String catalogName, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(CatalogName connectorId, String catalogName, String propertyName, String propertyValue)
     {
         String fullPropertyName = catalogName + "." + propertyName;
         PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(connectorId, propertyName)

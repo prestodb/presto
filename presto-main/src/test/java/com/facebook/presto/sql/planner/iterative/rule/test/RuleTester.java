@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.Plugin;
@@ -36,7 +36,7 @@ public class RuleTester
         implements Closeable
 {
     public static final String CATALOG_ID = "local";
-    public static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_ID);
+    public static final CatalogName CONNECTOR_ID = new CatalogName(CATALOG_ID);
 
     private final Metadata metadata;
     private final Session session;
@@ -101,7 +101,7 @@ public class RuleTester
         return metadata;
     }
 
-    public ConnectorId getCurrentConnectorId()
+    public CatalogName getCurrentConnectorId()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
     }

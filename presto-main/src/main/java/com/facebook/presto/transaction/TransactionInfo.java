@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
@@ -32,8 +32,8 @@ public class TransactionInfo
     private final boolean autoCommitContext;
     private final DateTime createTime;
     private final Duration idleTime;
-    private final List<ConnectorId> connectorIds;
-    private final Optional<ConnectorId> writtenConnectorId;
+    private final List<CatalogName> catalogNames;
+    private final Optional<CatalogName> writtenConnectorId;
 
     public TransactionInfo(
             TransactionId transactionId,
@@ -42,8 +42,8 @@ public class TransactionInfo
             boolean autoCommitContext,
             DateTime createTime,
             Duration idleTime,
-            List<ConnectorId> connectorIds,
-            Optional<ConnectorId> writtenConnectorId)
+            List<CatalogName> catalogNames,
+            Optional<CatalogName> writtenConnectorId)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
@@ -51,7 +51,7 @@ public class TransactionInfo
         this.autoCommitContext = autoCommitContext;
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.idleTime = requireNonNull(idleTime, "idleTime is null");
-        this.connectorIds = ImmutableList.copyOf(requireNonNull(connectorIds, "connectorIds is null"));
+        this.catalogNames = ImmutableList.copyOf(requireNonNull(catalogNames, "connectorIds is null"));
         this.writtenConnectorId = requireNonNull(writtenConnectorId, "writtenConnectorId is null");
     }
 
@@ -85,12 +85,12 @@ public class TransactionInfo
         return idleTime;
     }
 
-    public List<ConnectorId> getConnectorIds()
+    public List<CatalogName> getCatalogNames()
     {
-        return connectorIds;
+        return catalogNames;
     }
 
-    public Optional<ConnectorId> getWrittenConnectorId()
+    public Optional<CatalogName> getWrittenConnectorId()
     {
         return writtenConnectorId;
     }

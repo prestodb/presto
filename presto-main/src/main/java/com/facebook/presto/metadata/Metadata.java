@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -181,7 +181,7 @@ public interface Metadata
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query
      */
-    void beginQuery(Session session, Set<ConnectorId> connectors);
+    void beginQuery(Session session, Set<CatalogName> connectors);
 
     /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
@@ -229,14 +229,14 @@ public interface Metadata
     /**
      * Returns a connector id for the specified catalog name.
      */
-    Optional<ConnectorId> getCatalogHandle(Session session, String catalogName);
+    Optional<CatalogName> getCatalogHandle(Session session, String catalogName);
 
     /**
      * Gets all the loaded catalogs
      *
      * @return Map of catalog name to connector id
      */
-    Map<String, ConnectorId> getCatalogNames(Session session);
+    Map<String, CatalogName> getCatalogNames(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -46,7 +46,7 @@ import static java.util.stream.Collectors.toList;
 @ThreadSafe
 public class ProcedureRegistry
 {
-    private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
+    private final Map<CatalogName, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
     private final TypeManager typeManager;
 
@@ -55,9 +55,9 @@ public class ProcedureRegistry
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures)
+    public void addProcedures(CatalogName catalogName, Collection<Procedure> procedures)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(procedures, "procedures is null");
 
         procedures.forEach(this::validateProcedure);
@@ -66,17 +66,17 @@ public class ProcedureRegistry
                 procedures,
                 procedure -> new SchemaTableName(procedure.getSchema(), procedure.getName()));
 
-        checkState(connectorProcedures.putIfAbsent(connectorId, proceduresByName) == null, "Procedures already registered for connector: %s", connectorId);
+        checkState(connectorProcedures.putIfAbsent(catalogName, proceduresByName) == null, "Procedures already registered for connector: %s", catalogName);
     }
 
-    public void removeProcedures(ConnectorId connectorId)
+    public void removeProcedures(CatalogName catalogName)
     {
-        connectorProcedures.remove(connectorId);
+        connectorProcedures.remove(catalogName);
     }
 
-    public Procedure resolve(ConnectorId connectorId, SchemaTableName name)
+    public Procedure resolve(CatalogName catalogName, SchemaTableName name)
     {
-        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(catalogName);
         if (procedures != null) {
             Procedure procedure = procedures.get(name);
             if (procedure != null) {

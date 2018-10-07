@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.CatalogName;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -115,7 +115,7 @@ import static org.testng.Assert.assertFalse;
 public class TestSqlTaskExecution
 {
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
 
