@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -35,6 +36,7 @@ import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -81,7 +83,7 @@ public final class HiveQueryRunner
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4, extraProperties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))), 4, extraProperties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -116,8 +118,8 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
+            copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
 
             return queryRunner;
         }
@@ -136,19 +138,28 @@ public final class HiveQueryRunner
                 .build();
     }
 
-    public static Session createSession()
+    public static Session createSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
-                .setIdentity(new Identity("hive", Optional.empty()))
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of())))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }
 
-    public static Session createBucketedSession()
+    public static Session createBucketedSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
-                .setIdentity(new Identity("hive", Optional.empty()))
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of())))
+                .setCatalog(HIVE_CATALOG)
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
