@@ -387,8 +387,8 @@ public class TestTaskExecutor
             for (int batch = 0; batch < batchCount; batch++) {
                 phasers[batch] = new Phaser();
                 phasers[batch].register();
-                TestingJob split1 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], maxDriversPerTask, 0);
-                TestingJob split2 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], maxDriversPerTask, 0);
+                TestingJob split1 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
+                TestingJob split2 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
                 splits[2 * batch] = split1;
                 splits[2 * batch + 1] = split2;
                 taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(split1, split2));
