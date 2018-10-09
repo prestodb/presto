@@ -26,9 +26,24 @@ import static java.lang.Double.isNaN;
 
 public final class PlanNodeCostEstimate
 {
-    public static final PlanNodeCostEstimate INFINITE_COST = new PlanNodeCostEstimate(POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY);
-    public static final PlanNodeCostEstimate UNKNOWN_COST = new PlanNodeCostEstimate(NaN, NaN, NaN);
-    public static final PlanNodeCostEstimate ZERO_COST = new PlanNodeCostEstimate(0, 0, 0);
+    private static final PlanNodeCostEstimate INFINITE = new PlanNodeCostEstimate(POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY);
+    private static final PlanNodeCostEstimate UNKNOWN = new PlanNodeCostEstimate(NaN, NaN, NaN);
+    private static final PlanNodeCostEstimate ZERO = new PlanNodeCostEstimate(0, 0, 0);
+
+    public static PlanNodeCostEstimate infinite()
+    {
+        return INFINITE;
+    }
+
+    public static PlanNodeCostEstimate unknown()
+    {
+        return UNKNOWN;
+    }
+
+    public static PlanNodeCostEstimate zero()
+    {
+        return ZERO;
+    }
 
     public static PlanNodeCostEstimate cpuCost(double cpuCost)
     {

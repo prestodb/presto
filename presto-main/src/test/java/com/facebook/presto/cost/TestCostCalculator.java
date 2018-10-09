@@ -70,8 +70,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -412,7 +410,7 @@ public class TestCostCalculator
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), UNKNOWN_COST));
+        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown()));
     }
 
     private static class TestingCostProvider
@@ -446,7 +444,7 @@ public class TestCostCalculator
         {
             PlanNodeCostEstimate sourcesCost = node.getSources().stream()
                     .map(this::getCumulativeCost)
-                    .reduce(ZERO_COST, PlanNodeCostEstimate::add);
+                    .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
 
             return costCalculator.calculateCost(node, statsProvider, session, types).add(sourcesCost);
         }
@@ -473,14 +471,14 @@ public class TestCostCalculator
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorUsingExchanges,
                 node,
-                planNode -> UNKNOWN_COST,
+                planNode -> PlanNodeCostEstimate.unknown(),
                 planNode -> PlanNodeStatsEstimate.unknown(),
                 types))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
-                planNode -> UNKNOWN_COST,
+                planNode -> PlanNodeCostEstimate.unknown(),
                 planNode -> PlanNodeStatsEstimate.unknown(),
                 types))
                 .hasUnknownComponents();
@@ -516,7 +514,7 @@ public class TestCostCalculator
 
         PlanNodeCostEstimate sourcesCost = node.getSources().stream()
                 .map(source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())))
-                .reduce(ZERO_COST, PlanNodeCostEstimate::add);
+                .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
         return sourcesCost.add(localCost);
     }
 
@@ -536,7 +534,7 @@ public class TestCostCalculator
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), UNKNOWN_COST);
+        return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown());
     }
 
     private static class CostAssertionBuilder
