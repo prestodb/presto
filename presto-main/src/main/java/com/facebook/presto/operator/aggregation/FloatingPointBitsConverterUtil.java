@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-final class FloatingPointBitsConverterUtil
+public final class FloatingPointBitsConverterUtil
 {
     private FloatingPointBitsConverterUtil() {}
 
