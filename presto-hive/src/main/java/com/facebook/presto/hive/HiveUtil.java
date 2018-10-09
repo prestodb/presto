@@ -46,6 +46,7 @@ import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -388,9 +389,18 @@ public final class HiveUtil
         try {
             configuration = copy(configuration); // Some SerDes (e.g. Avro) modify passed configuration
             deserializer.initialize(configuration, schema);
+            validate(deserializer);
         }
         catch (SerDeException | RuntimeException e) {
             throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName(), e);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void validate(Deserializer deserializer)
+    {
+        if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
+            throw new RuntimeException("There are configuration errors: " + ((AbstractSerDe) deserializer).getConfigurationErrors());
         }
     }
 
