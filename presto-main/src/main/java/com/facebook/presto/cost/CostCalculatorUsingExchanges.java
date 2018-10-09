@@ -47,8 +47,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntSupplier;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -115,7 +113,7 @@ public class CostCalculatorUsingExchanges
         @Override
         protected PlanNodeCostEstimate visitPlan(PlanNode node, Void context)
         {
-            return UNKNOWN_COST;
+            return PlanNodeCostEstimate.unknown();
         }
 
         @Override
@@ -133,7 +131,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitOutput(OutputNode node, Void context)
         {
-            return ZERO_COST;
+            return PlanNodeCostEstimate.zero();
         }
 
         @Override
@@ -159,7 +157,7 @@ public class CostCalculatorUsingExchanges
         public PlanNodeCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             if (node.getStep() != FINAL && node.getStep() != SINGLE) {
-                return UNKNOWN_COST;
+                return PlanNodeCostEstimate.unknown();
             }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
@@ -230,13 +228,13 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitValues(ValuesNode node, Void context)
         {
-            return ZERO_COST;
+            return PlanNodeCostEstimate.zero();
         }
 
         @Override
         public PlanNodeCostEstimate visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
-            return ZERO_COST;
+            return PlanNodeCostEstimate.zero();
         }
 
         @Override
