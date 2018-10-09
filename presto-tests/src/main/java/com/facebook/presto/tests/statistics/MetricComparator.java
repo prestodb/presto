@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -65,7 +64,7 @@ final class MetricComparator
     {
         Plan queryPlan = runner.createPlan(session, query);
         OutputNode outputNode = (OutputNode) queryPlan.getRoot();
-        PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().getId(), UNKNOWN_STATS);
+        PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().getId(), PlanNodeStatsEstimate.unknown());
         StatsContext statsContext = buildStatsContext(queryPlan, outputNode);
         return getEstimatedValues(metrics, outputNodeStats, statsContext);
     }

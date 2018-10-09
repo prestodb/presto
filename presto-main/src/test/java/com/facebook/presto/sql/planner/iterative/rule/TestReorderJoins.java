@@ -309,7 +309,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
                                 ImmutableList.of(p.symbol("A1")),
                                 Optional.empty()))
-                .overrideStats("valuesA", PlanNodeStatsEstimate.UNKNOWN_STATS)
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
                 .doesNotFire();
     }
 

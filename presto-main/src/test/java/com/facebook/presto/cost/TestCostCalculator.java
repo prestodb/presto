@@ -73,7 +73,6 @@ import java.util.function.Function;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -475,14 +474,14 @@ public class TestCostCalculator
                 costCalculatorUsingExchanges,
                 node,
                 planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS,
+                planNode -> PlanNodeStatsEstimate.unknown(),
                 types))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
                 planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS,
+                planNode -> PlanNodeStatsEstimate.unknown(),
                 types))
                 .hasUnknownComponents();
     }

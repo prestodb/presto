@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -178,7 +177,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testCastUnknown()
     {
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), UNKNOWN_STATS)
+        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), PlanNodeStatsEstimate.unknown())
                 .lowValueUnknown()
                 .highValueUnknown()
                 .distinctValuesCountUnknown()
@@ -188,7 +187,7 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression)
     {
-        return assertCalculate(scalarExpression, UNKNOWN_STATS);
+        return assertCalculate(scalarExpression, PlanNodeStatsEstimate.unknown());
     }
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
