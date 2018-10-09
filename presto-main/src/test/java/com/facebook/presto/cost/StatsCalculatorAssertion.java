@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,7 +48,7 @@ public class StatsCalculatorAssertion
         this.types = requireNonNull(types, "types is null");
 
         sourcesStats = new HashMap<>();
-        planNode.getSources().forEach(child -> sourcesStats.put(child, UNKNOWN_STATS));
+        planNode.getSources().forEach(child -> sourcesStats.put(child, PlanNodeStatsEstimate.unknown()));
     }
 
     public StatsCalculatorAssertion withSourceStats(PlanNodeStatsEstimate sourceStats)

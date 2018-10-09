@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -39,10 +40,15 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeStatsEstimate
 {
     private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
-    public static final PlanNodeStatsEstimate UNKNOWN_STATS = builder().build();
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of());
 
     private final double outputRowCount;
     private final PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+
+    public static PlanNodeStatsEstimate unknown()
+    {
+        return UNKNOWN;
+    }
 
     @JsonCreator
     public PlanNodeStatsEstimate(
@@ -52,9 +58,7 @@ public class PlanNodeStatsEstimate
         this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")));
     }
 
-    private PlanNodeStatsEstimate(
-            double outputRowCount,
-            PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;

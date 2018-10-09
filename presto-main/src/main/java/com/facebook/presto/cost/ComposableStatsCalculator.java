@@ -72,7 +72,7 @@ public class ComposableStatsCalculator
                 return calculatedStats.get();
             }
         }
-        return PlanNodeStatsEstimate.UNKNOWN_STATS;
+        return PlanNodeStatsEstimate.unknown();
     }
 
     private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)

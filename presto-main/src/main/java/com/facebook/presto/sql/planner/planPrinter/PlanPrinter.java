@@ -117,7 +117,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -1386,7 +1385,7 @@ public class PlanPrinter
 
         private Optional<String> formatPlanNodeStatsAndCost(PlanNode node)
         {
-            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), UNKNOWN_STATS);
+            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
             PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), UNKNOWN_COST);
             if (stats.isOutputRowCountUnknown() || cost.equals(UNKNOWN_COST)) {
                 return Optional.empty();

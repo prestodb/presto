@@ -32,7 +32,6 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -247,7 +246,7 @@ public class JoinStatsRule
         if (criteria.isEmpty()) {
             // TODO: account for non-equi conditions
             if (filter.isPresent()) {
-                return UNKNOWN_STATS;
+                return PlanNodeStatsEstimate.unknown();
             }
 
             return leftStats.mapOutputRowCount(rowCount -> 0.0);
@@ -312,7 +311,7 @@ public class JoinStatsRule
         }
         else {
             // either leftNDV or rightNDV is NaN
-            return UNKNOWN_STATS;
+            return PlanNodeStatsEstimate.unknown();
         }
 
         // limit the number of complement rows (to left row count) and account for remaining clauses
