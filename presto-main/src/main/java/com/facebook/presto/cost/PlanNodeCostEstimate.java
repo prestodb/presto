@@ -30,6 +30,10 @@ public final class PlanNodeCostEstimate
     private static final PlanNodeCostEstimate UNKNOWN = new PlanNodeCostEstimate(NaN, NaN, NaN);
     private static final PlanNodeCostEstimate ZERO = new PlanNodeCostEstimate(0, 0, 0);
 
+    private final double cpuCost;
+    private final double memoryCost;
+    private final double networkCost;
+
     public static PlanNodeCostEstimate infinite()
     {
         return INFINITE;
@@ -59,10 +63,6 @@ public final class PlanNodeCostEstimate
     {
         return new PlanNodeCostEstimate(0, 0, networkCost);
     }
-
-    private final double cpuCost;
-    private final double memoryCost;
-    private final double networkCost;
 
     @JsonCreator
     public PlanNodeCostEstimate(
