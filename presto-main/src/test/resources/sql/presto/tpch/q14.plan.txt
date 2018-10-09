@@ -1,0 +1,10 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, ["partkey_0"])
+                        scan tpch:part:sf3000.0
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["partkey"])
+                            scan tpch:lineitem:sf3000.0

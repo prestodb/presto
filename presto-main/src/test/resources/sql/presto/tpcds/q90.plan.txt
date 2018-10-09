@@ -1,0 +1,35 @@
+cross join:
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                scan tpcds:web_sales:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpcds:web_page:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan tpcds:time_dim:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan tpcds:household_demographics:sf3000.0
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                scan tpcds:web_sales:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpcds:web_page:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan tpcds:time_dim:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan tpcds:household_demographics:sf3000.0
