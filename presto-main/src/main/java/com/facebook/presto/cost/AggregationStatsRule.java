@@ -97,6 +97,6 @@ public class AggregationStatsRule
         requireNonNull(sourceStats, "sourceStats is null");
 
         // TODO implement simple aggregations like: min, max, count, sum
-        return SymbolStatsEstimate.UNKNOWN_STATS;
+        return SymbolStatsEstimate.unknown();
     }
 }
