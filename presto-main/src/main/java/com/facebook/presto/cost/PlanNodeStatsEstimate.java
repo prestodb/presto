@@ -142,6 +142,11 @@ public class PlanNodeStatsEstimate
         return symbolStatistics.keySet();
     }
 
+    public boolean isOutputRowCountUnknown()
+    {
+        return isNaN(outputRowCount);
+    }
+
     @Override
     public String toString()
     {
