@@ -1,0 +1,21 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (brand, size, type)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["brand", "size", "type"])
+                        partial aggregation over (brand, size, type)
+                            final aggregation over (brand, size, suppkey, type)
+                                local exchange (GATHER, SINGLE, [])
+                                    partial aggregation over (brand, size, suppkey, type)
+                                        semijoin (PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["suppkey"])
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, ["partkey"])
+                                                        scan tpch:partsupp:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["partkey_0"])
+                                                            scan tpch:part:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["suppkey_3"])
+                                                    scan tpch:supplier:sf3000.0

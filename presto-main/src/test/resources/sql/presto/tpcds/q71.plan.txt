@@ -1,0 +1,34 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (i_brand, i_brand_id, t_hour, t_minute)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["i_brand", "i_brand_id", "t_hour", "t_minute"])
+                        partial aggregation over (i_brand, i_brand_id, t_hour, t_minute)
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["ws_sold_time_sk_87"])
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["i_item_sk"])
+                                            scan tpcds:item:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                                join (INNER, REPLICATED):
+                                                    scan tpcds:web_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan tpcds:date_dim:sf3000.0
+                                            remote exchange (REPARTITION, HASH, ["cs_item_sk"])
+                                                join (INNER, REPLICATED):
+                                                    scan tpcds:catalog_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan tpcds:date_dim:sf3000.0
+                                            remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                                                join (INNER, REPLICATED):
+                                                    scan tpcds:store_sales:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan tpcds:date_dim:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["t_time_sk"])
+                                        scan tpcds:time_dim:sf3000.0

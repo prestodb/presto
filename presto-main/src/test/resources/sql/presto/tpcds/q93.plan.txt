@@ -1,0 +1,16 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (ss_customer_sk)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
+                    partial aggregation over (ss_customer_sk)
+                        join (INNER, REPLICATED):
+                            join (LEFT, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
+                                    scan tpcds:store_sales:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
+                                        scan tpcds:store_returns:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan tpcds:reason:sf3000.0
