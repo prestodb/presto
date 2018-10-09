@@ -198,21 +198,29 @@ public class TestTableWriterOperator
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
+                .addPipelineContext(0, true, true)
+                .addDriverContext();
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty()))),
+                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty())),
+                        true),
                 outputTypes,
-                session);
+                session,
+                driverContext);
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
         operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
 
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.needsInput());
+
+        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
 
         operator.finish();
         assertFalse(operator.isFinished());
@@ -269,6 +277,19 @@ public class TestTableWriterOperator
 
     private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes, Session session)
     {
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
+                .addPipelineContext(0, true, true)
+                .addDriverContext();
+        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, driverContext);
+    }
+
+    private Operator createTableWriterOperator(
+            PageSinkManager pageSinkManager,
+            OperatorFactory statisticsAggregation,
+            List<Type> outputTypes,
+            Session session,
+            DriverContext driverContext)
+    {
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -282,10 +303,7 @@ public class TestTableWriterOperator
                 session,
                 statisticsAggregation,
                 outputTypes);
-
-        return factory.createOperator(createTaskContext(executor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true)
-                .addDriverContext());
+        return factory.createOperator(driverContext);
     }
 
     private static class ConstantPageSinkProvider

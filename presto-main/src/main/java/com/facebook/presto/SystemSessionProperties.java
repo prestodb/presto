@@ -37,12 +37,14 @@ import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -106,6 +108,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -490,7 +493,16 @@ public final class SystemSessionProperties
                         ENABLE_STATS_CALCULATOR,
                         "Experimental: Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        MAX_DRIVERS_PER_TASK,
+                        "Maximum number of driver threads per task",
+                        INTEGER,
+                        Integer.class,
+                        null,
+                        false,
+                        value -> min(taskManagerConfig.getMaxDriversPerTask(), validateNullablePositiveIntegerValue(value, MAX_DRIVERS_PER_TASK)),
+                        object -> object));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -791,6 +803,14 @@ public final class SystemSessionProperties
         return session.getSystemProperty(LEGACY_UNNEST, Boolean.class);
     }
 
+    public static OptionalInt getMaxDriversPerTask(Session session)
+    {
+        Integer value = session.getSystemProperty(MAX_DRIVERS_PER_TASK, Integer.class);
+        if (value == null) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.of(value);
+    }
     private static int validateValueIsPowerOfTwo(Object value, String property)
     {
         int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
@@ -798,6 +818,28 @@ public final class SystemSessionProperties
             throw new PrestoException(
                     INVALID_SESSION_PROPERTY,
                     format("%s must be a power of 2: %s", property, intValue));
+        }
+        return intValue;
+    }
+
+    private static Integer validateNullablePositiveIntegerValue(Object value, String property)
+    {
+        return validateIntegerValue(value, property, 1, true);
+    }
+
+    private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, boolean allowNull)
+    {
+        if (value == null && !allowNull) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
+        }
+
+        if (value == null) {
+            return null;
+        }
+
+        int intValue = ((Number) value).intValue();
+        if (intValue < lowerBoundIncluded) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
         return intValue;
     }

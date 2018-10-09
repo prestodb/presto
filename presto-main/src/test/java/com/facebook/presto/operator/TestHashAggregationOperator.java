@@ -73,6 +73,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -84,8 +85,10 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -188,7 +191,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
@@ -248,7 +252,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
@@ -295,7 +300,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator());
@@ -336,7 +342,8 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
-                joinCompiler);
+                joinCompiler,
+                false);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -375,7 +382,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -396,7 +404,8 @@ public class TestHashAggregationOperator
                         Optional.empty(),
                         1,
                 Optional.of(new DataSize(16, MEGABYTE)),
-                        joinCompiler);
+                joinCompiler,
+                false);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
         GroupByHashYieldResult result;
@@ -447,7 +456,8 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
-                joinCompiler);
+                joinCompiler,
+                false);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -480,7 +490,8 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
-                joinCompiler);
+                joinCompiler,
+                false);
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
     }
@@ -510,7 +521,8 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(new DataSize(1, KILOBYTE)),
-                joinCompiler);
+                joinCompiler,
+                true);
 
         DriverContext driverContext = createDriverContext(1024);
 
@@ -528,6 +540,9 @@ public class TestHashAggregationOperator
             while (operator.needsInput() && inputIterator.hasNext()) {
                 operator.addInput(inputIterator.next());
             }
+
+            assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+            assertEquals(driverContext.getMemoryUsage(), 0);
 
             // Drain the output (partial flush)
             List<Page> outputPages = new ArrayList<>();
@@ -558,6 +573,9 @@ public class TestHashAggregationOperator
             assertEquals(actual.getTypes(), expected.getTypes());
             assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
+
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     @Test
@@ -589,7 +607,8 @@ public class TestHashAggregationOperator
                 new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
@@ -644,7 +663,8 @@ public class TestHashAggregationOperator
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
-                joinCompiler);
+                joinCompiler,
+                false);
 
         try {
             toPages(operatorFactory, driverContext, input);
@@ -655,6 +675,58 @@ public class TestHashAggregationOperator
                 fail("Exception other than expected was thrown", expected);
             }
         }
+    }
+
+    @Test
+    public void testMemoryTracking()
+            throws Exception
+    {
+        testMemoryTracking(false);
+        testMemoryTracking(true);
+    }
+
+    private void testMemoryTracking(boolean useSystemMemory)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, BIGINT);
+        Page input = getOnlyElement(rowPagesBuilder.addSequencePage(500, 0).build());
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                hashChannels,
+                ImmutableList.of(),
+                Step.SINGLE,
+                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                rowPagesBuilder.getHashChannel(),
+                Optional.empty(),
+                100_000,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                joinCompiler,
+                useSystemMemory);
+
+        DriverContext driverContext = createDriverContext(1024);
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            assertTrue(operator.needsInput());
+            operator.addInput(input);
+
+            if (useSystemMemory) {
+                assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+                assertEquals(driverContext.getMemoryUsage(), 0);
+            }
+            else {
+                assertEquals(driverContext.getSystemMemoryUsage(), 0);
+                assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
+            }
+
+            toPages(operator, emptyIterator());
+        }
+
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     private DriverContext createDriverContext()

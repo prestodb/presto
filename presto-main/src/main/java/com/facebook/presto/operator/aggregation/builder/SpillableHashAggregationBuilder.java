@@ -301,6 +301,7 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
+                false,
                 false);
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }

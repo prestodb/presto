@@ -63,7 +63,8 @@ public class HashAggregationBenchmark
                 Optional.empty(),
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
-                JOIN_COMPILER);
+                JOIN_COMPILER,
+                false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 
