@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.floor;
@@ -115,7 +114,7 @@ public class StatsNormalizer
         }
 
         if (distinctValuesCount == 0.0) {
-            return ZERO_STATS;
+            return SymbolStatsEstimate.zero();
         }
 
         return SymbolStatsEstimate.buildFrom(symbolStats)

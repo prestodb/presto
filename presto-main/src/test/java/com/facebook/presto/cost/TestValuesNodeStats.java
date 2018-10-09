@@ -81,7 +81,7 @@ public class TestValuesNodeStats
     {
         PlanNodeStatsEstimate nullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
-                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.ZERO_STATS)
+                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.zero())
                 .build();
 
         tester().assertStatsFor(pb -> pb
@@ -112,7 +112,7 @@ public class TestValuesNodeStats
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(0)
-                                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.ZERO_STATS)
+                                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.zero())
                                 .build()));
     }
 }
