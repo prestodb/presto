@@ -98,7 +98,12 @@
                                     <name>/usr/sbin/groupadd</name>
                                 </dependency>
                                 <dependency>
+                                    <!-- Used e.g. to generate node.properties -->
                                     <name>/usr/bin/uuidgen</name>
+                                </dependency>
+                                <dependency>
+                                    <!-- Used e.g. by service launcher -->
+                                    <name>/usr/bin/sudo</name>
                                 </dependency>
                             </dependencies>
 
