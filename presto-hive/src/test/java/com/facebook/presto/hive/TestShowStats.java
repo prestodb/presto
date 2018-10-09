@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
@@ -27,12 +28,16 @@ public class TestShowStats
         super(() -> createQueryRunner(ImmutableList.of()));
     }
 
-    @Test
-    public void testShowStats()
+    @BeforeClass
+    public void setUp()
     {
         assertUpdate("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
         assertUpdate("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey from tpch.tiny.nation", 25);
+    }
 
+    @Test
+    public void testShowStats()
+    {
         assertQuery("SHOW STATS FOR nation_partitioned",
                 "SELECT * FROM (VALUES " +
                         "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
