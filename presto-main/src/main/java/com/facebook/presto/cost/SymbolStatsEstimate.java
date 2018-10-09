@@ -30,14 +30,7 @@ import static java.lang.String.format;
 public class SymbolStatsEstimate
 {
     private static final SymbolStatsEstimate UNKNOWN = new SymbolStatsEstimate(NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN, NaN, NaN);
-
-    public static final SymbolStatsEstimate ZERO_STATS = SymbolStatsEstimate.builder()
-            .setLowValue(NaN)
-            .setHighValue(NaN)
-            .setDistinctValuesCount(0)
-            .setNullsFraction(1)
-            .setAverageRowSize(0)
-            .build();
+    private static final SymbolStatsEstimate ZERO = new SymbolStatsEstimate(NaN, NaN, 1.0, 0.0, 0.0);
 
     // for now we support only types which map to real domain naturally and keep low/high value as double in stats.
     private final double lowValue;
@@ -49,6 +42,11 @@ public class SymbolStatsEstimate
     public static SymbolStatsEstimate unknown()
     {
         return UNKNOWN;
+    }
+
+    public static SymbolStatsEstimate zero()
+    {
+        return ZERO;
     }
 
     @JsonCreator
