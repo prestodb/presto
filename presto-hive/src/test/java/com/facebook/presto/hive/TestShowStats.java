@@ -136,6 +136,14 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsSelectNonStarFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT nationkey FROM nation_partitioned)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT nationkey, regionkey FROM nation_partitioned)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT *, * FROM nation_partitioned)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
     public void testShowStatsWithSelectDistinctFails()
     {
         assertQueryFails("SHOW STATS FOR (SELECT DISTINCT * FROM orders)", ".*DISTINCT is not supported by SHOW STATS SELECT clause");
@@ -144,12 +152,13 @@ public class TestShowStats
     @Test
     public void testShowStatsWithSelectFunctionCallFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only \\* and column references are supported by SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT count(*) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
     }
 
     @Test
     public void testShowStatsWithWhereFunctionCallFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
     }
 }
