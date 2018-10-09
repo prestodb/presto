@@ -25,6 +25,7 @@ Functions and Operators
     functions/url
     functions/geospatial
     functions/hyperloglog
+    functions/qdigest
     functions/color
     functions/session
     functions/teradata

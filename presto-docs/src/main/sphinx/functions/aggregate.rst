@@ -216,6 +216,26 @@ Approximate Aggregate Functions
 
     See :doc:`hyperloglog`.
 
+.. function:: merge(qdigest(T)) -> qdigest(T)
+    :noindex:
+
+    See :doc:`qdigest`.
+
+.. function:: qdigest_agg(x) -> qdigest<[same as x]>
+    :noindex:
+
+    See :doc:`qdigest`.
+
+.. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
+    :noindex:
+
+    See :doc:`qdigest`.
+
+.. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
+    :noindex:
+
+    See :doc:`qdigest`.
+
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
