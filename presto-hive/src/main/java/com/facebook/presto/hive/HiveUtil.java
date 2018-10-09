@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
+import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
@@ -359,6 +360,10 @@ public final class HiveUtil
         // CDH uses different names for Parquet
         if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
             return ParquetHiveSerDe.class;
+        }
+
+        if ("org.apache.hadoop.hive.serde2.avro.AvroSerDe".equals(name)) {
+            return PrestoAvroSerDe.class;
         }
 
         try {
