@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
-import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -252,12 +251,12 @@ public class TestJoinStatsRule
     {
         PlanNodeStatsEstimate leftStats = planNodeStats(
                 0,
-                new SymbolStatistics(LEFT_JOIN_COLUMN, UNKNOWN_STATS),
-                new SymbolStatistics(LEFT_OTHER_COLUMN, UNKNOWN_STATS));
+                new SymbolStatistics(LEFT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
+                new SymbolStatistics(LEFT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
         PlanNodeStatsEstimate rightStats = planNodeStats(
                 0,
-                new SymbolStatistics(RIGHT_JOIN_COLUMN, UNKNOWN_STATS),
-                new SymbolStatistics(RIGHT_OTHER_COLUMN, UNKNOWN_STATS));
+                new SymbolStatistics(RIGHT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
+                new SymbolStatistics(RIGHT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
         assertJoinStats(LEFT, leftStats, rightStats, leftStats);
     }
 

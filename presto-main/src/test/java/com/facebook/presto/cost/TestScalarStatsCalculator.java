@@ -88,7 +88,7 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(expression("x"), inputStatistics).isEqualTo(xStats);
-        assertCalculate(expression("y"), inputStatistics).isEqualTo(SymbolStatsEstimate.UNKNOWN_STATS);
+        assertCalculate(expression("y"), inputStatistics).isEqualTo(SymbolStatsEstimate.unknown());
     }
 
     @Test

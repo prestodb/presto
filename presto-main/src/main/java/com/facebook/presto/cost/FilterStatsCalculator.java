@@ -54,7 +54,6 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumD
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNonRangeStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
@@ -318,7 +317,7 @@ public class FilterStatsCalculator
 
             Optional<Symbol> inValueSymbol = asSymbol(node.getValue());
             SymbolStatsEstimate inValueStats = getExpressionStats(node.getValue());
-            if (Objects.equals(inValueStats, UNKNOWN_STATS)) {
+            if (Objects.equals(inValueStats, SymbolStatsEstimate.unknown())) {
                 return Optional.empty();
             }
 
@@ -355,7 +354,7 @@ public class FilterStatsCalculator
 
             Optional<Symbol> leftSymbol = asSymbol(left);
             SymbolStatsEstimate leftStats = getExpressionStats(left);
-            if (Objects.equals(leftStats, UNKNOWN_STATS)) {
+            if (Objects.equals(leftStats, SymbolStatsEstimate.unknown())) {
                 return visitExpression(node, context);
             }
 
@@ -367,7 +366,7 @@ public class FilterStatsCalculator
             Optional<Symbol> rightSymbol = asSymbol(right);
 
             SymbolStatsEstimate rightStats = getExpressionStats(right);
-            if (Objects.equals(rightStats, UNKNOWN_STATS)) {
+            if (Objects.equals(rightStats, SymbolStatsEstimate.unknown())) {
                 return visitExpression(node, context);
             }
 

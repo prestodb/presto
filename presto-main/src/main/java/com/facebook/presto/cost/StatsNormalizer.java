@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -70,7 +69,7 @@ public class StatsNormalizer
 
             SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
             SymbolStatsEstimate normalizedSymbolStats = normalizeSymbolStats(symbol, symbolStats, stats, types);
-            if (UNKNOWN_STATS.equals(normalizedSymbolStats)) {
+            if (normalizedSymbolStats.isUnknown()) {
                 normalized.removeSymbolStatistics(symbol);
                 continue;
             }
@@ -87,8 +86,8 @@ public class StatsNormalizer
      */
     private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats, TypeProvider types)
     {
-        if (UNKNOWN_STATS.equals(symbolStats)) {
-            return UNKNOWN_STATS;
+        if (symbolStats.isUnknown()) {
+            return SymbolStatsEstimate.unknown();
         }
 
         double outputRowCount = stats.getOutputRowCount();

@@ -21,13 +21,15 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 
 public class SymbolStatsEstimate
 {
-    public static final SymbolStatsEstimate UNKNOWN_STATS = SymbolStatsEstimate.builder().build();
+    private static final SymbolStatsEstimate UNKNOWN = new SymbolStatsEstimate(NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN, NaN, NaN);
 
     public static final SymbolStatsEstimate ZERO_STATS = SymbolStatsEstimate.builder()
             .setLowValue(NaN)
@@ -43,6 +45,11 @@ public class SymbolStatsEstimate
     private final double nullsFraction;
     private final double averageRowSize;
     private final double distinctValuesCount;
+
+    public static SymbolStatsEstimate unknown()
+    {
+        return UNKNOWN;
+    }
 
     @JsonCreator
     public SymbolStatsEstimate(
@@ -138,6 +145,11 @@ public class SymbolStatsEstimate
     public SymbolStatsEstimate mapDistinctValuesCount(Function<Double, Double> mappingFunction)
     {
         return buildFrom(this).setDistinctValuesCount(mappingFunction.apply(distinctValuesCount)).build();
+    }
+
+    public boolean isUnknown()
+    {
+        return this.equals(UNKNOWN);
     }
 
     @Override
