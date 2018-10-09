@@ -503,6 +503,11 @@ public class TestRowOperators
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) > cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
                 SemanticErrorCode.TYPE_MISMATCH, "line 1:81: '>' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)");
 
+        assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) = cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
+                SemanticErrorCode.TYPE_MISMATCH, "line 1:89: '=' cannot be applied to row(col0 qdigest(double)), row(col0 qdigest(double))");
+        assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) > cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
+                SemanticErrorCode.TYPE_MISMATCH, "line 1:89: '>' cannot be applied to row(col0 qdigest(double)), row(col0 qdigest(double))");
+
         assertFunction("row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, false);
         assertFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, true);
 
