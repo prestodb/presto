@@ -113,6 +113,7 @@
         <module>presto-resource-group-managers</module>
         <module>presto-password-authenticators</module>
         <module>presto-session-property-managers</module>
+        <module>presto-benchto-queries</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-connector-api</module>
         <module>presto-thrift-testing-server</module>
@@ -356,6 +357,18 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-benchmark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchto-queries</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchto-benchmarks</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
