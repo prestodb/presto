@@ -389,7 +389,7 @@ public final class HiveUtil
             configuration = copy(configuration); // Some SerDes (e.g. Avro) modify passed configuration
             deserializer.initialize(configuration, schema);
         }
-        catch (SerDeException e) {
+        catch (SerDeException | RuntimeException e) {
             throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName(), e);
         }
     }
