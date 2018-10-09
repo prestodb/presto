@@ -390,7 +390,7 @@ public final class HiveUtil
             deserializer.initialize(configuration, schema);
         }
         catch (SerDeException e) {
-            throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName());
+            throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName(), e);
         }
     }
 
