@@ -1388,7 +1388,7 @@ public class PlanPrinter
         {
             PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), UNKNOWN_STATS);
             PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), UNKNOWN_COST);
-            if (stats.equals(UNKNOWN_STATS) || cost.equals(UNKNOWN_COST)) {
+            if (stats.isOutputRowCountUnknown() || cost.equals(UNKNOWN_COST)) {
                 return Optional.empty();
             }
             return Optional.of(String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
