@@ -216,7 +216,7 @@ public class BenchmarkWindowOperator
     @Benchmark
     public List<Page> benchmark(BenchmarkWindowOperator.Context context)
     {
-        DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
         Operator operator = context.getOperatorFactory().createOperator(driverContext);
 
         Iterator<Page> input = context.getPages().iterator();
