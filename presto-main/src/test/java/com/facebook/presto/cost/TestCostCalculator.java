@@ -88,7 +88,6 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -442,11 +441,7 @@ public class TestCostCalculator
 
         private PlanNodeCostEstimate calculateCumulativeCost(PlanNode node)
         {
-            PlanNodeCostEstimate sourcesCost = node.getSources().stream()
-                    .map(this::getCumulativeCost)
-                    .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
-
-            return costCalculator.calculateCost(node, statsProvider, session, types).add(sourcesCost);
+            return costCalculator.calculateCost(node, statsProvider, this, session, types);
         }
     }
 
@@ -505,17 +500,15 @@ public class TestCostCalculator
             Function<PlanNode, PlanNodeStatsEstimate> stats,
             Map<String, Type> types)
     {
-        PlanNodeCostEstimate localCost = costCalculator.calculateCost(
+        StatsProvider statsProvider = planNode -> requireNonNull(stats.apply(planNode), "no stats for node");
+        CostProvider costProvider = costs::apply;
+        return costCalculator.calculateCost(
                 node,
-                planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
+                statsProvider,
+                costProvider,
                 session,
                 TypeProvider.copyOf(types.entrySet().stream()
                         .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
-
-        PlanNodeCostEstimate sourcesCost = node.getSources().stream()
-                .map(source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())))
-                .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
-        return sourcesCost.add(localCost);
     }
 
     private PlanNodeCostEstimate calculateCumulativeCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator, Map<String, Type> types)

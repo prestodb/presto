@@ -90,10 +90,16 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
+    public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider costs, Session session, TypeProvider types)
     {
         CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, types);
-        return node.accept(costEstimator, null);
+        PlanNodeCostEstimate localCosts = node.accept(costEstimator, null);
+
+        PlanNodeCostEstimate sourcesCost = node.getSources().stream()
+                .map(costs::getCumulativeCost)
+                .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
+
+        return localCosts.add(sourcesCost);
     }
 
     private static class CostEstimator
