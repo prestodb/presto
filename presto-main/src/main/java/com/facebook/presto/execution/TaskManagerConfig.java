@@ -41,9 +41,9 @@ import java.util.concurrent.TimeUnit;
         "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
-    private boolean perOperatorCpuTimerEnabled;
+    private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
-    private boolean statisticsCpuTimerEnabled;
+    private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
