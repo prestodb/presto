@@ -29,8 +29,6 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.scheduler.group.DynamicBucketedSplitAssignment;
-import com.facebook.presto.execution.scheduler.group.DynamicLifespanSplitPlacementPolicy;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionStrategy;
@@ -52,6 +50,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 
@@ -114,6 +113,8 @@ import static java.util.stream.Collectors.toSet;
 
 public class SqlQueryScheduler
 {
+    private static final Logger log = Logger.get(SqlQueryScheduler.class);
+
     private final QueryStateMachine queryStateMachine;
     private final ExecutionPolicy executionPolicy;
     private final Map<StageId, SqlStageExecution> stages;
@@ -320,6 +321,8 @@ public class SqlQueryScheduler
                     // no remote source + grouped execution + bucket has no pre-assigned node
                     // dynamically assign lifespan to worker node
                     // TODO: should control this (dynamic lifespan allocation) by an session property
+
+                    log.error("Wenlei Debug: enable dynamic lifespan schedule...");
 
                     int nodeCount = nodeSelector.allNodes().size();
 

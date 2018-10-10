@@ -20,7 +20,6 @@ import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
 import com.facebook.presto.execution.scheduler.group.BucketedSplitAssignment;
 import com.facebook.presto.execution.scheduler.group.DynamicBucketedSplitAssignment;
 import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
-import com.facebook.presto.execution.scheduler.group.DynamicLifespanSplitPlacementPolicy;
 import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionStrategy;
@@ -107,22 +106,17 @@ public class FixedSourcePartitionedScheduler
             }
 
             bucketedSplitAssignment = nodePartitionMap.get().asBucketedSplitAssignment();
-            splitPlacementPolicy = new BucketedSplitPlacementPolicy(
-                    nodeSelector,
-                    stageNodeList,
-                    bucketedSplitAssignment,
-                    stage::getAllTasks);
         }
         else {
             // dynamic lifespan scheduler
             this.stageNodeList = nodeSelector.allNodes();
             bucketedSplitAssignment = new DynamicBucketedSplitAssignment(splitToBucket);
-            splitPlacementPolicy = new DynamicLifespanSplitPlacementPolicy(
-                    nodeSelector,
-                    stageNodeList,
-                    bucketedSplitAssignment,
-                    stage::getAllTasks);
         }
+        splitPlacementPolicy = new BucketedSplitPlacementPolicy(
+                nodeSelector,
+                stageNodeList,
+                bucketedSplitAssignment,
+                stage::getAllTasks);
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
         checkArgument(
