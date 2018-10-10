@@ -2839,7 +2839,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private String partitionTargetPath(SchemaTableName schemaTableName, String partitionName)
+    protected String partitionTargetPath(SchemaTableName schemaTableName, String partitionName)
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
