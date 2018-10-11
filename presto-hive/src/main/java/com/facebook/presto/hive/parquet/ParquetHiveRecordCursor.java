@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -337,20 +338,21 @@ public class ParquetHiveRecordCursor
 
             PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileSchema);
 
-            List<parquet.schema.Type> fields = columns.stream()
-                    .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))
-                    .filter(Objects::nonNull)
-                    .collect(toList());
+            Map<parquet.schema.Type, HiveColumnHandle> typeColumns = new HashMap<>();
+            for (HiveColumnHandle column : columns) {
+                if (column.getColumnType() == REGULAR) {
+                    typeColumns.put(getParquetType(column, fileSchema, useParquetColumnNames), column);
+                }
+            }
 
-            MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
+            MessageType requestedSchema = new MessageType(fileSchema.getName(), ImmutableList.copyOf(typeColumns.keySet()));
 
             LongArrayList offsets = new LongArrayList(blocks.size());
             for (BlockMetaData block : blocks) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
                     if (predicatePushdownEnabled) {
-                        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
+                        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema, typeColumns);
                         TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
                         ParquetPredicate parquetPredicate = buildParquetPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
                         if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {

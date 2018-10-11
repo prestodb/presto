@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.parquet.predicate.ParquetDictionaryDescriptor;
 import com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate;
 import com.facebook.presto.spi.predicate.Domain;
@@ -190,12 +191,13 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
-    public void testMatchesWithStatistics()
+    public void testMatchesWithStatisticsForVarchar()
     {
         String value = "Test";
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, BINARY, 0, 0);
-        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
-        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), utf8Slice(value));
+        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"), Optional.of(HiveType.valueOf("varchar(255)")));
+        VarcharType varcharType = createVarcharType(255);
+        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, varcharType, utf8Slice(value));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
         Statistics stats = getStatsBasedOnType(column.getType());
         stats.setNumNulls(1L);
@@ -204,11 +206,12 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
-    public void testMatchesWithDescriptors()
+    public void testMatchesWithDescriptorsForVarchar()
     {
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, BINARY, 0, 0);
-        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
-        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), EMPTY_SLICE);
+        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"), Optional.of(HiveType.valueOf("varchar(255)")));
+        VarcharType varcharType = createVarcharType(255);
+        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, varcharType, EMPTY_SLICE);
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
         ParquetDictionaryPage page = new ParquetDictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
         assertTrue(parquetPredicate.matches(singletonMap(column, new ParquetDictionaryDescriptor(column, Optional.of(page)))));
