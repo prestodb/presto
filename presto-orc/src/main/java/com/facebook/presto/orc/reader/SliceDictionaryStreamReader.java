@@ -45,7 +45,9 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
+import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -311,12 +313,14 @@ public class SliceDictionaryStreamReader
             int length = dictionaryLengthVector[i];
 
             int truncatedLength;
+            int maxCodePointCount = getMaxCodePointCount(type);
+            boolean isCharType = isCharType(type);
             if (length > 0) {
                 // read data without truncation
                 dictionaryDataStream.next(data, offset, offset + length);
 
                 // adjust offsets with truncated length
-                truncatedLength = computeTruncatedLength(slice, offset, length, type);
+                truncatedLength = computeTruncatedLength(slice, offset, length, maxCodePointCount, isCharType);
                 verify(truncatedLength >= 0);
             }
             else {
