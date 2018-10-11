@@ -331,6 +331,10 @@ public class PlanPrinter
                 .mapToLong(node -> node.getPlanNodeScheduledTime().toMillis())
                 .sum();
 
+        long totalCpuMillis = stats.get().values().stream()
+                .mapToLong(node -> node.getPlanNodeCpuTime().toMillis())
+                .sum();
+
         PlanNodeStats nodeStats = stats.get().get(planNodeId);
         if (nodeStats == null) {
             output.append(indentString(indent));
@@ -347,9 +351,10 @@ public class PlanPrinter
         }
 
         double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / totalScheduledMillis;
+        double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / totalCpuMillis;
 
         output.append(indentString(indent));
-        output.append("Scheduled fraction: " + formatDouble(scheduledTimeFraction) + "%");
+        output.append("CPU fraction: " + formatDouble(cpuTimeFraction) + "%, Scheduled fraction: " + formatDouble(scheduledTimeFraction) + "%");
         if (printInput) {
             output.append(format(", Input: %s (%s)",
                     formatPositions(nodeStats.getPlanNodeInputPositions()),
