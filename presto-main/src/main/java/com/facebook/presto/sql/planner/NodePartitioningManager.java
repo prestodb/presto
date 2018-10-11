@@ -22,14 +22,18 @@ import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -122,22 +126,21 @@ public class NodePartitioningManager
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
         checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", partitioningHandle.getConnectorId().get());
 
-        Map<Integer, Node> bucketToNode = partitioningProvider.getBucketToNode(
-                partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
-                partitioningHandle.getConnectorHandle());
-        checkArgument(bucketToNode != null, "No partition map %s", partitioningHandle);
-        checkArgument(!bucketToNode.isEmpty(), "Partition map %s is empty", partitioningHandle);
-
-        int bucketCount = bucketToNode.keySet().stream()
-                .mapToInt(Integer::intValue)
-                .max()
-                .getAsInt() + 1;
-
+        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
         // safety check for crazy partitioning
-        checkArgument(bucketCount < 1_000_000, "Too many buckets in partitioning: %s", bucketCount);
+        checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
 
-        int[] bucketToPartition = new int[bucketCount];
+        Map<Integer, Node> bucketToNode = null;
+        if (connectorBucketNodeMap.hasFixedMapping()) {
+            bucketToNode = connectorBucketNodeMap.getFixedMapping();
+        }
+        else {
+            bucketToNode = createArbitraryBucketToNode(
+                    new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).allNodes()),
+                    connectorBucketNodeMap.getBucketCount());
+        }
+
+        int[] bucketToPartition = new int[connectorBucketNodeMap.getBucketCount()];
         BiMap<Node, Integer> nodeToPartition = HashBiMap.create();
         int nextPartitionId = 0;
         for (Entry<Integer, Node> entry : bucketToNode.entrySet()) {
@@ -168,5 +171,32 @@ public class NodePartitioningManager
             }
             return bucket;
         });
+    }
+
+    private ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    {
+        checkArgument(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
+
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", partitioningHandle.getConnectorId().get());
+
+        ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioningHandle.getConnectorHandle());
+
+        checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
+        return connectorBucketNodeMap;
+    }
+
+    private Map<Integer, Node> createArbitraryBucketToNode(List<Node> nodes, int bucketCount)
+    {
+        Collections.shuffle(nodes);
+
+        ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();
+        for (int i = 0; i < bucketCount; i++) {
+            distribution.put(i, nodes.get(i % nodes.size()));
+        }
+        return distribution.build();
     }
 }
