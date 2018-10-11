@@ -16,7 +16,6 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -55,5 +54,5 @@ public interface NodeSelector
      * If we cannot find an assignment for a split, it is not included in the map. Also returns a future indicating when
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
-    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning);
+    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap);
 }

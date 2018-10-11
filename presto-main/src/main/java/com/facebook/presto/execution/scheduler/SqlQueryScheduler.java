@@ -68,6 +68,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
@@ -89,6 +90,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DI
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -291,6 +293,7 @@ public class SqlQueryScheduler
 
             Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
             if (!splitSources.isEmpty()) {
+                // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 if (plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution()) {
@@ -301,12 +304,21 @@ public class SqlQueryScheduler
                 else {
                     connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
                 }
+
+                Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
                 stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
                         stage,
                         splitSources,
                         plan.getFragment().getStageExecutionStrategy(),
                         schedulingOrder,
-                        nodePartitionMap,
+                        IntStream.range(0, partitionToNode.size())
+                                .mapToObj(id -> {
+                                    Node node = partitionToNode.get(id);
+                                    verify(node != null);
+                                    return node;
+                                })
+                                .collect(toImmutableList()),
+                        nodePartitionMap.asBucketNodeMap(),
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(null),
@@ -314,6 +326,7 @@ public class SqlQueryScheduler
                 bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
             }
             else {
+                // all sources are remote
                 Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
