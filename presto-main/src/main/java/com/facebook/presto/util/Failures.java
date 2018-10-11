@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.VALUE_TOO_LARGE;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -104,7 +105,7 @@ public final class Failures
         ErrorCode errorCode = toErrorCode(throwable);
         if (errorCode == null) {
             if (cause == null) {
-                errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
+                errorCode = specializeGenericErrorCode(throwable);
             }
             else {
                 errorCode = cause.getErrorCode();
@@ -124,6 +125,15 @@ public final class Failures
                 remoteHost);
     }
 
+    private static ErrorCode specializeGenericErrorCode(Throwable throwable)
+    {
+        if (throwable instanceof IllegalArgumentException && throwable.getMessage().startsWith("Cannot allocate slice larger than")) {
+            return VALUE_TOO_LARGE.toErrorCode();
+        }
+        else {
+            return GENERIC_INTERNAL_ERROR.toErrorCode();
+        }
+    }
     @Nullable
     private static ErrorLocation getErrorLocation(Throwable throwable)
     {
