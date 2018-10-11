@@ -14,19 +14,22 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import parquet.column.ColumnDescriptor;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import parquet.column.Encoding;
 import parquet.io.ColumnIO;
 import parquet.io.ColumnIOFactory;
@@ -111,19 +114,23 @@ public final class ParquetTypeUtils
         return columnIO;
     }
 
-    public static Map<List<String>, RichColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
+    public static Map<List<String>, RichColumnDescriptor> getDescriptors(
+            MessageType fileSchema,
+            MessageType requestedSchema,
+            Map<parquet.schema.Type, HiveColumnHandle> typeColumns)
     {
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = new HashMap<>();
         List<PrimitiveColumnIO> columns = getColumns(fileSchema, requestedSchema);
         for (String[] paths : fileSchema.getPaths()) {
             List<String> columnPath = Arrays.asList(paths);
-            getDescriptor(columns, columnPath)
-                    .ifPresent(richColumnDescriptor -> descriptorsByPath.put(columnPath, richColumnDescriptor));
+            HiveColumnHandle hiveColumnHandle = typeColumns.get(fileSchema.getType(paths));
+            Optional<RichColumnDescriptor> richColumnDescriptor = getDescriptor(columns, columnPath, hiveColumnHandle);
+            richColumnDescriptor.ifPresent(descriptor -> descriptorsByPath.put(columnPath, descriptor));
         }
         return descriptorsByPath;
     }
 
-    public static Optional<RichColumnDescriptor> getDescriptor(List<PrimitiveColumnIO> columns, List<String> path)
+    public static Optional<RichColumnDescriptor> getDescriptor(List<PrimitiveColumnIO> columns, List<String> path, HiveColumnHandle hiveColumnHandle)
     {
         checkArgument(path.size() >= 1, "Parquet nested path should have at least one component");
         int index = getPathIndex(columns, path);
@@ -131,7 +138,8 @@ public final class ParquetTypeUtils
             return empty();
         }
         PrimitiveColumnIO columnIO = columns.get(index);
-        return Optional.of(new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType()));
+        HiveType hiveType = hiveColumnHandle == null ? null : hiveColumnHandle.getHiveType();
+        return Optional.of(new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType(), Optional.ofNullable(hiveType)));
     }
 
     private static int getPathIndex(List<PrimitiveColumnIO> columns, List<String> path)
@@ -159,19 +167,19 @@ public final class ParquetTypeUtils
         return index;
     }
 
-    public static Type getPrestoType(TupleDomain<ColumnDescriptor> effectivePredicate, RichColumnDescriptor descriptor)
+    public static Type getPrestoType(RichColumnDescriptor descriptor)
     {
         switch (descriptor.getType()) {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case BINARY:
-                return createDecimalType(descriptor).orElse(createVarcharType(effectivePredicate, descriptor));
+                return createDecimalType(descriptor).orElse(createVarcharType(descriptor));
             case FLOAT:
                 return RealType.REAL;
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case INT32:
-                return createDecimalType(descriptor).orElse(IntegerType.INTEGER);
+                return createDecimalType(descriptor).orElse(createIntegerType(descriptor));
             case INT64:
                 return createDecimalType(descriptor).orElse(BigintType.BIGINT);
             case INT96:
@@ -183,20 +191,31 @@ public final class ParquetTypeUtils
         }
     }
 
-    private static Type createVarcharType(TupleDomain<ColumnDescriptor> effectivePredicate, RichColumnDescriptor column)
+    private static Type createVarcharType(RichColumnDescriptor descriptor)
     {
-        // We look at the effectivePredicate domain here, because it matches the Hive column type
-        // more accurately than the type available in the RichColumnDescriptor.
-        // For example, a Hive column of type varchar(length) is encoded as a Parquet BINARY, but
-        // when that is converted to a Presto Type the length information wasn't retained.
-        Optional<Map<ColumnDescriptor, Domain>> predicateDomains = effectivePredicate.getDomains();
-        if (predicateDomains.isPresent()) {
-            Domain domain = predicateDomains.get().get(column);
-            if (domain != null) {
-                return domain.getType();
+        if (descriptor.getHiveType().isPresent()) {
+            TypeInfo typeInfo = descriptor.getHiveType().get().getTypeInfo();
+            if (typeInfo instanceof VarcharTypeInfo) {
+                return VarcharType.createVarcharType(((VarcharTypeInfo) typeInfo).getLength());
             }
         }
         return VarcharType.VARCHAR;
+    }
+
+    private static Type createIntegerType(RichColumnDescriptor descriptor)
+    {
+        if (descriptor.getHiveType().isPresent()) {
+            TypeInfo typeInfo = descriptor.getHiveType().get().getTypeInfo();
+            switch(typeInfo.getTypeName()){
+                case StandardTypes.SMALLINT:
+                    return SmallintType.SMALLINT;
+                case StandardTypes.DATE:
+                    return DateType.DATE;
+                default:
+                    return IntegerType.INTEGER;
+            }
+        }
+        return IntegerType.INTEGER;
     }
 
     public static int getFieldIndex(MessageType fileSchema, String name)
