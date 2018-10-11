@@ -13,16 +13,29 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.scheduler.BucketNodeMap;
+import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static java.util.Objects.requireNonNull;
 
+// When the probe side of join is bucketed but builder side is not,
+// bucket to partition mapping has to be populated to builder side remote fragment.
+// NodePartitionMap is required in this case and cannot be replaced by BucketNodeMap.
+//
+//      Join
+//      /  \
+//   Scan  Remote
+//
+// TODO: Refactor NodePartitionMap to contain BucketNodeMap and bucket to partition map.
 public class NodePartitionMap
 {
     private final Map<Integer, Node> partitionToNode;
@@ -59,5 +72,14 @@ public class NodePartitionMap
         int bucket = splitToBucket.applyAsInt(split);
         int partition = bucketToPartition[bucket];
         return requireNonNull(partitionToNode.get(partition));
+    }
+
+    public BucketNodeMap asBucketNodeMap()
+    {
+        Map<Integer, Node> bucketToNode = new HashMap<>(bucketToPartition.length);
+        for (int i = 0; i < bucketToPartition.length; i++) {
+            bucketToNode.put(i, partitionToNode.get(bucketToPartition[i]));
+        }
+        return new FixedBucketNodeMap(splitToBucket, bucketToNode);
     }
 }
