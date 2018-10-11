@@ -70,6 +70,7 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeOutputPositions = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -91,6 +92,9 @@ public class PlanNodeStatsSummarizer
 
                 long scheduledMillis = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getFinishWall().toMillis();
                 planNodeScheduledMillis.merge(planNodeId, scheduledMillis, Long::sum);
+
+                long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
+                planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -160,6 +164,7 @@ public class PlanNodeStatsSummarizer
             stats.add(new PlanNodeStats(
                     planNodeId,
                     new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
+                    new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
                     planNodeInputPositions.get(planNodeId),
                     succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                     // It's possible there will be no output stats because all the pipelines that we observed were non-output.
