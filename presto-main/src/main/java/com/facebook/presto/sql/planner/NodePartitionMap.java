@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.scheduler.group.StaticBucketedSplitAssignment;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableMap;
@@ -59,5 +60,19 @@ public class NodePartitionMap
         int bucket = splitToBucket.applyAsInt(split);
         int partition = bucketToPartition[bucket];
         return requireNonNull(partitionToNode.get(partition));
+    }
+
+    public ToIntFunction<Split> getSplitToBucket()
+    {
+        return splitToBucket;
+    }
+
+    public StaticBucketedSplitAssignment toStaticBucketedSplitAssignment()
+    {
+        Node[] bucketToNode = new Node[bucketToPartition.length];
+        for (int i = 0; i < bucketToPartition.length; i++) {
+            bucketToNode[i] = partitionToNode.get(bucketToPartition[i]);
+        }
+        return new StaticBucketedSplitAssignment(splitToBucket, bucketToNode);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 
@@ -21,9 +22,34 @@ import java.util.Set;
 
 public interface SplitPlacementPolicy
 {
-    SplitPlacementResult computeAssignments(Set<Split> splits);
+    SplitPlacementResult computeAssignments(SplitPlacementSet splits);
 
     void lockDownNodes();
 
     List<Node> allNodes();
+
+    default Node getNodeForLifespan(Lifespan lifespan) {
+        throw new UnsupportedOperationException();
+    }
+
+    class SplitPlacementSet
+    {
+        private final Set<Split> splits;
+        private final Lifespan lifespan;
+
+        public SplitPlacementSet(Set<Split> splits, Lifespan lifespan) {
+            this.splits = splits;
+            this.lifespan = lifespan;
+        }
+
+        public Set<Split> getSplits()
+        {
+            return splits;
+        }
+
+        public Lifespan getLifespan()
+        {
+            return lifespan;
+        }
+    }
 }

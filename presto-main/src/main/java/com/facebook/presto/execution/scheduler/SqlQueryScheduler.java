@@ -310,7 +310,8 @@ public class SqlQueryScheduler
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(null),
-                        connectorPartitionHandles));
+                        connectorPartitionHandles,
+                        plan.getSubStages().isEmpty()));
                 bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
             }
             else {

@@ -17,6 +17,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.FixedSourcePartitionedScheduler.FixedSplitPlacementPolicy;
+import com.facebook.presto.execution.scheduler.SplitPlacementPolicy.SplitPlacementSet;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -274,7 +275,7 @@ public class SourcePartitionedScheduler
                 }
 
                 // calculate placements for splits
-                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
+                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(new SplitPlacementSet(pendingSplits, lifespan));
                 splitAssignment = splitPlacementResult.getAssignments();
 
                 // remove splits with successful placements
@@ -294,7 +295,7 @@ public class SourcePartitionedScheduler
             if (pendingSplits.isEmpty() && scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS) {
                 scheduleGroup.state = ScheduleGroupState.DONE;
                 if (!lifespan.isTaskWide()) {
-                    Node node = ((FixedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
+                    Node node = splitPlacementPolicy.getNodeForLifespan(lifespan);
                     noMoreSplitsNotification = ImmutableMultimap.of(node, lifespan);
                 }
             }
