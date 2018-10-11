@@ -92,23 +92,10 @@ public class DetermineJoinDistributionType
 
     private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
     {
-        CostProvider costProvider = context.getCostProvider();
         List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
 
-        if (!mustPartition(joinNode) && canReplicate(joinNode, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.withDistributionType(REPLICATED)));
-        }
-        if (!mustReplicate(joinNode, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.withDistributionType(PARTITIONED)));
-        }
-
-        JoinNode flipped = joinNode.flipChildren();
-        if (!mustPartition(flipped) && canReplicate(flipped, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, flipped.withDistributionType(REPLICATED)));
-        }
-        if (!mustReplicate(flipped, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, flipped.withDistributionType(PARTITIONED)));
-        }
+        addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context);
+        addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
             return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
@@ -117,6 +104,16 @@ public class DetermineJoinDistributionType
         // Using Ordering to facilitate rule determinism
         Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(context.getSession()).onResultOf(PlanNodeWithCost::getCost);
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
+    }
+
+    private void addJoinsWithDifferentDistributions(JoinNode joinNode, List<PlanNodeWithCost> possibleJoinNodes, Context context)
+    {
+        if (!mustPartition(joinNode) && canReplicate(joinNode, context)) {
+            possibleJoinNodes.add(getJoinNodeWithCost(context.getCostProvider(), joinNode.withDistributionType(REPLICATED)));
+        }
+        if (!mustReplicate(joinNode, context)) {
+            possibleJoinNodes.add(getJoinNodeWithCost(context.getCostProvider(), joinNode.withDistributionType(PARTITIONED)));
+        }
     }
 
     private PlanNode getSyntacticOrderJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)
