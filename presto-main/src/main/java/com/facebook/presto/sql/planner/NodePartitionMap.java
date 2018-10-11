@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;

@@ -307,7 +307,7 @@ public class FixedSourcePartitionedScheduler
     }
 
     private static class FixedNodeLifespanScheduler
-        implements LifespanScheduler
+            implements LifespanScheduler
     {
         private final Int2ObjectMap<Node> driverGroupToNodeMap;
         private final Map<Node, IntListIterator> nodeToDriverGroupsMap;

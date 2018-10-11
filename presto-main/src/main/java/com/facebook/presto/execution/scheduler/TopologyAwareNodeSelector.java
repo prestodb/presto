@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;

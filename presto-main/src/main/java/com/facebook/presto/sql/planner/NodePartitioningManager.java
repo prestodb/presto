@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.group.DynamicBucketedSplitAssignment;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.PartitionFunction;
@@ -38,7 +37,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;

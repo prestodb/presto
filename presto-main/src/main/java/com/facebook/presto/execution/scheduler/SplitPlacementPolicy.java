@@ -38,7 +38,8 @@ public interface SplitPlacementPolicy
         private final Set<Split> splits;
         private final Lifespan lifespan;
 
-        public SplitPlacementSet(Set<Split> splits, Lifespan lifespan) {
+        public SplitPlacementSet(Set<Split> splits, Lifespan lifespan)
+        {
             this.splits = splits;
             this.lifespan = lifespan;
         }

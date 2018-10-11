@@ -4,23 +4,15 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.sql.planner.NodePartitionMap;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -109,4 +101,3 @@ public class DynamicLifespanScheduler
         return newDriverGroupReady;
     }
 }
-
